@@ -1,6 +1,6 @@
 # Incidentlogg
 
-**Version:** 0.3.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §0
+**Version:** 0.4.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §0
 
 Varje regel som bärs av en incident bor här. Dokumentet finns för att förlagornas
 styrka är att en härdad regel namnger det fel som skapade den. En regel utan
@@ -87,6 +87,109 @@ modulkonstant skyddar ingenting om anropet läser konstanten via ett defaultvär
 `def f(x=None)` och `x = STANDARD if x is None else x` i kroppen, aldrig
 `def f(x=STANDARD)`, för varje värde ett test kan tänkas vilja byta ut.
 
+---
+
+## I2 — Felet satt i rättelsen, i varje granskningsvarv
+
+**Datum:** 2026-08-26 · **Uppmätt i:** skiva 8 · **Berör:** `docs/sparrar.md`,
+`src/kategorisera.py`, `tests/test_kategorisera.py`
+
+**Vad som hände.** Skiva 8 gick tre granskningsvarv, alltså §7:s tak, och
+underkändes i alla tre. I varje varv satt minst ett fynd i den text som skrivits
+för att rätta föregående varvs fynd.
+
+Kedjan, med varje led belagt i `docs/sparrar.md`:s egen versionshistorik:
+
+- **Varv 1** underkände `.env`-parserns kodkommentar, som sa att formen
+  `ANTHROPIC_API_KEY=värde` var obligatorisk medan parsern accepterade
+  citattecken, blanksteg, indrag och en kommentar efter värdet. Den sista formen
+  läste in kommentaren SOM DEL AV nyckeln.
+- **Rättelsen** skrev en ny kommentar som avslutade med att varje avvikelse nu
+  avvisas högljutt. **Varv 2** mätte upp att fem av sju avvikelseklasser i själva
+  verket hoppas över tyst.
+- **Varv 1** underkände också `docs/sparrar.md`:s påstående att spärren
+  `forbjudna-maskindomaner` inte var redundant med något. **Rättelsen**, posten
+  0.9.0, skrev ett `Uppmätt`-tal som inte motsvarade någon committad svit.
+  **Varv 2** fällde det.
+- **Rättelsen efter varv 2** skrev en ny kommentar som delade upp fallen i tysta
+  och högljudda. **Varv 3** mätte upp att blanksteg hamnar på olika sidor
+  beroende på om det står före eller efter likhetstecknet, och att kommentaren
+  lade båda på den tysta sidan.
+- **Samma rättelse** skrev posten 0.10.0, som sa att två rader i översiktstabellen
+  skriver ut "Sig själv, två lager". Den ena raden skriver "sex lager".
+- **Samma rättelse** skrev ett nytt test för radslut vars docstring tillskrev
+  mekanismen `str.splitlines()`. **Varv 3** visade med fällningar att
+  `Path.read_text()`:s universalradslut är det verksamma lagret och `splitlines`
+  det redundanta andra.
+- **Samma rättelse** skrev ett test för tomt värde som inte gick att fälla.
+
+**Vad det kostade.** Grinden uttömdes utan godkännande. Skivan stannade före push
+och krävde ett grindbeslut av Lars. Ingen falskhet nådde `origin`, men det berodde
+på att §7 tog slut, inte på att texten blev sann.
+
+**Hur det upptäcktes.** Av granskaren, i varje varv, och aldrig av den som skrev
+rättelsen. Mönstret i sig namngavs först i tredje varvets rapport.
+
+**Varför rättelsetext är farligare än originaltext.** Två mekanismer verkar
+samtidigt. Den som skriver rättelsen har nyss läst fyndet och skriver mot minnet
+av det i stället för mot filen, vilket är samma ifyllnadsfel som §7.2:s
+omskrivningsregel beskriver. Och den som läser rättelsen läser den som ett svar på
+en anmärkning, alltså med frågan "täcker den fyndet" i stället för "är den sann".
+Båda leden drar åt samma håll, och resultatet är att den minst misstänkta texten i
+en skiva granskas slappast.
+
+**Regeln posten bär.** RÄTTELSETEXT GRANSKAS SOM NY TEXT. En mening skriven för
+att rätta ett fynd bär inte lägre bevisbörda än den den ersätter. Granskaren prövar
+rättelsen mot källan, inte mot fyndet den svarar på. Se CLAUDE.md §7.
+
+---
+
+## I3 — Ett undantag som funnits sedan första committen och åberopades i två skivor
+
+**Datum:** 2026-08-26 · **Uppmätt i:** skiva 9, om skivorna 1 till 8 ·
+**Berör:** `CLAUDE.md` §7
+
+**Vad som hände.** §7:s dokumentdetaljundantag har funnits sedan repots första
+commit. Det åberopades i två skivor.
+
+Avläst ur `git log --all --oneline --grep="dokumentdetaljundantag"`, som ger
+`e9a6772` (skiva 3) och `c8b1214` (skiva 8). Undantagets ålder är avläst ur
+CLAUDE.md 0.4.0, som skriver att det funnits sedan `f9b680a`.
+
+**Talet i Lars instruktion stämmer inte, och det redovisas hellre än rättas
+tyst.** Instruktionen till skiva 9 sa "åtta skivor, åtta underkännanden.
+Undantaget fanns i sju av dem och åberopades i en." Två av leden går inte att
+belägga i repot:
+
+- **"åberopades i en" är två.** Se `grep`-utdatan ovan.
+- **"åtta underkännanden" går inte att läsa någonstans.** Granskningsrapporterna
+  ligger i den gitignorerade `scratchpad/`, och en räkning av granskningsvarv är
+  dessutom precis den processräkning §7.2 förbjuder. Ingen siffra skrivs.
+
+Det som faktiskt är mätbart, och som bär regeln, är att undantaget under hela
+projektets historik åberopades i två committade skivor trots att varje skiva har
+producerat dokumentdetaljer.
+
+**Vad det kostade.** Granskningsgrinden maldes på prosaformuleringar i skiva efter
+skiva medan sändvägen förblev obyggd. Samma observation gjordes redan i CLAUDE.md
+0.4.0, som mätte att `config/` och `mallar/` var tomma och att `src/` bara bar
+`auth.py` och `mine.py`.
+
+**Varför regeln inte bet.** Undantagets egen villkorsrad sa att det åberopas per
+SKIVA, i briefen, aldrig per fynd i efterhand. En skiva som bygger kod kan inte
+åberopa något per skiva utan att också undanta koden, och alternativet, att
+åberopa det när dokumentfyndet dyker upp, var uttryckligen förbjudet. Regeln lämnade
+alltså ingen väg som var både tillåten och användbar, och den ignorerades därför.
+
+**Regeln posten bär.** Undantaget gäller per DEFEKTKLASS, inte per skiva.
+Skillnaden går INUTI ett dokument och inuti en fil, inte mellan filer. En
+kodkommentar, en docstring och ett commitmeddelande är text om kod och omfattas;
+villkoret kommentaren beskriver är kod och omfattas inte. Se CLAUDE.md §7.
+
+Posten delar mekanism med CLAUDE.md 0.5.0, som sänkte §10:s token-rad av samma
+skäl: **en regel som gör systemet oanvändbart börjar ignoreras, och en ignorerad
+regel skyddar ingenting.**
+
 **Vad som gör den svår att se.** Ett verkningslöst `monkeypatch.setattr` ger
 ingen varning, inget rött test, och ingen felutskrift. Sviten förblir grön.
 Det enda observerbara är att något som borde vara snabbt är långsamt, och det
@@ -122,6 +225,26 @@ skriva posten ännu, inte ett skäl att lämna fältet tomt.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.4.0 — 2026-08-26
+
+**I2 och I3 tillkommer**, båda på beslut av Lars i skiva 9, och båda bär en regel
+som skrivs in i CLAUDE.md §7 i samma skiva.
+
+I2 dokumenterar att skiva 8:s fynd i alla tre granskningsvarven satt i den text
+som skrivits för att rätta föregående varvs fynd. Kedjan är belagd led för led i
+`docs/sparrar.md`:s versionshistorik 0.9.0 till 0.11.0.
+
+I3 dokumenterar att §7:s dokumentdetaljundantag funnits sedan repots första commit
+och åberopats i två skivor. **Posten redovisar samtidigt att två led i Lars
+instruktion inte gick att belägga**, och skriver ut vilka i stället för att
+återge dem: "åberopades i en" är två enligt
+`git log --all --oneline --grep="dokumentdetaljundantag"`, och "åtta
+underkännanden" går inte att läsa någonstans i repot eftersom rapporterna ligger i
+den gitignorerade `scratchpad/`. En räkning av granskningsvarv är dessutom den
+processräkning §7.2 förbjuder.
+
+Två nya poster ⇒ MINOR.
 
 ### 0.3.0 — 2026-08-26
 

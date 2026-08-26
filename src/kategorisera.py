@@ -179,15 +179,29 @@ def las_api_nyckel(envfil: Path | None = None) -> str:
         # den som felsöker först som ett 401 från API:t och aldrig som ett
         # formatfel.
         #
-        # AVVISNINGEN SKER PÅ TVÅ SÄTT, och skillnaden är avsiktlig. En rad som
-        # inte ens BÖRJAR med `ANTHROPIC_API_KEY=` hoppas över TYST: den kan
-        # vara vilken annan variabel som helst, och en `.env` med flera rader
-        # är normalfallet. Hit hör indrag, blanksteg kring likhetstecknet,
-        # `export`-prefix, bar nyckel och tomt värde. En rad som ÄR nyckelraden
-        # men bär ett värde vi inte kan lita på fäller däremot körningen
-        # HÖGLJUTT, eftersom den annars hade skickat en trasig nyckel till
-        # API:t. Saknas nyckeln helt säger `bygg_klient` det med formen
-        # utskriven.
+        # TRE KONTROLLER, och de skiljer sig åt i vad de gör. Kontrollen
+        # nedanför gäller radens BÖRJAN och hoppar över TYST. Nästa gäller ett
+        # TOMT värde och hoppar också över tyst. Den tredje gäller ett värde
+        # som finns men inte går att lita på, och den fäller körningen
+        # HÖGLJUTT.
+        #
+        # Att de två första är tysta beror på att en `.env` med flera rader är
+        # normalfallet: en rad som inte är nyckelraden ska inte stoppa
+        # läsningen, och ett tomt värde är en platshållare och inte ett
+        # formatfel. Saknas nyckeln därefter helt säger `bygg_klient` det med
+        # formen utskriven.
+        #
+        # Den tredje fäller därför att alternativet vore att skicka en trasig
+        # nyckel till API:t, vilket når den som felsöker som ett 401 och aldrig
+        # som ett formatfel.
+        #
+        # NOTERA att blanksteg hamnar på OLIKA sidor beroende på var det står.
+        # `ANTHROPIC_API_KEY =värde` faller på kontrollen nedanför och är tyst,
+        # medan `ANTHROPIC_API_KEY= värde` passerar den och fälls högljutt av
+        # den tredje. Det är inte en design, det är en konsekvens av att
+        # kontrollerna prövas i den ordning de står. Kommentaren sa tidigare
+        # att båda var tysta, vilket är fynd 2 i skiva 8:s tredje
+        # granskningsvarv.
         if not rad.startswith(NYCKELNAMN + "="):
             continue
 
@@ -275,18 +289,43 @@ class Tokenatgang:
         ]
 
 
+def systemblock(text: str) -> list[dict]:
+    """Systemprompten som ETT block med cachemarkör.
+
+    Markören är korrekt men BITER INTE VID DAGENS PROMPTSTORLEK, och det ska
+    stå här så att nästa läsare inte tror att cachen är i drift. Minsta
+    cachebara prefix för `claude-sonnet-4-6` är 1024 tokens, avläst i
+    Anthropics dokumentation 2026-08-26. `SYSTEM` mättes samma dag till 204
+    tokens med `messages.count_tokens`. Under gränsen skapas ingen post, utan
+    fel och utan varning: `cache_creation_input_tokens` förblir 0.
+
+    Markören sitter ändå här av två skäl. Den kostar ingenting när den inte
+    biter, och `Tokenatgang` läser båda cachefälten, så den dag prompten växer
+    förbi gränsen syns det i redovisningen utan att någon behöver minnas att
+    slå på det. Generering av svarsmail kommer att bära mallar, priser och
+    fakta i systemprompten, och det är den vägen som passerar 1024.
+    """
+    return [{"type": "text", "text": text,
+             "cache_control": {"type": "ephemeral"}}]
+
+
 def kategorisera_en(klient, text: str, modell: str = MODELL,
-                    atgang: Tokenatgang | None = None) -> str:
+                    atgang: Tokenatgang | None = None,
+                    system: str = SYSTEM) -> str:
     svar = klient.messages.create(
         model=modell,
         max_tokens=MAX_TOKENS,
-        system=SYSTEM,
+        system=systemblock(system),
         messages=[{"role": "user", "content": text[:MAX_TECKEN]}],
     )
     if atgang is not None:
         atgang.lagg_till(getattr(svar, "usage", None))
-    delar = [block.text for block in svar.content if block.type == "text"]
-    return normalisera("".join(delar))
+    return normalisera(textinnehall(svar))
+
+
+def textinnehall(svar) -> str:
+    """Textblocken i ett API-svar, hopfogade."""
+    return "".join(block.text for block in svar.content if block.type == "text")
 
 
 def normalisera(ratext: str) -> str:

@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.14.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
+**Version:** 0.15.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -552,7 +552,141 @@ visar att den behövs.
 
 ---
 
+## #17 — Intercom-undantaget stryks: ett undantag från ett skydd som aldrig nådde det
+
+**Datum:** 2026-08-26 · **Berör:** `config/maskindomaner-forbjudna.yaml`, #16
+
+**Beslut av Lars.** Undantagsposten för en Intercom-avsändare tas bort ur
+`config/maskindomaner-forbjudna.yaml`. Lars formulering: posten var hans
+instruktion i skiva 8 och den var fel.
+
+**Skälet är mekaniskt.** `ar_forbjuden` jämför ORGANISATIONSDOMÄN.
+`intercom-mail.com` är en annan organisationsdomän än `bokadirekt.se`, så
+skyddet i `aldrig_maskin` omfattade aldrig avsändaren. Ett undantag från ett
+skydd som inte gäller gör ingenting. Posten läste ut som om en kanal aktivt
+undantogs, medan `ar_forbjuden` returnerade `False` för den domänen ändå.
+
+**#16 ändras inte.** Den bär sin lydelse som den skrevs, inklusive uppräkningen
+av undantagen. Den här posten upphäver den delen av #16 som räknade posten som
+verksam. Filen bär numera en kommentar som säger varför ett undantag måste ha
+sin organisationsdomän under `aldrig_maskin` för att betyda något.
+
+**Ingen mätbar effekt på klassningen.** Beteendet är oförändrat, eftersom posten
+aldrig hade någon. Det som ändras är att filen slutar påstå något den inte gör.
+
+---
+
+## #18 — Kategorierna sätts i två pass, och taxonomin är fast i det andra
+
+**Datum:** 2026-08-26 · **Berör:** `src/ometikettera.py`,
+`docs/kategorier-forslag.md`, #11
+
+**Beslut av Lars.** Den fria etiketteringen i skiva 8 ersätts av två pass. Pass
+1 konsoliderar etiketterna till en fast taxonomi i ETT anrop. Pass 2
+etiketterar om varje äkta kundärende mot den listan. `inget kundärende` och
+`oklart` etiketteras INTE om.
+
+**Vad den fria omgången faktiskt mätte.** Den gav en etikett per FORMULERING,
+inte per ärendetyp. `rekond` bar fjorton rader i tabellen, varav två
+felstavningar modellen övertagit ur kundens text, och `a-traktor` låg utspridd
+över flera etiketter. 157 äkta kategorier över 210 texter är ingen taxonomi,
+det är en uppräkning.
+
+**Varför två pass och inte en bättre prompt.** En modell som ser en text i taget
+kan inte veta vilka namn de andra 794 texterna fick. Konsolideringen kräver att
+hela etikettlistan är synlig samtidigt, och det är precis vad pass 1 är. Att i
+stället sätta taxonomin för hand hade brutit mot #11:s princip att kategorierna
+ska falla ut ur datan.
+
+**ENUM UTAN SCHEMATVÅNG, och det är ett aktivt val.** Pass 2:s taxonomi är en
+enum i den mening som räknas: svaret måste vara en medlem. Tvånget ligger i en
+kontroll i `ometikettera_en` och inte i API:ts schema. Skälet är att ett
+schematvång hade tryckt in en text som inte passar i närmaste FEL kategori utan
+att det syntes. Taxonomin bär därför `övrigt` som uttalad utväg, och ett svar
+utanför listan får etiketten `utanför listan`, räknas och redovisas. Är den
+raden stor är det taxonomin som är för smal, inte texterna som är konstiga.
+Det är §9.1 tillämpad på klassningen: en fälld klassning är ett stopptecken,
+inte ett formuleringsproblem.
+
+**Taxonomin skrivs till `data/taxonomi.json` mellan passen**, så att pass 2 går
+att köra om utan att pass 1 körs igen och så att listan går att läsa innan de
+dyra anropen görs. Etiketterna PER TEXT skrivs till `data/ometiketterade.jsonl`,
+eftersom tabellen säger hur många par en kategori har men inte VILKA, och
+mallbygget i fas 5 behöver de senare.
+
+**PASS 2 ÄR INTE DETERMINISTISKT, och det är uppmätt och inte förmodat.** Samma
+taxonomi och samma 210 texter kördes två gånger. A-traktorraderna, som är
+skivans tyngsta utfall:
+
+| Kategori | Körning 1 | Körning 2 |
+| --- | --- | --- |
+| `fråga om a-traktorkonvertering` | 27 texter, 27 par | 25 texter, 25 par |
+| `fråga om pris a-traktorkonvertering` | 11 texter, 10 par | 12 texter, 11 par |
+| `boka a-traktorkonvertering` | 7 texter, 7 par | 7 texter, 7 par |
+
+Ett par texter vandrar mellan GRANNKATEGORIER, alltså mellan `fråga om X` och
+`fråga om pris X`, som beskriver närliggande ärenden. Slutsatserna står still:
+båda körningarna ger två kategorier över tröskeln, samma två, och a-traktor
+störst med bred marginal.
+
+**Följden för hur talen ska läsas.** Ett enskilt kategoriantal i
+`docs/kategorier-forslag.md` är en avläsning och inte en konstant. Skillnader på
+någon enstaka text mellan två kategorier betyder ingenting. Filen bär alltid
+talen från den SENASTE körningen, och en jämförelse mot ett äldre tal ur en
+rapport jämför två körningar och inte två tillstånd.
+
+**Vad som INTE gjordes.** Temperaturen sänktes inte och ingen omröstning över
+flera anrop infördes. Bägge hade kostat mer och köpt en precision som inte
+behövs: tröskeln på tio par är grovkornig, och den avgörs inte av en text hit
+eller dit.
+
+---
+
+## #19 — Cachemarkören sätts trots att den inte biter, och det står i koden
+
+**Datum:** 2026-08-26 · **Berör:** `src/kategorisera.py`
+
+**Beslut av Lars.** Systemprompten ska bära `cache_control`. Skälet han angav:
+den är identisk i alla anrop och är största delen av varje anrop, och i drift
+kör boten samma systemprompt varje gång.
+
+**MARKÖREN BITER INTE VID DAGENS PROMPTSTORLEK, och det ska sägas rakt ut.**
+Minsta cachebara prefix för `claude-sonnet-4-6` är 1024 tokens, avläst i
+Anthropics dokumentation 2026-08-26. `SYSTEM` mättes samma dag till 204 tokens
+med `messages.count_tokens`. Under gränsen skapas ingen cachepost, utan fel och
+utan varning: `cache_creation_input_tokens` förblir 0. Det är exakt vad skiva
+8:s körning redan visade, med noll i båda cachefälten över 795 anrop.
+
+**Markören sätts ändå.** Den kostar ingenting när den inte biter, och
+`Tokenatgang` läser båda cachefälten, så den dag prompten passerar gränsen syns
+det i redovisningen utan att någon behöver minnas att slå på det. Vägen dit är
+känd: generering av svarsmail kommer att bära mallar, priser och fakta i
+systemprompten.
+
+**Vad som INTE gjordes.** Systemprompten fylldes inte ut för att nå 1024
+tokens. Det hade kostat mer än det sparat och gjort prompten sämre för att
+tillfredsställa en tröskel.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.15.0 — 2026-08-26
+
+Tre poster tillkommer, alla på beslut av Lars i skiva 9.
+
+**#17** stryker Intercom-undantaget ur förbudslistan. Posten var verkningslös:
+`intercom-mail.com` är en annan organisationsdomän än `bokadirekt.se`, så
+skyddet nådde den aldrig. Fyndet kom ur §7-granskningen av skiva 8.
+
+**#18** ersätter den fria etiketteringen med två pass och en fast taxonomi, och
+skriver ut varför enum-tvånget ligger i en kontroll och inte i API:ts schema.
+
+**#19** bokför att cachemarkören sätts trots att den inte biter vid dagens
+promptstorlek, med de två mätta talen och gränsen utskrivna, så att ingen
+framtida läsare tror att cachen är i drift.
+
+Tre nya poster ⇒ MINOR.
 
 ### 0.14.0 — 2026-08-26
 

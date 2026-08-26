@@ -24,6 +24,12 @@ aldrig_maskin:
   - googlemail.com
 
 # Undantag från listan ovan. Matchas EXAKT och slår igenom subdomänregeln.
+#
+# Ett undantag är verkningslöst om dess ORGANISATIONSDOMÄN inte står under
+# `aldrig_maskin`. Ett undantag från ett skydd som aldrig omfattade domänen gör
+# ingenting. En Intercom-avsändare stod här till skiva 9 av det skälet:
+# `intercom-mail.com` är en annan organisationsdomän än `bokadirekt.se`, så
+# skyddet nådde den aldrig. Posten var Lars instruktion i skiva 8 och togs bort
+# på Lars beslut i skiva 9.
 undantag:
   - support.autobutler.se
-  - bokadirekt-b88c555211e9.intercom-mail.com

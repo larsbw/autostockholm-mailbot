@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.6.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** beslutslogg #16
+**Version:** 0.7.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** beslutslogg #19
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -136,8 +136,33 @@ enbart dokument åberopar undantaget som FÖRVAL. Undantaget åberopas per skiva
 briefen eller i första meddelandet, aldrig per fynd i efterhand. Att åberopa det efter
 ett underkännande vore att sänka kraven mitt i grinden, vilket §7 förbjuder.
 
+**UNDANTAGET GÄLLER PER DEFEKTKLASS, INTE PER SKIVA.** En skiva som bygger kod bär
+nästan alltid dokumentdetaljfynd också: en prosaformulering i `docs/`, ett radnummer,
+en kodkommentar, en docstring, ett commitmeddelande. Dessa omfattas av undantaget
+även när skivan i övrigt får full §7. **Skillnaden går INUTI ett dokument och inuti
+en fil, inte mellan filer.** En kodkommentar är text om kod och omfattas; villkoret
+kommentaren beskriver är kod och omfattas inte.
+
 Bär skivan både dokument och kod gäller förvalet bara dokumentdelen. Koden, och varje
 verifiering mot brevlådan, får full §7 som vanligt.
+
+Skälet är mätt, inte principiellt. Undantaget fanns i sju av åtta skivor och åberopades
+i en. Följden var att granskningsgrinden maldes på prosa i skiva efter skiva medan
+kravet på undantaget, att det ska åberopas per skiva och inte per fynd, gjorde det
+oanvändbart för en skiva som bygger kod. **En regel som gör systemet oanvändbart
+börjar ignoreras**, och det är samma skäl som ligger bakom 0.5.0. Se
+`docs/incidentlogg.md` I3.
+
+**RÄTTELSETEXT GRANSKAS SOM NY TEXT.** En mening skriven för att rätta ett fynd bär
+inte lägre bevisbörda än den den ersätter. **Granskaren prövar rättelsen mot källan,
+inte mot fyndet den svarar på.** Frågan är aldrig "svarar den här meningen på
+anmärkningen", utan "är den här meningen sann om filen den beskriver".
+
+Skälet är mekaniskt. Rättelsetext skrivs i övertygelsen om att den ÄR rättelsen, och
+den övertygelsen lånar trovärdighet åt varje bisats i samma stycke. Den som skriver
+rättelsen har dessutom nyss läst fyndet och skriver mot minnet av det i stället för
+mot filen. Det är §7.2:s slutstycke om bisatsen, tillämpat på den text som är minst
+misstänkt och därför granskas slappast. Se `docs/incidentlogg.md` I2.
 
 ### 7.1 Vakuösa test — ett grönt test som inte kan bli rött
 
@@ -412,6 +437,38 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.7.0 — 2026-08-26
+
+Två regler i §7, båda beslutade av Lars i skiva 9 och båda burna av en incident.
+
+**RÄTTELSETEXT GRANSKAS SOM NY TEXT.** En mening skriven för att rätta ett fynd
+bär inte lägre bevisbörda än den den ersätter, och granskaren prövar den mot
+källan i stället för mot fyndet den svarar på. Incidenten är skiva 8, där fyndet i
+alla tre granskningsvarven satt i den text som skrivits för att rätta föregående
+varvs fynd. `docs/incidentlogg.md` I2 bär kedjan led för led.
+
+**UNDANTAGET GÄLLER PER DEFEKTKLASS, inte per skiva.** Skillnaden går INUTI ett
+dokument och inuti en fil, inte mellan filer: en kodkommentar, en docstring och ett
+commitmeddelande är text om kod och omfattas, medan villkoret kommentaren beskriver
+är kod och inte gör det. Den gamla lydelsen krävde att undantaget åberopas per
+skiva, i briefen, och förbjöd samtidigt att det åberopas per fynd i efterhand. En
+skiva som bygger kod hade därmed ingen väg som var både tillåten och användbar.
+`docs/incidentlogg.md` I3 mäter upp följden: undantaget har funnits sedan repots
+första commit och åberopats i två skivor, avläst ur
+`git log --all --oneline --grep="dokumentdetaljundantag"`.
+
+I3 redovisar också att två led i Lars instruktion inte gick att belägga i repot,
+och skriver ut vilka i stället för att återge dem. Det är §7.2 tillämpad på den
+egna briefen.
+
+Mekanismen bakom den andra regeln är densamma som i 0.5.0: **en regel som gör
+systemet oanvändbart börjar ignoreras, och en ignorerad regel skyddar ingenting.**
+
+`Speglar` följer med beslutsloggen från #16 till #19, avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 9:s poster lagts till.
+
+Nya regler i §7 ⇒ MINOR.
 
 ### 0.6.0 — 2026-08-26
 

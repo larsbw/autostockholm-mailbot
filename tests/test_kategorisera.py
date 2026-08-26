@@ -191,7 +191,7 @@ def test_modellen_far_ingen_kategorilista():
 
     kategorisera.kategorisera_en(klient, "Hej, vill boka tid")
 
-    system = klient.anrop[0]["system"]
+    system = klient.anrop[0]["system"][0]["text"]
     assert "lista" in system.lower()
     assert "INGEN lista" in system
 
@@ -457,10 +457,27 @@ def test_tom_sammanstallning_ger_noll_och_kraschar_inte():
     assert (akta, fa_par) == ([], [])
 
 
-def test_tomt_varde_hoppas_over_utan_fel(tmp_path, monkeypatch):
-    """En platshållarrad är inte ett formatfel. Den betyder att nyckeln inte
-    är satt, och `bygg_klient` säger det med formen utskriven. Att fälla
-    körningen här hade gjort en tom platshållare omöjlig att ha kvar."""
+def test_tomt_varde_hoppas_over_och_lasningen_fortsatter(tmp_path, monkeypatch):
+    """En platshållarrad är inte ett formatfel, och den ska inte heller STOPPA
+    läsningen. Filen bär därför en tom rad FÖLJD av den riktiga nyckeln, vilket
+    är det enda upplägg som skiljer `continue` från `return`.
+
+    Den tidigare lydelsen skrev bara den tomma raden och asserade tom sträng.
+    Den kunde inte bli röd: utan `continue` faller det tomma värdet igenom
+    resten av slingan och funktionen returnerar tom sträng ändå, alltså exakt
+    samma utfall. §7.1 underkände den i skiva 8:s tredje granskningsvarv, och
+    det här är den äkta versionen."""
+    envfil = tmp_path / ".env"
+    envfil.write_text("ANTHROPIC_API_KEY=\nANTHROPIC_API_KEY=sk-ant-riktig\n",
+                      encoding="utf-8")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    assert kategorisera.las_api_nyckel(envfil) == "sk-ant-riktig"
+
+
+def test_bara_en_tom_platshallare_ger_tom_strang(tmp_path, monkeypatch):
+    """Nollfallet vid sidan av. Finns ingen riktig nyckel efter platshållaren
+    är utfallet tom sträng, och `bygg_klient` säger det med formen utskriven."""
     envfil = tmp_path / ".env"
     envfil.write_text("ANTHROPIC_API_KEY=\n", encoding="utf-8")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
@@ -469,11 +486,48 @@ def test_tomt_varde_hoppas_over_utan_fel(tmp_path, monkeypatch):
 
 
 def test_crlf_radslut_avvisar_inte_en_giltig_nyckel(tmp_path, monkeypatch):
-    """`splitlines` konsumerar både \\r\\n och ensamt \\r som radslut, så ett
-    radslut från Windows lämnar inget kvar i värdet. Testet finns för att
-    kravet är osynligt i koden: det syns bara som frånvaron av en rstrip."""
+    """Radslutet konsumeras av TVÅ OBEROENDE LAGER, och båda räcker var för
+    sig. `Path.read_text()` öppnar i textläge med `newline=None`, alltså
+    universalradslut, och översätter `\\r\\n` och ensamt `\\r` till `\\n` innan
+    strängen ens når raduppdelningen. `str.splitlines()` behandlar dessutom
+    båda formerna som radslut på egen hand. Uppmätt: bara den ena fälld ger
+    grön svit; fälls båda blir testet rött.
+
+    Docstringen namngav tidigare bara `splitlines`, alltså det redundanta
+    andra lagret och inte det verksamma första. Det är fynd 4 i skiva 8:s
+    tredje granskningsvarv, och det illustrerar klausulen om lagrat försvar i
+    §7.1: den som prövar det här testet måste fälla båda lagren.
+
+    Testet finns för att kravet är osynligt i koden. Det syns bara som
+    frånvaron av en rstrip."""
     envfil = tmp_path / ".env"
     envfil.write_bytes(b"ANTHROPIC_API_KEY=sk-ant-x\r\n")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
 
     assert kategorisera.las_api_nyckel(envfil) == "sk-ant-x"
+
+
+# --- cachemarkören -----------------------------------------------------------
+
+
+def test_systemprompten_bar_cachemarkor():
+    """DEL E i skiva 9. Markören biter inte vid dagens promptstorlek, men den
+    ska finnas i anropet, och `Tokenatgang` läser cachefälten så att den dag
+    prompten passerar 1024 tokens syns det utan att någon slår på något."""
+    klient = FejkKlient(["boka tid"])
+
+    kategorisera.kategorisera_en(klient, "Hej")
+
+    system = klient.anrop[0]["system"]
+    assert system[0]["cache_control"] == {"type": "ephemeral"}
+
+
+def test_systemprompten_skickas_som_ETT_block():
+    """Cachenyckeln bygger på de exakta byten fram till markören. Delas
+    prompten upp flyttas markören, och en tidigare skriven post blir omöjlig
+    att läsa."""
+    klient = FejkKlient(["boka tid"])
+
+    kategorisera.kategorisera_en(klient, "Hej")
+
+    assert len(klient.anrop[0]["system"]) == 1

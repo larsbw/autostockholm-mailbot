@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.10.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.11.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -349,6 +349,28 @@ post och inte en spärr som saknar egenskapen.
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.11.0 — 2026-08-26
+
+Skiva 8:s tredje granskningsvarv underkände fem punkter, och Lars grindbeslut var
+att inte bevilja ett fjärde varv. Fynd 1 och 5 rör det här dokumentet och rättas
+här. Bägge är text om kod och omfattas av §7:s dokumentdetaljundantag, som från
+och med CLAUDE.md 0.7.0 gäller per defektklass.
+
+**Fynd 1: den strukna övertolkningen stod kvar i samma fil som förklarade den
+struken.** 0.9.0-posten skrev att meningen "361 obesvarade trådar var alltså
+förmedlade kundärenden" var struken ur huvudposten. Den fanns i två instanser, och
+0.8.0-postens instans stod kvar orättad. Nu struken på plats med en kursiv not, som
+`docs/beslutslogg.md`:s undantag föreskriver.
+
+Det är samma felklass som posten själv rättar, en version senare, i samma fil. Det
+är därför skiva 8 fick incidentpost I2 i `docs/incidentlogg.md`.
+
+**Fynd 5: en rad i översiktstabellen tillskrevs fel ordalydelse.** 0.10.0-posten
+skrev att raderna för `nollfall-max-threads` och `urval-gmail-svar` båda skriver ut
+"Sig själv, två lager". Raden för `urval-gmail-svar` skriver "sex lager". Rättat.
+
+Två strykningar och en rättad ordalydelse ⇒ MINOR.
+
 ### 0.10.0 — 2026-08-26
 
 Rättelser efter ANDRA granskningsvarvet i skiva 8. Varvet underkände 0.9.0,
@@ -373,11 +395,12 @@ förtroende.
 efter 0.5.0:s falska verdikt. Posten bär nu villkoren som TEXT i en tabell,
 och kommandot inleds med den `grep` som ger raderna.
 
-**Översiktstabellens rad namngav inte lagren.** Raderna för
-`nollfall-max-threads` och `urval-gmail-svar` skriver ut "Sig själv, två
-lager", medan `forbjudna-maskindomaner` bara sa "Går FÖRE
-`klassning-maskinmail`". En granskare som stannar vid tabellen fick alltså
-kvar exakt den signal som orsakade det falska verdiktet. Rättat.
+**Översiktstabellens rad namngav inte lagren.** Raden för
+`nollfall-max-threads` skriver ut "Sig själv, två lager" och den för
+`urval-gmail-svar` "Sig själv, sex lager", medan `forbjudna-maskindomaner`
+bara sa "Går FÖRE `klassning-maskinmail`". En granskare som stannar vid
+tabellen fick alltså kvar exakt den signal som orsakade det falska verdiktet.
+Rättat.
 
 Rättade påståenden och en ny mätning ⇒ MINOR.
 
@@ -436,9 +459,17 @@ Spärren `forbjudna-maskindomaner` registrerad, på beslut av Lars i skiva 8.
 Listan går före all klassning och styr också vad härledningen får föreslå.
 
 Den räddade 361 obesvarade och 13 besvarade trådar som var på väg att kastas som
-maskinmail. Det var förmedlade kundärenden: formen maskinell, innehållet affär.
-Ingen härledning hade kunnat nå den slutsatsen, eftersom den kräver
-verksamhetskunskap om vilka förmedlare som bär affär.
+maskinmail.
+
+*Rättelse i 0.11.0: här stod att de räddade trådarna VAR förmedlade
+kundärenden, med formen maskinell och innehållet affär. Struket. Hur många av
+dem som är förmedlade ärenden är inte mätt, och `googlemail.com` står på samma
+lista utan att vara en förmedlare. Huvudposten rättades i 0.9.0; den här
+instansen stod kvar i samma fil som förklarade den struken, och det är fynd 1 i
+skiva 8:s tredje granskningsvarv.*
+
+Ingen härledning hade kunnat nå listan, eftersom den kräver verksamhetskunskap
+om vilka förmedlare som bär affär.
 
 Ny post ⇒ MINOR.
 
