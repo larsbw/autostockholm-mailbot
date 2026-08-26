@@ -1,15 +1,11 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.2.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** beslutslogg (ej upprättad)
+**Version:** 0.3.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** beslutslogg #2
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
 i Auto Stockholms namn. **Tradeoff:** reglerna prioriterar försiktighet före hastighet.
 Ett skickat mail går inte att ångra, och avsändaren är ett företags rykte.
-
-Versionshuvudet säger uttryckligen att beslutsloggen ännu inte finns. Den skapas vid
-första arkitekturbeslutet, och `Speglar` sätts då till #1. Att skriva ett tal här innan
-loggen finns vore ett påstående om synk mot ingenting.
 
 ## 0. Kontext
 
@@ -309,13 +305,15 @@ De döljer den, och mailet går ut ändå.
 
 Stanna ALLTID och invänta Lars uttryckliga beslut före:
 
+- Första auktoriseringen mot en brevlåda, alltså varje körning som skriver eller
+  skriver om `token.json`
 - Första sändningen i en ny miljö, även till en egen testadress
 - Att befordra en kategori från `utkast` till `auto`, eller från `aldrig` till `utkast`
 - Varje ändring i `config/sparrar.yaml`
 - Varje ändring i `config/priser.json` eller `config/fakta.json`
 - Sänkning av confidence-tröskeln
 - Radering eller migrering av `logg/beslut.jsonl` (append-only)
-- En körning som skulle skicka fler än 5 mail (talet är ett öppet antagande, se appendix)
+- En körning som skulle skicka fler än 1 mail (talet är ett öppet antagande, se appendix)
 - Att lägga till ett nytt OAuth-scope
 - Att ändra avsändaradress eller svarsadress
 
@@ -377,6 +375,38 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.3.0 — 2026-08-26
+
+Fyra ändringar efter skiva 1, varav två som skiva 1 blottade och två som §7.2
+kräver. Beslutsloggen finns nu och bär #1 och #2.
+
+**Versionshuvudets `Speglar` sätts till #2, och stycket som föreskrev #1 raderas
+helt.** Talet #1 skrevs innan någon visste hur många beslut den första skivan
+skulle producera. Rätt värde är #2. Stycket ersätts inte, eftersom ett dokument
+inte ska bära en instruktion om vilket tal det självt ska få: det är ett ogrundat
+tal i en bisats, alltså precis det §7.2 finns för att stoppa. Att `Speglar`
+uppdateras när loggen växer följer av §12:s färskhetstriangel och behöver ingen
+egen föreskrift.
+
+**§10 får en ny första rad om auktorisering.** Beslutslogg #2 behandlar
+auktoriseringen som den grind som öppnar miljön, medan §10 bara namngav första
+sändningen. Hålet blottades av #2 utan att något påstående i §10 blev falskt: det
+som saknades var en rad, inte en rättelse. Raden namnger `token.json` uttryckligen,
+eftersom det är skrivningen till den filen som är den observerbara händelsen.
+
+**§10:s gräns per körning sänks från 5 till 1.** Femman hade inget underlag och
+läses som en kalibrerad tröskel, vilket den aldrig var. Ettan är golvet och är
+därför inget påstående om volym. Under shadow mode skickas ingenting, och första
+skarpa sändningen är manuell. Talet revideras när mining visat den faktiska
+dagsvolymen. Raden behåller sin pekare hit.
+
+**§0:s styrdokumentlista räknade upp `docs/incidentlogg.md` medan filen inte
+fanns.** Filen är nu upprättad och bär sin första post, I1, om defaultvärden som
+binds när modulen laddas. Listraden är oförändrad. Uppmätt i skiva 1, inte
+hypotetisk.
+
+Ny regel i §10 och raderat innehåll i huvudet ⇒ MINOR.
 
 ### 0.2.0 — 2026-08-26
 

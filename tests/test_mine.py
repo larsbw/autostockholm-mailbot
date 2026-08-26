@@ -119,6 +119,26 @@ def test_max_threads_noll_ger_inga_anrop_alls(tmp_path):
     assert forbrukning.enheter == 0
 
 
+def test_lista_trad_id_med_noll_gor_inga_anrop():
+    """Nollfallets ANDRA lager, prövat för sig.
+
+    Spärren har två lager: mina() returnerar innan utfilen rörs, och
+    lista_trad_id() returnerar innan API:et rörs. Fälls bara det ena förblir
+    sviten grön, och prövningen pekar då ut ett äkta spärrtest som vakuöst.
+    Registrerad i docs/sparrar.md som `nollfall-max-threads`."""
+    gmail = fejk.FejkGmail(tva_sidor(), tre_tradar())
+    forbrukning = mine.Forbrukning()
+
+    idn = mine.lista_trad_id(
+        gmail, pacer=snabb_pacer(), forbrukning=forbrukning, max_tradar=0,
+        sov=lambda _: None,
+    )
+
+    assert idn == []
+    assert gmail.list_anrop == []
+    assert forbrukning.enheter == 0
+
+
 def test_max_threads_noll_raderar_inte_foregaende_skord(tmp_path):
     utfil = tmp_path / "tradar.jsonl"
     utfil.write_text('{"id": "tidigare-skord"}\n', encoding="utf-8")

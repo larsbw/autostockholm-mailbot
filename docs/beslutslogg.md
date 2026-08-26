@@ -1,9 +1,12 @@
 # Beslutslogg
 
-**Version:** 0.1.1 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.2.0
+**Version:** 0.2.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.0
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
+
+Append-only binder från och med den commit som inför posten. Redigering av en
+post som ännu inte committats är utkastarbete och kräver ingen rättelsepost.
 
 ---
 
@@ -73,6 +76,22 @@ faller med `AuthFel` i stället för att auktorisera på egen hand.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.2.0 — 2026-08-26
+
+**Den öppna frågan i 0.1.1:s appendixpost är BESVARAD.** Frågan gällde om
+append-only omfattar redigeringar gjorda innan posten committats. Svaret står nu
+i dokumentets huvud: append-only binder från och med den commit som inför posten,
+och redigering dessförinnan är utkastarbete som inte kräver rättelsepost.
+
+Frågan besvaras här och inte genom att 0.1.1:s post skrivs om. Det vore att
+tillämpa den lösare tolkningen på en post som redan är committad, alltså precis
+det regeln nu förbjuder.
+
+**Hanteringen i skiva 1 var rätt.** Post #1 rättades innan loggen committades
+första gången, och ingen rättelsepost skrevs. Det är vad regeln nu föreskriver.
+
+Ny regel i huvudet ⇒ MINOR.
 
 ### 0.1.1 — 2026-08-26
 
