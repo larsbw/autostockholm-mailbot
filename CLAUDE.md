@@ -397,9 +397,16 @@ eftersom det är skrivningen till den filen som är den observerbara händelsen.
 
 **§10:s gräns per körning sänks från 5 till 1.** Femman hade inget underlag och
 läses som en kalibrerad tröskel, vilket den aldrig var. Ettan är golvet och är
-därför inget påstående om volym. Under shadow mode skickas ingenting, och första
-skarpa sändningen är manuell. Talet revideras när mining visat den faktiska
+därför inget påstående om volym. Talet revideras när mining visat den faktiska
 dagsvolymen. Raden behåller sin pekare hit.
+
+Lars motiverade sänkningen med att ingenting skickas under shadow mode och att
+första skarpa sändningen är manuell. **Det återges här som hans plan, inte som ett
+förhållande i repot:** `shadow mode` är inte definierat någonstans i koden eller
+i styrdokumenten, och `grep -rn "shadow"` träffar bara den här meningen.
+Sänkningen vilar inte på begreppet, utan på att 1 är golvet, så motiveringen
+håller även om shadow mode aldrig införs. Begreppet ska definieras eller
+strykas när sändvägen börjar byggas.
 
 **§0:s styrdokumentlista räknade upp `docs/incidentlogg.md` medan filen inte
 fanns.** Filen är nu upprättad och bär sin första post, I1, om defaultvärden som

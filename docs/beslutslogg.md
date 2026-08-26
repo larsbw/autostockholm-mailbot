@@ -1,12 +1,19 @@
 # Beslutslogg
 
-**Version:** 0.2.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.0
+**Version:** 0.3.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.0
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
 
 Append-only binder från och med den commit som inför posten. Redigering av en
 post som ännu inte committats är utkastarbete och kräver ingen rättelsepost.
+
+**Räckvidd.** Regeln binder de NUMRERADE beslutsposterna. Appendix är
+versionshistorik och lyder under §8: en ändring där redovisas med en ny
+versionspost, inte genom att en äldre versionspost skrivs om. Två committar i
+skiva 1, `8569073` och `0cd6751`, skrev om 0.1.1:s appendixpost på plats i stället
+för att lägga till en ny. De står kvar som de är. Den här raden namnger dem, så
+att nästa läsare ser att historiken har den skarven i sig.
 
 ---
 
@@ -75,7 +82,53 @@ faller med `AuthFel` i stället för att auktorisera på egen hand.
 
 ---
 
+## #3 — §10:s gräns per körning är 1, och #1:s referens till 5 upphävs
+
+**Datum:** 2026-08-26 · **Berör:** `docs/beslutslogg.md` #1, `CLAUDE.md` §10
+
+**Beslut.** §10:s gräns för hur många mail en körning får skicka är **1**, satt av
+Lars i skiva 2. `CLAUDE.md` 0.3.0 bär ändringen och dess skäl.
+
+**Vad som upphävs.** Post #1 skriver, i presens, "i samma anda som §10:s gräns på
+5 mail per körning". Den meningen var sann när den skrevs och är det inte längre.
+**#1 skrivs inte om**, eftersom regeln i det här dokumentets huvud förbjuder det
+för en committad post. Läs i stället #1:s mening som daterad till `820c2ce`, och
+den här posten som dess rättelse.
+
+**Vad som INTE upphävs.** #1:s sak står kvar: `ANDEL_AV_KVOT` är ett öppet
+antagande utan mätt underlag. Bara jämförelsetalet är föråldrat, inte poängen den
+gjorde.
+
+**Hur felet uppstod.** Skiva 2 ändrade §10 från 5 till 1 och missade att
+beslutsloggen citerade det gamla talet i presens. Ett tal som är avläst när det
+skrivs blir falskt när dess källa ändras, och ingenting i verktygskedjan varnar
+för det. Granskaren fann det med `grep -rn "5 mail" CLAUDE.md docs`. Kör om den
+sökningen och skilj på tre sorters träff: §10:s egen rad, som nu bär 1;
+CLAUDE.md 0.2.0:s appendix, där 5 är korrekt daterad historik; och #1:s mening,
+som är den föråldrade. Referenser inifrån den här posten räknas inte, de citerar
+felet.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.3.0 — 2026-08-26
+
+Post **#3** tillkommer och upphäver #1:s referens till §10:s gräns på 5 mail per
+körning. Talet är 1 sedan CLAUDE.md 0.3.0. #1 är orörd.
+
+**Append-only-regelns räckvidd skrivs ut i huvudet.** Regeln binder de numrerade
+beslutsposterna; appendix lyder under §8. Raden namnger också att `8569073` och
+`0cd6751` skrev om 0.1.1:s appendixpost på plats. Utan den raden gör den nya
+regeln repots egen färska historik till retroaktiva brott utan att någon ser det.
+
+**Om 0.2.0-postens svar.** Att append-only binder från committen kom som
+uttrycklig instruktion från Lars i skiva 2, tillsammans med beskedet att
+hanteringen i skiva 1 var rätt. Det var alltså inte passets egen tolkning. Det
+skrivs ut här därför att 0.1.1:s appendix ställde frågan till Lars och en läsare
+annars inte kan se vem som svarade.
+
+Ny post och utvidgad regel i huvudet ⇒ MINOR.
 
 ### 0.2.0 — 2026-08-26
 

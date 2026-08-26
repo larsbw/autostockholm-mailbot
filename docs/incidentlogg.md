@@ -30,27 +30,55 @@ aldrig fram, och `main()` skrev till den riktiga `docs/mining-log.md`. Tre
 påhittade körningsrader hann appendas till ett committat styrdokument innan felet
 upptäcktes. De är borttagna.
 
-Samma mönster satt kvar på fyra ställen till: `sov`, `klocka` och `slumpa` som
-defaultvärden i `Kvotpacer.__init__`, `_utfor`, `lista_trad_id`, `hamta_trad`,
-`mina` och `fordrojning`. Det gjorde tre rader i testsviten verkningslösa. Raderna
-såg ut att hålla sviten vaken och gjorde det inte, så sviten sov på riktigt utan
-att någon märkte det.
+Samma mönster satt kvar för `sov`, `klocka` och `slumpa`. Berörda funktioner,
+avlästa ur `git grep -n "sov=time.sleep\|klocka=time.monotonic\|slumpa=random.random" 820c2ce -- src/mine.py`:
+`fordrojning`, `Kvotpacer.__init__`, `_utfor`, `lista_trad_id`, `hamta_trad` och
+`mina`. Det gjorde tre rader i testsviten verkningslösa. Raderna såg ut att hålla
+sviten vaken och gjorde det inte, så sviten sov på riktigt utan att någon märkte
+det.
 
-**Vad det kostade.** Ett committat styrdokument bar under en tid tre rader som
-påstod körningar mot brevlådan som aldrig ägt rum. Ingen körning skedde, men
+**Vad det kostade.** Ett styrdokument i arbetsträdet bar under en tid tre rader
+som påstod körningar mot brevlådan som aldrig ägt rum. Ingen körning skedde, men
 dokumentet påstod motsatsen, vilket är precis den sortens obelagda påstående §7.2
 finns för att stoppa.
+
+**Skadan nådde aldrig historiken, och det var tur och inte konstruktion.**
+`docs/mining-log.md` var ännu inte committad när raderna appendades: hela skiva 1
+låg otrackad i arbetsträdet fram till `820c2ce`. Att felet upptäcktes före den
+committen berodde på att ett nytt test råkade skriva till en temporärfil medan
+den riktiga filen ändå växte, inte på någon spärr. Belägg:
+`git grep -n "UTC" 820c2ce -- docs/mining-log.md` ger noll träffar, och
+`git log --oneline --all -- docs/mining-log.md` visar att filens första commit är
+`820c2ce`. Hade committen legat en halvtimme tidigare hade raderna varit
+permanenta.
 
 **Hur det upptäcktes.** Inte genom läsning. `logga_korning`-felet föll ut när ett
 nytt CLI-test skrev till en temporärfil och den riktiga filen ändå växte. De fyra
 kvarvarande fallen fann den oberoende granskaren genom att MÄTA svittiden, inte
 genom att läsa koden: raderna såg korrekta ut och var det inte.
 
-**Uppmätt effekt.** Med samtliga lager fällda blev svitens utdata i mitt eget pass
+**Uppmätt effekt.** Med samtliga lager fällda blev svitens utdata i skiva 1
 `1 failed, 40 passed in 2.89s`, mot baslinjen `41 passed in 0.24s`. Granskaren
 mätte i en egen, senare körning av samma fällning `1 failed, 40 passed in 2.90s`.
 Talen är alltså två avläsningar av samma fenomen i olika körningar, inte ett tal
 som ändrats.
+
+**Reproduktion.** Fällningen är NEUTRALISERANDE och återinför defaultbindningen i
+pacerns väg. Radnumren gäller `src/mine.py` från och med `820c2ce`:
+
+```
+scripts/sparr-prova.sh --fil src/mine.py \
+  --ersatt "126=    def __init__(self, enheter_per_minut=ENHETER_PER_MINUT, sov=time.sleep," \
+  --ersatt "129=        self._sov = sov" \
+  --ersatt "235=    pacer = Kvotpacer() if pacer is None else pacer"
+```
+
+Receptet ska stå här och inte lämnas åt läsaren att gissa: en granskare som
+tolkade "samtliga lager" på två andra rimliga sätt fick utfall som inte låg i
+närheten, och kunde alltså inte skilja en misslyckad reproduktion från ett falskt
+tal. Kört om mot dagens svit 2026-08-26: `1 failed, 41 passed in 2.83s` mot
+baslinjen `42 passed in 0.21s`. Skillnaden i antal test mot skiva 1 är att den
+här skivan lagt till `test_lista_trad_id_med_noll_gor_inga_anrop`.
 
 **Regeln posten bär.** Ett testdubbelt som injiceras genom att byta ut en
 modulkonstant skyddar ingenting om anropet läser konstanten via ett defaultvärde.

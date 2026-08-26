@@ -32,8 +32,8 @@ committat och lyder under CLAUDE.md §6.
 
 Korsreferensen i versionshuvudet följer med CLAUDE.md till 0.3.0. Inget innehåll
 ändrat, ingen kolumn rörd, ingen körning loggad. Ändringen görs därför att §12:s
-färskhetstriangel kräver att korsreferenserna är överens: en peka mot 0.2.0 hade
-gjort triangeln oense från och med den här skivan. Ren synk ⇒ PATCH.
+färskhetstriangel kräver att korsreferenserna är överens: en pekare mot 0.2.0
+hade gjort triangeln oense från och med den här skivan. Ren synk ⇒ PATCH.
 
 ### 0.2.0 — 2026-08-26
 

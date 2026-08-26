@@ -1,7 +1,7 @@
 # Spärrar
 
-**Version:** 0.2.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.0 §7.1 ·
-beslutslogg #1
+**Version:** 0.2.1 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.0 §7.1 ·
+beslutslogg: ingen post rör spärrarna ännu
 
 **Sändvägens spärrar är ännu inte byggda och fylls i FAS 5.** En spärr är
 registrerad, och den kommer inte från sändvägen utan från mining.
@@ -93,6 +93,13 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.2.1 — 2026-08-26
+
+Versionshuvudets korsreferens rättad. 0.2.0 satte den till "beslutslogg #1", men
+#1 handlar om trådhämtning och kvotpacing, inte om `nollfall-max-threads`. Ingen
+beslutspost rör spärrarna, och huvudet säger nu det i stället för att peka på en
+post som råkar ligga i samma fil. Ren rättelse av en korsreferens ⇒ PATCH.
 
 ### 0.2.0 — 2026-08-26
 
