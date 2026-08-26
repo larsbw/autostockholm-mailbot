@@ -6,3 +6,7 @@ pytest==9.1.1
 # Transitiv via google-api-python-client, men tests/fejk.py importerar den
 # direkt för att bygga HttpError, så den pinnas explicit.
 httplib2==0.32.0
+# config/maskindomaner.yaml och kommande config/kategorier.yaml.
+PyYAML==6.0.3
+# Klassificering enligt CLAUDE.md §0. Används av src/kategorisera.py.
+anthropic==1.1.0

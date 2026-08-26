@@ -427,6 +427,34 @@ def skriv_exempel(sammanstallning: list[dict], utfil: Path) -> None:
     utfil.write_text("\n".join(rader), encoding="utf-8")
 
 
+def visa_par(parfil: Path, index: int) -> None:
+    """Skriver ut ETT par ur data/par.jsonl, maskerat.
+
+    Finns för att kunna svara på frågan om filens innehåll utan att citera den.
+    Filen är RÅ, alltså omaskerad, vilket är avsiktligt: mallarna byggs ur
+    faktiska svar enligt §11, och en maskerad text hade förstört rösten. Filen
+    ligger i den gitignorerade `data/`. Maskeringen sker HÄR, i utskriften.
+    """
+    rader = parfil.read_text(encoding="utf-8").splitlines()
+    if not 0 <= index < len(rader):
+        print(f"index {index} finns inte, filen har {len(rader)} rader")
+        return
+
+    post = json.loads(rader[index])
+    print(f"=== PAR {index}, MASKERAT FÖR UTSKRIFT ===")
+    print(f"  fält: {sorted(post)}")
+    print(f"  tidsstampel: {post['tidsstampel']}")
+    print(f"  avsandare_hash: {post['avsandare_hash'][:16]}… ({len(post['avsandare_hash'])} tecken)")
+    print("")
+    print(f"  inkommande_text, {len(post['inkommande_text'])} tecken:")
+    for rad in maskera.maska_fritext(post["inkommande_text"]).split("\n")[:8]:
+        print(f"    {rad}")
+    print("")
+    print(f"  utgaende_text, {len(post['utgaende_text'])} tecken:")
+    for rad in maskera.maska_fritext(post["utgaende_text"]).split("\n")[:8]:
+        print(f"    {rad}")
+
+
 def sok(dokument: list[dict], term: str) -> None:
     """Räknar dokument som nämner en term, per källa.
 
@@ -470,7 +498,13 @@ def main(argv: list[str] | None = None) -> int:
         help="räkna dokument som innehåller termen, per källa, i stället för "
              "att klustra",
     )
+    tolk.add_argument("--parexempel", type=int, default=None,
+                      help="skriv ut ett par ur par.jsonl, maskerat")
     arg = tolk.parse_args(argv)
+
+    if arg.parexempel is not None:
+        visa_par(arg.parfil, arg.parexempel)
+        return 0
 
     dokument = las_kallor(arg.parfil, arg.obesvarade)
 

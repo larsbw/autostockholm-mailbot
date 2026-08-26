@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.11.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
+**Version:** 0.12.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -411,7 +411,69 @@ Att slå ihop dem i extraktionen vore att kasta ett äkta svar.
 
 ---
 
+## #12 — Maskinmail skiljs från mänskligt på huvuden, med ett undantag
+
+**Datum:** 2026-08-26 · **Berör:** `src/klassa_maskin.py`, fas 4
+
+**Beslut.** Ett meddelande klassas som maskinmail på HUVUDEN och avsändarform,
+aldrig på innehåll. Ett nyhetsbrev och ett kundmail kan använda samma ord; det
+som skiljer dem är att utskicket självt deklarerar vad det är.
+
+**Undantaget, och det är det viktigaste i posten.** Post som är maskinSKICKAD
+men människoSKRIVEN klassas som mänsklig. Webbformulärets notis är fallet: den
+bär `X-Msg-EID` och ibland `List-Unsubscribe`, men innehållet är kundens ärende
+och `Reply-To` pekar på kunden. **Uppmätt: 288 av 555 besvarade trådar föll som
+maskinmail innan undantaget fanns, mot 200 efteråt.**
+
+**Domänlistan härleds, den skrivs inte.** `config/maskindomaner.yaml` fylls av
+`--harled-domaner`, som tar domäner där ALL post redan är klassad som maskinmail
+på huvuden. En domän som också skickat ett odeklarerat mail lämnas utanför: den
+kan bära både utskick och en människa. Listan bär bara domäner, aldrig
+lokaldelar, eftersom en lokaldel kan vara persondata.
+
+**Utfall över båda skördarna:**
+
+| Skörd | Maskinmail | Mänskliga | Utan kundmeddelande |
+| --- | --- | --- | --- |
+| besvarade | 200 | 211 | 144 |
+| obesvarade | 1295 | 309 | 0 |
+
+Det mänskliga materialet är alltså 520 trådar av 2159.
+
+---
+
+## #13 — `data/par.jsonl` är RÅ, och ska förbli det
+
+**Datum:** 2026-08-26 · **Berör:** `src/extract.py`, fas 5
+
+**Beslut.** Texterna i `data/par.jsonl` är omaskerade. `src/extract.py` anropar
+`urval.brodtext`, som inte maskerar, och det är avsiktligt.
+
+**Skälet.** §11 säger att mallarna byggs ur faktiska svar, alltså ur rösten.
+Maskeringen i `src/maskera.py` är avsiktligt trubbig och maskerar varje versalt
+ord som inte står i undantagslistan. På ett faktiskt par blir `Är` och `För` till
+`[NAMN]`. En maskerad fil hade varit oanvändbar som mallunderlag.
+
+**Vad som skyddar filen i stället.** `data/` är gitignorerad, och `.gitignore`
+täcker den. Filen har aldrig funnits i historiken. Maskeringen sker vid
+UTSKRIFT, i `src/cluster.py --parexempel` och i exempelfilen, inte i lagringen.
+
+**Vad som följer av det.** Filen ska behandlas som persondata: den får inte
+klistras in i ett dokument, ett commitmeddelande eller en rapport. §6 gäller
+den fullt ut.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.12.0 — 2026-08-26
+
+Posterna **#12** och **#13** tillkommer. #12 slår fast att maskinmail skiljs på
+huvuden, med det undantag som räddar webbformulärets notiser. #13 slår fast att
+`data/par.jsonl` är rå och ska förbli det, eftersom en maskerad fil hade varit
+oanvändbar som mallunderlag.
+
+Två nya poster ⇒ MINOR.
 
 ### 0.11.0 — 2026-08-26
 

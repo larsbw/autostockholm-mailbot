@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.5.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.6.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -31,7 +31,9 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 | --- | --- | --- | --- |
 | `nollfall-max-threads` | Att en körning som ombeds hämta noll trådar raderar föregående skörd | `test_alla_tradar_over_flera_sidor_hamtas` | Sig själv, två lager i `src/mine.py`. Se posten. |
 | `urval-gmail-svar` | Att maskinskriven text blir mall och att kundens röst räknas bort | `test_svar_skrivet_i_gmail_kanns_igen`, `test_inkommande_ar_kundmeddelande` | Sig själv, sex lager i `ar_gmail_svar`. Se posten. |
-| `maskering-persondata` | Att persondata når ett dokument under `docs/` | `test_ord_vid_meningsstart_maskeras_ocksa` | `src/cluster.py::namn_i_korpus`, i en ANNAN fil. Se posten. |
+| `maskering-persondata` | Att persondata når ett dokument under `docs/` | `test_ord_vid_meningsstart_maskeras_ocksa` | `src/cluster.py::namn_i_korpus`, i en ANNAN fil, och `scripts/persondatakontroll.py`. Se posten. |
+| `klassning-maskinmail` | Att nyhetsbrev och notiser blir kundärenden | `test_vanligt_kundmail_ar_inte_maskinmail` | Fyra lager plus ett UNDANTAG. Se posten. |
+| `persondatakontroll` | Att en commit för in persondata i `docs/` | `test_ren_text_ger_inga_fynd` | `maskering-persondata`. Sista linjen, inte den enda. |
 
 ---
 
@@ -154,6 +156,75 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 
 ---
 
+## `klassning-maskinmail`
+
+- **Spärr.** `src/klassa_maskin.py::skal_maskinmail` avgör om ett meddelande är
+  maskinmail. Beslutet fattas på **fyra lager plus ett undantag**, i den
+  ordningen:
+  1. **UNDANTAGET, som körs FÖRST:** `relayar_manniska`. Post som är
+     maskinSKICKAD men människoSKRIVEN, känd på att `Reply-To` pekar utanför
+     både avsändaren och brevlådan.
+  2. Huvuden i `MASKINHUVUDEN`: `List-Unsubscribe`, `Auto-Submitted`,
+     `X-Auto-Response-Suppress` med flera.
+  3. `Precedence` med värdet `bulk`, `list`, `junk` eller `auto_reply`.
+  4. Avsändarens lokaldel på noreply-form.
+  5. Avsändarens domän i `config/maskindomaner.yaml`.
+- **Vad den skyddar mot.** Att nyhetsbrev, lösenordsmail och orderbekräftelser
+  blir kundkategorier. Klustringen i skiva 6 grupperade på avsändarens mall i
+  stället för på kundens ärende just därför att den saknade den här spärren.
+- **Negativkontroll.** `test_vanligt_kundmail_ar_inte_maskinmail` visar att
+  spärren SLÄPPER IGENOM en människa.
+  `test_avsandare_som_bara_borjar_pa_no_ar_inte_noreply` visar att
+  noreply-mönstret inte är för brett, och
+  `test_precedence_normal_ar_inte_maskinmail` att `Precedence: normal` inte
+  fäller.
+- **Redundant med.** Ingen annan spärr. Lagren är INTE redundanta med varandra:
+  var och en fångar en egen sorts avsändare, så ett saknat lager syns inte som
+  ett rött test.
+
+  **UNDANTAGET ÄR DET FARLIGASTE ATT TAPPA.** Utan `relayar_manniska` klassas
+  webbformulärets notis som maskinmail, eftersom den bär `X-Msg-EID`. Uppmätt
+  vid första körningen: **288 av 555 besvarade trådar** föll som maskinmail
+  innan undantaget fanns, mot 200 efteråt. Det är det mest värdefulla
+  kundmaterialet, och beslutslogg #8 slog fast att notisen ÄR kundens
+  meddelande.
+
+  Undantaget får samtidigt inte vara för brett, och tre test vaktar det:
+  `Reply-To` till sig självt, till avsändarens egen domän, och till brevlådan
+  ska alla lämna klassningen som maskinmail.
+
+---
+
+## `persondatakontroll`
+
+- **Spärr.** `scripts/persondatakontroll.py` vägrar en commit vars STAGADE
+  innehåll under `docs/` matchar mönster för mailadress, telefonnummer,
+  registreringsnummer, postnummer med ort, gatuadress eller personnummer.
+  Installeras som pre-commit-hook med `scripts/installera-hook.sh`.
+- **Vad den skyddar mot.** §6. Skiva 5 och skiva 6 hade båda persondata nära en
+  commit, och i skiva 6 nådde det ända in i en commit. Båda gångerna fångades
+  det av en granskning. **En granskare tittar ibland. En spärr biter varje
+  gång.**
+- **Negativkontroll.** `test_ren_text_ger_inga_fynd` visar att spärren SLÄPPER
+  IGENOM vanlig text, och `test_bart_femsiffrigt_tal_falls_inte` att
+  kvotåtgången i `docs/mining-log.md` inte larmar som postnummer.
+- **Redundant med.** `maskering-persondata`. Den här spärren är den SISTA
+  linjen och inte den enda: maskeringen ska hindra att persondata skrivs, och
+  kontrollen ska hindra att den committas om maskeringen ändå brister.
+
+  **Kontrollen läser INDEXET, inte arbetsträdet.** Ett `git add` följt av en
+  redigering hade annars sluppit igenom.
+
+  **En hook går att kringgå med `git commit --no-verify`.** Det går inte att
+  stänga av i git. Spärren skyddar alltså mot MISSTAG, inte mot en beslutsam
+  användare, och den ska läsas så.
+
+  **Ett falskt larm rättas i mönstret eller i `TILLATNA`, med skäl utskrivet.**
+  Att skriva om dokumentet tills spärren släpper igenom det är §9.1:s förbjudna
+  åtgärd i dokumentform.
+
+---
+
 ## Mall för en spärrpost
 
 Kopiera blocket nedan per spärr. Varje fält fylls i, tomma fält är en ofärdig
@@ -176,6 +247,20 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.6.0 — 2026-08-26
+
+Två spärrar registrerade: `klassning-maskinmail` och `persondatakontroll`.
+
+Den första bär ett UNDANTAG som körs före alla lager, och undantaget är det
+farligaste att tappa: utan det klassas webbformulärets notis som maskinmail och
+det mest värdefulla kundmaterialet kastas.
+
+Den andra är en pre-commit-hook. Den finns därför att två skivor i rad hade
+persondata nära en commit och båda gångerna fångades av granskning. En
+granskare tittar ibland; en spärr biter varje gång.
+
+Två nya poster ⇒ MINOR.
 
 ### 0.5.0 — 2026-08-26
 
