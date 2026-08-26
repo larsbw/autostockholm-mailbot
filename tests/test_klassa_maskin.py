@@ -71,7 +71,16 @@ def test_liknande_doman_skyddas_inte_av_misstag():
 
 
 def test_tom_doman_ar_inte_forbjuden():
-    assert not klassa_maskin.ar_forbjuden("", frozenset({"x.se"}), frozenset())
+    """Fallet är verkligt, inte hypotetiskt: `las_forbjudna` bygger mängden med
+    `d.strip().lower()`, så en YAML-post `- ""` lägger in tomma strängen i
+    `aldrig`. Utan raden som fäller tom domän hade DÅ varje avsändare vars
+    `From` saknar tolkbar domän blivit skyddad, och maskinklassningen hade
+    slutat klassa.
+
+    Den tidigare lydelsen skickade `aldrig={"x.se"}` och kunde därför inte bli
+    röd: tomma strängen fanns ändå inte i mängden. §7-granskningen av skiva 8
+    mätte upp det, och `docs/sparrar.md` bär fyndet."""
+    assert not klassa_maskin.ar_forbjuden("", frozenset({""}), frozenset())
 
 
 def test_forbudslistan_gar_fore_maskinhuvuden(tmp_path, monkeypatch):

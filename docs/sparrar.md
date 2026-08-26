@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.8.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.9.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -167,7 +167,10 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 - **Spärr.** `src/klassa_maskin.py::skal_maskinmail` avgör om ett meddelande är
   maskinmail. Beslutet fattas på **fyra lager plus ett undantag**, i den
   ordningen:
-  1. **UNDANTAGET, som körs FÖRST:** `relayar_manniska`. Post som är
+  0. **FÖRBUDSLISTAN, som sedan skiva 8 körs allra först:** `ar_forbjuden`. Den
+     har en egen post nedan, `forbjudna-maskindomaner`, och nämns här bara för
+     att ordningen ska stämma. Raden är `src/klassa_maskin.py:201`.
+  1. **UNDANTAGET, som körs före de fyra lagren:** `relayar_manniska`. Post som är
      maskinSKICKAD men människoSKRIVEN, känd på att `Reply-To` pekar utanför
      både avsändaren och brevlådan.
   2. Huvuden i `MASKINHUVUDEN`: `List-Unsubscribe`, `Auto-Submitted`,
@@ -243,14 +246,36 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
   | besvarade | 200 | 187 | 13 |
   | obesvarade | 1295 | 934 | 361 |
 
-  361 obesvarade trådar var alltså förmedlade kundärenden på väg att kastas.
-  Det är verksamhetskunskap som ingen härledning kunde ha nått: listan är Lars
-  beslut, inte kodens.
+  361 obesvarade trådar räddades alltså från att kastas. Hur många av dem som
+  är förmedlade kundärenden är INTE mätt: `googlemail.com` står på samma lista
+  och är enligt stycket ovan privatpersoner, inte en förmedlare. Talet är antal
+  räddade trådar, inte antal ärenden. Listan är i vilket fall verksamhets-
+  kunskap som ingen härledning kunde ha nått: den är Lars beslut, inte kodens.
 - **Negativkontroll.** `test_liknande_doman_skyddas_inte_av_misstag` visar att
   spärren SLÄPPER IGENOM en domän som bara slutar på samma bokstäver.
-  `test_undantaget_ar_mer_specifikt_och_provas_forst` visar att en supportkanal
-  under en skyddad moderdomän fortfarande får klassas som maskin.
-- **Redundant med.** Ingen. Den är ensam om sitt fall och går FÖRE
+  `test_undantaget_ar_mer_specifikt_och_provas_forst` visar att undantaget
+  vinner över moderdomänen i `ar_forbjuden`, alltså att `support.autobutler.se`
+  inte skyddas av att `autobutler.se` gör det. Testet anropar inte
+  `skal_maskinmail` och säger därför ingenting om vad som sedan händer med
+  posten.
+- **Redundant med. SIG SJÄLV, i två lager, och det är fyndet ur §7-granskningen
+  av skiva 8.** Spärren implementeras på två rader i två funktioner:
+  `src/klassa_maskin.py:201` i `skal_maskinmail`, och `:282` i
+  `harled_domaner`. Fälls bara `:282` förblir HELA sviten grön, och en
+  granskare som prövar `test_harledningen_foreslar_aldrig_en_forbjuden_doman`
+  sätter då ett FALSKT vakuöstverdikt på ett äkta spärrtest. Båda lagren fälls
+  samtidigt med:
+
+  ```
+  scripts/sparr-prova.sh --fil src/klassa_maskin.py \
+    --ersatt "201=    if False:" \
+    --ersatt "282=        if not ovrigt[d]"
+  ```
+
+  Uppmätt: `:282` ensamt ger GRÖN sviten igenom, båda lagren ger
+  `2 failed, 215 passed`. Talen växer med sviten; verdikten gör det inte.
+
+  Mot ANDRA spärrar är den inte redundant. Den går FÖRE
   `klassning-maskinmail`, som annars hade fällt samma post. Ordningen är
   spärren: byts den blir listan verkningslös utan att något test blir rött, om
   inte `test_forbudslistan_gar_fore_maskinhuvuden` finns. Det gör det.
@@ -313,6 +338,53 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.9.0 — 2026-08-26
+
+Rättelser efter §7-granskningen av skiva 8, per post:
+
+**`forbjudna-maskindomaner` sa "Redundant med. Ingen".** Det var falskt och
+mätbart falskt. Spärren ligger i två lager, `src/klassa_maskin.py:201` och
+`:282`, och en fällning av `:282` ensamt lämnar hela sviten grön. Granskaren
+följde posten, prövade `test_harledningen_foreslar_aldrig_en_forbjuden_doman`
+och fick ett FALSKT vakuöstverdikt på ett äkta spärrtest. Posten namnger nu
+båda lagren och det kommando som fäller dem samtidigt.
+
+Det här dokumentet varnar i sin egen ruta överst för precis den felklassen,
+och 0.5.0 och 0.7.0 finns för att den redan inträffat. Den här gången fångades
+den i granskningen i stället för i sändvägen, vilket är billigare men inte
+gratis.
+
+**"361 obesvarade trådar var alltså förmedlade kundärenden".** Övertolkning.
+`googlemail.com` står på samma lista och är enligt postens eget stycke ovan
+privatpersoner, inte en förmedlare. Talet är antal räddade trådar; hur många
+av dem som är förmedlade ärenden är inte mätt. Omskrivet.
+
+**Negativkontrollen påstod fel sak om sitt test.**
+`test_undantaget_ar_mer_specifikt_och_provas_forst` anropar aldrig
+`skal_maskinmail`. Det asserar bara att `ar_forbjuden` väljer undantaget före
+moderdomänen. Beteendet posten beskrev stämmer, men testet visar det inte.
+Omskrivet till vad testet faktiskt bevisar.
+
+**`klassning-maskinmail` sa att undantaget körs FÖRST.** Sedan skiva 8 gör det
+inte det: förbudslistan går före. Två poster i samma dokument sa emot varandra
+om samma funktions ordning. Listan bär nu ett steg 0.
+
+**`test_tom_doman_ar_inte_forbjuden` gick inte att fälla**, alltså UNDERKÄNT
+enligt §7.1. Det skickade `aldrig={"x.se"}`, och då är utfallet `False` även
+utan raden som fäller tom domän. Testet skickar nu `aldrig={""}`, vilket är
+det verkliga fallet: `las_forbjudna` bygger mängden med `d.strip().lower()`,
+så en YAML-post `- ""` lägger tomma strängen i mängden och hade då skyddat
+varje avsändare utan tolkbar domän. Uppmätt efter rättelsen: fällning av
+`src/klassa_maskin.py:110` ger `1 failed, 221 passed`.
+
+**ÖPPEN PUNKT, för Lars.** `config/maskindomaner-forbjudna.yaml` bär under
+`undantag` en post för en Intercom-avsändare vars organisationsdomän inte står
+under `aldrig_maskin`. Posten är därför verkningslös: `ar_forbjuden` returnerar
+`False` för den domänen ändå. Filen är Lars beslutslista och ändras inte av
+kod. Frågan är om posten ska bort eller om moderdomänen ska in.
+
+Ny mätning och rättade påståenden ⇒ MINOR.
 
 ### 0.8.0 — 2026-08-26
 

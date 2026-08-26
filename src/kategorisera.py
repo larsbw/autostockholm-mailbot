@@ -133,6 +133,17 @@ def varva(poster: list[dict]) -> list[dict]:
 
 
 ENVFIL = ROT / ".env"
+NYCKELNAMN = "ANTHROPIC_API_KEY"
+
+# Etiketter som INTE är kundärenden. `fel` sätts av koden, de två andra av
+# modellen. Ingen av dem får en mall.
+EJ_KUNDARENDE = ("inget kundärende", "oklart", "fel")
+
+# Så många par MED SVAR en kategori behöver för att en mall ska kunna byggas
+# ur den. Talet är ett ANTAGANDE, satt av Lars i skiva 8:s brief, och det är
+# inte kalibrerat mot något utfall. Det revideras när mallbygget visat hur
+# många exempel som faktiskt behövs.
+MINSTA_PAR = 10
 
 
 def las_api_nyckel(envfil: Path | None = None) -> str:
@@ -145,7 +156,7 @@ def las_api_nyckel(envfil: Path | None = None) -> str:
     Returnerar tom sträng om ingen nyckel finns. NYCKELN SKRIVS ALDRIG UT, och
     den som felsöker får veta att den saknas, aldrig vad den är (§6).
     """
-    ur_miljon = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    ur_miljon = os.environ.get(NYCKELNAMN, "").strip()
     if ur_miljon:
         return ur_miljon
 
@@ -154,23 +165,37 @@ def las_api_nyckel(envfil: Path | None = None) -> str:
         return ""
 
     for rad in envfil.read_text(encoding="utf-8").splitlines():
-        rad = rad.strip()
-        if not rad or rad.startswith("#"):
+        if not rad.strip() or rad.lstrip().startswith("#"):
             continue
 
-        # FORMEN ÄR `ANTHROPIC_API_KEY=värde`, och inget annat.
+        # FORMEN ÄR `ANTHROPIC_API_KEY=värde`, och inget annat. Raden börjar i
+        # kolumn ett, likhetstecknet bär inga blanksteg, och värdet står bart:
+        # inga citattecken, ingen kommentar efter sig.
         #
-        # En tidigare version accepterade också en bar nyckel utan namn. Den
-        # toleransen är BORTTAGEN på Lars beslut, och skälet är §1: en oklarhet
-        # ska lyftas, inte tystas. En tolerant parser döljer att formatet var
-        # fel, och nästa läsare vet då inte vilken form som gäller. Att filen
-        # hade fel form är en upplysning, inte ett hinder att bygga bort.
-        if "=" not in rad:
+        # Toleransen mot en bar nyckel utan namn togs bort på Lars beslut, med
+        # §1 som skäl: en oklarhet ska lyftas, inte tystas. Granskningen av
+        # skiva 8 mätte upp att resten av toleransen var värre än den formen.
+        # En kommentar efter värdet lästes in SOM DEL AV NYCKELN, vilket når
+        # den som felsöker först som ett 401 från API:t och aldrig som ett
+        # formatfel. Därför avvisas numera varje avvikelse högljutt.
+        if not rad.startswith(NYCKELNAMN + "="):
             continue
 
-        namn, _, varde = rad.partition("=")
-        if namn.strip() == "ANTHROPIC_API_KEY":
-            return varde.strip().strip('"').strip("'")
+        varde = rad[len(NYCKELNAMN) + 1 :].rstrip("\r")
+        if not varde:
+            continue
+        if varde != varde.strip() or any(t in varde for t in " \t\"'"):
+            raise SystemExit(
+                f"Raden med {NYCKELNAMN} i {envfil} har fel form.\n"
+                "\n"
+                "Värdet står bart. Det får inte bära citattecken, blanksteg\n"
+                "eller en kommentar efter sig. Skriv EXAKT:\n"
+                "\n"
+                f"  {NYCKELNAMN}=sk-ant-...\n"
+                "\n"
+                "Nyckeln skrivs inte ut här (§6)."
+            )
+        return varde
     return ""
 
 
@@ -182,16 +207,19 @@ def bygg_klient(nyckel: str = ""):
     nyckel = nyckel or las_api_nyckel()
     if not nyckel:
         raise SystemExit(
-            "Ingen ANTHROPIC_API_KEY hittad.\n"
+            f"Ingen {NYCKELNAMN} hittad.\n"
             "\n"
             "Sätt den i miljön, eller skriv EXAKT den här raden i .env i\n"
             "repots rot:\n"
             "\n"
-            "  ANTHROPIC_API_KEY=sk-ant-...\n"
+            f"  {NYCKELNAMN}=sk-ant-...\n"
             "\n"
-            "Formen är obligatorisk. En bar nyckel utan namn läses INTE, och\n"
-            "det är avsiktligt: en tolerant parser hade dolt att formatet var\n"
-            "fel. Filen .env är gitignorerad."
+            "Formen är obligatorisk och läses bokstavligt. Raden ska börja i\n"
+            "kolumn ett, likhetstecknet ska sakna blanksteg, och värdet ska\n"
+            "stå bart utan citattecken. En bar nyckel utan namn, ett\n"
+            "export-prefix eller ett indrag läses INTE, och det är avsiktligt:\n"
+            "en tolerant parser hade dolt att formatet var fel.\n"
+            "Filen .env är gitignorerad."
         )
     return anthropic.Anthropic(api_key=nyckel)
 
@@ -303,6 +331,23 @@ def sammanstall(poster: list[dict]) -> list[dict]:
             rad["exempel"].append(post["text"])
 
     return sorted(per_etikett.values(), key=lambda r: -r["antal"])
+
+
+def underlag_per_kategori(sammanstallning: list[dict],
+                          minsta: int = MINSTA_PAR) -> tuple[list, list]:
+    """DEL C i skiva 8: talet som avgör hur många kategorier som kan få mallar.
+
+    Returnerar `(äkta, med för få par)`. ÄKTA är kategorierna sedan de tre
+    icke-ärendena dragits bort. `inget kundärende` och `oklart` är etiketter
+    modellen sätter; `fel` sätts av `kategorisera_alla` när anropet inte gick
+    igenom. Ingen av dem är ett kundärende, och ingen av dem ska få en mall.
+
+    Tröskeln är antal par MED SVAR, inte antal texter: en mall byggs ur ett
+    faktiskt svar Matte eller Lars redan skrivit (CLAUDE.md §11), och en
+    kategori utan svar bär inget underlag hur många texter den än har.
+    """
+    akta = [k for k in sammanstallning if k["etikett"] not in EJ_KUNDARENDE]
+    return akta, [k for k in akta if k["med_svar"] < minsta]
 
 
 def _exempel(text: str, tecken: int = 160) -> str:
@@ -456,10 +501,7 @@ def main(argv: list[str] | None = None) -> int:
         print(rad)
     print("")
 
-    # DEL C: talet som avgör hur många kategorier som kan få mallar.
-    akta = [k for k in sammanstallning
-            if k["etikett"] not in ("inget kundärende", "oklart", "fel")]
-    fa_par = [k for k in akta if k["med_svar"] < 10]
+    akta, fa_par = underlag_per_kategori(sammanstallning)
     print("=== UNDERLAG PER KATEGORI ===")
     print(f"  äkta kundkategorier: {len(akta)}")
     print(f"  av dem med FÄRRE ÄN TIO par med svar: {len(fa_par)}")

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from src import kategorisera
 
 
@@ -61,11 +63,56 @@ def test_envfilen_anvands_nar_miljon_saknas(tmp_path, monkeypatch):
     """En export i en interaktiv terminal når inte ett skal som startas om per
     anrop. `.env` fungerar i båda fallen och är gitignorerad."""
     envfil = tmp_path / ".env"
-    envfil.write_text("# kommentar\nANTHROPIC_API_KEY=\"ur-filen\"\n",
+    envfil.write_text("# kommentar\nANTHROPIC_API_KEY=ur-filen\n",
                       encoding="utf-8")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
 
     assert kategorisera.las_api_nyckel(envfil) == "ur-filen"
+
+
+def test_kommentar_efter_vardet_ger_fel_i_stallet_for_trasig_nyckel(
+    tmp_path, monkeypatch
+):
+    """Fyndet som §7-granskningen av skiva 8 mätte upp. Parsern läste tidigare
+    kommentaren SOM DEL AV nyckeln, alltså tyst korruption som når den som
+    felsöker först som ett 401 från API:t. §1: en oklarhet lyfts, inte tystas."""
+    envfil = tmp_path / ".env"
+    envfil.write_text("ANTHROPIC_API_KEY=sk-ant-x # min nyckel\n",
+                      encoding="utf-8")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    with pytest.raises(SystemExit) as fel:
+        kategorisera.las_api_nyckel(envfil)
+    assert "fel form" in str(fel.value)
+    assert "sk-ant-x" not in str(fel.value)
+
+
+def test_citattecken_kring_vardet_ger_fel(tmp_path, monkeypatch):
+    """Citattecknen ströks tidigare tyst, så .env och felmeddelandet kunde
+    säga olika saker om vilken form som gäller."""
+    envfil = tmp_path / ".env"
+    envfil.write_text('ANTHROPIC_API_KEY="sk-ant-x"\n', encoding="utf-8")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    with pytest.raises(SystemExit):
+        kategorisera.las_api_nyckel(envfil)
+
+
+def test_indragen_rad_lases_inte(tmp_path, monkeypatch):
+    """Raden ska börja i kolumn ett."""
+    envfil = tmp_path / ".env"
+    envfil.write_text("  ANTHROPIC_API_KEY=sk-ant-x\n", encoding="utf-8")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    assert kategorisera.las_api_nyckel(envfil) == ""
+
+
+def test_blanksteg_kring_likhetstecknet_lases_inte(tmp_path, monkeypatch):
+    envfil = tmp_path / ".env"
+    envfil.write_text("ANTHROPIC_API_KEY = sk-ant-x\n", encoding="utf-8")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    assert kategorisera.las_api_nyckel(envfil) == ""
 
 
 def test_saknad_nyckel_ger_tom_strang(tmp_path, monkeypatch):
@@ -358,3 +405,53 @@ def test_maskinmail_kommer_inte_med(tmp_path):
 
     assert [p["text"] for p in poster] == ["fråga om reservdel"]
     assert poster[0]["kalla"] == "utan svar"
+
+
+# --- DEL C: underlaget per kategori ------------------------------------------
+
+
+def _rad(etikett, med_svar, utan_svar=0):
+    return {"etikett": etikett, "antal": med_svar + utan_svar,
+            "med_svar": med_svar, "utan_svar": utan_svar, "exempel": []}
+
+
+def test_de_tre_icke_arendena_raknas_inte_som_kundkategorier():
+    """`inget kundärende` och `oklart` sätts av modellen, `fel` av koden när
+    anropet inte gick igenom. Ingen av dem ska få en mall."""
+    akta, _ = kategorisera.underlag_per_kategori([
+        _rad("inget kundärende", 52, 495),
+        _rad("oklart", 31, 7),
+        _rad("fel", 3),
+        _rad("boka service", 7),
+    ])
+
+    assert [k["etikett"] for k in akta] == ["boka service"]
+
+
+def test_exakt_tio_par_med_svar_ar_TILLRACKLIGT():
+    """Gränsvärdet. Tröskeln är FÄRRE ÄN tio, så tio räcker."""
+    _, fa_par = kategorisera.underlag_per_kategori([_rad("boka service", 10)])
+
+    assert fa_par == []
+
+
+def test_nio_par_med_svar_ar_for_fa():
+    _, fa_par = kategorisera.underlag_per_kategori([_rad("boka service", 9)])
+
+    assert [k["etikett"] for k in fa_par] == ["boka service"]
+
+
+def test_texter_utan_svar_lyfter_inte_kategorin_over_troskeln():
+    """Tröskeln räknar par MED SVAR. En kategori med hundra texter och noll
+    svar bär inget mallunderlag, hur stor den än ser ut i tabellen."""
+    _, fa_par = kategorisera.underlag_per_kategori(
+        [_rad("boka biltvätt", 0, 100)]
+    )
+
+    assert [k["etikett"] for k in fa_par] == ["boka biltvätt"]
+
+
+def test_tom_sammanstallning_ger_noll_och_kraschar_inte():
+    akta, fa_par = kategorisera.underlag_per_kategori([])
+
+    assert (akta, fa_par) == ([], [])
