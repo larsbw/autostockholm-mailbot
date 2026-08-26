@@ -20,6 +20,7 @@ import argparse
 import json
 import re
 from collections import Counter
+from functools import lru_cache
 from pathlib import Path
 
 import yaml
@@ -28,6 +29,11 @@ from src import urval
 
 ROT = Path(__file__).resolve().parent.parent
 DOMANFIL = ROT / "config" / "maskindomaner.yaml"
+
+# Domäner som ALDRIG får klassas som maskinmail. Beslut av Lars, skiva 8.
+# Listan går före allt annat i filen, och härledningen föreslår aldrig något
+# som står i den.
+FORBJUDNAFIL = ROT / "config" / "maskindomaner-forbjudna.yaml"
 
 # Härledningen skriver KANDIDATER hit, inte till konfigurationen.
 #
@@ -71,6 +77,43 @@ def las_domaner(sokvag: Path) -> set[str]:
         return set()
     data = yaml.safe_load(sokvag.read_text(encoding="utf-8")) or {}
     return {d.strip().lower() for d in (data.get("maskindomaner") or [])}
+
+
+@lru_cache(maxsize=8)
+def las_forbjudna(sokvag: Path | None = None) -> tuple[frozenset, frozenset]:
+    """(aldrig maskin, undantag från den listan).
+
+    Cachad: `skal_maskinmail` anropar den per MEDDELANDE, och materialet är
+    tusentals meddelanden. Utan cache blir det en filläsning per meddelande.
+    Cachen töms med `las_forbjudna.cache_clear()`, vilket testerna gör.
+    """
+    sokvag = FORBJUDNAFIL if sokvag is None else sokvag
+    if not sokvag.exists():
+        return frozenset(), frozenset()
+    data = yaml.safe_load(sokvag.read_text(encoding="utf-8")) or {}
+    aldrig = frozenset(d.strip().lower()
+                       for d in (data.get("aldrig_maskin") or []))
+    undantag = frozenset(d.strip().lower()
+                         for d in (data.get("undantag") or []))
+    return aldrig, undantag
+
+
+def ar_forbjuden(doman: str, aldrig, undantag) -> bool:
+    """Sant när domänen aldrig får klassas som maskinmail.
+
+    Subdomäner ärver skyddet: `nyheter.bokadirekt.se` är skyddad av
+    `bokadirekt.se`. Undantagen matchas EXAKT och prövas FÖRST, eftersom de är
+    mer specifika än sina moderdomäner: `support.autobutler.se` är en
+    supportkanal medan `autobutler.se` är en kundkanal.
+    """
+    doman = doman.strip().lower()
+    if not doman:
+        return False
+    if doman in undantag:
+        return False
+    if doman in aldrig:
+        return True
+    return any(doman.endswith("." + skyddad) for skyddad in aldrig)
 
 
 def avsandardoman(meddelande: dict) -> str:
@@ -151,6 +194,13 @@ def skal_maskinmail(meddelande: dict, domaner: set[str] | None = None) -> str:
     klassificering går att granska post för post utan att gissa vilket villkor
     som fällde.
     """
+    # FÖRBUDSLISTAN GÅR FÖRE ALLT. En förmedlad offertförfrågan är en kund, och
+    # en domän som råkar skicka den maskinellt är fortfarande en kund. Beslut
+    # av Lars, skiva 8, registrerat i docs/sparrar.md.
+    aldrig, undantag = las_forbjudna()
+    if ar_forbjuden(avsandardoman(meddelande), aldrig, undantag):
+        return ""
+
     if relayar_manniska(meddelande):
         return ""
 
@@ -208,6 +258,7 @@ def harled_domaner(skordar: list[Path]) -> list[str]:
     """
     maskin: Counter[str] = Counter()
     ovrigt: Counter[str] = Counter()
+    aldrig, undantag = las_forbjudna()
 
     for skord in skordar:
         for trad in las_tradar(skord):
@@ -223,7 +274,13 @@ def harled_domaner(skordar: list[Path]) -> list[str]:
                     ovrigt[doman] += 1
                 break
 
-    return sorted(d for d in maskin if not ovrigt[d])
+    # Härledningen föreslår ALDRIG något som står på förbudslistan. Utan det
+    # hade en kundkanal kunnat dyka upp som kandidat vid varje ny körning, och
+    # den som läser listan hade fått avvisa den om och om igen.
+    return sorted(
+        d for d in maskin
+        if not ovrigt[d] and not ar_forbjuden(d, aldrig, undantag)
+    )
 
 
 def skriv_domaner(domaner: list[str], sokvag: Path) -> None:

@@ -39,6 +39,42 @@ class FejkKlient:
         return FejkSvar(self._svar[nummer % len(self._svar)])
 
 
+# --- nyckeln -----------------------------------------------------------------
+
+
+def test_miljon_gar_fore_envfilen(tmp_path, monkeypatch):
+    envfil = tmp_path / ".env"
+    envfil.write_text("ANTHROPIC_API_KEY=ur-filen\n", encoding="utf-8")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "ur-miljon")
+
+    assert kategorisera.las_api_nyckel(envfil) == "ur-miljon"
+
+
+def test_envfilen_anvands_nar_miljon_saknas(tmp_path, monkeypatch):
+    """En export i en interaktiv terminal når inte ett skal som startas om per
+    anrop. `.env` fungerar i båda fallen och är gitignorerad."""
+    envfil = tmp_path / ".env"
+    envfil.write_text("# kommentar\nANTHROPIC_API_KEY=\"ur-filen\"\n",
+                      encoding="utf-8")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    assert kategorisera.las_api_nyckel(envfil) == "ur-filen"
+
+
+def test_saknad_nyckel_ger_tom_strang(tmp_path, monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    assert kategorisera.las_api_nyckel(tmp_path / "finns-ej") == ""
+
+
+def test_annan_variabel_i_envfilen_plockas_inte(tmp_path, monkeypatch):
+    envfil = tmp_path / ".env"
+    envfil.write_text("ANNAN_NYCKEL=fel\n", encoding="utf-8")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    assert kategorisera.las_api_nyckel(envfil) == ""
+
+
 # --- normalisering -----------------------------------------------------------
 
 

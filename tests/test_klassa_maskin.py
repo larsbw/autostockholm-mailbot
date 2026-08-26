@@ -28,6 +28,105 @@ def kundmail(**extra):
     return meddelande(huvuden=huvuden)
 
 
+# --- förbudslistan -----------------------------------------------------------
+
+
+def test_forbjuden_doman_klassas_aldrig_som_maskin():
+    """En förmedlad offertförfrågan är en KUND, och en domän som råkar skicka
+    den maskinellt är fortfarande en kund. Beslut av Lars, skiva 8."""
+    aldrig = frozenset({"bokadirekt.se", "autobutler.se"})
+    undantag = frozenset({"support.autobutler.se"})
+
+    assert klassa_maskin.ar_forbjuden("bokadirekt.se", aldrig, undantag)
+    assert klassa_maskin.ar_forbjuden("autobutler.se", aldrig, undantag)
+
+
+def test_subdoman_arver_skyddet():
+    aldrig = frozenset({"bokadirekt.se"})
+
+    assert klassa_maskin.ar_forbjuden(
+        "transactional.bokadirekt.se", aldrig, frozenset()
+    )
+
+
+def test_undantaget_ar_mer_specifikt_och_provas_forst():
+    """`support.autobutler.se` är en supportkanal, `autobutler.se` en
+    kundkanal. Undantaget måste slå igenom subdomänregeln."""
+    aldrig = frozenset({"autobutler.se"})
+    undantag = frozenset({"support.autobutler.se"})
+
+    assert not klassa_maskin.ar_forbjuden(
+        "support.autobutler.se", aldrig, undantag
+    )
+    assert klassa_maskin.ar_forbjuden("autobutler.se", aldrig, undantag)
+
+
+def test_liknande_doman_skyddas_inte_av_misstag():
+    """`inte-bokadirekt.se` slutar på samma bokstäver men är en annan domän."""
+    aldrig = frozenset({"bokadirekt.se"})
+
+    assert not klassa_maskin.ar_forbjuden(
+        "inte-bokadirekt.se", aldrig, frozenset()
+    )
+
+
+def test_tom_doman_ar_inte_forbjuden():
+    assert not klassa_maskin.ar_forbjuden("", frozenset({"x.se"}), frozenset())
+
+
+def test_forbudslistan_gar_fore_maskinhuvuden(tmp_path, monkeypatch):
+    """Listan går FÖRE allt annat: även ett mail med List-Unsubscribe från en
+    förbjuden domän är en kund."""
+    fil = tmp_path / "forbjudna.yaml"
+    fil.write_text("aldrig_maskin:\n  - bokadirekt.se\nundantag: []\n",
+                   encoding="utf-8")
+    monkeypatch.setattr(klassa_maskin, "FORBJUDNAFIL", fil)
+    klassa_maskin.las_forbjudna.cache_clear()
+
+    med = kundmail(**{"From": "Bokning <noreply@bokadirekt.se>",
+                      "List-Unsubscribe": "<x>"})
+
+    try:
+        assert klassa_maskin.skal_maskinmail(med) == ""
+    finally:
+        klassa_maskin.las_forbjudna.cache_clear()
+
+
+def test_harledningen_foreslar_aldrig_en_forbjuden_doman(tmp_path, monkeypatch):
+    import json
+
+    forbjudna = tmp_path / "forbjudna.yaml"
+    forbjudna.write_text("aldrig_maskin:\n  - bokadirekt.se\nundantag: []\n",
+                         encoding="utf-8")
+    monkeypatch.setattr(klassa_maskin, "FORBJUDNAFIL", forbjudna)
+    klassa_maskin.las_forbjudna.cache_clear()
+
+    skord = tmp_path / "tradar.jsonl"
+    tradar = [
+        {"messages": [kundmail(**{"From": "A <a@bokadirekt.se>",
+                                  "List-Unsubscribe": "<x>"})]},
+        {"messages": [kundmail(**{"From": "B <b@utskickaren.se>",
+                                  "List-Unsubscribe": "<x>"})]},
+    ]
+    skord.write_text("\n".join(json.dumps(t) for t in tradar) + "\n",
+                     encoding="utf-8")
+
+    try:
+        assert klassa_maskin.harled_domaner([skord]) == ["utskickaren.se"]
+    finally:
+        klassa_maskin.las_forbjudna.cache_clear()
+
+
+def test_den_riktiga_forbudslistan_bar_lars_beslut():
+    """Filen är committad och dess innehåll är ett beslut, inte en härledning."""
+    aldrig, undantag = klassa_maskin.las_forbjudna()
+
+    assert {"bokadirekt.se", "autobutler.se", "hittabilverkstad.nu",
+            "verkstadsdeal.se", "verkstadsoffert.se",
+            "googlemail.com"} <= set(aldrig)
+    assert "support.autobutler.se" in undantag
+
+
 # --- lager för lager ---------------------------------------------------------
 
 

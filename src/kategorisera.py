@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import time
 from collections import Counter
@@ -110,12 +111,50 @@ def texter_att_kategorisera(parfil: Path, besvarade: Path, obesvarade: Path,
     return poster
 
 
-def bygg_klient():
+ENVFIL = ROT / ".env"
+
+
+def las_api_nyckel(envfil: Path | None = None) -> str:
+    """Nyckeln ur miljön, annars ur den gitignorerade `.env`.
+
+    `.env` finns med därför att en `export` i en interaktiv terminal INTE når
+    ett skal som startas om per anrop. Nyckeln i en fil som redan är
+    gitignorerad är den väg som fungerar i båda fallen.
+
+    Returnerar tom sträng om ingen nyckel finns. NYCKELN SKRIVS ALDRIG UT, och
+    den som felsöker får veta att den saknas, aldrig vad den är (§6).
+    """
+    ur_miljon = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if ur_miljon:
+        return ur_miljon
+
+    envfil = ENVFIL if envfil is None else envfil
+    if not envfil.exists():
+        return ""
+
+    for rad in envfil.read_text(encoding="utf-8").splitlines():
+        rad = rad.strip()
+        if rad.startswith("#") or "=" not in rad:
+            continue
+        namn, _, varde = rad.partition("=")
+        if namn.strip() == "ANTHROPIC_API_KEY":
+            return varde.strip().strip('"').strip("'")
+    return ""
+
+
+def bygg_klient(nyckel: str = ""):
     """Importeras lokalt, så att resten av modulen går att testa och granska
     utan att SDK:t är installerat."""
     import anthropic
 
-    return anthropic.Anthropic()
+    nyckel = nyckel or las_api_nyckel()
+    if not nyckel:
+        raise SystemExit(
+            "Ingen ANTHROPIC_API_KEY. Sätt den i miljön, eller lägg raden\n"
+            "  ANTHROPIC_API_KEY=...\n"
+            "i .env i repots rot. Filen är gitignorerad."
+        )
+    return anthropic.Anthropic(api_key=nyckel)
 
 
 def kategorisera_en(klient, text: str, modell: str = MODELL) -> str:

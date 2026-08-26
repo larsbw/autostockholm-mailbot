@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.13.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
+**Version:** 0.14.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -517,7 +517,50 @@ omgivning, vilket är precis det §7.2:s sista stycke beskriver.
 
 ---
 
+## #16 — Förmedlade offertförfrågningar är kunder
+
+**Datum:** 2026-08-26 · **Berör:** `config/maskindomaner-forbjudna.yaml`, #12, #14
+
+**Beslut av Lars.** Följande domäner får ALDRIG klassas som maskinmail, oavsett
+vad härledningen föreslår: `bokadirekt.se` med subdomäner, `autobutler.se`,
+`hittabilverkstad.nu`, `verkstadsdeal.se` och `verkstadsoffert.se`. Undantagna
+är `support.autobutler.se` och `bokadirekt-b88c555211e9.intercom-mail.com`, som
+är supportkanaler. `googlemail.com` får aldrig in, eftersom det är Gmails
+konsumentaliasdomän.
+
+**Skälet, med Lars ord.** En förmedlad offertförfrågan är en kund, och en domän
+som råkar skicka den maskinellt är fortfarande en kund.
+
+**Uppmätt effekt.** Samma material, listan tom mot ifylld:
+
+| Skörd | Maskinmail utan listan | Med listan | Räddade |
+| --- | --- | --- | --- |
+| besvarade | 200 | 187 | 13 |
+| obesvarade | 1295 | 934 | 361 |
+
+**374 trådar var alltså på väg att kastas.** Den mänskliga korpusen växte från
+520 till 894 trådar, alltså med sjuttiotvå procent.
+
+**Vad det säger om metoden.** Klassningen på huvuden är rätt som förval, men den
+kan inte skilja maskinell FORM från maskinellt INNEHÅLL. Den skillnaden kräver
+verksamhetskunskap om vilka förmedlare som bär affär, och den kunskapen finns
+hos Lars och inte i materialet. Härledningen i #14 hade aldrig kunnat nå
+slutsatsen: den föreslog tvärtom precis de domänerna som maskinmail.
+
+**Domänlistan i övrigt förblir tom**, enligt #14. Den öppnas först när något
+visar att den behövs.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.14.0 — 2026-08-26
+
+Post **#16** tillkommer: förbudslistan över domäner som aldrig får klassas som
+maskinmail, på beslut av Lars. Den räddade 374 trådar och lät den mänskliga
+korpusen växa från 520 till 894.
+
+Ny post ⇒ MINOR.
 
 ### 0.13.0 — 2026-08-26
 

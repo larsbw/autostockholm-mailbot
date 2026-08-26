@@ -1,0 +1,29 @@
+# Domäner som ALDRIG får klassas som maskinmail.
+#
+# BESLUT AV LARS, skiva 8. Listan går före härledningen, före domänlagret och
+# före allt annat i `src/klassa_maskin.py`.
+#
+# SKÄLET: en förmedlad offertförfrågan är en KUND, och en domän som råkar
+# skicka den maskinellt är fortfarande en kund. Formen är maskinell, innehållet
+# är affär. Att klassa dem som maskinmail hade kastat kundärenden ur underlaget
+# och gjort boten blind för en hel inflödeskanal.
+#
+# `googlemail.com` står här av ett annat skäl: det är Gmails
+# konsumentaliasdomän, alltså privatpersoner. En härledning som fick med den
+# hade klassat varje framtida kund med en sådan adress som maskinmail.
+#
+# UNDANTAGEN nedan är supportkanaler, inte kundkanaler, och får klassas som
+# maskin. De är mer specifika än sina moderdomäner och prövas därför först.
+
+aldrig_maskin:
+  - bokadirekt.se
+  - autobutler.se
+  - hittabilverkstad.nu
+  - verkstadsdeal.se
+  - verkstadsoffert.se
+  - googlemail.com
+
+# Undantag från listan ovan. Matchas EXAKT och slår igenom subdomänregeln.
+undantag:
+  - support.autobutler.se
+  - bokadirekt-b88c555211e9.intercom-mail.com

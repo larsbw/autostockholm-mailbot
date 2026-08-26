@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.7.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.8.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -39,6 +39,7 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 | `maskering-persondata` | Att persondata når ett dokument under `docs/` | `test_ord_vid_meningsstart_maskeras_ocksa` | `src/cluster.py::namn_i_korpus`, i en ANNAN fil, och `scripts/persondatakontroll.py`. Se posten. |
 | `klassning-maskinmail` | Att nyhetsbrev och notiser blir kundärenden | `test_vanligt_kundmail_ar_inte_maskinmail` | Fyra lager plus ett UNDANTAG. Se posten. |
 | `persondatakontroll` | Att en commit för in persondata i `docs/` | `test_ren_text_ger_inga_fynd` | `maskering-persondata`. Sista linjen, inte den enda. |
+| `forbjudna-maskindomaner` | Att en förmedlad kundförfrågan kastas som maskinmail | `test_liknande_doman_skyddas_inte_av_misstag` | Går FÖRE `klassning-maskinmail`. Se posten. |
 
 ---
 
@@ -221,6 +222,45 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 
 ---
 
+## `forbjudna-maskindomaner`
+
+- **Spärr.** `src/klassa_maskin.py::ar_forbjuden`, läst ur den committade
+  `config/maskindomaner-forbjudna.yaml`. Den prövas FÖRST i `skal_maskinmail`,
+  före undantaget och före alla fyra lager, och den styr också vad
+  `harled_domaner` får föreslå.
+- **Vad den skyddar mot.** **En förmedlad offertförfrågan är en KUND, och en
+  domän som råkar skicka den maskinellt är fortfarande en kund.** Formen är
+  maskinell, innehållet är affär. Utan spärren kastades hela inflödeskanaler ur
+  underlaget, och boten hade blivit blind för dem.
+
+  `googlemail.com` står på listan av ett annat skäl: det är Gmails
+  konsumentaliasdomän, alltså privatpersoner. En härledning som fick med den
+  hade klassat varje framtida kund med en sådan adress som maskinmail.
+- **UPPMÄTT EFFEKT.** Med listan tom mot med listan ifylld, samma material:
+
+  | Skörd | Maskinmail utan listan | Med listan | Räddade |
+  | --- | --- | --- | --- |
+  | besvarade | 200 | 187 | 13 |
+  | obesvarade | 1295 | 934 | 361 |
+
+  361 obesvarade trådar var alltså förmedlade kundärenden på väg att kastas.
+  Det är verksamhetskunskap som ingen härledning kunde ha nått: listan är Lars
+  beslut, inte kodens.
+- **Negativkontroll.** `test_liknande_doman_skyddas_inte_av_misstag` visar att
+  spärren SLÄPPER IGENOM en domän som bara slutar på samma bokstäver.
+  `test_undantaget_ar_mer_specifikt_och_provas_forst` visar att en supportkanal
+  under en skyddad moderdomän fortfarande får klassas som maskin.
+- **Redundant med.** Ingen. Den är ensam om sitt fall och går FÖRE
+  `klassning-maskinmail`, som annars hade fällt samma post. Ordningen är
+  spärren: byts den blir listan verkningslös utan att något test blir rött, om
+  inte `test_forbudslistan_gar_fore_maskinhuvuden` finns. Det gör det.
+
+  **Undantagen prövas före moderdomänen**, eftersom de är mer specifika.
+  `support.autobutler.se` är en supportkanal medan `autobutler.se` är en
+  kundkanal.
+
+---
+
 ## `persondatakontroll`
 
 - **Spärr.** `scripts/persondatakontroll.py` vägrar en commit vars STAGADE
@@ -273,6 +313,18 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.8.0 — 2026-08-26
+
+Spärren `forbjudna-maskindomaner` registrerad, på beslut av Lars i skiva 8.
+Listan går före all klassning och styr också vad härledningen får föreslå.
+
+Den räddade 361 obesvarade och 13 besvarade trådar som var på väg att kastas som
+maskinmail. Det var förmedlade kundärenden: formen maskinell, innehållet affär.
+Ingen härledning hade kunnat nå den slutsatsen, eftersom den kräver
+verksamhetskunskap om vilka förmedlare som bär affär.
+
+Ny post ⇒ MINOR.
 
 ### 0.7.0 — 2026-08-26
 
