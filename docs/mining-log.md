@@ -68,3 +68,4 @@ faller, i stället för att en förbrukad kvot försvinner tyst. Ny kolumn ⇒ M
 Dokumentet upprättat i samma skiva som `src/mine.py`, eftersom koden appendar hit
 enligt §8 och inte ska skapa styrdokument på egen hand. Ingen körning loggad:
 skivan rörde aldrig brevlådan.
+| 2026-08-26 11:38 UTC | `in:sent` | 50 | 51 | 2010 | fullständig |
