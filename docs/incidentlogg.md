@@ -1,7 +1,6 @@
 # Incidentlogg
 
-**Version:** 0.2.1 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.2 §0 ·
-beslutslogg: ingen post rör incidenterna ännu
+**Version:** 0.3.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §0
 
 Varje regel som bärs av en incident bor här. Dokumentet finns för att förlagornas
 styrka är att en härdad regel namnger det fel som skapade den. En regel utan
@@ -123,6 +122,11 @@ skriva posten ännu, inte ett skäl att lämna fältet tomt.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.3.0 — 2026-08-26
+
+**`Speglar` ersätts av en sektionspekare utan versionsnummer**, beslut av Lars i
+skiva 3. Ingen incidentpost ändrad. ⇒ MINOR.
 
 ### 0.2.1 — 2026-08-26
 

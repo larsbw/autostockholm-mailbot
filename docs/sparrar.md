@@ -1,7 +1,6 @@
 # Spärrar
 
-**Version:** 0.2.3 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.2 §7.1 ·
-beslutslogg: ingen post rör spärrarna ännu
+**Version:** 0.3.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §7.1
 
 **Sändvägens spärrar är ännu inte byggda och fylls i FAS 5.** En spärr är
 registrerad, och den kommer inte från sändvägen utan från mining.
@@ -93,6 +92,13 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.3.0 — 2026-08-26
+
+**`Speglar` ersätts av en sektionspekare utan versionsnummer.** Den öppna fråga
+som 0.2.2 ställde till Lars är därmed besvarad: pekaren ska inte bära patchnivå.
+Skälet står i den posten och upprepas inte här. Ändrad form på versionshuvudet
+⇒ MINOR.
 
 ### 0.2.3 — 2026-08-26
 

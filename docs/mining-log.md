@@ -1,7 +1,6 @@
 # Mining-logg
 
-**Version:** 0.2.3 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.2 §8 ·
-beslutslogg #1
+**Version:** 0.3.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
 
 Varje körning av `src/mine.py` mot brevlådan appendas här av koden, aldrig för
 hand. Kolumnerna är de §8 kräver: datum, Gmail-query, antal träffar och åtgången
@@ -27,6 +26,12 @@ committat och lyder under CLAUDE.md §6.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.3.0 — 2026-08-26
+
+**`Speglar` ersätts av en sektionspekare utan versionsnummer**, beslut av Lars i
+skiva 3. Synkposterna 0.2.1 till 0.2.3 i den här filen är just de innehållslösa
+poster som ändringen finns för att slippa. Ingen körning loggad. ⇒ MINOR.
 
 ### 0.2.3 — 2026-08-26
 

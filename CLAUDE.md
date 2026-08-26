@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.3.2 · **Uppdaterad:** 2026-08-26 · **Speglar:** beslutslogg #4
+**Version:** 0.4.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** beslutslogg #4
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -17,7 +17,9 @@ Ett skickat mail går inte att ångra, och avsändaren är ett företags rykte.
   klientdata i `client_secret.json`. Båda gitignorerade.
 - **Stack:** Python · google-api-python-client · Anthropic API (klassificering och
   generering) · lokal disk för data och loggar. Ingen molndrift, ingen extern databas.
-- **Styrdokument:** `docs/kategorier.md` (kategoridefinitioner och deras hink),
+- **Styrdokument:** `docs/roadmap.md` (fasordning, grindar, och definitionen av
+  SKUGGLÄGE),
+  `docs/kategorier.md` (kategoridefinitioner och deras hink),
   `docs/sparrar.md` (varje spärr, vad den skyddar mot, dess negativkontroll, och om
   den är redundant med någon annan spärr),
   `docs/beslutslogg.md` (sekventiell, append-only),
@@ -125,6 +127,14 @@ och changelog-formuleringar, korsreferensform: EN granskningsomgång, därefter 
 med status utskriven, *"självmätt, inte oberoende granskad"*. Undantaget måste åberopas
 aktivt, omfattar aldrig sändvägen, och rättfärdigar aldrig att skeppa ett känt falskt
 påstående. Noll omgångar är aldrig tillåtet.
+
+**NÄR undantaget ska åberopas, inte bara att det får.** En skiva vars leverabler är
+enbart dokument åberopar undantaget som FÖRVAL. Undantaget åberopas per skiva, i
+briefen eller i första meddelandet, aldrig per fynd i efterhand. Att åberopa det efter
+ett underkännande vore att sänka kraven mitt i grinden, vilket §7 förbjuder.
+
+Bär skivan både dokument och kod gäller förvalet bara dokumentdelen. Koden, och varje
+verifiering mot brevlådan, får full §7 som vanligt.
 
 ### 7.1 Vakuösa test — ett grönt test som inte kan bli rött
 
@@ -337,10 +347,16 @@ parallellt och går före vid konflikt.
 
 ## 12. Dokumentkonventioner & färskhetskontroll
 
-**Vid sessionsstart, och innan något påstås om nuläget:** kör färskhetstriangeln.
-(1) styrdokumentens versionshuvuden, (2) högsta numret i `docs/beslutslogg.md`,
-(3) korsreferenserna dem emellan. Är de överens är nuläget avläst. Är de oense: synka
-om innan du påstår något. Gissa inte vilken signal som har rätt.
+**Vid sessionsstart, och innan något påstås om nuläget:** kör färskhetskontrollen.
+(1) det här dokumentets `Speglar`, (2) högsta numret i `docs/beslutslogg.md`. Är de
+överens är nuläget avläst. Är de oense: synka om innan du påstår något. Gissa inte
+vilken signal som har rätt.
+
+Numret läses ur `grep -n "^## #" docs/beslutslogg.md`, aldrig ur minnet av vad det
+stod på sist. **Bara CLAUDE.md bär en pekare med versionsnummer.** Övriga styrdokument
+namnger i stället vilken paragraf de implementerar, eftersom en pekare med patchnivå
+blir gammal av varje rättelse här och tvingar fram innehållslösa versionsposter i varje
+dokument som pekar. Se `docs/beslutslogg.md` 0.6.0.
 
 **Varje slutrapport avslutas med en MASKINPRODUCERAD statusrad över kategorierna:**
 `.venv/bin/python scripts/kategoristatus.py`. Raden får **aldrig skrivas för hand**.
@@ -375,6 +391,33 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.4.0 — 2026-08-26
+
+**§7:s dokumentundantag får en regel om NÄR det ska åberopas.** Undantaget har
+funnits sedan 0.2.0 och åberopades aldrig, eftersom ingenting sade när. Följden
+är mätbar: skiva 1 och skiva 2 gick båda tre granskningsvarv på prosa och blev
+båda UNDERKÄNDA, medan sändvägen fortfarande är obyggd. En skiva vars leverabler
+är enbart dokument åberopar nu undantaget som förval, och åberopandet sker per
+skiva i briefen, aldrig per fynd i efterhand. Det senare vore att sänka kraven
+mitt i grinden.
+
+**Kaskaden stängs.** Bara det här dokumentet bär en pekare med versionsnummer.
+Övriga styrdokument namnger vilken paragraf de implementerar. §12:s
+färskhetskontroll är omskriven därefter: den jämförde tidigare korsreferenser som
+nu avsiktligt är borta. Beslut av Lars i skiva 3, som svar på den öppna fråga
+`docs/sparrar.md` ställde i sin 0.2.2-post.
+
+**`docs/roadmap.md` upprättas och listas i §0.** Den bär fasordningen, varje fas
+grindbeslut, och definitionen av SKUGGLÄGE.
+
+**Rättelse i 0.3.1-posten.** Den sa att `shadow mode` inte var definierat
+någonstans i repot. Det påståendet blev falskt av `docs/roadmap.md`, som skapades
+i samma skiva. Falskheten är struken på plats och strykningen redovisas här,
+enligt undantaget i `docs/beslutslogg.md`:s huvud. Den engelska formen används
+inte längre; termen är SKUGGLÄGE.
+
+Ny regel i §7 ⇒ MINOR.
 
 ### 0.3.2 — 2026-08-26
 
@@ -450,14 +493,13 @@ läses som en kalibrerad tröskel, vilket den aldrig var. Ettan är golvet och �
 därför inget påstående om volym. Talet revideras när mining visat den faktiska
 dagsvolymen. Raden behåller sin pekare hit.
 
-Lars motiverade sänkningen med att ingenting skickas under shadow mode och att
-första skarpa sändningen är manuell. **Det återges här som hans plan, inte som ett
-förhållande i repot:** `shadow mode` är inte definierat någonstans i koden, i
-konfigurationen eller i styrdokumenten. Det finns ingen kod som implementerar
-ett sådant läge och ingen post som inför det. Sänkningen vilar inte på
-begreppet, utan på att 1 är golvet, så motiveringen håller även om shadow mode
-aldrig införs. Begreppet ska definieras eller strykas när sändvägen börjar
-byggas.
+Lars motiverade sänkningen med att ingenting skickas under skuggläge och att
+första skarpa sändningen är manuell. Sänkningen vilar inte på begreppet, utan på
+att 1 är golvet, så motiveringen hade hållit även utan det.
+
+*Rättelse i 0.4.0: posten sa här att begreppet inte var definierat någonstans.
+Det är det nu. SKUGGLÄGE definieras i `docs/roadmap.md`, och den engelska formen
+`shadow mode` används inte längre i repot.*
 
 **§0:s styrdokumentlista räknade upp `docs/incidentlogg.md` medan filen inte
 fanns.** Filen är nu upprättad och bär sin första post, I1, om defaultvärden som

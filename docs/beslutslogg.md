@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.5.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.2
+**Version:** 0.6.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -146,6 +146,20 @@ och rad, räkna och kategorisera aldrig sin egen omgivning.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.6.0 — 2026-08-26
+
+**`Speglar` ersätts av en sektionspekare utan versionsnummer.** En pekare som bär
+ett versionsnummer blir gammal av varje PATCH i CLAUDE.md, och tvingade fram
+innehållslösa versionsposter i vart och ett av de dokument som pekade. Pekaren
+säger nu vilken paragraf dokumentet implementerar, vilket är det som faktiskt är
+stabilt.
+
+Beslut av Lars i skiva 3, som svar på den öppna fråga `docs/sparrar.md` ställde i
+sin 0.2.2-post. Bara CLAUDE.md behåller `Speglar`, och den pekar på den här
+loggen.
+
+Ändrad form på versionshuvudet ⇒ MINOR.
 
 ### 0.5.0 — 2026-08-26
 
