@@ -107,21 +107,49 @@ def etikettrader(poster: list[dict]) -> list[str]:
     return [f"{etikett} ({styck})" for etikett, styck in ordnade]
 
 
+# Ledande numrering, bindestreck eller punkt i modellens listsvar.
+# `SYSTEM_PASS1` förbjuder dem, men en modell som ändå punktar listan ska inte
+# kosta 210 anrop, och det är billigare att skala av dem än att förlita sig på
+# att instruktionen följs.
+LISTPREFIX = re.compile(r"^\s*(?:\d+[.)]|[-*•])\s*")
+
+# En taxonomi som bara bär `övrigt` är inte en taxonomi. Golvet finns för att
+# pass 1 ska FALLA HÖGLJUTT i stället för att pass 2 ska etikettera hela
+# korpusen som `övrigt` till priset av 210 anrop.
+MINSTA_TAXONOMI = 2
+
+
 def las_taxonomi(ratext: str) -> list[str]:
     """Modellens svar till en lista, avdubblad och med ordningen bevarad.
 
     Varje rad normaliseras med samma regel som pass 2:s svar, så att listan
     och etiketterna är jämförbara. En rad som inte klarar normaliseringen
     släpps: den är inte en kategori.
+
+    Ledande numrering och punkter skalas av först. Utan det gav ett numrerat
+    svar en taxonomi på ett enda element, `övrigt`, och pass 2 etiketterade då
+    hela korpusen som `övrigt` utan varning. §7-granskningen av skiva 9 mätte
+    upp det.
     """
     lista: list[str] = []
     for rad in ratext.splitlines():
-        namn = kategorisera.normalisera(rad)
+        namn = kategorisera.normalisera(LISTPREFIX.sub("", rad))
         if namn in ("oklart", "inget kundärende") or namn in lista:
             continue
         lista.append(namn)
     if OVRIGT not in lista:
         lista.append(OVRIGT)
+    if len(lista) < MINSTA_TAXONOMI:
+        raise SystemExit(
+            "Pass 1 gav ingen användbar taxonomi.\n"
+            "\n"
+            f"Efter normalisering återstod {len(lista)} kategori, och en\n"
+            "taxonomi som bara bär `övrigt` hade etiketterat hela korpusen\n"
+            "som `övrigt`. Kör pass 1 igen, eller läs modellens råa svar.\n"
+            "\n"
+            "Körningen stoppas HÄR, före pass 2, så att felet kostar ett\n"
+            "anrop och inte tvåhundratio."
+        )
     return lista
 
 
@@ -287,7 +315,40 @@ def skriv_rapport(sammanstallning: list[dict], utfil: Path, antal: int,
     for rad in sammanstallning:
         rader.append(f"| {rad['etikett']} | {rad['antal']} | "
                      f"{rad['med_svar']} | {rad['utan_svar']} |")
-    rader.append("")
+
+    # §8: en ändring utan appendixpost är en ospårbar ändring. Filen är
+    # maskinproducerad, så appendixet skrivs av koden. Skiva 9 höjde versionen
+    # från 0.2.0 till 0.3.0 och tog samtidigt bort hela historiken, eftersom
+    # den förra skrivaren bar den i sin mall och den här inte gjorde det.
+    rader += [
+        "",
+        "---",
+        "",
+        "## Appendix — versionshistorik (nyaste överst)",
+        "",
+        "### 0.3.0 — 2026-08-26",
+        "",
+        "Den fria etiketteringen ersatt av två pass. Pass 1 konsoliderar "
+        "etiketterna till en fast taxonomi i ett anrop, pass 2 etiketterar om "
+        "kundärendena mot den. Den fria omgången gav en etikett per "
+        "formulering och inte per ärendetyp. Se beslutslogg #18.",
+        "",
+        # De två posterna nedan är återgivna ORDAGRANT ur filen som den såg ut
+        # i `196e60a`. Skiva 9 höjde versionen till 0.3.0 och tog samtidigt
+        # bort hela historiken, eftersom den här skrivaren inte bar något
+        # appendix. Historik återskapas genom att kopieras, aldrig genom att
+        # skrivas om ur minnet.
+        "### 0.2.0 — 2026-08-26",
+        "",
+        "Klustringen ersatt av kategorisering med Anthropic API. TF-IDF "
+        "grupperade på avsändarens mall i stället för på kundens ärende, och "
+        "det mänskliga materialet hamnade i restposten. Se beslutslogg #9.",
+        "",
+        "### 0.1.0 — 2026-08-26",
+        "",
+        "Filen upprättad av `src/cluster.py`.",
+        "",
+    ]
     utfil.write_text("\n".join(rader), encoding="utf-8")
 
 

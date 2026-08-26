@@ -146,12 +146,16 @@ kommentaren beskriver är kod och omfattas inte.
 Bär skivan både dokument och kod gäller förvalet bara dokumentdelen. Koden, och varje
 verifiering mot brevlådan, får full §7 som vanligt.
 
-Skälet är mätt, inte principiellt. Undantaget fanns i sju av åtta skivor och åberopades
-i en. Följden var att granskningsgrinden maldes på prosa i skiva efter skiva medan
-kravet på undantaget, att det ska åberopas per skiva och inte per fynd, gjorde det
-oanvändbart för en skiva som bygger kod. **En regel som gör systemet oanvändbart
-börjar ignoreras**, och det är samma skäl som ligger bakom 0.5.0. Se
-`docs/incidentlogg.md` I3.
+Skälet är mätt, inte principiellt. Undantaget har funnits sedan repots första commit
+och åberopades sällan: före skiva 9 i `e9a6772` och `c8b1214`, och inte däremellan.
+**Talet skrivs inte ut här**, eftersom varje skiva som åberopar undantaget ändrar det,
+och en mening som räknar sin egen omgivning blir falsk av just den commit som skriver
+den. Kör `git log --all --oneline --grep="dokumentdetaljundantag"` för dagens läge.
+
+Följden var att granskningsgrinden maldes på prosa i skiva efter skiva medan kravet på
+undantaget, att det ska åberopas per skiva och inte per fynd, gjorde det oanvändbart
+för en skiva som bygger kod. **En regel som gör systemet oanvändbart börjar ignoreras**,
+och det är samma skäl som ligger bakom 0.5.0. Se `docs/incidentlogg.md` I3.
 
 **RÄTTELSETEXT GRANSKAS SOM NY TEXT.** En mening skriven för att rätta ett fynd bär
 inte lägre bevisbörda än den den ersätter. **Granskaren prövar rättelsen mot källan,
@@ -455,12 +459,18 @@ commitmeddelande är text om kod och omfattas, medan villkoret kommentaren beskr
 skiva, i briefen, och förbjöd samtidigt att det åberopas per fynd i efterhand. En
 skiva som bygger kod hade därmed ingen väg som var både tillåten och användbar.
 `docs/incidentlogg.md` I3 mäter upp följden: undantaget har funnits sedan repots
-första commit och åberopats i två skivor, avläst ur
-`git log --all --oneline --grep="dokumentdetaljundantag"`.
+första commit och åberopades före den här skivan bara i `e9a6772` och `c8b1214`.
 
 I3 redovisar också att två led i Lars instruktion inte gick att belägga i repot,
 och skriver ut vilka i stället för att återge dem. Det är §7.2 tillämpad på den
 egna briefen.
+
+**Regeltexten i §7 bar först Lars tal ordagrant**, alltså "sju av åtta skivor och
+åberopades i en", samtidigt som I3 i samma commit skrev att talen inte gick att
+belägga. Granskningen av skiva 9 fällde det. Ett känt falskt tal stod alltså i den
+obrytbara regeltexten, infört av samma commit som skrev att det inte skrevs, och i
+det stycke som inför regeln mot precis den defekten. Talet är borttaget: ingen
+mening här räknar längre sin egen omgivning.
 
 Mekanismen bakom den andra regeln är densamma som i 0.5.0: **en regel som gör
 systemet oanvändbart börjar ignoreras, och en ignorerad regel skyddar ingenting.**

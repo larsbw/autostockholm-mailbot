@@ -86,3 +86,19 @@ Texter i underlaget: 795
 | ge feedback | 1 | 1 | 0 |
 | fråga om däckförvaring | 1 | 1 | 0 |
 | fråga om pris tillbehör | 1 | 1 | 0 |
+
+---
+
+## Appendix — versionshistorik (nyaste överst)
+
+### 0.3.0 — 2026-08-26
+
+Den fria etiketteringen ersatt av två pass. Pass 1 konsoliderar etiketterna till en fast taxonomi i ett anrop, pass 2 etiketterar om kundärendena mot den. Den fria omgången gav en etikett per formulering och inte per ärendetyp. Se beslutslogg #18.
+
+### 0.2.0 — 2026-08-26
+
+Klustringen ersatt av kategorisering med Anthropic API. TF-IDF grupperade på avsändarens mall i stället för på kundens ärende, och det mänskliga materialet hamnade i restposten. Se beslutslogg #9.
+
+### 0.1.0 — 2026-08-26
+
+Filen upprättad av `src/cluster.py`.

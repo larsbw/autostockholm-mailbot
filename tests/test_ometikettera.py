@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from src import kategorisera, ometikettera
 from tests.test_kategorisera import FejkKlient
 
@@ -218,9 +220,21 @@ def test_rapporten_namner_ingen_hinktilldelning(tmp_path):
     assert "INGEN HINKTILLDELNING" in utfil.read_text(encoding="utf-8")
 
 
-def test_rapporten_bar_inga_citat(tmp_path):
-    """§6. Citaten hör hemma i den gitignorerade exempelfilen, aldrig i
-    `docs/`. Skiva 6 och 7 hade båda persondata nära en commit."""
+def test_rapporten_skriver_bara_de_fyra_kolumnerna(tmp_path):
+    """REGRESSIONSVAKT, inte spärrtest, och skillnaden ska stå här.
+
+    `skriv_rapport` läser aldrig `rad['exempel']`. Testets påstående bärs alltså
+    av FRÅNVARO av kod, och det finns ingen rad att fälla: den enda mutation som
+    gör testet rött är ett TILLÄGG som börjar skriva ut exempel. §7-granskningen
+    av skiva 9 fällde den tidigare lydelsen, som hette
+    `test_rapporten_bar_inga_citat` och läste som ett spärrtest.
+
+    Vakten är ändå värd att ha. Skulle någon lägga till ett exempelfält i
+    rapporten går den röd, och §6 säger att citaten hör hemma i den
+    gitignorerade exempelfilen och aldrig i `docs/`. Den spärr som faktiskt
+    biter mot persondata är `scripts/persondatakontroll.py`, som vägrar
+    committen, och den har egna test.
+    """
     utfil = tmp_path / "kategorier.md"
     sammanstallning = [{"etikett": "boka service", "antal": 1, "med_svar": 1,
                         "utan_svar": 0,
@@ -318,3 +332,65 @@ def test_svenska_tecken_skrivs_inte_som_escape(tmp_path):
     ometikettera.skriv_ometiketterade([_post("boka däckbyte")], utfil)
 
     assert "däckbyte" in utfil.read_text(encoding="utf-8")
+
+
+# --- taxonomins golv och listprefix ------------------------------------------
+
+
+def test_numrerad_lista_ger_anda_kategorier():
+    """`SYSTEM_PASS1` förbjuder numrering, men en modell som ändå numrerar ska
+    inte kosta 210 anrop. Utan avskalningen gav svaret nedan taxonomin
+    `['övrigt']`, och pass 2 etiketterade hela korpusen som `övrigt`."""
+    lista = ometikettera.las_taxonomi("1. boka service\n2. boka tid\n")
+
+    assert lista == ["boka service", "boka tid", "övrigt"]
+
+
+def test_punktad_lista_ger_anda_kategorier():
+    lista = ometikettera.las_taxonomi("- boka service\n* boka tid\n")
+
+    assert lista == ["boka service", "boka tid", "övrigt"]
+
+
+def test_taxonomi_utan_kategorier_faller_korningen():
+    """Golvet. En taxonomi som bara bär `övrigt` är ingen taxonomi, och felet
+    ska kosta ETT anrop och inte tvåhundratio."""
+    with pytest.raises(SystemExit) as fel:
+        ometikettera.las_taxonomi("")
+
+    assert "ingen användbar taxonomi" in str(fel.value)
+
+
+def test_en_enda_riktig_kategori_racker():
+    """Gränsvärdet. Golvet är två poster, och `övrigt` läggs alltid till, så en
+    riktig kategori räcker."""
+    assert ometikettera.las_taxonomi("boka service") == ["boka service",
+                                                         "övrigt"]
+
+
+# --- rapportens appendix -----------------------------------------------------
+
+
+def test_rapporten_bar_ett_appendix(tmp_path):
+    """§8: en ändring utan appendixpost är en ospårbar ändring. Filen är
+    maskinproducerad, så appendixet skrivs av koden."""
+    utfil = tmp_path / "kategorier.md"
+
+    ometikettera.skriv_rapport([], utfil, 0, ["övrigt"], "modell-x")
+
+    text = utfil.read_text(encoding="utf-8")
+    assert "## Appendix — versionshistorik" in text
+    assert "### 0.3.0" in text
+
+
+def test_appendixet_behaller_de_aldre_posterna(tmp_path):
+    """Skiva 9 höjde versionen och tog samtidigt bort hela historiken. Den
+    återskapas genom att kopieras ur `196e60a`, aldrig ur minnet."""
+    utfil = tmp_path / "kategorier.md"
+
+    ometikettera.skriv_rapport([], utfil, 0, ["övrigt"], "modell-x")
+
+    text = utfil.read_text(encoding="utf-8")
+    assert "### 0.2.0 — 2026-08-26" in text
+    assert "### 0.1.0 — 2026-08-26" in text
+    assert "Se beslutslogg #9." in text

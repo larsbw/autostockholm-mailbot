@@ -369,7 +369,11 @@ Det är samma felklass som posten själv rättar, en version senare, i samma fil
 skrev att raderna för `nollfall-max-threads` och `urval-gmail-svar` båda skriver ut
 "Sig själv, två lager". Raden för `urval-gmail-svar` skriver "sex lager". Rättat.
 
-Två strykningar och en rättad ordalydelse ⇒ MINOR.
+En strykning och en rättad ordalydelse ⇒ MINOR.
+
+*Rättelse i 0.11.1: här stod "Två strykningar". Diffen bär en, i 0.8.0-posten.
+§7.2:s krav på att självrapportering verifieras mot diffen, inte mot minnet av
+avsikten.*
 
 ### 0.10.0 — 2026-08-26
 
@@ -401,6 +405,11 @@ och kommandot inleds med den `grep` som ger raderna.
 bara sa "Går FÖRE `klassning-maskinmail`". En granskare som stannar vid
 tabellen fick alltså kvar exakt den signal som orsakade det falska verdiktet.
 Rättat.
+
+*Rättelse i 0.11.1: stycket ovan skrevs om på plats i skiva 9. Det sa tidigare
+att BÅDA raderna skriver ut "Sig själv, två lager"; raden för
+`urval-gmail-svar` skriver "sex lager". Omskrivningen saknade den här noten,
+vilket är samma formfel som 0.9.0 rättade i en annan post.*
 
 Rättade påståenden och en ny mätning ⇒ MINOR.
 

@@ -1,6 +1,6 @@
 # Incidentlogg
 
-**Version:** 0.4.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §0
+**Version:** 0.4.1 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §0
 
 Varje regel som bärs av en incident bor här. Dokumentet finns för att förlagornas
 styrka är att en härdad regel namnger det fel som skapade den. En regel utan
@@ -98,7 +98,13 @@ modulkonstant skyddar ingenting om anropet läser konstanten via ett defaultvär
 underkändes i alla tre. I varje varv satt minst ett fynd i den text som skrivits
 för att rätta föregående varvs fynd.
 
-Kedjan, med varje led belagt i `docs/sparrar.md`:s egen versionshistorik:
+Kedjan nedan. **Beläggen ligger på två ställen**, och det ska stå här eftersom
+den första lydelsen sa att varje led var belagt i `docs/sparrar.md`:s
+versionshistorik. Det gäller bara de två led som rör spärrdokumentet självt,
+alltså `forbjudna-maskindomaner`-ledet i 0.9.0 och 0.10.0 och "sex lager"-ledet i
+0.11.0. De övriga leden rör `.env`-parsern och testerna, och de beläggs i
+`src/kategorisera.py` och `tests/test_kategorisera.py`. `grep -n "splitlines"
+docs/sparrar.md` ger noll träffar, vilket är hela poängen med att skriva ut det.
 
 - **Varv 1** underkände `.env`-parserns kodkommentar, som sa att formen
   `ANTHROPIC_API_KEY=värde` var obligatorisk medan parsern accepterade
@@ -144,31 +150,41 @@ rättelsen mot källan, inte mot fyndet den svarar på. Se CLAUDE.md §7.
 
 ---
 
-## I3 — Ett undantag som funnits sedan första committen och åberopades i två skivor
+## I3 — Ett undantag som funnits sedan första committen och nästan aldrig åberopades
 
 **Datum:** 2026-08-26 · **Uppmätt i:** skiva 9, om skivorna 1 till 8 ·
 **Berör:** `CLAUDE.md` §7
 
 **Vad som hände.** §7:s dokumentdetaljundantag har funnits sedan repots första
-commit. Det åberopades i två skivor.
+commit och åberopades före skiva 9 i `e9a6772` (skiva 3) och `c8b1214` (skiva 8),
+och inte däremellan. Undantagets ålder är avläst ur CLAUDE.md 0.4.0, som skriver
+att det funnits sedan `f9b680a`.
 
-Avläst ur `git log --all --oneline --grep="dokumentdetaljundantag"`, som ger
-`e9a6772` (skiva 3) och `c8b1214` (skiva 8). Undantagets ålder är avläst ur
-CLAUDE.md 0.4.0, som skriver att det funnits sedan `f9b680a`.
+**POSTEN SKRIVER INGET TOTALTAL, och det är en rättelse.** Den första lydelsen
+sa "åberopades i två skivor" och angav
+`git log --all --oneline --grep="dokumentdetaljundantag"` som belägg. Kommandot
+gav tre träffar redan när posten committades, eftersom skiva 9:s egen commit
+åberopar undantaget i sitt meddelande. Meningen blev alltså falsk av just den
+commit som skrev den, vilket är ordagrant det CLAUDE.md 0.3.1 förbjuder: skriv
+aldrig en mening som räknar sin egen omgivning. Posten namnger därför de
+committar som fanns FÖRE skivan, vilket är stabila fakta, och överlåter dagens
+läge åt den som kör kommandot.
 
 **Talet i Lars instruktion stämmer inte, och det redovisas hellre än rättas
 tyst.** Instruktionen till skiva 9 sa "åtta skivor, åtta underkännanden.
-Undantaget fanns i sju av dem och åberopades i en." Två av leden går inte att
-belägga i repot:
+Undantaget fanns i sju av dem och åberopades i en." Båda leden faller:
 
-- **"åberopades i en" är två.** Se `grep`-utdatan ovan.
-- **"åtta underkännanden" går inte att läsa någonstans.** Granskningsrapporterna
-  ligger i den gitignorerade `scratchpad/`, och en räkning av granskningsvarv är
-  dessutom precis den processräkning §7.2 förbjuder. Ingen siffra skrivs.
+- **"åberopades i en"** stämmer inte mot loggen. `e9a6772` och `c8b1214` är två,
+  och de fanns båda före skivan.
+- **"fanns i sju av åtta"** stämmer inte mot åldern. Undantaget fanns i `f9b680a`,
+  alltså före skiva 1, och därmed i varje skiva.
+- **"åtta underkännanden" går inte att läsa någonstans i repot.**
+  Granskningsrapporterna ligger i den gitignorerade `scratchpad/`. Ingen siffra
+  skrivs.
 
-Det som faktiskt är mätbart, och som bär regeln, är att undantaget under hela
-projektets historik åberopades i två committade skivor trots att varje skiva har
-producerat dokumentdetaljer.
+Det som faktiskt är mätbart, och som bär regeln, är att undantaget fanns hela
+tiden och åberopades i två committar trots att varje skiva har producerat
+dokumentdetaljer.
 
 **Vad det kostade.** Granskningsgrinden maldes på prosaformuleringar i skiva efter
 skiva medan sändvägen förblev obyggd. Samma observation gjordes redan i CLAUDE.md
@@ -226,23 +242,50 @@ skriva posten ännu, inte ett skäl att lämna fältet tomt.
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.4.1 — 2026-08-27
+
+Rättelser efter §7-granskningen av skiva 9, som underkände 0.4.0:s poster på tre
+punkter. Alla tre satt i text skriven för att rätta ett tidigare fynd, vilket är
+precis vad I2 handlar om.
+
+- **I2 påstod att varje led var belagt i `docs/sparrar.md`.** Fem av sju led
+  beläggs i `src/kategorisera.py` och `tests/test_kategorisera.py`.
+  `grep -n "splitlines" docs/sparrar.md` ger exit 1. Posten skriver nu ut
+  uppdelningen.
+- **I3:s grep-mening blev falsk av sin egen commit.** Den sa att kommandot ger två
+  träffar; det gav tre redan när posten committades, eftersom skiva 9:s eget
+  commitmeddelande åberopar undantaget. Posten namnger nu de committar som fanns
+  före skivan och överlåter dagens läge åt den som kör kommandot. Rubriken följde
+  med.
+- **I3 kallade "åtta underkännanden" en förbjuden processräkning.** Den
+  formuleringen räknade själv granskningsvarv i samma post. Skälet att inte skriva
+  talet är enklare och sant: det går inte att läsa i repot, eftersom rapporterna
+  ligger i gitignorerade `scratchpad/`. En räkning som DÄREMOT går att läsa ur
+  repot, som antalet versionsposter i `docs/sparrar.md`, omfattas inte av
+  förbudet, och I2:s "tre granskningsvarv" är av det slaget: 0.9.0, 0.10.0 och
+  0.11.0 bär ett varv var.
+
+Rättade påståenden ⇒ PATCH.
+
 ### 0.4.0 — 2026-08-26
 
 **I2 och I3 tillkommer**, båda på beslut av Lars i skiva 9, och båda bär en regel
 som skrivs in i CLAUDE.md §7 i samma skiva.
 
 I2 dokumenterar att skiva 8:s fynd i alla tre granskningsvarven satt i den text
-som skrivits för att rätta föregående varvs fynd. Kedjan är belagd led för led i
-`docs/sparrar.md`:s versionshistorik 0.9.0 till 0.11.0.
+som skrivits för att rätta föregående varvs fynd. Beläggen ligger på två ställen:
+de två led som rör spärrdokumentet i `docs/sparrar.md` 0.9.0 till 0.11.0, och de
+övriga i `src/kategorisera.py` och `tests/test_kategorisera.py`. Posten skriver ut
+den uppdelningen.
 
 I3 dokumenterar att §7:s dokumentdetaljundantag funnits sedan repots första commit
-och åberopats i två skivor. **Posten redovisar samtidigt att två led i Lars
-instruktion inte gick att belägga**, och skriver ut vilka i stället för att
-återge dem: "åberopades i en" är två enligt
-`git log --all --oneline --grep="dokumentdetaljundantag"`, och "åtta
-underkännanden" går inte att läsa någonstans i repot eftersom rapporterna ligger i
-den gitignorerade `scratchpad/`. En räkning av granskningsvarv är dessutom den
-processräkning §7.2 förbjuder.
+och åberopats sällan. **Posten redovisar samtidigt att Lars instruktions tal inte
+gick att belägga**, och skriver ut varför i stället för att återge dem.
+
+**Posten skriver medvetet inget totaltal över hur många skivor som åberopat
+undantaget.** Varje skiva som åberopar det ändrar talet, och en mening som räknar
+sin egen omgivning blir falsk av just den commit som skriver den. Posten namnger
+i stället de committar som fanns FÖRE skivan.
 
 Två nya poster ⇒ MINOR.
 
