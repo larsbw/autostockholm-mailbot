@@ -174,8 +174,15 @@ def _utfor(bygg_anrop, *, kostnad, pacer, forbrukning, sov=None, slumpa=None):
 
 
 def lista_trad_id(tjanst, *, pacer, forbrukning, max_tradar=None, sov=None,
-                  slumpa=None) -> list[str]:
-    """Tråd-ID för trådar med minst ett skickat meddelande."""
+                  slumpa=None, fraga=None) -> list[str]:
+    """Tråd-ID för trådar som matchar frågan.
+
+    Gmails `q` matchar MEDDELANDEN, och `threads.list` returnerar varje tråd som
+    bär minst ett matchande meddelande. Det finns ingen operator för "tråden
+    saknar skickat meddelande", vilket är precis vad DEL A behöver. Den frågan
+    besvaras i stället genom mängddifferens, se `--uteslut` i main().
+    """
+    fraga = FRAGA if fraga is None else fraga
     if max_tradar is not None and max_tradar <= 0:
         return []
 
@@ -185,7 +192,7 @@ def lista_trad_id(tjanst, *, pacer, forbrukning, max_tradar=None, sov=None,
         svar = _utfor(
             lambda: tjanst.users().threads().list(
                 userId=ANVANDARE,
-                q=FRAGA,
+                q=fraga,
                 maxResults=SIDSTORLEK,
                 pageToken=sidtoken,
             ),
@@ -220,7 +227,7 @@ def hamta_trad(tjanst, trad_id: str, *, pacer, forbrukning, sov=None,
 
 
 def mina(tjanst, *, utfil: Path, max_tradar=None, pacer=None, forbrukning=None,
-         sov=None, slumpa=None) -> Forbrukning:
+         sov=None, slumpa=None, fraga=None, uteslut=None) -> Forbrukning:
     """Skriver en tråd per rad till utfil och returnerar förbrukningen.
 
     Hämtningen skrivs till en sidofil med suffixet .delvis och flyttas på plats
@@ -241,8 +248,15 @@ def mina(tjanst, *, utfil: Path, max_tradar=None, pacer=None, forbrukning=None,
 
     idn = lista_trad_id(
         tjanst, pacer=pacer, forbrukning=forbrukning, max_tradar=max_tradar,
-        sov=sov, slumpa=slumpa,
+        sov=sov, slumpa=slumpa, fraga=fraga,
     )
+
+    # Uteslutningen sker EFTER listningen och FÖRE hämtningen. Listning kostar
+    # 10 enheter per sida, hämtning 40 per tråd, så att sålla här i stället för
+    # efteråt är skillnaden mellan att betala för det vi vill ha och att betala
+    # för allt.
+    if uteslut:
+        idn = [trad_id for trad_id in idn if trad_id not in uteslut]
 
     utfil.parent.mkdir(parents=True, exist_ok=True)
     delvis = utfil.with_name(utfil.name + ".delvis")
@@ -261,7 +275,7 @@ def mina(tjanst, *, utfil: Path, max_tradar=None, pacer=None, forbrukning=None,
 
 
 def logga_korning(forbrukning: Forbrukning, *, logg: Path | None = None,
-                  nu=None) -> str:
+                  nu=None, fraga=None) -> str:
     """Skriver in en rad i tabellen i docs/mining-log.md (CLAUDE.md §8). Inga
     adresser, inga ämnesrader, bara mätvärden.
 
@@ -279,10 +293,11 @@ def logga_korning(forbrukning: Forbrukning, *, logg: Path | None = None,
     när modulen laddas, och pekade då på den riktiga loggen även när MININGLOGG
     hade bytts ut."""
     logg = MININGLOGG if logg is None else logg
+    fraga = FRAGA if fraga is None else fraga
     stampel = (nu or datetime.now(timezone.utc)).strftime("%Y-%m-%d %H:%M UTC")
     status = "fullständig" if forbrukning.fullstandig else "AVBRUTEN"
     rad = (
-        f"| {stampel} | `{FRAGA}` | {forbrukning.tradar} | "
+        f"| {stampel} | `{fraga}` | {forbrukning.tradar} | "
         f"{forbrukning.anrop} | {forbrukning.enheter} | {status} |\n"
     )
 
@@ -333,9 +348,31 @@ def _ar_avgransare(rad: str) -> bool:
     )
 
 
+def las_trad_id(sokvag: Path) -> set[str]:
+    """Tråd-ID ur en jsonl med en tråd per rad."""
+    idn = set()
+    for rad in sokvag.read_text(encoding="utf-8").splitlines():
+        if rad:
+            idn.add(json.loads(rad)["id"])
+    return idn
+
+
+def _loggfraga(arg) -> str:
+    """Frågan som den ska stå i mining-loggen.
+
+    En uteslutning är en del av urvalet men syns inte i Gmail-frågan. Skrivs
+    bara `-in:sent` i loggen läser nästa läsare det som att alla sådana trådar
+    hämtades, vilket är fel: de som redan fanns i uteslutningsfilen hoppades
+    över. Loggen ska bära hela urvalet, inte halva.
+    """
+    if not arg.uteslut:
+        return arg.fraga
+    return f"{arg.fraga} minus tråd-ID i {arg.uteslut.name}"
+
+
 def main(argv: list[str] | None = None) -> int:
     tolk = argparse.ArgumentParser(
-        description="Hämtar trådar med minst ett skickat meddelande."
+        description="Hämtar trådar som matchar en Gmail-fråga."
     )
     tolk.add_argument(
         "--max-threads",
@@ -343,7 +380,28 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="begränsa antalet trådar som hämtas",
     )
+    tolk.add_argument(
+        "--fraga",
+        default=FRAGA,
+        help=f"Gmail-fråga, förval {FRAGA}",
+    )
+    tolk.add_argument(
+        "--utfil",
+        type=Path,
+        default=UTFIL,
+        help="fil att skriva trådarna till",
+    )
+    tolk.add_argument(
+        "--uteslut",
+        type=Path,
+        default=None,
+        help="jsonl vars tråd-ID ska uteslutas ur hämtningen",
+    )
     arg = tolk.parse_args(argv)
+
+    uteslut = las_trad_id(arg.uteslut) if arg.uteslut else None
+    if uteslut is not None:
+        print(f"utesluter {len(uteslut)} redan hämtade trådar")
 
     cred = auth.hamta_credentials(tillat_webblasare=False)
     tjanst = auth.bygg_tjanst(cred)
@@ -355,9 +413,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         mina(
             tjanst,
-            utfil=UTFIL,
+            utfil=arg.utfil,
             max_tradar=arg.max_threads,
             forbrukning=forbrukning,
+            fraga=arg.fraga,
+            uteslut=uteslut,
         )
     finally:
         print(f"trådar: {forbrukning.tradar}")
@@ -366,13 +426,13 @@ def main(argv: list[str] | None = None) -> int:
         # Ett fel i loggningen får inte ersätta felet från mina(). Det senare
         # är orsaken operatören behöver se; det förra rapporteras vid sidan av.
         try:
-            rad = logga_korning(forbrukning)
+            rad = logga_korning(forbrukning, fraga=_loggfraga(arg))
         except OSError as fel:
             print(f"VARNING: kunde inte skriva mining-log: {fel}")
         else:
             print(f"mining-log: {rad.strip()}")
 
-    print(f"utfil: {UTFIL}")
+    print(f"utfil: {arg.utfil}")
     return 0
 
 

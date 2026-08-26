@@ -119,6 +119,58 @@ def test_max_threads_noll_ger_inga_anrop_alls(tmp_path):
     assert forbrukning.enheter == 0
 
 
+def test_uteslutna_tradar_hamtas_inte(tmp_path):
+    """Uteslutningen sker mellan listning och hämtning. Sållades den efteråt
+    hade vi betalat 40 enheter för varje tråd vi ändå kastar."""
+    gmail = fejk.FejkGmail(tva_sidor(), tre_tradar())
+    utfil = tmp_path / "tradar.jsonl"
+
+    forbrukning = mine.mina(
+        gmail, utfil=utfil, pacer=snabb_pacer(), sov=lambda _: None,
+        uteslut={"t1", "t3"},
+    )
+
+    assert [anrop["id"] for anrop in gmail.get_anrop] == ["t2"]
+    assert forbrukning.tradar == 1
+    assert len(rader(utfil)) == 1
+
+
+def test_uteslutning_utan_traff_hamtar_allt(tmp_path):
+    gmail = fejk.FejkGmail(tva_sidor(), tre_tradar())
+
+    utfil, forbrukning = kor(gmail, tmp_path, uteslut={"finns-inte"})
+
+    assert forbrukning.tradar == 3
+
+
+def test_egen_fraga_gar_till_gmail_och_till_loggen(tmp_path):
+    gmail = fejk.FejkGmail(tva_sidor(), tre_tradar())
+
+    kor(gmail, tmp_path, fraga="-in:sent")
+
+    assert gmail.list_anrop[0]["q"] == "-in:sent"
+
+
+def test_loggraden_bar_den_fraga_som_kordes(tmp_path):
+    logg = tmp_path / "mining-log.md"
+    logg.write_text(RUBRIKRAD + AVGRANSARE, encoding="utf-8")
+    forbrukning = mine.Forbrukning()
+    forbrukning.fullstandig = True
+
+    rad = mine.logga_korning(forbrukning, logg=logg, nu=STAMPEL,
+                             fraga="-in:sent minus tråd-ID i tradar.jsonl")
+
+    assert "`-in:sent minus tråd-ID i tradar.jsonl`" in rad
+    assert "`in:sent`" not in rad
+
+
+def test_las_trad_id_plockar_ut_identiteterna(tmp_path):
+    fil = tmp_path / "tradar.jsonl"
+    fil.write_text('{"id": "a"}\n{"id": "b"}\n\n', encoding="utf-8")
+
+    assert mine.las_trad_id(fil) == {"a", "b"}
+
+
 def test_lista_trad_id_med_noll_gor_inga_anrop():
     """Nollfallets ANDRA lager, prövat för sig.
 
