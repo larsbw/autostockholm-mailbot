@@ -17,9 +17,16 @@ class FejkBlock:
         self.text = text
 
 
+class FejkForbrukning:
+    def __init__(self, in_tokens=100, ut_tokens=5):
+        self.input_tokens = in_tokens
+        self.output_tokens = ut_tokens
+
+
 class FejkSvar:
-    def __init__(self, text):
+    def __init__(self, text, forbrukning=None):
         self.content = [FejkBlock(text)]
+        self.usage = FejkForbrukning() if forbrukning is None else forbrukning
 
 
 class FejkKlient:
@@ -178,6 +185,50 @@ def test_fel_pa_en_text_stoppar_inte_resten():
     ut = kategorisera.kategorisera_alla(klient, poster, sov=lambda _: None)
 
     assert [p["etikett"] for p in ut] == ["boka tid", "fel", "boka tid"]
+
+
+# --- tokenåtgång -------------------------------------------------------------
+
+
+def test_atgangen_summeras_over_anropen():
+    klient = FejkKlient(["boka tid"])
+    atgang = kategorisera.Tokenatgang()
+    poster = [{"text": f"text {i}", "kalla": "med svar"} for i in range(3)]
+
+    kategorisera.kategorisera_alla(klient, poster, atgang=atgang,
+                                   sov=lambda _: None)
+
+    assert atgang.anrop == 3
+    assert atgang.in_tokens == 300
+    assert atgang.ut_tokens == 15
+
+
+def test_svar_utan_usage_faller_inte_korningen():
+    """En utebliven mätning får inte kosta en klassificering."""
+    klient = FejkKlient(["boka tid"])
+    klient._svar = ["boka tid"]
+    atgang = kategorisera.Tokenatgang()
+
+    kategorisera.kategorisera_en(klient, "text", atgang=atgang)
+    atgang.lagg_till(None)
+
+    assert atgang.anrop == 2
+    assert atgang.in_tokens == 100
+
+
+def test_redovisningen_ar_tom_utan_anrop():
+    assert kategorisera.Tokenatgang().redovisa() == ["  inga anrop"]
+
+
+def test_medelvardet_raknas_per_anrop():
+    atgang = kategorisera.Tokenatgang()
+    atgang.lagg_till(FejkForbrukning(200, 10))
+    atgang.lagg_till(FejkForbrukning(100, 4))
+
+    rader = "\n".join(atgang.redovisa())
+
+    assert "in-tokens totalt: 300" in rader
+    assert "in-tokens per anrop, medel: 150.0" in rader
 
 
 # --- sammanställning ---------------------------------------------------------

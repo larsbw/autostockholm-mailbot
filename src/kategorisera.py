@@ -196,13 +196,57 @@ def bygg_klient(nyckel: str = ""):
     return anthropic.Anthropic(api_key=nyckel)
 
 
-def kategorisera_en(klient, text: str, modell: str = MODELL) -> str:
+class Tokenatgang:
+    """Åtgången per körning, avläst ur API-svaren.
+
+    Finns för att driftkostnaden per anrop måste vara MÄTT innan boten går i
+    drift, och en körning över hela korpusen är det bästa mättillfället som
+    finns. Fält som ett svar saknar räknas som noll i stället för att fälla
+    körningen: en utebliven mätning får inte kosta en klassificering.
+    """
+
+    def __init__(self) -> None:
+        self.anrop = 0
+        self.in_tokens = 0
+        self.ut_tokens = 0
+        self.cache_skrivna = 0
+        self.cache_lasta = 0
+
+    def lagg_till(self, forbrukning) -> None:
+        self.anrop += 1
+        self.in_tokens += getattr(forbrukning, "input_tokens", 0) or 0
+        self.ut_tokens += getattr(forbrukning, "output_tokens", 0) or 0
+        self.cache_skrivna += (
+            getattr(forbrukning, "cache_creation_input_tokens", 0) or 0
+        )
+        self.cache_lasta += (
+            getattr(forbrukning, "cache_read_input_tokens", 0) or 0
+        )
+
+    def redovisa(self) -> list[str]:
+        if not self.anrop:
+            return ["  inga anrop"]
+        return [
+            f"  anrop: {self.anrop}",
+            f"  in-tokens totalt: {self.in_tokens}",
+            f"  ut-tokens totalt: {self.ut_tokens}",
+            f"  cache skrivna: {self.cache_skrivna}",
+            f"  cache lästa: {self.cache_lasta}",
+            f"  in-tokens per anrop, medel: {self.in_tokens / self.anrop:.1f}",
+            f"  ut-tokens per anrop, medel: {self.ut_tokens / self.anrop:.1f}",
+        ]
+
+
+def kategorisera_en(klient, text: str, modell: str = MODELL,
+                    atgang: Tokenatgang | None = None) -> str:
     svar = klient.messages.create(
         model=modell,
         max_tokens=MAX_TOKENS,
         system=SYSTEM,
         messages=[{"role": "user", "content": text[:MAX_TECKEN]}],
     )
+    if atgang is not None:
+        atgang.lagg_till(getattr(svar, "usage", None))
     delar = [block.text for block in svar.content if block.type == "text"]
     return normalisera("".join(delar))
 
@@ -220,7 +264,8 @@ def normalisera(ratext: str) -> str:
 
 
 def kategorisera_alla(klient, poster: list[dict], modell: str = MODELL,
-                      sov=time.sleep) -> list[dict]:
+                      sov=time.sleep,
+                      atgang: Tokenatgang | None = None) -> list[dict]:
     """Kategoriserar en text i taget och returnerar posterna med etikett.
 
     En text i taget, inte i batch: ett fel på en text ska kosta en text, och
@@ -230,7 +275,7 @@ def kategorisera_alla(klient, poster: list[dict], modell: str = MODELL,
     ut = []
     for nummer, post in enumerate(poster):
         try:
-            etikett = kategorisera_en(klient, post["text"], modell)
+            etikett = kategorisera_en(klient, post["text"], modell, atgang)
         except Exception as fel:  # noqa: BLE001
             etikett = "fel"
             print(f"  fel på post {nummer}: {type(fel).__name__}")
@@ -390,7 +435,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     klient = bygg_klient()
-    kategoriserade = kategorisera_alla(klient, poster, arg.modell)
+    atgang = Tokenatgang()
+    kategoriserade = kategorisera_alla(klient, poster, arg.modell,
+                                       atgang=atgang)
 
     arg.svarsfil.parent.mkdir(parents=True, exist_ok=True)
     with arg.svarsfil.open("w", encoding="utf-8") as fil:
@@ -402,6 +449,23 @@ def main(argv: list[str] | None = None) -> int:
     skriv_exempel(sammanstallning, arg.exempelfil)
 
     fordelning = Counter(p["etikett"] for p in kategoriserade)
+
+    print("")
+    print("=== TOKENÅTGÅNG, avläst ur API-svaren ===")
+    for rad in atgang.redovisa():
+        print(rad)
+    print("")
+
+    # DEL C: talet som avgör hur många kategorier som kan få mallar.
+    akta = [k for k in sammanstallning
+            if k["etikett"] not in ("inget kundärende", "oklart", "fel")]
+    fa_par = [k for k in akta if k["med_svar"] < 10]
+    print("=== UNDERLAG PER KATEGORI ===")
+    print(f"  äkta kundkategorier: {len(akta)}")
+    print(f"  av dem med FÄRRE ÄN TIO par med svar: {len(fa_par)}")
+    print(f"  alltså med tio eller fler: {len(akta) - len(fa_par)}")
+    print("")
+
     print(f"kategorier: {len(sammanstallning)}")
     print(f"  varav 'oklart': {fordelning.get('oklart', 0)}")
     print(f"  varav 'inget kundärende': {fordelning.get('inget kundärende', 0)}")
