@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.7.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** beslutslogg #19
+**Version:** 0.7.1 · **Uppdaterad:** 2026-08-27 · **Speglar:** beslutslogg #19
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -441,6 +441,24 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.7.1 — 2026-08-27
+
+**§7:s regeltext bar ett känt falskt tal, och det är struket.** 0.7.0 skrev in
+Lars formulering ordagrant, "Undantaget fanns i sju av åtta skivor och åberopades
+i en", samtidigt som `docs/incidentlogg.md` I3 i SAMMA commit skrev att talen
+inte gick att belägga. Ett falskt tal stod alltså i regeltexten, infört av den
+commit som skrev att det inte skrevs, i det stycke som inför regeln mot precis
+den defekten. §7 namnger nu `e9a6772` och `c8b1214` i stället för att räkna, och
+överlåter dagens läge åt den som kör kommandot.
+
+**0.7.0-posten skrevs om på plats i `2d43d00`.** Den bar en mening om att
+undantaget "åberopats i två skivor", och fick samtidigt ett nytt stycke om det
+falska talet. Omskrivningen saknade versionspost, vilket 0.3.1 uttryckligen
+förbjuder: en committad appendixpost rättas genom en ny versionspost, inte genom
+omskrivning. Den här posten är den rättelsen, i efterhand.
+
+**Ingen regel ändrad, bara ett tal struket och ett spår efterlämnat** ⇒ PATCH.
 
 ### 0.7.0 — 2026-08-26
 

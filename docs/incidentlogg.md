@@ -1,6 +1,6 @@
 # Incidentlogg
 
-**Version:** 0.4.1 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §0
+**Version:** 0.4.2 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §0
 
 Varje regel som bärs av en incident bor här. Dokumentet finns för att förlagornas
 styrka är att en härdad regel namnger det fel som skapade den. En regel utan
@@ -183,8 +183,18 @@ Undantaget fanns i sju av dem och åberopades i en." Båda leden faller:
   skrivs.
 
 Det som faktiskt är mätbart, och som bär regeln, är att undantaget fanns hela
-tiden och åberopades i två committar trots att varje skiva har producerat
-dokumentdetaljer.
+tiden och ändå åberopades bara i `e9a6772` och `c8b1214` före den här skivan,
+trots att varje skiva har producerat dokumentdetaljer.
+
+*Rättelse i 0.4.2: här stod "åberopades i två committar". Mätt VID `2d43d00`, som
+är den commit meningen skrevs i, gav kommandot fyra träffar: `e9a6772`,
+`c8b1214`, `ad72ce9` och `2d43d00` själv, eftersom de två sista bär strängen i
+sina meddelanden. Meningen var alltså falsk i samma stund den skrevs,
+tjugotvå rader under den fetstil som lovar att posten inte skriver något
+totaltal. Den skrevs dessutom om FRÅN "två committade skivor" TILL "två
+committar" i den commit som skulle rätta defekten, vilket gjorde den till en
+direkt räkning av loggutdatan och alltså sämre. §7.2: vid omskrivning räknas
+talet som oläst.*
 
 **Vad det kostade.** Granskningsgrinden maldes på prosaformuleringar i skiva efter
 skiva medan sändvägen förblev obyggd. Samma observation gjordes redan i CLAUDE.md
@@ -241,6 +251,28 @@ skriva posten ännu, inte ett skäl att lämna fältet tomt.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.4.2 — 2026-08-27
+
+**I3 skrev ett totaltal tjugotvå rader under sin egen fetstil om att den inte
+gör det.** Sammanfattningsmeningen sa "åberopades i två committar". Mätt vid
+`2d43d00`, den commit meningen skrevs i, gav
+`git log --all --oneline --grep="dokumentdetaljundantag"` fyra träffar.
+
+Rättelsen i 0.4.1 gjorde meningen SÄMRE och inte bättre: den skrevs om från "två
+committade skivor" till "två committar", vilket förvandlade en luddig formulering
+till en direkt räkning av loggutdatan. §7.2 säger att ett tal räknas som oläst
+vid omskrivning och ska verifieras på nytt. Det gjordes inte.
+
+Meningen namnger nu de två committar som fanns FÖRE skivan, precis som stycket
+ovanför den och som CLAUDE.md §7 redan gjorde. Avgränsningen "före den här
+skivan" var det som saknades.
+
+Detta är tredje skivan i rad där fyndet sitter i rättelsetexten, vilket är exakt
+vad I2 handlar om och vad CLAUDE.md §7:s regel RÄTTELSETEXT GRANSKAS SOM NY TEXT
+finns för att fånga. Regeln fångade det här fallet, i andra granskningsvarvet.
+
+Rättat påstående ⇒ PATCH.
 
 ### 0.4.1 — 2026-08-27
 

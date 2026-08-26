@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.11.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.11.1 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -348,6 +348,26 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.11.1 — 2026-08-27
+
+Två rättelser i 0.11.0-posten, efter §7-granskningen av skiva 9.
+
+**"Två strykningar" var en.** Diffen mot `196e60a` bär en kursiv not, i
+0.8.0-posten. §7.2: självrapportering verifieras mot diffen, inte mot minnet av
+avsikten.
+
+**0.11.0:s stycke om översiktstabellen skrevs om på plats utan not.** Det sa att
+BÅDA de namngivna raderna skriver ut "Sig själv, två lager"; raden för
+`urval-gmail-svar` skriver "sex lager". Omskrivningen har nu sin kursiva not.
+
+**Om formen, och det är fyndets egentliga innehåll.** Båda rättelserna skrevs in
+i `2d43d00` med noter som hänvisade till "0.11.1", medan filhuvudet stod kvar på
+0.11.0 och ingen 0.11.1-post fanns. Noterna pekade alltså på en version som inte
+existerade, vilket är ett falskt påstående om repot i just de meningar som skulle
+rätta ett annat. Den här posten är den version noterna pekar på.
+
+Rättade påståenden ⇒ PATCH.
 
 ### 0.11.0 — 2026-08-26
 
