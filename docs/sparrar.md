@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.9.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.10.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -39,7 +39,7 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 | `maskering-persondata` | Att persondata når ett dokument under `docs/` | `test_ord_vid_meningsstart_maskeras_ocksa` | `src/cluster.py::namn_i_korpus`, i en ANNAN fil, och `scripts/persondatakontroll.py`. Se posten. |
 | `klassning-maskinmail` | Att nyhetsbrev och notiser blir kundärenden | `test_vanligt_kundmail_ar_inte_maskinmail` | Fyra lager plus ett UNDANTAG. Se posten. |
 | `persondatakontroll` | Att en commit för in persondata i `docs/` | `test_ren_text_ger_inga_fynd` | `maskering-persondata`. Sista linjen, inte den enda. |
-| `forbjudna-maskindomaner` | Att en förmedlad kundförfrågan kastas som maskinmail | `test_liknande_doman_skyddas_inte_av_misstag` | Går FÖRE `klassning-maskinmail`. Se posten. |
+| `forbjudna-maskindomaner` | Att en förmedlad kundförfrågan kastas som maskinmail | `test_liknande_doman_skyddas_inte_av_misstag` | Sig själv, två lager i `src/klassa_maskin.py`, och går FÖRE `klassning-maskinmail`. Se posten. |
 
 ---
 
@@ -169,7 +169,8 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
   ordningen:
   0. **FÖRBUDSLISTAN, som sedan skiva 8 körs allra först:** `ar_forbjuden`. Den
      har en egen post nedan, `forbjudna-maskindomaner`, och nämns här bara för
-     att ordningen ska stämma. Raden är `src/klassa_maskin.py:201`.
+     att ordningen ska stämma. Villkoret är
+     `if ar_forbjuden(avsandardoman(meddelande), aldrig, undantag):`.
   1. **UNDANTAGET, som körs före de fyra lagren:** `relayar_manniska`. Post som är
      maskinSKICKAD men människoSKRIVEN, känd på att `Reply-To` pekar utanför
      både avsändaren och brevlådan.
@@ -259,21 +260,30 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
   `skal_maskinmail` och säger därför ingenting om vad som sedan händer med
   posten.
 - **Redundant med. SIG SJÄLV, i två lager, och det är fyndet ur §7-granskningen
-  av skiva 8.** Spärren implementeras på två rader i två funktioner:
-  `src/klassa_maskin.py:201` i `skal_maskinmail`, och `:282` i
-  `harled_domaner`. Fälls bara `:282` förblir HELA sviten grön, och en
-  granskare som prövar `test_harledningen_foreslar_aldrig_en_forbjuden_doman`
-  sätter då ett FALSKT vakuöstverdikt på ett äkta spärrtest. Båda lagren fälls
-  samtidigt med:
+  av skiva 8.** Spärren implementeras i två funktioner i
+  `src/klassa_maskin.py`. Villkoren, som TEXT, eftersom radnummer föråldras:
+
+  | Funktion | Villkoret som fattar beslutet |
+  | --- | --- |
+  | `skal_maskinmail` | `if ar_forbjuden(avsandardoman(meddelande), aldrig, undantag):` |
+  | `harled_domaner` | `if not ovrigt[d] and not ar_forbjuden(d, aldrig, undantag)` |
+
+  Fälls bara `harled_domaner`-lagret förblir HELA sviten grön, och en granskare
+  som prövar `test_harledningen_foreslar_aldrig_en_forbjuden_doman` sätter då
+  ett FALSKT vakuöstverdikt på ett äkta spärrtest. Slå upp raderna först, kör
+  sedan fällningen med de nummer utdatan gav:
 
   ```
+  grep -n "ar_forbjuden" src/klassa_maskin.py
   scripts/sparr-prova.sh --fil src/klassa_maskin.py \
-    --ersatt "201=    if False:" \
-    --ersatt "282=        if not ovrigt[d]"
+    --ersatt "<rad i skal_maskinmail>=    if False:" \
+    --ersatt "<rad i harled_domaner>=        if not ovrigt[d]"
   ```
 
-  Uppmätt: `:282` ensamt ger GRÖN sviten igenom, båda lagren ger
-  `2 failed, 215 passed`. Talen växer med sviten; verdikten gör det inte.
+  Uppmätt mot en svit om 224 test: `harled_domaner`-lagret ensamt ger GRÖN
+  sviten igenom, båda lagren ger `2 failed, 222 passed`. **Svitens storlek står
+  utskriven därför att talet annars föråldras tyst av nästa test som skrivs**,
+  vilket det hann göra inom samma skiva. Verdikten föråldras inte.
 
   Mot ANDRA spärrar är den inte redundant. Den går FÖRE
   `klassning-maskinmail`, som annars hade fällt samma post. Ordningen är
@@ -339,16 +349,49 @@ post och inte en spärr som saknar egenskapen.
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.10.0 — 2026-08-26
+
+Rättelser efter ANDRA granskningsvarvet i skiva 8. Varvet underkände 0.9.0,
+och båda fynden satt i det som skrevs FÖR att rätta ett falskt påstående.
+
+**0.9.0 skrev ett falskt `Uppmätt`-tal i den post som rättade ett falskt
+påstående.** Fältet "Redundant med" sa att båda lagren ger
+`2 failed, 215 passed`. Det motsvarar ingen committad svit alls: mätningen
+gjordes när sviten var 217 test, och fem test skrevs efteråt i samma skiva.
+Talet var alltså falskt redan när det committades.
+
+**Mekanismen, som är regelns egentliga innehåll.** Ett svitresultat är inte
+ett tal om koden. Det är ett tal om koden OCH om sviten, och sviten växer av
+nästa test som skrivs, ofta i samma skiva och ofta av samma anledning. §7.2
+säger att en omskriven mening gör sitt tal oläst; här räckte det att
+GRANNSKAPET växte. Därför står svitens storlek nu utskriven bredvid varje
+sådant tal. Blir de två oense har läsaren en signal i stället för ett
+förtroende.
+
+**Radnummer var tillbaka.** 0.9.0 byggde sitt fällningskommando på `201=` och
+`282=`, alltså precis den form rutan överst i det här dokumentet förbjuder
+efter 0.5.0:s falska verdikt. Posten bär nu villkoren som TEXT i en tabell,
+och kommandot inleds med den `grep` som ger raderna.
+
+**Översiktstabellens rad namngav inte lagren.** Raderna för
+`nollfall-max-threads` och `urval-gmail-svar` skriver ut "Sig själv, två
+lager", medan `forbjudna-maskindomaner` bara sa "Går FÖRE
+`klassning-maskinmail`". En granskare som stannar vid tabellen fick alltså
+kvar exakt den signal som orsakade det falska verdiktet. Rättat.
+
+Rättade påståenden och en ny mätning ⇒ MINOR.
+
 ### 0.9.0 — 2026-08-26
 
 Rättelser efter §7-granskningen av skiva 8, per post:
 
 **`forbjudna-maskindomaner` sa "Redundant med. Ingen".** Det var falskt och
-mätbart falskt. Spärren ligger i två lager, `src/klassa_maskin.py:201` och
-`:282`, och en fällning av `:282` ensamt lämnar hela sviten grön. Granskaren
-följde posten, prövade `test_harledningen_foreslar_aldrig_en_forbjuden_doman`
-och fick ett FALSKT vakuöstverdikt på ett äkta spärrtest. Posten namnger nu
-båda lagren och det kommando som fäller dem samtidigt.
+mätbart falskt. Spärren ligger i två lager, ett i `skal_maskinmail` och ett i
+`harled_domaner`, och en fällning av det senare ensamt lämnar hela sviten grön.
+Granskaren följde posten, prövade
+`test_harledningen_foreslar_aldrig_en_forbjuden_doman` och fick ett FALSKT
+vakuöstverdikt på ett äkta spärrtest. Posten namnger nu båda villkoren som
+TEXT och det kommando som fäller dem samtidigt.
 
 Det här dokumentet varnar i sin egen ruta överst för precis den felklassen,
 och 0.5.0 och 0.7.0 finns för att den redan inträffat. Den här gången fångades
@@ -375,8 +418,9 @@ enligt §7.1. Det skickade `aldrig={"x.se"}`, och då är utfallet `False` även
 utan raden som fäller tom domän. Testet skickar nu `aldrig={""}`, vilket är
 det verkliga fallet: `las_forbjudna` bygger mängden med `d.strip().lower()`,
 så en YAML-post `- ""` lägger tomma strängen i mängden och hade då skyddat
-varje avsändare utan tolkbar domän. Uppmätt efter rättelsen: fällning av
-`src/klassa_maskin.py:110` ger `1 failed, 221 passed`.
+varje avsändare utan tolkbar domän. Uppmätt efter rättelsen, mot en svit om
+224 test: fällning av villkoret `if not doman:` i `ar_forbjuden` ger
+`1 failed, 223 passed`.
 
 **ÖPPEN PUNKT, för Lars.** `config/maskindomaner-forbjudna.yaml` bär under
 `undantag` en post för en Intercom-avsändare vars organisationsdomän inte står

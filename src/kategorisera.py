@@ -177,11 +177,21 @@ def las_api_nyckel(envfil: Path | None = None) -> str:
         # skiva 8 mätte upp att resten av toleransen var värre än den formen.
         # En kommentar efter värdet lästes in SOM DEL AV NYCKELN, vilket når
         # den som felsöker först som ett 401 från API:t och aldrig som ett
-        # formatfel. Därför avvisas numera varje avvikelse högljutt.
+        # formatfel.
+        #
+        # AVVISNINGEN SKER PÅ TVÅ SÄTT, och skillnaden är avsiktlig. En rad som
+        # inte ens BÖRJAR med `ANTHROPIC_API_KEY=` hoppas över TYST: den kan
+        # vara vilken annan variabel som helst, och en `.env` med flera rader
+        # är normalfallet. Hit hör indrag, blanksteg kring likhetstecknet,
+        # `export`-prefix, bar nyckel och tomt värde. En rad som ÄR nyckelraden
+        # men bär ett värde vi inte kan lita på fäller däremot körningen
+        # HÖGLJUTT, eftersom den annars hade skickat en trasig nyckel till
+        # API:t. Saknas nyckeln helt säger `bygg_klient` det med formen
+        # utskriven.
         if not rad.startswith(NYCKELNAMN + "="):
             continue
 
-        varde = rad[len(NYCKELNAMN) + 1 :].rstrip("\r")
+        varde = rad[len(NYCKELNAMN) + 1 :]
         if not varde:
             continue
         if varde != varde.strip() or any(t in varde for t in " \t\"'"):

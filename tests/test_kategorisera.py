@@ -455,3 +455,25 @@ def test_tom_sammanstallning_ger_noll_och_kraschar_inte():
     akta, fa_par = kategorisera.underlag_per_kategori([])
 
     assert (akta, fa_par) == ([], [])
+
+
+def test_tomt_varde_hoppas_over_utan_fel(tmp_path, monkeypatch):
+    """En platshållarrad är inte ett formatfel. Den betyder att nyckeln inte
+    är satt, och `bygg_klient` säger det med formen utskriven. Att fälla
+    körningen här hade gjort en tom platshållare omöjlig att ha kvar."""
+    envfil = tmp_path / ".env"
+    envfil.write_text("ANTHROPIC_API_KEY=\n", encoding="utf-8")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    assert kategorisera.las_api_nyckel(envfil) == ""
+
+
+def test_crlf_radslut_avvisar_inte_en_giltig_nyckel(tmp_path, monkeypatch):
+    """`splitlines` konsumerar både \\r\\n och ensamt \\r som radslut, så ett
+    radslut från Windows lämnar inget kvar i värdet. Testet finns för att
+    kravet är osynligt i koden: det syns bara som frånvaron av en rstrip."""
+    envfil = tmp_path / ".env"
+    envfil.write_bytes(b"ANTHROPIC_API_KEY=sk-ant-x\r\n")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    assert kategorisera.las_api_nyckel(envfil) == "sk-ant-x"
