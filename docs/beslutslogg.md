@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.7.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
+**Version:** 0.8.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -211,7 +211,43 @@ gitignorerad rapport inte är en källa nästa skiva kan läsa.
 
 ---
 
+## #7 — Underlaget för mallarna, uppmätt över hela brevlådan
+
+**Datum:** 2026-08-26 · **Berör:** fas 4 och fas 5 i `docs/roadmap.md`
+
+**Vad som mättes.** Full mining kördes 2026-08-26, loggad i `docs/mining-log.md`.
+Hela brevlådan gav 555 trådar och 1120 meddelanden, varav 725 bär `SENT`.
+
+**Underlaget, mätt med kriterierna i #5.** Antalet trådar som bär minst ett svar
+skrivet i Gmail är **265**. De innehåller 369 sådana svar. Av dessa trådar har
+**234** också ett kundmeddelande att para ihop svaret med.
+
+**Vad talet betyder.** 234 är taket för antalet par i `data/par.jsonl` innan
+någon kvalitetsgallring. Det är underlaget mallarna ska byggas ur enligt §11, och
+det är tillräckligt för att fasen ska kunna genomföras.
+
+**Vad talet inte betyder.** Det är inte 234 användbara par. Ett svar kan vara en
+rad som hänvisar vidare, och en tråd kan handla om något som inte hör till någon
+kategori. Gallringen sker i fas 4 och kommer att sänka talet.
+
+**Varför 290 trådar faller bort.** De bär `SENT` men inget skrivet svar, alltså
+formulärnotiser och vidarebefordringar enligt #5. Att `in:sent` matchar samtliga
+555 trådar säger därför ingenting: frågan är `in:sent`, så träffen är trivial.
+
+**Nytt kantfall utöver #6.** Materialet bär `multipart/report`, alltså
+leveransrapporter och studsar. De ska inte bli par.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.8.0 — 2026-08-26
+
+Post **#7** tillkommer med underlaget för mallarna, uppmätt över hela brevlådan
+efter full mining. Talet står i en committad källa och inte bara i en
+gitignorerad rapport, eftersom fas 4 och fas 5 vilar på det.
+
+Ny post ⇒ MINOR.
 
 ### 0.7.0 — 2026-08-26
 

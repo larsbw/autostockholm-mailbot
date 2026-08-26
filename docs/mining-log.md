@@ -23,6 +23,7 @@ committat och lyder under CLAUDE.md §6.
 | Datum | Query | Trådar | Anrop | Kvotenheter | Status |
 | --- | --- | --- | --- | --- | --- |
 | 2026-08-26 11:38 UTC | `in:sent` | 50 | 51 | 2010 | fullständig |
+| 2026-08-26 14:32 UTC | `in:sent` | 555 | 561 | 22260 | fullständig |
 
 ---
 
