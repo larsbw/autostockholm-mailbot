@@ -1,12 +1,19 @@
 # Beslutslogg
 
-**Version:** 0.4.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.1
+**Version:** 0.5.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.2
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
 
 Append-only binder från och med den commit som inför posten. Redigering av en
 post som ännu inte committats är utkastarbete och kräver ingen rättelsepost.
+
+**Undantag: känt falskt påstående stryks på plats.** Upptäcks att en committad
+post påstår något som är falskt, stryks falskheten i posten och strykningen
+redovisas i en ny versionspost. Allt annat rättas genom tillägg. Skälet är att
+§7 slår fast att inget känt falskt påstående får skeppas, och den regeln går
+före append-only. Utan undantaget skulle en falsk mening bli permanent så snart
+den committats, och rättelseposten hade bara lagt en sann mening bredvid den.
 
 **Räckvidd.** Regeln binder de NUMRERADE beslutsposterna. Appendix är
 versionshistorik och lyder under §8: en ändring där redovisas med en ny
@@ -130,16 +137,34 @@ versionshistoriken, som alla refererar felet i stället för att göra det.
 **#3 skrivs inte om**, eftersom regeln i huvudet förbjuder det för en committad
 post. Läs #3:s sista stycke som upphävt av den här posten.
 
-**Varför felet uppstod, och det är samma orsak tredje gången.** #3:s anvisning
-ersatte en räkning ("gav tre träffar") med en kategorisering ("tre sorters
-träff"). Båda formerna beskriver textens egen omgivning, och båda blir falska när
-omgivningen växer, vilket den gör av just den commit som skriver dem. Regeln som
-följer står i CLAUDE.md 0.3.1:s appendixpost: namnge fil och rad, räkna och
-kategorisera aldrig sin egen omgivning.
+**Varför felet uppstod.** #3:s anvisning ersatte en räkning med en
+kategorisering ("tre sorters träff"). Båda formerna beskriver textens egen
+omgivning, och båda blir falska när omgivningen växer, vilket den gör av just den
+commit som skriver dem. Regeln står i CLAUDE.md:s appendixpost 0.3.1: namnge fil
+och rad, räkna och kategorisera aldrig sin egen omgivning.
 
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.5.0 — 2026-08-26
+
+**Processräkning struken ur post #4.** Rubriken sa "och det är samma orsak tredje
+gången", och citerade en instans, "gav tre träffar", som aldrig funnits i repot:
+`git grep -n "tre träffar" 7397e8e` ger exit 1. Frasen stod i en granskningsrapport
+och blev aldrig committad, alltså var den aldrig en rättelse. Räkningen är struken
+och rubriken lyder nu "Varför felet uppstod". §7.2 förbjuder räkningar av instanser
+av ett mönster summerade i en bisats, och regeln bars här av ett exempel som själv
+bröt mot den.
+
+**Undantaget för känt falskt påstående skrivs in i huvudet.** Räckviddsregeln och
+§7 pekade åt olika håll: den ena förbjöd omskrivning av en committad post, den
+andra förbjuder att ett känt falskt påstående skeppas. Skiva 2 löste konflikten
+tyst på flera ställen genom att stryka falskheten på plats och redovisa
+strykningen i en ny versionspost. Den medelvägen står nu utskriven i stället för
+att tillämpas underförstått.
+
+Ny regel i huvudet ⇒ MINOR.
 
 ### 0.4.0 — 2026-08-26
 

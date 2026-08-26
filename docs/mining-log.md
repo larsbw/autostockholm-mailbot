@@ -1,6 +1,6 @@
 # Mining-logg
 
-**Version:** 0.2.2 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.1 §8 ·
+**Version:** 0.2.3 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.2 §8 ·
 beslutslogg #1
 
 Varje körning av `src/mine.py` mot brevlådan appendas här av koden, aldrig för
@@ -27,6 +27,10 @@ committat och lyder under CLAUDE.md §6.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.2.3 — 2026-08-26
+
+Korsreferenssynk till CLAUDE.md 0.3.2. Ingen körning loggad. ⇒ PATCH.
 
 ### 0.2.2 — 2026-08-26
 

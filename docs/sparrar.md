@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.2.2 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.1 §7.1 ·
+**Version:** 0.2.3 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.2 §7.1 ·
 beslutslogg: ingen post rör spärrarna ännu
 
 **Sändvägens spärrar är ännu inte byggda och fylls i FAS 5.** En spärr är
@@ -93,6 +93,11 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.2.3 — 2026-08-26
+
+Korsreferenssynk till CLAUDE.md 0.3.2. Inget spärrinnehåll ändrat. Posten är
+ännu en instans av det som 0.2.2 lyfte som öppen fråga till Lars. ⇒ PATCH.
 
 ### 0.2.2 — 2026-08-26
 

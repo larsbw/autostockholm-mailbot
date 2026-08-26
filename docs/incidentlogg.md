@@ -1,6 +1,6 @@
 # Incidentlogg
 
-**Version:** 0.2.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.1 §0 ·
+**Version:** 0.2.1 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.2 §0 ·
 beslutslogg: ingen post rör incidenterna ännu
 
 Varje regel som bärs av en incident bor här. Dokumentet finns för att förlagornas
@@ -123,6 +123,10 @@ skriva posten ännu, inte ett skäl att lämna fältet tomt.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.2.1 — 2026-08-26
+
+Korsreferenssynk till CLAUDE.md 0.3.2. Ingen post ändrad. ⇒ PATCH.
 
 ### 0.2.0 — 2026-08-26
 

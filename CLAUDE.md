@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.3.1 · **Uppdaterad:** 2026-08-26 · **Speglar:** beslutslogg #4
+**Version:** 0.3.2 · **Uppdaterad:** 2026-08-26 · **Speglar:** beslutslogg #4
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -376,9 +376,29 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.3.2 — 2026-08-26
+
+**Processräkningar strukna ur 0.3.0- och 0.3.1-posterna.** Formuleringarna "Fyra
+ändringar efter skiva 1" och "Två rättelser" räknade posternas eget innehåll, och
+"Regeln som de tre rättelserna gav" räknade instanser av ett mönster. §7.2
+förbjuder den formen. Uppräkningarna står kvar, summorna är borta.
+
+Den tyngsta av dem satt i regeln mot självräknande meningar. Den räknade tre
+instanser, och en av dem, "Ger tre träffar", har aldrig funnits i något
+styrdokument: `git grep -n "tre träffar" 7397e8e` ger exit 1. Frasen stod i en
+granskningsrapport och blev aldrig committad, alltså var den aldrig en rättelse.
+Regeln bars alltså av ett räkneexempel som själv bröt mot regeln, vilket är den
+sortens bisats §7.2 säger blir citerad som belagd. Instanserna redovisas nu per
+post, med sin plats.
+
+**Strykningarna är gjorda på plats i redan committade appendixposter.** Det är
+tillåtet under det undantag som samtidigt skrivs in i `docs/beslutslogg.md`:s
+huvud: ett känt falskt påstående stryks på plats, och strykningen redovisas i en
+ny versionspost. Allt annat rättas genom tillägg.
+
 ### 0.3.1 — 2026-08-26
 
-Två rättelser, båda funna av granskningen av 0.3.0.
+Rättelser efter granskningen av 0.3.0, per post nedan.
 
 **`Speglar` sätts till #4**, alltså till loggens högsta nummer efter den här
 skivans rättelser. 0.3.0 lämnade huvudet på #2 medan loggen växte, vilket är
@@ -397,15 +417,19 @@ den committats. Det bryter mot beslutsloggens räckviddsregel, som infördes i
 samma commit. Den här posten är rättelsen: härefter rättas en committad
 appendixpost genom en ny versionspost, inte genom omskrivning.
 
-**Regeln som de tre rättelserna gav.** Skriv aldrig en mening som räknar eller
-kategoriserar sin egen omgivning. "Ger tre träffar", "bara den här meningen",
-"tre sorters träff" blir alla falska när texten omkring dem växer, och de växer
-oftast av just den commit som skriver dem. Namnge fil och rad i stället.
+**Regeln som rättelserna gav.** Skriv aldrig en mening som räknar eller
+kategoriserar sin egen omgivning. Den blir falsk när texten omkring växer, och
+den växer oftast av just den commit som skriver meningen. Namnge fil och rad i
+stället. Belagda instanser, var och en med sin plats:
+
+- `shadow mode`-meningen i 0.3.0-posten, som sa att en `grep`-sökning bara
+  träffar en mening.
+- `docs/beslutslogg.md` #3, vars anvisning bad läsaren skilja på tre sorters
+  träff varav den första inte finns i utdatan. Upphävd av #4.
 
 ### 0.3.0 — 2026-08-26
 
-Fyra ändringar efter skiva 1, varav två som skiva 1 blottade och två som §7.2
-kräver. Beslutsloggen finns nu och bär #1 och #2.
+Ändringar efter skiva 1, per post nedan. Beslutsloggen finns nu.
 
 **Versionshuvudets `Speglar` sätts till #2, och stycket som föreskrev #1 raderas
 helt.** Talet #1 skrevs innan någon visste hur många beslut den första skivan
