@@ -10,7 +10,13 @@ All indata är påhittad.
 
 from __future__ import annotations
 
+import base64
+
 from src import urval
+
+
+def _koda(text: str) -> str:
+    return base64.urlsafe_b64encode(text.encode("utf-8")).decode("ascii")
 
 KUND = "kund@exempel.se"
 BREVLADA = urval.BREVLADA
@@ -157,3 +163,60 @@ def test_huvudvarde_ar_skiftlagesokansligt():
 
 def test_huvudvarde_utan_traff_ger_tom_strang():
     assert urval.huvudvarde(meddelande(**GMAIL_SVAR), "X-Finns-Inte") == ""
+
+
+# --- massutskick -------------------------------------------------------------
+
+
+def test_nyhetsbrev_kanns_igen_pa_list_unsubscribe():
+    brev = meddelande(etiketter=["INBOX"],
+                      huvuden=SVARSHUVUDEN + ["List-Unsubscribe"])
+
+    assert urval.ar_massutskick(brev)
+
+
+def test_automatiskt_svar_kanns_igen_pa_auto_submitted():
+    auto = meddelande(etiketter=["INBOX"],
+                      huvuden=SVARSHUVUDEN + ["Auto-Submitted"])
+
+    assert urval.ar_massutskick(auto)
+
+
+def test_precedence_bulk_kanns_igen():
+    med = {"labelIds": ["INBOX"], "payload": {"headers": [
+        {"name": "Precedence", "value": "bulk"}]}}
+
+    assert urval.ar_massutskick(med)
+
+
+def test_vanligt_kundmail_ar_inte_massutskick():
+    assert not urval.ar_massutskick(
+        meddelande(etiketter=["INBOX"], huvuden=SVARSHUVUDEN)
+    )
+
+
+# --- html --------------------------------------------------------------------
+
+
+def test_style_och_script_blir_inte_till_ord():
+    """CSS-regler och skriptkod är inte text. Klustras de med grupperas mail på
+    mallens formgivning i stället för på ärendet."""
+    rahtml = ("<style>.klass{font-family:Arial}</style>"
+              "<script>var x=1;</script><p>Hej på dig</p>")
+    med = {"labelIds": ["INBOX"], "payload": {
+        "mimeType": "text/html", "headers": [],
+        "body": {"data": _koda(rahtml)}}}
+
+    text = urval.brodtext(med)
+
+    assert "font" not in text
+    assert "Arial" not in text
+    assert "Hej på dig" in text
+
+
+def test_dubbelkodad_html_avkodas():
+    med = {"labelIds": ["INBOX"], "payload": {
+        "mimeType": "text/html", "headers": [],
+        "body": {"data": _koda("<p>l&amp;auml;ge</p>")}}}
+
+    assert "auml" not in urval.brodtext(med)

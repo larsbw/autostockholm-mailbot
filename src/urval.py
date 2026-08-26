@@ -87,6 +87,32 @@ def ar_gmail_svar(meddelande: dict) -> bool:
     return not VIDAREPREFIX.match(huvudvarde(meddelande, "subject"))
 
 
+# Huvuden som bara massutskick och automatik bär. Ett nyhetsbrev, en
+# Google-notis eller ett ordererkännande är inte ett kundärende, och en
+# klustring som inte sållar bort dem grupperar mail på avsändarens
+# mallformgivning i stället för på vad kunden vill.
+MASSUTSKICKSHUVUDEN = {
+    "list-unsubscribe", "list-id", "list-post", "precedence",
+    "auto-submitted", "x-campaign-id", "x-mailer-lid", "feedback-id",
+    "x-csa-complaints", "x-report-abuse",
+}
+
+
+def ar_massutskick(meddelande: dict) -> bool:
+    """Sant för post som är utskickad till många, eller genererad av ett system.
+
+    Villkoret prövar HUVUDEN och inte avsändaradress: en domänlista hade
+    behövt underhållas och hade blivit fel vid första nya avsändaren, medan
+    `List-Unsubscribe` finns just därför att utskicket självt deklarerar vad
+    det är.
+    """
+    namn = huvudnamn(meddelande)
+    if namn & MASSUTSKICKSHUVUDEN:
+        return True
+    return huvudvarde(meddelande, "precedence").lower() in {"bulk", "list",
+                                                            "junk"}
+
+
 def ar_kundmeddelande(meddelande: dict) -> bool:
     """Sant för det som får bli VÄNSTER sida: kundens text.
 
@@ -120,6 +146,12 @@ def hasha(adress: str) -> str:
 _TAGG = re.compile(r"<[^>]+>")
 _BLOCKSLUT = re.compile(r"</(?:p|div|br|tr|li|h[1-6])\s*>", re.IGNORECASE)
 _BR = re.compile(r"<br\s*/?>", re.IGNORECASE)
+# style och script bär INNEHÅLL som inte är text. Tas de inte bort före
+# taggborttagningen blir CSS-regler och skriptkod till "ord", och en klustring
+# på sådant material grupperar mail på mallens formgivning i stället för på
+# ärendet.
+_EJ_TEXT = re.compile(r"<(style|script)\b.*?</\1\s*>", re.IGNORECASE | re.DOTALL)
+_KOMMENTAR = re.compile(r"<!--.*?-->", re.DOTALL)
 
 # Rader som inleder citerad historik. Gmail och Outlook, svenska och engelska.
 _CITATSTART = re.compile(
@@ -153,10 +185,14 @@ def _avkoda(data: str) -> str:
 
 
 def _text_ur_html(rahtml: str) -> str:
-    utan_br = _BR.sub("\n", rahtml)
+    utan_skript = _EJ_TEXT.sub(" ", rahtml)
+    utan_kommentar = _KOMMENTAR.sub(" ", utan_skript)
+    utan_br = _BR.sub("\n", utan_kommentar)
     utan_block = _BLOCKSLUT.sub("\n", utan_br)
     utan_taggar = _TAGG.sub("", utan_block)
-    return html.unescape(utan_taggar)
+    # Dubbelkodad HTML förekommer: `&amp;auml;` ger efter en avkodning den
+    # bokstavliga strängen `&auml;`, vars bokstäver annars blir till ord.
+    return html.unescape(html.unescape(utan_taggar))
 
 
 def brodtext(meddelande: dict) -> str:

@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.5.2 · **Uppdaterad:** 2026-08-26 · **Speglar:** beslutslogg #8
+**Version:** 0.5.4 · **Uppdaterad:** 2026-08-26 · **Speglar:** beslutslogg #11
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -19,6 +19,8 @@ Ett skickat mail går inte att ångra, och avsändaren är ett företags rykte.
   generering) · lokal disk för data och loggar. Ingen molndrift, ingen extern databas.
 - **Styrdokument:** `docs/roadmap.md` (fasordning, grindar, och definitionen av
   SKUGGLÄGE),
+  `docs/kategorier-forslag.md` (maskinproducerad av `src/cluster.py`, skrivs
+  aldrig för hand),
   `docs/kategorier.md` (kategoridefinitioner och deras hink) — **planerad, byggs i
   fas 4**, se `docs/roadmap.md`,
   `docs/sparrar.md` (varje spärr, vad den skyddar mot, dess negativkontroll, och om
@@ -397,6 +399,18 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.5.4 — 2026-08-26
+
+`Speglar` följer med beslutsloggen till #11. Avläst ur
+`grep -n "^## #" docs/beslutslogg.md`. Ren synk ⇒ PATCH.
+
+### 0.5.3 — 2026-08-26
+
+`Speglar` följer med beslutsloggen till #10. Avläst ur
+`grep -n "^## #" docs/beslutslogg.md`. §0:s styrdokumentlista bär nu också
+`docs/kategorier-forslag.md`, som är maskinproducerad av `src/cluster.py`.
+Ren synk och en listrad ⇒ PATCH.
 
 ### 0.5.2 — 2026-08-26
 

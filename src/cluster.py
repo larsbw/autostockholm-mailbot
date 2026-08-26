@@ -36,6 +36,18 @@ PARFIL = ROT / "data" / "par.jsonl"
 OBESVARADE = ROT / "data" / "tradar_obesvarade.jsonl"
 UTFIL = ROT / "docs" / "kategorier-forslag.md"
 
+# Citaten hamnar HÄR och inte i den committade rapporten. `scratchpad/` är
+# gitignorerad.
+#
+# Skälet är §6 och inte bekvämlighet. Ett namn skrivet med gemener i löpande
+# text går inte att hitta med någon heuristik: maskeringen bygger på att
+# svenskan inte versaliserar vanliga substantiv, och det säger ingenting om ett
+# namn som kunden själv skrivit gement. En granskning fann fyra sorters
+# persondata i citaten i en committad fil, varav en var ett fullständigt namn i
+# gemener. Kategorinamn, antal och medianer är däremot härledda storheter och
+# går att maska säkert; de blir kvar i rapporten.
+EXEMPELFIL = ROT / "scratchpad" / "kategorier-exempel.md"
+
 ORD = re.compile(r"[a-zåäöéèü]{3,}")
 
 # Svenska stoppord plus mailfloskler. Utan dem klustrar allt på "hej" och "tack".
@@ -53,6 +65,22 @@ STOPPORD = {
     "eftersom", "därför", "alltså", "iväg", "igen", "helst", "kanske",
 }
 
+# Rester av HTML och mailteknik som överlever textutvinningen. De bär ingen
+# information om ärendet, och utan dem klustrar mail på avsändarens mall.
+STOPPORD |= {
+    "auml", "ouml", "aring", "nbsp", "amp", "quot", "apos", "eacute",
+    "style", "font", "div", "span", "table", "tbody", "align", "valign",
+    "width", "height", "margin", "padding", "border", "color", "background",
+    "class", "href", "img", "src", "alt", "strong", "center", "right", "left",
+    "cid", "png", "jpg", "jpeg", "gif", "utm", "medium", "source", "campaign",
+    "content", "term", "click", "clicks", "trk", "noreply", "mailto",
+    "unsubscribe", "com", "www", "https", "http", "html", "the", "and", "you",
+    "your", "for", "with", "this", "that", "any", "may", "are", "our", "från",
+    "till", "den", "det", "vår", "våra", "min", "mina", "ditt", "dina",
+    "skrev", "ons", "tis", "tors", "fre", "mån", "sön", "lör", "jan", "feb",
+    "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec",
+}
+
 # Cosinuslikhet över denna tröskel lägger två dokument i samma kluster.
 # VALT tal, inte uppmätt. Sänks det växer klustren ihop, höjs det splittras de.
 TROSKEL = 0.28
@@ -62,8 +90,58 @@ TROSKEL = 0.28
 MINSTA_KLUSTER = 4
 
 
-def tokenisera(text: str) -> list[str]:
-    return [ord_ for ord_ in ORD.findall(text.lower()) if ord_ not in STOPPORD]
+def tokenisera(text: str, uteslut: set[str] | None = None) -> list[str]:
+    """Tokeniserar den MASKERADE texten, aldrig råtexten.
+
+    Adresser, länkar, regnummer och telefonnummer blir till platshållare innan
+    orden plockas ut. Utan det blev lokaldelen i en signaturadress ett ord, och
+    kundernas användarnamn hamnade som kategorinamn i en committad fil.
+    Spårningsparametrar i länkar gjorde detsamma: `utm`, `medium` och `source`
+    bildade en av de största kategorierna utan att betyda något.
+    """
+    uteslut = STOPPORD if uteslut is None else STOPPORD | uteslut
+    maskerat = maskera.maska_fritext(text).lower()
+    return [ord_ for ord_ in ORD.findall(maskerat) if ord_ not in uteslut]
+
+
+ORD_MED_SKIFTLAGE = re.compile(r"\b[A-ZÅÄÖa-zåäöéèü]{3,}\b")
+
+
+def namn_i_korpus(texter: list[str]) -> set[str]:
+    """Egennamn över hela materialet, i gemen form.
+
+    Etiketterna byggs av gemena tokens, så versalheuristiken kan inte tillämpas
+    på dem. Den körs därför på hela korpusen och resultatet blir en
+    uteslutningslista. Utan den hamnade kundernas namn som KATEGORINAMN i en
+    committad fil, vilket är en §6-överträdelse och inte en skönhetsfläck.
+
+    KRITERIET ÄR STATISTISKT, inte positionellt. Ett ord räknas som namn när det
+    oftare skrivs versalt än gement i materialet. `Melias` och `Annika` skrivs
+    nästan alltid versalt, medan `besiktning` skrivs versalt bara när det råkar
+    inleda en mening. En regel som bara tittade på position missade namn i
+    signaturblock, där varje rad börjar med versal.
+
+    Att namn utesluts är dessutom rätt även analytiskt: en kategori ska falla ut
+    ur vad kunden VILL, inte ur vem som råkade skriva.
+    """
+    versalt: Counter[str] = Counter()
+    gement: Counter[str] = Counter()
+    for ratext in texter:
+        # Räkningen sker på text där adresser, länkar och domäner redan är
+        # maskerade men skiftläget är orört. Räknas råtexten röstar ordets
+        # gemena förekomster inuti en e-postadress ned det under tröskeln, och
+        # ett kundförnamn slapp igenom som kategorinamn.
+        text = maskera.maska_identifierare(ratext)
+        for traff in ORD_MED_SKIFTLAGE.finditer(text):
+            ord_ = traff.group(0)
+            if ord_ in maskera.EJ_NAMN:
+                continue
+            if ord_[0].isupper():
+                versalt[ord_.lower()] += 1
+            else:
+                gement[ord_.lower()] += 1
+
+    return {ord_ for ord_, antal in versalt.items() if antal > gement[ord_]}
 
 
 def tfidf(dokument: list[list[str]]) -> list[dict[str, float]]:
@@ -150,14 +228,27 @@ def las_kallor(parfil: Path, obesvarade: Path) -> list[dict]:
     dokument = []
 
     if parfil.exists():
+        # Samma kundmeddelande kan vara vänster sida i FLERA par, när vi svarat
+        # två gånger på det. Paren är äkta, men i en klustring skulle den texten
+        # räknas flera gånger och blåsa upp sitt kluster. Klustringen ser därför
+        # varje kundtext en gång, och svarslängden blir medianen av svaren.
+        sedda: dict[str, dict] = {}
         for rad in parfil.read_text(encoding="utf-8").splitlines():
             if not rad:
                 continue
             post = json.loads(rad)
+            text = post["inkommande_text"]
+            if text in sedda:
+                sedda[text]["svarslangder"].append(len(post["utgaende_text"]))
+                continue
+            sedda[text] = {"text": text, "kalla": "med svar",
+                           "svarslangder": [len(post["utgaende_text"])]}
+
+        for post in sedda.values():
             dokument.append({
-                "text": post["inkommande_text"],
+                "text": post["text"],
                 "kalla": "med svar",
-                "svarslangd": len(post["utgaende_text"]),
+                "svarslangd": _median(post["svarslangder"]),
             })
 
     if obesvarade.exists():
@@ -168,6 +259,12 @@ def las_kallor(parfil: Path, obesvarade: Path) -> list[dict]:
             for meddelande in trad.get("messages", []) or []:
                 if not urval.ar_kundmeddelande(meddelande):
                     continue
+                # Massutskick sållas bort HÄR och inte i miningen. Miningen ska
+                # hämta brett en gång; ett urvalsfel där kostar en ny körning
+                # mot brevlådan, medan ett urvalsfel här kostar en körning mot
+                # disk.
+                if urval.ar_massutskick(meddelande):
+                    break
                 text = urval.brodtext(meddelande)
                 if text:
                     dokument.append({"text": text, "kalla": "utan svar",
@@ -237,9 +334,12 @@ def skriv_rapport(sammanstallning: list[dict], utfil: Path,
         "`auto`, `utkast` eller `aldrig` är Lars beslut i fas 4:s grind. "
         "Ramverksregel 2 i CLAUDE.md §0 säger att ingen kategori flyttas av kod.",
         "",
-        "Citaten är maskerade enligt §6. Maskeringen av NAMN i löpande text "
-        "vilar på att svenskan inte versaliserar vanliga substantiv, vilket är "
-        "en heuristik och inte en garanti. Se `src/maskera.py`.",
+        "**CITATEN STÅR INTE HÄR.** De skrivs till "
+        f"`{EXEMPELFIL.parent.name}/{EXEMPELFIL.name}`, som är gitignorerad. "
+        "Ett namn som kunden skrivit med gemener i löpande text går inte att "
+        "hitta med någon heuristik, och §6 tillåter ingen persondata i `docs/`. "
+        "Kategorinamn, antal och medianer är härledda storheter och kan maskas "
+        "säkert; citaten kan det inte.",
         "",
         "---",
         "",
@@ -280,13 +380,8 @@ def skriv_rapport(sammanstallning: list[dict], utfil: Path,
             f"- **Utan svar:** {kategori['utan_svar']}",
             f"- **Median svarslängd:** "
             f"{median if median is not None else 'inget svar att mäta'}",
-            "",
-            "Representativa exempel, maskerade:",
-            "",
+            f"- **Exempel:** se `{EXEMPELFIL.parent.name}/{EXEMPELFIL.name}`",
         ]
-        for exempel in kategori["exempel"]:
-            rader.append(f"> {exempel}")
-            rader.append("")
 
     rader += [
         "---",
@@ -305,19 +400,89 @@ def skriv_rapport(sammanstallning: list[dict], utfil: Path,
     utfil.write_text("\n".join(rader), encoding="utf-8")
 
 
+def skriv_exempel(sammanstallning: list[dict], utfil: Path) -> None:
+    """Citaten, till en gitignorerad fil. Maskerade så långt heuristiken når,
+    men INTE säkra: läs dem som persondata och behandla dem därefter."""
+    rader = [
+        "# Kategoriexempel",
+        "",
+        "**GITIGNORERAD. INNEHÅLLER PERSONDATA.** Citaten är maskerade så långt "
+        "`src/maskera.py` når, men ett namn som kunden skrivit med gemener går "
+        "inte att hitta med någon heuristik. Filen får inte committas, klistras "
+        "in i ett dokument under `docs/`, eller skickas vidare.",
+        "",
+        "Maskinproducerad av `src/cluster.py`. Skrivs om vid nästa körning.",
+        "",
+        "---",
+        "",
+    ]
+    for kategori in sammanstallning:
+        if kategori["antal"] < MINSTA_KLUSTER:
+            continue
+        rader += [f"## {kategori['etikett']}", ""]
+        for exempel in kategori["exempel"]:
+            rader += [f"> {exempel}", ""]
+
+    utfil.parent.mkdir(parents=True, exist_ok=True)
+    utfil.write_text("\n".join(rader), encoding="utf-8")
+
+
+def sok(dokument: list[dict], term: str) -> None:
+    """Räknar dokument som nämner en term, per källa.
+
+    Finns därför att en klustring inte garanterar att en kategori man VET finns
+    hamnar i ett eget kluster. En kategori kan vara spridd över flera kluster
+    eller drunkna bland större. Att räkna direkt på termen är ett oberoende mått
+    som inte beror på tröskeln.
+    """
+    termer = [t.strip().lower() for t in term.split(",") if t.strip()]
+    med_svar = 0
+    utan_svar = 0
+    svarslangder = []
+
+    for post in dokument:
+        text = post["text"].lower()
+        if not any(t in text for t in termer):
+            continue
+        if post["kalla"] == "med svar":
+            med_svar += 1
+            if post["svarslangd"]:
+                svarslangder.append(post["svarslangd"])
+        else:
+            utan_svar += 1
+
+    print(f"=== TERMSÖKNING: {', '.join(termer)} ===")
+    print(f"  dokument totalt: {med_svar + utan_svar}")
+    print(f"  med svar, alltså par som går att bygga mall ur: {med_svar}")
+    print(f"  utan svar: {utan_svar}")
+    print(f"  median svarslängd: {_median(svarslangder)}")
+
+
 def main(argv: list[str] | None = None) -> int:
     tolk = argparse.ArgumentParser(description=__doc__)
     tolk.add_argument("--parfil", type=Path, default=PARFIL)
     tolk.add_argument("--obesvarade", type=Path, default=OBESVARADE)
     tolk.add_argument("--utfil", type=Path, default=UTFIL)
+    tolk.add_argument("--exempelfil", type=Path, default=EXEMPELFIL)
+    tolk.add_argument(
+        "--sok",
+        default=None,
+        help="räkna dokument som innehåller termen, per källa, i stället för "
+             "att klustra",
+    )
     arg = tolk.parse_args(argv)
 
     dokument = las_kallor(arg.parfil, arg.obesvarade)
+
+    if arg.sok:
+        sok(dokument, arg.sok)
+        return 0
     if not dokument:
         print("inga dokument att klustra")
         return 1
 
-    tokens = [tokenisera(d["text"]) for d in dokument]
+    namn = namn_i_korpus([d["text"] for d in dokument])
+    tokens = [tokenisera(d["text"], namn) for d in dokument]
     behallna = [i for i, t in enumerate(tokens) if t]
     dokument = [dokument[i] for i in behallna]
     vektorer = tfidf([tokens[i] for i in behallna])
@@ -325,6 +490,7 @@ def main(argv: list[str] | None = None) -> int:
     klustren = klustra(vektorer)
     sammanstallning = sammanstall(dokument, klustren, vektorer)
     skriv_rapport(sammanstallning, arg.utfil, len(dokument))
+    skriv_exempel(sammanstallning, arg.exempelfil)
 
     med_svar = sum(1 for d in dokument if d["kalla"] == "med svar")
     print(f"dokument: {len(dokument)}")
@@ -334,6 +500,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  varav minst {MINSTA_KLUSTER} dokument: "
           f"{sum(1 for k in sammanstallning if k['antal'] >= MINSTA_KLUSTER)}")
     print(f"utfil: {arg.utfil}")
+    print(f"exempelfil, gitignorerad: {arg.exempelfil}")
     return 0
 
 

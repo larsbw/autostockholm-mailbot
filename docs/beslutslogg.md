@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.9.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
+**Version:** 0.11.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -299,7 +299,146 @@ sparade kopian bär `Received`. Effekten är inte uppmätt över filen.
 **Vad talet inte är.** Det är inte 136 användbara par. Gallringen i fas 4 kommer
 att sänka det. Om 136 är tillräckligt är Lars bedömning, inte kodens.
 
+---
+
+## #9 — De obesvarade är tre gånger fler, och mestadels inte kundärenden
+
+**Datum:** 2026-08-26 · **Berör:** fas 4 · **Uppmätt i:** skiva 6
+
+**Vad som mättes.** En andra mining hämtade trådar med inkommande men utan
+utgående meddelande. Gmail har ingen operator för det: `q` matchar meddelanden,
+och `threads.list` returnerar varje tråd med minst ett matchande meddelande.
+Frågan besvarades med mängddifferens, `-in:sent` minus tråd-ID i
+`data/tradar.jsonl`. Utfall: 1604 trådar, loggat i `docs/mining-log.md`.
+
+**De obesvarade är tre gånger fler än de besvarade**, 1604 mot 555. En
+klassificerare tränad enbart på besvarade trådar hade varit blind för
+huvuddelen av inflödet.
+
+**MEN DE ÄR MESTADELS INTE KUNDÄRENDEN.** Efter att massutskick sållats bort på
+`List-Unsubscribe`, `Precedence` och besläktade huvuden återstår omkring tusen
+dokument, och de största klustren bär noll svar. Filtret fångar det som
+deklarerar sig som massutskick. Det fångar inte ett personligt skrivet
+leverantörsmail.
+
+*Rättelse: här stod att de största grupperna är "auktionssajter, lösenordsmail,
+fakturor, molnlagring och leverantörsutskick". Den uppräkningen motsägs av
+tabellen den vilar på: lösenords-, faktura- och molnlagringsklustren är bland de
+minsta, inte de största. Klassificeringen var inte mätt, den var läst ur minnet
+av vad jag sett när jag bläddrade. Talet 1073 gällde dessutom en tidigare körning
+och ändrades av senare rättelser i maskeringen; se `docs/kategorier-forslag.md`,
+som är maskinproducerad och alltid aktuell.*
+
+**Konsekvens för fas 4.** Kategorilistan kan inte läsas rakt av ur klustringen.
+Den obesvarade populationen behöver en mänsklig genomgång av ett urval innan
+kategorierna sätts, och en kategori som bara finns bland obesvarade mail har per
+definition inget svar att bygga mall ur.
+
+---
+
+## #10 — Underlaget per kategori, och a-traktor
+
+**Datum:** 2026-08-26 · **Berör:** fas 4 och fas 5
+
+**Talen.** Termsökning över båda källorna, mätt med `src/cluster.py --sok`:
+
+| Term | Kundärenden med svar | Utan svar | Median svarslängd |
+| --- | --- | --- | --- |
+| a-traktor och stavningsvarianter | 33 | 4 | 466 tecken |
+| besiktning | 9 | 21 | 230 tecken |
+| service eller reparation | 21 | 371 | 241 tecken |
+
+*Rättelse: tabellen bar först 36 för a-traktor. Det talet räknade SVARSINSTANSER,
+och samma kundmeddelande kan ha besvarats två gånger. Efter avdubblering på
+kundtexten är talet 33 unika kundärenden, som tillsammans bär 36 svar. Se #11.*
+
+**A-traktor har 33 kundärenden med svar**, mätt med termsträngen
+`a-traktor,atraktor,a traktor,epatraktor,epa-traktor`. Det är materialets
+största kategori räknat i par.
+
+*Rättelse: här stod att kategorin är "stor nog att bygga mallar ur" och att
+"det är kärnverksamheten, och det syns i att den får svar". Det första är en
+värdering utan namngiven tröskel, alltså samma fel som #7 ströks för. Det andra
+är ett kausalt påstående utan underlag: att a-traktorärenden kommer in via
+webbformuläret, som alltid besvaras, förklarar kvoten lika bra. Båda strukna.
+Om 36 räcker är Lars bedömning.*
+
+**Talen 36 och 4 är inte mätta på samma population.** Vänsterledet är par ur
+`data/par.jsonl`, alltså svarsinstanser. Högerledet är en tråd per rad ur
+`data/tradar_obesvarade.jsonl`, och den sidan är dessutom massutskicksfiltrerad
+medan parsidan inte är det. Kvoten 36:4 ska därför inte läsas som en
+svarsfrekvens.
+
+**Besiktning har 9 par och 21 obesvarade.** För få par för en mall, och en
+övervikt av obesvarade som bör förstås innan kategorin sätts.
+
+**Service och reparation ser stort ut och är det inte.** 371 obesvarade mot 21
+par. Termerna förekommer i leverantörsutskick och marknadsföring, så talet är
+uppblåst av material som inte är kundärenden. Se #9.
+
+**Varför termsökning och inte bara klustring.** En klustring garanterar inte att
+en kategori man VET finns hamnar i ett eget kluster: den kan spridas över flera
+kluster eller drunkna bland större. Termsökningen är ett oberoende mått som inte
+beror på tröskeln, och den ersätter inte klustringen utan kompletterar den.
+
+**Ingen hinktilldelning föreslås.** Fas 4:s grind är Lars beslut, och
+ramverksregel 2 säger att ingen kategori flyttas av kod.
+
+---
+
+## #11 — `data/par.jsonl` räknar svarsinstanser, inte kundärenden
+
+**Datum:** 2026-08-26 · **Berör:** `src/extract.py`, `src/cluster.py`, fas 5
+
+**Vad som gäller.** En rad i `data/par.jsonl` är ett SVAR med sitt föregående
+kundmeddelande. Har vi svarat två gånger på samma kundmail blir det två rader
+med IDENTISK `inkommande_text`. Båda paren är äkta och båda hör hemma i
+mallunderlaget: de är två faktiska svar Matte eller Lars skrivit.
+
+**Men de får inte räknas som två ärenden.** Filen bär 226 rader och de motsvarar
+217 unika kundtexter. Ett tal som ska beskriva hur många ÄRENDEN vi har underlag
+för ska räkna kundtexter; ett tal som ska beskriva hur många SVAR vi kan lära av
+ska räkna rader.
+
+**Konsekvens för klustringen.** `src/cluster.py` avdubblerar på kundtexten innan
+den klustrar, och tar medianen av svarslängderna när ett ärende har flera svar.
+Utan det blåstes ett kluster upp av samma text i flera exemplar, vilket syntes
+direkt i en tidigare version av `docs/kategorier-forslag.md`, där samma citat
+stod tre gånger i ett kluster om fyra.
+
+**Vad som INTE ändras.** `src/extract.py` fortsätter skriva ett par per svar.
+Att slå ihop dem i extraktionen vore att kasta ett äkta svar.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.11.0 — 2026-08-26
+
+Rättelser i #9 och #10 efter granskning, alla strukna på plats enligt undantaget
+i huvudet, var och en med en kursiv not där den stod:
+
+- #9 räknade upp vilka grupper som är störst. Uppräkningen motsägs av tabellen
+  den vilar på: lösenords-, faktura- och molnlagringsklustren är bland de minsta.
+  Klassificeringen var inte mätt.
+- #10 kallade a-traktor "stor nog att bygga mallar ur", en värdering utan
+  namngiven tröskel, och påstod ett orsakssamband mellan kärnverksamhet och
+  svarsfrekvens som inte är belagt.
+- #10 namngav inte termsträngen, så talet 36 gick inte att reproducera utan
+  gissning. Strängen står nu utskriven.
+- #10 saknade upplysningen att 36 och 4 inte är mätta på samma population.
+
+Ny post **#11** om extraktionens parräkning tillkommer.
+
+Ny post och rättelser ⇒ MINOR.
+
+### 0.10.0 — 2026-08-26
+
+Posterna **#9** och **#10** tillkommer efter miningen av obesvarade trådar och
+klustringen. #9 slår fast att de obesvarade är tre gånger fler men mestadels
+inte kundärenden. #10 bär underlaget per kategori, inklusive a-traktorns 36 par.
+
+Två nya poster ⇒ MINOR.
 
 ### 0.9.0 — 2026-08-26
 

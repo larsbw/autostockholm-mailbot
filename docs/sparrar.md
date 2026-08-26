@@ -1,6 +1,13 @@
 # Spärrar
 
-**Version:** 0.4.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.5.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §7.1
+
+> **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
+> bär det villkor posten påstår, innan du fäller den. En granskning körde det
+> dokumenterade kommandot ordagrant, träffade fem docstringrader i stället för
+> spärren, och fick verdiktet GRÖN. Ett föråldrat radnummer i det här dokumentet
+> producerar alltså ett FALSKT VAKUÖSTVERDIKT, vilket är värre än inget
+> dokument. Varje post namnger därför också villkorets TEXT.
 
 **Sändvägens spärrar är ännu inte byggda och fylls i FAS 5.** En spärr är
 registrerad, och den kommer inte från sändvägen utan från mining.
@@ -22,8 +29,9 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 
 | Spärr | Vad den skyddar mot | Negativkontroll | Redundant med |
 | --- | --- | --- | --- |
-| `nollfall-max-threads` | Att en körning som ombeds hämta noll trådar raderar föregående skörd | `test_alla_tradar_over_flera_sidor_hamtas` | Sig själv, två lager (`src/mine.py:179` och `:238`). Se posten. |
+| `nollfall-max-threads` | Att en körning som ombeds hämta noll trådar raderar föregående skörd | `test_alla_tradar_over_flera_sidor_hamtas` | Sig själv, två lager i `src/mine.py`. Se posten. |
 | `urval-gmail-svar` | Att maskinskriven text blir mall och att kundens röst räknas bort | `test_svar_skrivet_i_gmail_kanns_igen`, `test_inkommande_ar_kundmeddelande` | Sig själv, sex lager i `ar_gmail_svar`. Se posten. |
+| `maskering-persondata` | Att persondata når ett dokument under `docs/` | `test_ord_vid_meningsstart_maskeras_ocksa` | `src/cluster.py::namn_i_korpus`, i en ANNAN fil. Se posten. |
 
 ---
 
@@ -31,10 +39,14 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 
 - **Spärr.** Hindrar att `--max-threads 0` eller ett negativt tal leder till en
   hämtning. Beslutet fattas på **två rader, i två funktioner**:
-  - `src/mine.py:179` i `lista_trad_id`: `if max_tradar is not None and
-    max_tradar <= 0: return []`. Skyddar API:et. Inget anrop görs.
-  - `src/mine.py:238` i `mina`: samma villkor, returnerar innan `utfil` rörs.
-    Skyddar filen. Ingen `.delvis` skapas och `data/tradar.jsonl` lämnas orörd.
+  - I `lista_trad_id`: `if max_tradar is not None and max_tradar <= 0:`
+    följt av `return []`. Skyddar API:et. Inget anrop görs.
+  - I `mina`: samma villkor, returnerar innan `utfil` rörs. Skyddar filen.
+    Ingen `.delvis` skapas och `data/tradar.jsonl` lämnas orörd.
+
+  Radnumren står inte här, av skälet i rutan överst. Slå upp dem med
+  `grep -n "max_tradar is not None and max_tradar <= 0" src/mine.py`, som ger
+  båda lagren och bara dem.
 - **Vad den skyddar mot.** Utan lagret i `mina` skrev en nolltrådskörning en tom
   `.delvis`, flyttade den på plats över en färdig skörd, och kvitterade det i
   `docs/mining-log.md` som `fullständig`. En felskrivning på kommandoraden
@@ -52,28 +64,33 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
   gav då GRÖN, alltså ett INKONKLUSIVT utfall som utan den här posten läses som
   vakuöst. Granskaren fick upptäcka lagringen på egen hand.
 
-  **Nuläge, uppmätt 2026-08-26 i den här skivan.** Sedan `:179` fått ett eget
-  test faller varje lager för sig:
+  **Nuläge.** Sedan lagret i `lista_trad_id` fått ett eget test faller varje
+  lager för sig:
 
-  | Fällning | Test som blir röda |
+  | Fällt lager | Test som blir röda |
   | --- | --- |
-  | `--radera 179 --radera 180` | `test_lista_trad_id_med_noll_gor_inga_anrop` |
-  | `--radera 238 --radera 239 --radera 240` | `test_max_threads_noll_ger_inga_anrop_alls`, `test_max_threads_noll_raderar_inte_foregaende_skord` |
-  | båda lagren | samtliga tre ovan |
+  | `lista_trad_id` | `test_lista_trad_id_med_noll_gor_inga_anrop` |
+  | `mina` | `test_max_threads_noll_ger_inga_anrop_alls`, `test_max_threads_noll_raderar_inte_foregaende_skord` |
+  | båda | samtliga tre ovan |
 
   Lagringen är alltså kvar, men den maskerar inte längre. Varje lager vaktar en
-  egen sak: `:179` skyddar API:et mot ett anrop, `:238` skyddar filen mot en
-  överskrivning. Den fullständiga prövningen fäller ändå båda i samma körning:
+  egen sak: det ena skyddar API:et mot ett anrop, det andra filen mot en
+  överskrivning. Den fullständiga prövningen fäller båda i samma körning, med
+  radnummer avlästa ur grep-kommandot ovan:
 
   ```
-  scripts/sparr-prova.sh --fil src/mine.py --radera 179 --radera 180 --radera 238 --radera 239 --radera 240
+  scripts/sparr-prova.sh --fil src/mine.py --ersatt "<rad1>=    if False:" --ersatt "<rad2>=    if False:"
   ```
+
+  **Neutralisering, inte radering.** Villkoren är `if`-huvuden, och en radering
+  lämnar en syntaktiskt trasig fil. Sviten kan då inte köras alls, och
+  prövningen ger FEL i stället för RÖD.
 
 ---
 
 ## `urval-gmail-svar`
 
-- **Spärr.** `scripts/tradstruktur.py::ar_gmail_svar` avgör vilka meddelanden som
+- **Spärr.** `src/urval.py::ar_gmail_svar` avgör vilka meddelanden som
   får bli HÖGER sida i ett par, och `ar_kundmeddelande` vilka som får bli vänster.
   Beslutet fattas på **sex rader i `ar_gmail_svar`**, var och en ett eget villkor:
   `SENT` i labelIds, inga leveranshuvuden, båda svarshuvudena, inte
@@ -106,6 +123,37 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 
 ---
 
+## `maskering-persondata`
+
+- **Spärr.** `src/maskera.py::maska_fritext` och `::maska_adressrad` hindrar att
+  persondata når ett dokument under `docs/`. Beslutet fattas på mönstren `URL`,
+  `EPOST`, `DOMAN`, `GATA`, `REGNR`, `SIFFROR` och `VERSALT_ORD`, plus
+  uteslutningslistan `EJ_NAMN`.
+- **Vad den skyddar mot.** §6. Kundmail bär namn, adresser, registreringsnummer
+  och telefonnummer, och `docs/kategorier-forslag.md` är maskinproducerad ur
+  just den texten.
+- **Negativkontroll.** `test_ord_vid_meningsstart_maskeras_ocksa` visar vad
+  spärren SLÄPPER IGENOM, nämligen orden i `EJ_NAMN`. En maskering som ersatte
+  allt vore inte en spärr utan en tömning.
+- **Redundant med.** `src/cluster.py::namn_i_korpus`, och **lagren ligger i
+  olika filer**. Det gör spärren svår att pröva: `scripts/sparr-prova.sh` tar
+  ett `--fil`, så den fullständiga fällningen kräver två körningar eller en
+  manuell dubbelmutation. En granskning fällde `namn_i_korpus` ensamt, fick
+  GRÖN på `test_namn_utesluts_ur_etiketten`, och kunde bara redovisa
+  INKONKLUSIVT.
+
+  **Historik.** Persondata nådde en committad fil fyra gånger under skiva 6, i
+  fyra olika former: förnamn efter fältetikett med kolon, namn i signaturrad,
+  fullständigt namn i gemener, och namn i versaler. De tre första berodde på ett
+  positionsundantag som räknade varje radbörjan och varje tecken efter kolon som
+  meningsstart. Undantaget är borttaget.
+
+  **Det som INTE går att maska.** Ett namn som kunden skrivit med gemener i
+  löpande text. Ingen heuristik når det. Därför skrivs citat ur kundmail till
+  en gitignorerad fil och aldrig till `docs/`.
+
+---
+
 ## Mall för en spärrpost
 
 Kopiera blocket nedan per spärr. Varje fält fylls i, tomma fält är en ofärdig
@@ -128,6 +176,24 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.5.0 — 2026-08-26
+
+**Radnumren i `nollfall-max-threads` var föråldrade och gav ett FALSKT
+GRÖN-VERDIKT.** `--uteslut` sköt ned villkoren, och det dokumenterade kommandot
+raderade fem docstringrader i stället för spärren. Posten namnger nu villkorets
+TEXT och ett grep-kommando i stället för radnummer, och rutan överst varnar för
+klassen av fel. Posten säger också att villkoren ska NEUTRALISERAS och inte
+raderas, eftersom en radering av ett `if`-huvud gör filen syntaktiskt trasig.
+
+**`urval-gmail-svar` pekade på fel fil.** Funktionen flyttade till `src/urval.py`
+i skiva 6 och posten hängde kvar i `scripts/tradstruktur.py`.
+
+**Spärren `maskering-persondata` registrerad.** Dess lager ligger i OLIKA FILER,
+vilket gör den svår att pröva med ett verktyg som tar ett `--fil`. En granskning
+kunde bara redovisa INKONKLUSIVT, och posten skriver ut varför.
+
+Rättade påståenden och en ny post ⇒ MINOR.
 
 ### 0.4.0 — 2026-08-26
 

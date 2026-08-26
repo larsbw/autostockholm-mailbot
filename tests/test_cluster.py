@@ -39,6 +39,16 @@ def test_regnummer_maskeras_i_fritext():
         assert "[REGNR]" in ut
 
 
+def test_bar_doman_maskeras_i_fritext():
+    """En domän utan protokoll matchas varken av EPOST eller URL, och kan vara
+    ett efternamn. Utan det här mönstret överlevde en sådan som kategorinamn i
+    en committad fil."""
+    ut = maskera.maska_fritext("se efternamnsson.se för mer")
+
+    assert "efternamnsson" not in ut
+    assert "[DOMÄN]" in ut
+
+
 def test_lank_maskeras_i_fritext():
     ut = maskera.maska_fritext("se https://exempel.se/sida?id=4 för mer")
 
@@ -55,10 +65,14 @@ def test_namn_mitt_i_mening_maskeras():
     assert "[NAMN]" in ut
 
 
-def test_ord_vid_meningsstart_maskeras_inte():
+def test_ord_vid_meningsstart_maskeras_ocksa():
+    """Positionsundantaget är BORTTAGET. Det lät `Kund: Förnamn` och varje
+    radbörjan i ett signaturblock passera, vilket gav persondata i en committad
+    fil. Att `Bilen` nu maskeras är priset, och modulens doktrin är att
+    övermaskering är ofarlig medan undermaskering är en §6-överträdelse."""
     ut = maskera.maska_fritext("Hej. Bilen behöver besiktigas.")
 
-    assert ut == "Hej. Bilen behöver besiktigas."
+    assert ut == "Hej. [NAMN] behöver besiktigas."
 
 
 def test_vanliga_versala_ord_maskeras_inte():
@@ -85,10 +99,116 @@ def test_oigenkannlig_adressrad_maskeras_helt():
     ut = maskera.maska_adressrad("Förnamn Efternamnsson")
 
     assert "Efternamnsson" not in ut
+    assert "Förnamn" not in ut
     assert ut.startswith("[MASKERAD")
 
 
+def test_verp_adress_lacker_inte_den_inkodade_adressen():
+    """Återställd ur den borttagna test_tradstruktur.py. Vaktar `=` i EPOST:s
+    teckenklass. En studsadress kodar in kundens adress efter ett
+    likhetstecken, och utan `=` börjar matchningen efter det."""
+    ut = maskera.maska_adressrad(
+        "<bounces+12-kalle=kundens-doman.se@sg.example.net>"
+    )
+
+    assert "kalle" not in ut
+    assert "kundens-doman" not in ut
+
+
+def test_flera_mottagare_maskeras_var_for_sig():
+    """Återställd. Vaktar sammanfogningsgrenen i maska_adressrad."""
+    ut = maskera.maska_adressrad("Anna Andersson <anna@ett.se>, "
+                                 "Bo Berg <bo@tva.se>")
+
+    assert "Andersson" not in ut
+    assert "Berg" not in ut
+    assert "anna" not in ut
+    assert ut.count("<") == 2
+
+
+def test_tom_adressrad_ger_ingen_krasch():
+    """Återställd. §4:s nollfall för adressraden."""
+    assert maskera.maska_adressrad("") == "[MASKERAD, 0 tecken]"
+
+
+def test_telefonnummer_maskeras_i_bada_formaten():
+    """Återställd. Det internationella formatet testades inte längre."""
+    assert "123" not in maskera.maska_fritext("ring 070-123 45 67")
+    assert "123" not in maskera.maska_fritext("ring +46 (0)8-123 45 67")
+
+
+def test_postnummer_och_kundnummer_maskeras():
+    """Fem respektive fyra siffror stod i klartext när gränsen låg på sex."""
+    assert "19252" not in maskera.maska_fritext("adressen är 19252 orten")
+    assert "4711" not in maskera.maska_fritext("kundnummer 4711 hos oss")
+
+
+def test_gatunamn_maskeras():
+    for adress in ("Surbrunnsgatan", "Storvägen", "Lilltorget"):
+        ut = maskera.maska_fritext(f"vi finns på {adress} nära dig")
+
+        assert adress not in ut, adress
+
+
+def test_namn_skrivet_med_versaler_maskeras():
+    """En tidigare version krävde gemen svans och släppte igenom versala namn."""
+    ut = maskera.maska_fritext("hälsningar från ANDERSSON på verkstaden")
+
+    assert "ANDERSSON" not in ut
+
+
+def test_namn_vid_meningsstart_maskeras_ocksa():
+    """Positionsundantaget är borttaget: `Kund: Förnamn` och signaturblockens
+    radbörjan gick annars ut i klartext i en committad fil."""
+    assert "Tobias" not in maskera.maska_fritext("Kund: Tobias ringde")
+    assert "Annika" not in maskera.maska_fritext("Hej.\nAnnika här")
+
+
+def test_regnummer_med_bindestreck_maskeras():
+    assert "ABC-123" not in maskera.maska_fritext("bilen ABC-123 står kvar")
+
+
 # --- klustring ---------------------------------------------------------------
+
+
+def test_namn_i_korpus_hittar_egennamn_i_gemen_form():
+    namn = cluster.namn_i_korpus(["jag heter Annika och bor i Solna"])
+
+    assert "annika" in namn
+    assert "solna" in namn
+
+
+def test_namn_utesluts_ur_etiketten():
+    """Utan detta hamnade kundernas förnamn som KATEGORINAMN i en committad
+    fil, vilket är en §6-överträdelse."""
+    texter = ["besiktning av traktor hos Annika besiktning traktor"]
+    namn = cluster.namn_i_korpus(texter)
+    vektorer = cluster.tfidf([cluster.tokenisera(texter[0], namn)])
+
+    etikett = cluster.etikett([0], vektorer, antal_ord=5)
+
+    assert "annika" not in etikett
+    assert "besiktning" in etikett
+
+
+def test_massutskick_faller_bort_ur_klustringen(tmp_path):
+    obesvarade = tmp_path / "obesvarade.jsonl"
+    kropp = {"data": "ZnLDpWdhIG9tIHJlc2VydmRlbA=="}
+    nyhetsbrev = {"messages": [{
+        "labelIds": ["INBOX"],
+        "payload": {"mimeType": "text/plain", "body": kropp,
+                    "headers": [{"name": "List-Unsubscribe", "value": "<x>"}]},
+    }]}
+    kundmail = {"messages": [{
+        "labelIds": ["INBOX"],
+        "payload": {"mimeType": "text/plain", "body": kropp, "headers": []},
+    }]}
+    rader = [json.dumps(nyhetsbrev), json.dumps(kundmail)]
+    obesvarade.write_text("\n".join(rader) + "\n", encoding="utf-8")
+
+    dokument = cluster.las_kallor(tmp_path / "finns-ej", obesvarade)
+
+    assert len(dokument) == 1
 
 
 def test_stoppord_faller_bort_vid_tokenisering():
@@ -183,6 +303,27 @@ def test_bada_kallorna_lases_och_markeras(tmp_path):
     assert [d["kalla"] for d in dokument] == ["med svar", "utan svar"]
     assert dokument[0]["svarslangd"] == len("svar om besiktning")
     assert dokument[1]["svarslangd"] is None
+
+
+def test_samma_kundtext_raknas_en_gang_i_klustringen(tmp_path):
+    """Ett kundmeddelande kan vara vänster sida i flera par när vi svarat två
+    gånger. Paren är äkta, men i klustringen skulle texten blåsa upp sitt
+    kluster."""
+    parfil = tmp_path / "par.jsonl"
+    poster = [
+        {"inkommande_text": "fråga om besiktning", "utgaende_text": "kort",
+         "tidsstampel": "", "avsandare_hash": "x"},
+        {"inkommande_text": "fråga om besiktning",
+         "utgaende_text": "ett längre svar", "tidsstampel": "",
+         "avsandare_hash": "x"},
+    ]
+    parfil.write_text("\n".join(json.dumps(p) for p in poster) + "\n",
+                      encoding="utf-8")
+
+    dokument = cluster.las_kallor(parfil, tmp_path / "finns-ej")
+
+    assert len(dokument) == 1
+    assert dokument[0]["svarslangd"] == cluster._median([4, 15])
 
 
 def test_saknad_kalla_ger_inget_fel(tmp_path):

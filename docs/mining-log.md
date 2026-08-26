@@ -24,6 +24,7 @@ committat och lyder under CLAUDE.md §6.
 | --- | --- | --- | --- | --- | --- |
 | 2026-08-26 11:38 UTC | `in:sent` | 50 | 51 | 2010 | fullständig |
 | 2026-08-26 14:32 UTC | `in:sent` | 555 | 561 | 22260 | fullständig |
+| 2026-08-26 16:42 UTC | `-in:sent minus tråd-ID i tradar.jsonl` | 1604 | 1623 | 64350 | fullständig |
 
 ---
 
