@@ -1,0 +1,8 @@
+# Versionerna är avlästa ur `pip freeze` i .venv, inte valda ur minnet.
+google-api-python-client==2.199.0
+google-auth==2.57.0
+google-auth-oauthlib==1.4.1
+pytest==9.1.1
+# Transitiv via google-api-python-client, men tests/fejk.py importerar den
+# direkt för att bygga HttpError, så den pinnas explicit.
+httplib2==0.32.0
