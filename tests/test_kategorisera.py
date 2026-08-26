@@ -67,28 +67,21 @@ def test_saknad_nyckel_ger_tom_strang(tmp_path, monkeypatch):
     assert kategorisera.las_api_nyckel(tmp_path / "finns-ej") == ""
 
 
-def test_bar_nyckel_utan_namn_accepteras(tmp_path, monkeypatch):
-    """En bar nyckel i filen är en lika entydig avsikt som `NAMN=värde`."""
+def test_bar_nyckel_utan_namn_lases_inte(tmp_path, monkeypatch):
+    """Toleransen är BORTTAGEN på Lars beslut. §1: en oklarhet lyfts, inte
+    tystas. En tolerant parser döljer att formatet var fel, och nästa läsare
+    vet då inte vilken form som gäller."""
     envfil = tmp_path / ".env"
     envfil.write_text("sk-ant-pahittad-nyckel\n", encoding="utf-8")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
 
-    assert kategorisera.las_api_nyckel(envfil) == "sk-ant-pahittad-nyckel"
+    assert kategorisera.las_api_nyckel(envfil) == ""
 
 
-def test_export_prefix_accepteras(tmp_path, monkeypatch):
+def test_export_prefix_lases_inte(tmp_path, monkeypatch):
+    """Formen är `ANTHROPIC_API_KEY=värde`, och inget annat."""
     envfil = tmp_path / ".env"
     envfil.write_text("export ANTHROPIC_API_KEY=sk-ant-x\n", encoding="utf-8")
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-
-    assert kategorisera.las_api_nyckel(envfil) == "sk-ant-x"
-
-
-def test_anteckning_utan_likhetstecken_tas_inte_for_en_nyckel(tmp_path,
-                                                              monkeypatch):
-    """Prefixkravet hindrar att en tom rad eller en anteckning blir en nyckel."""
-    envfil = tmp_path / ".env"
-    envfil.write_text("kom ihåg att förnya nyckeln\n\n", encoding="utf-8")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
 
     assert kategorisera.las_api_nyckel(envfil) == ""
@@ -255,6 +248,29 @@ def test_exempelfilen_maskerar(tmp_path):
 
 
 # --- urvalet -----------------------------------------------------------------
+
+
+def test_kallorna_varvas_sa_att_varje_prefix_ar_blandat():
+    """Utan varvningen låg alla besvarade först, och en provkörning på tjugo
+    poster blev blind för de obesvarade, som är tre gånger fler."""
+    poster = ([{"text": f"m{i}", "kalla": "med svar"} for i in range(3)]
+              + [{"text": f"u{i}", "kalla": "utan svar"} for i in range(3)])
+
+    varvat = kategorisera.varva(poster)
+
+    assert [p["kalla"] for p in varvat[:4]] == [
+        "med svar", "utan svar", "med svar", "utan svar"
+    ]
+
+
+def test_varvningen_tappar_ingen_post_nar_kallorna_ar_olika_stora():
+    poster = ([{"text": "m", "kalla": "med svar"}]
+              + [{"text": f"u{i}", "kalla": "utan svar"} for i in range(4)])
+
+    varvat = kategorisera.varva(poster)
+
+    assert len(varvat) == 5
+    assert sum(1 for p in varvat if p["kalla"] == "med svar") == 1
 
 
 def test_maskinmail_kommer_inte_med(tmp_path):

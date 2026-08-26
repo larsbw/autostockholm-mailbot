@@ -108,7 +108,28 @@ def texter_att_kategorisera(parfil: Path, besvarade: Path, obesvarade: Path,
                     poster.append({"text": text, "kalla": "utan svar"})
                 break
 
-    return poster
+    return varva(poster)
+
+
+def varva(poster: list[dict]) -> list[dict]:
+    """Varvar källorna, så att VARJE PREFIX är blandat.
+
+    Utan det låg alla besvarade först, och `--max-poster 20` drog tjugo poster
+    ur enbart den besvarade sidan. Provkörningen blev då blind för de
+    obesvarade, som är tre gånger fler och strukturellt annorlunda: till stor
+    del förmedlade offertförfrågningar. Prompten hade alltså prövats mot en
+    fjärdedel av materialet och körts mot allt.
+    """
+    med = [p for p in poster if p["kalla"] == "med svar"]
+    utan = [p for p in poster if p["kalla"] != "med svar"]
+
+    varvat = []
+    for index in range(max(len(med), len(utan))):
+        if index < len(med):
+            varvat.append(med[index])
+        if index < len(utan):
+            varvat.append(utan[index])
+    return varvat
 
 
 ENVFIL = ROT / ".env"
@@ -137,20 +158,18 @@ def las_api_nyckel(envfil: Path | None = None) -> str:
         if not rad or rad.startswith("#"):
             continue
 
-        # En rad UTAN likhetstecken som ser ut som en Anthropic-nyckel tas som
-        # nyckeln. Formen `NAMN=värde` är den avsedda, men en bar nyckel i
-        # filen är en lika entydig avsikt, och att avvisa den hade bara flyttat
-        # ett formkrav till den som felsöker. Prefixkravet gör att en
-        # anteckning eller en tom rad inte kan tolkas som en nyckel.
+        # FORMEN ÄR `ANTHROPIC_API_KEY=värde`, och inget annat.
+        #
+        # En tidigare version accepterade också en bar nyckel utan namn. Den
+        # toleransen är BORTTAGEN på Lars beslut, och skälet är §1: en oklarhet
+        # ska lyftas, inte tystas. En tolerant parser döljer att formatet var
+        # fel, och nästa läsare vet då inte vilken form som gäller. Att filen
+        # hade fel form är en upplysning, inte ett hinder att bygga bort.
         if "=" not in rad:
-            if rad.startswith("sk-ant-"):
-                return rad
             continue
 
         namn, _, varde = rad.partition("=")
-        # `export NAMN=värde` är den form ett skalskript använder.
-        namn = namn.strip().removeprefix("export").strip()
-        if namn == "ANTHROPIC_API_KEY":
+        if namn.strip() == "ANTHROPIC_API_KEY":
             return varde.strip().strip('"').strip("'")
     return ""
 
@@ -163,9 +182,16 @@ def bygg_klient(nyckel: str = ""):
     nyckel = nyckel or las_api_nyckel()
     if not nyckel:
         raise SystemExit(
-            "Ingen ANTHROPIC_API_KEY. Sätt den i miljön, eller lägg raden\n"
-            "  ANTHROPIC_API_KEY=...\n"
-            "i .env i repots rot. Filen är gitignorerad."
+            "Ingen ANTHROPIC_API_KEY hittad.\n"
+            "\n"
+            "Sätt den i miljön, eller skriv EXAKT den här raden i .env i\n"
+            "repots rot:\n"
+            "\n"
+            "  ANTHROPIC_API_KEY=sk-ant-...\n"
+            "\n"
+            "Formen är obligatorisk. En bar nyckel utan namn läses INTE, och\n"
+            "det är avsiktligt: en tolerant parser hade dolt att formatet var\n"
+            "fel. Filen .env är gitignorerad."
         )
     return anthropic.Anthropic(api_key=nyckel)
 
@@ -340,15 +366,25 @@ def main(argv: list[str] | None = None) -> int:
     tolk.add_argument("--modell", default=MODELL)
     tolk.add_argument("--max-poster", type=int, default=None,
                       help="begränsa antalet texter, för en provkörning")
+    tolk.add_argument("--kalla", choices=("alla", "med-svar", "utan-svar"),
+                      default="alla",
+                      help="dra bara ur en källa, för en riktad provkörning")
     arg = tolk.parse_args(argv)
 
     domaner = klassa_maskin.las_domaner(klassa_maskin.DOMANFIL)
     poster = texter_att_kategorisera(arg.parfil, arg.besvarade,
                                      arg.obesvarade, domaner)
+    if arg.kalla != "alla":
+        onskad = "med svar" if arg.kalla == "med-svar" else "utan svar"
+        poster = [p for p in poster if p["kalla"] == onskad]
+
     if arg.max_poster:
         poster = poster[:arg.max_poster]
 
+    med_svar = sum(1 for p in poster if p["kalla"] == "med svar")
     print(f"mänskliga texter att kategorisera: {len(poster)}")
+    print(f"  med svar: {med_svar}")
+    print(f"  utan svar: {len(poster) - med_svar}")
     if not poster:
         print("inget att göra")
         return 1

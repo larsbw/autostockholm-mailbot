@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.5.7 · **Uppdaterad:** 2026-08-26 · **Speglar:** beslutslogg #16
+**Version:** 0.6.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** beslutslogg #16
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -378,10 +378,23 @@ scratchpad/Mailbot-CC-report-YYYYMMDD-HHMM.md
 ```
 
 Tidsstämpeln tas ur `date -u +%Y%m%d-%H%M` **vid skrivögonblicket**, aldrig för hand.
-Filen skrivs SIST, efter grinden. Rapportens första rad är den fullständiga
-tidsstämpeln, andra raden HEAD-SHA. **Skrivningen ska VERIFIERAS innan den
-rapporteras:** kör `ls -la` på filen och återge sökväg, storlek och tidsstämpel.
+Rapportens första rad är den fullständiga tidsstämpeln, andra raden HEAD-SHA.
+**Skrivningen ska VERIFIERAS innan den rapporteras:** kör `ls -la` på filen och
+återge sökväg, storlek och tidsstämpel.
 **Ett påstående om en skrivning är inte en skrivning.**
+
+**EN RAPPORT PER AVSTÄMNINGSTILLFÄLLE, inte en per skiva.** Rapporten skrivs varje
+gång arbetet stannar för ett besked från Lars, inte bara sist. Filnamnet bär redan
+tidsstämpel, så flera filer per skiva blir ett audit trail i stället för en
+slutrapport som skrivs när allt redan är avgjort.
+
+En rapport som inte avslutar skivan bär **`STATUS: DELRAPPORT`** på TREDJE raden,
+efter tidsstämpeln och SHA:n, och redovisar vad som återstår i skivan. En rapport
+som avslutar skivan bär `STATUS: SLUTRAPPORT` och skrivs SIST, efter grinden.
+
+Skälet är att en delrapport dokumenterar läget FÖRE beslutet den ber om. Skrivs den
+i efterhand är den skriven av någon som redan vet hur det gick, och då är den ett
+referat och inte ett underlag.
 
 **Motsvarande för sändning: ett påstående om ett skickat mail är inte ett skickat mail.**
 Efter varje `messages.send`, läs tillbaka det returnerade message-ID:t med `messages.get`
@@ -399,6 +412,21 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.6.0 — 2026-08-26
+
+**§12: rapporten skrivs vid varje avstämningstillfälle, inte bara sist.** Beslut
+av Lars i skiva 8. Filnamnet bär redan tidsstämpel, så flera filer per skiva ger
+ett audit trail i stället för en slutrapport. En delrapport bär `STATUS:
+DELRAPPORT` på tredje raden och redovisar vad som återstår.
+
+Skälet är att en delrapport dokumenterar läget FÖRE det beslut den ber om. Skrivs
+den i efterhand är den skriven av någon som redan vet hur det gick, och då är den
+ett referat och inte ett underlag.
+
+Ändringen åberopar §7:s dokumentdetaljundantag, alltså EN granskningsomgång.
+
+Ny regel i §12 ⇒ MINOR.
 
 ### 0.5.7 — 2026-08-26
 
