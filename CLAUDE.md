@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.4.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** beslutslogg #4
+**Version:** 0.4.1 · **Uppdaterad:** 2026-08-26 · **Speglar:** beslutslogg #4
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -19,7 +19,8 @@ Ett skickat mail går inte att ångra, och avsändaren är ett företags rykte.
   generering) · lokal disk för data och loggar. Ingen molndrift, ingen extern databas.
 - **Styrdokument:** `docs/roadmap.md` (fasordning, grindar, och definitionen av
   SKUGGLÄGE),
-  `docs/kategorier.md` (kategoridefinitioner och deras hink),
+  `docs/kategorier.md` (kategoridefinitioner och deras hink) — **planerad, byggs i
+  fas 4**, se `docs/roadmap.md`,
   `docs/sparrar.md` (varje spärr, vad den skyddar mot, dess negativkontroll, och om
   den är redundant med någon annan spärr),
   `docs/beslutslogg.md` (sekventiell, append-only),
@@ -353,7 +354,7 @@ parallellt och går före vid konflikt.
 vilken signal som har rätt.
 
 Numret läses ur `grep -n "^## #" docs/beslutslogg.md`, aldrig ur minnet av vad det
-stod på sist. **Bara CLAUDE.md bär en pekare med versionsnummer.** Övriga styrdokument
+stod på sist. **Bara CLAUDE.md bär en pekare mot ett rörligt nummer.** Övriga styrdokument
 namnger i stället vilken paragraf de implementerar, eftersom en pekare med patchnivå
 blir gammal av varje rättelse här och tvingar fram innehållslösa versionsposter i varje
 dokument som pekar. Se `docs/beslutslogg.md` 0.6.0.
@@ -362,6 +363,10 @@ dokument som pekar. Se `docs/beslutslogg.md` 0.6.0.
 `.venv/bin/python scripts/kategoristatus.py`. Raden får **aldrig skrivas för hand**.
 Den redovisar antal kategorier per hink, antal mail per kategori, och datum för senaste
 mining. En handskriven status är sann när den skrivs och falsk i nästa tråd.
+
+**Före fas 4 finns skriptet inte**, och då gäller i stället: skriv ut att statusraden
+inte kan produceras och varför. Skriv ALDRIG en handskriven ersättning. Kravet är
+uppfyllt av att hålet namnges, inte av att det fylls.
 
 **Rapporten skrivs till en egen fil med tidsstämpel** i den gitignorerade `scratchpad/`:
 
@@ -392,17 +397,49 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.4.1 — 2026-08-26
+
+Rättelser efter skiva 3:s granskningsomgång, per post:
+
+- **0.4.0-posten namngav fel post för strykningen.** Den skrev "Rättelse i
+  0.3.1-posten"; strykningen ligger i 0.3.0-posten. Självrapportering ska
+  verifieras mot diffen, inte skrivas ur minnet av avsikten (§7.2).
+- **En andra falskhet fanns oredovisad.** 0.3.1-posten sa att 0.3.0-posten "säger
+  nu i stället var begreppet SAKNAS, vilket är ett påstående som inte förändras
+  av att texten omkring växer". Den meningen blev falsk av strykningen i samma
+  commit, och blev det på precis det sätt den påstod var uteslutet. Struken.
+- **Ett committat citat hade retroöversatts.** Lars motivering i 0.3.0-posten
+  skrevs om från "shadow mode" till "skuggläge" och omformulerades, utöver
+  strykningen. Ursprunglig ordalydelse återställd. Undantaget tillåter att en
+  falskhet stryks, inte att ett citat moderniseras.
+- **Processräkning struken.** 0.4.0-posten skrev att skiva 1 och skiva 2 gick
+  "tre granskningsvarv" var. §7.2 namnger `granskningsvarv` ordagrant som
+  förbjuden processräkning, och talet går inte att läsa ur repot: rapporterna
+  ligger i gitignorerad `scratchpad/`. Ersatt med det som är avläsbart, att
+  `config/` och `mallar/` är tomma.
+- **`färskhetstriangeln` var upphävd men refererades i presens** på två ställen.
+  Båda bär nu en not.
+- **§0 och §12 pekade på filer som inte finns.** `docs/kategorier.md` är markerad
+  som planerad till fas 4, och §12 säger nu vad som gäller innan
+  `scripts/kategoristatus.py` finns: skriv ut att raden inte kan produceras,
+  aldrig en handskriven ersättning.
+
+Skivan åberopade §7:s dokumentundantag, alltså en granskningsomgång. Dessa
+rättelser är gjorda efter den omgången och är **självmätta, inte oberoende
+granskade**. De rör inte sändvägen. Undantaget begränsar antalet omgångar, inte
+kravet på sanning: ett känt falskt påstående får inte skeppas oavsett.
+
 ### 0.4.0 — 2026-08-26
 
 **§7:s dokumentundantag får en regel om NÄR det ska åberopas.** Undantaget har
-funnits sedan 0.2.0 och åberopades aldrig, eftersom ingenting sade när. Följden
-är mätbar: skiva 1 och skiva 2 gick båda tre granskningsvarv på prosa och blev
-båda UNDERKÄNDA, medan sändvägen fortfarande är obyggd. En skiva vars leverabler
-är enbart dokument åberopar nu undantaget som förval, och åberopandet sker per
-skiva i briefen, aldrig per fynd i efterhand. Det senare vore att sänka kraven
-mitt i grinden.
+funnits sedan `f9b680a` och åberopades aldrig, eftersom ingenting sade när.
+Följden var att granskningsgrinden maldes på prosa medan sändvägen förblev
+obyggd: `ls -la config` och `ls -la mallar` är tomma, och `src/` bär bara
+`auth.py` och `mine.py`. En skiva vars leverabler är enbart dokument åberopar nu
+undantaget som förval, och åberopandet sker per skiva i briefen, aldrig per fynd
+i efterhand. Det senare vore att sänka kraven mitt i grinden.
 
-**Kaskaden stängs.** Bara det här dokumentet bär en pekare med versionsnummer.
+**Kaskaden stängs.** Bara det här dokumentet bär en pekare mot ett rörligt nummer.
 Övriga styrdokument namnger vilken paragraf de implementerar. §12:s
 färskhetskontroll är omskriven därefter: den jämförde tidigare korsreferenser som
 nu avsiktligt är borta. Beslut av Lars i skiva 3, som svar på den öppna fråga
@@ -411,11 +448,19 @@ nu avsiktligt är borta. Beslut av Lars i skiva 3, som svar på den öppna fråg
 **`docs/roadmap.md` upprättas och listas i §0.** Den bär fasordningen, varje fas
 grindbeslut, och definitionen av SKUGGLÄGE.
 
-**Rättelse i 0.3.1-posten.** Den sa att `shadow mode` inte var definierat
-någonstans i repot. Det påståendet blev falskt av `docs/roadmap.md`, som skapades
-i samma skiva. Falskheten är struken på plats och strykningen redovisas här,
-enligt undantaget i `docs/beslutslogg.md`:s huvud. Den engelska formen används
-inte längre; termen är SKUGGLÄGE.
+**Två strykningar på plats, båda i redan committade appendixposter.**
+
+`0.3.0`-posten sa att `shadow mode` inte var definierat någonstans i repot. Det
+blev falskt av `docs/roadmap.md`, som skapades i samma skiva. `0.3.1`-posten sa i
+sin tur att 0.3.0-posten "säger nu i stället var begreppet SAKNAS, vilket är ett
+påstående som inte förändras av att texten omkring växer". Det blev falskt av den
+första strykningen, och blev det på precis det sätt meningen påstod var uteslutet.
+
+Båda falskheterna är strukna på plats med stöd av undantaget i
+`docs/beslutslogg.md`:s huvud, och varje strykning bär en kursiv not där den
+stod. **Lars citerade motivering i 0.3.0-posten står kvar ordagrant**, inklusive
+den engelska termen: undantaget tillåter att en falskhet stryks, inte att ett
+committat citat översätts i efterhand.
 
 Ny regel i §7 ⇒ MINOR.
 
@@ -451,9 +496,12 @@ skrivas ur minnet av vad den stod på sist.
 
 **Kvantifieringen om `shadow mode` stryks ur 0.3.0-posten.** Den sa att en
 `grep`-sökning bara träffar en mening. Sökningen träffar hela stycket, och blev
-falsk av den omskrivning som skulle rätta ett närliggande fel. Posten säger nu i
-stället var begreppet SAKNAS, vilket är ett påstående som inte förändras av att
-texten omkring växer.
+falsk av den omskrivning som skulle rätta ett närliggande fel.
+
+*Rättelse i 0.4.0: här stod att 0.3.0-posten i stället säger var begreppet
+saknas, och att det är ett påstående som inte förändras av att texten omkring
+växer. Båda leden är struket. Meningen det syftade på är själv struken ur
+0.3.0-posten, och den blev falsk av precis det den påstods vara oberoende av.*
 
 **Om formen.** 0.3.0:s appendixpost redigerades på plats i `b03139d`, efter att
 den committats. Det bryter mot beslutsloggens räckviddsregel, som infördes i
@@ -479,8 +527,9 @@ helt.** Talet #1 skrevs innan någon visste hur många beslut den första skivan
 skulle producera. Rätt värde är #2. Stycket ersätts inte, eftersom ett dokument
 inte ska bära en instruktion om vilket tal det självt ska få: det är ett ogrundat
 tal i en bisats, alltså precis det §7.2 finns för att stoppa. Att `Speglar`
-uppdateras när loggen växer följer av §12:s färskhetstriangel och behöver ingen
-egen föreskrift.
+uppdateras när loggen växer följer av §12 och behöver ingen egen föreskrift.
+*(Namnet färskhetstriangeln, som stod här, är upphävt i 0.4.0: kontrollen har två
+signaler.)*
 
 **§10 får en ny första rad om auktorisering.** Beslutslogg #2 behandlar
 auktoriseringen som den grind som öppnar miljön, medan §10 bara namngav första
@@ -493,13 +542,15 @@ läses som en kalibrerad tröskel, vilket den aldrig var. Ettan är golvet och �
 därför inget påstående om volym. Talet revideras när mining visat den faktiska
 dagsvolymen. Raden behåller sin pekare hit.
 
-Lars motiverade sänkningen med att ingenting skickas under skuggläge och att
+Lars motiverade sänkningen med att ingenting skickas under shadow mode och att
 första skarpa sändningen är manuell. Sänkningen vilar inte på begreppet, utan på
-att 1 är golvet, så motiveringen hade hållit även utan det.
+att 1 är golvet, så motiveringen håller även om shadow mode aldrig införs.
 
-*Rättelse i 0.4.0: posten sa här att begreppet inte var definierat någonstans.
-Det är det nu. SKUGGLÄGE definieras i `docs/roadmap.md`, och den engelska formen
-`shadow mode` används inte längre i repot.*
+*Rättelse i 0.4.0: här stod att begreppet inte var definierat någonstans i repot.
+Det påståendet blev falskt av `docs/roadmap.md` och är struket. Lars motivering
+ovan står kvar i sin ursprungliga ordalydelse, inklusive den engelska termen, för
+att den är ett citat. Begreppet heter SKUGGLÄGE i repot och definieras i
+`docs/roadmap.md`.*
 
 **§0:s styrdokumentlista räknade upp `docs/incidentlogg.md` medan filen inte
 fanns.** Filen är nu upprättad och bär sin första post, I1, om defaultvärden som

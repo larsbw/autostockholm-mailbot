@@ -30,8 +30,8 @@ Vad skuggläget innebär konkret:
 - Loggen är append-only och lyder under §6: hashade avsändare, inga adresser.
 
 **Termen är svensk i repot.** Den engelska formen `shadow mode` ska inte
-användas: den saknade definition ända till den här posten och blev därför ett
-obelagt begrepp i en motivering (CLAUDE.md 0.3.1). Ett begrepp som styr sändvägen
+användas: den saknade definition ända till det här dokumentet och blev därför ett
+obelagt begrepp i en motivering (CLAUDE.md:s appendixpost 0.3.0). Ett begrepp som styr sändvägen
 ska ha exakt en form och exakt en definition, och den står här.
 
 **Skuggläget är inte en flagga som kan glömmas bort.** Det upphör bara genom

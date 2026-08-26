@@ -53,6 +53,10 @@ Korsreferensen i versionshuvudet följer med CLAUDE.md till 0.3.0. Inget innehå
 färskhetstriangel kräver att korsreferenserna är överens: en pekare mot 0.2.0
 hade gjort triangeln oense från och med den här skivan. Ren synk ⇒ PATCH.
 
+*Upphävt i 0.3.0: §12 heter numera färskhetskontrollen, har två signaler i
+stället för tre, och kräver inte längre att korsreferenserna är överens. Kravet
+den här posten åberopar finns inte kvar.*
+
 ### 0.2.0 — 2026-08-26
 
 Statuskolumn tillkommer, och med den stycket om vad `AVBRUTEN` innebär för

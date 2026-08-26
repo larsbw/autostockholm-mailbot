@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.6.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
+**Version:** 0.6.1 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -128,8 +128,10 @@ sedan CLAUDE.md 0.3.0 talet 1, så mönstret `5 mail` matchar den inte alls.
 Anvisningen beskriver en träff som kommandot inte producerar, och dess undantag
 för självreferenser täcker inte förekomsten i dokumentets egen appendixpost.
 
-**Vad som gäller i stället.** Den föråldrade meningen är
-`docs/beslutslogg.md:49`, inne i post #1. Den är den enda förekomst i repot som
+**Vad som gäller i stället.** Den föråldrade meningen är den i post #1 som lyder
+"i samma anda som §10:s gräns på 5 mail per körning". Den citeras i stället för
+att pekas ut med radnummer, eftersom ett radnummer förskjuts av varje tillägg
+ovanför sig och redan hunnit bli fel en gång. Den är den enda förekomst i repot som
 påstår något falskt om nuläget. Övriga förekomster av strängen är antingen
 daterad historik i `CLAUDE.md`:s appendix, eller citat inne i #3, #4 och
 versionshistoriken, som alla refererar felet i stället för att göra det.
@@ -146,6 +148,14 @@ och rad, räkna och kategorisera aldrig sin egen omgivning.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.6.1 — 2026-08-26
+
+**Falsk radhänvisning struken ur post #4.** Posten pekade ut den föråldrade
+meningen i #1 som `docs/beslutslogg.md:49`. Meningen ligger inte där: ett tillägg
+i huvudet sköt ned den, och den flyttar sig igen vid nästa tillägg. Hänvisningen
+är ersatt av ett citat, som är stabilt. Struken på plats enligt undantaget i
+huvudet, redovisad här. ⇒ PATCH.
 
 ### 0.6.0 — 2026-08-26
 
