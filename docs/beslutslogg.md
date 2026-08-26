@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.3.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.0
+**Version:** 0.4.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.1
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -110,7 +110,43 @@ felet.
 
 ---
 
+## #4 — #3:s verifieringsanvisning upphävs
+
+**Datum:** 2026-08-26 · **Berör:** `docs/beslutslogg.md` #3
+
+**Vad som upphävs.** #3:s sista stycke ber läsaren köra
+`grep -rn "5 mail" CLAUDE.md docs` och skilja på "tre sorters träff", varav den
+första är §10:s egen rad. **Den sorten finns inte i utdatan.** §10:s rad bär
+sedan CLAUDE.md 0.3.0 talet 1, så mönstret `5 mail` matchar den inte alls.
+Anvisningen beskriver en träff som kommandot inte producerar, och dess undantag
+för självreferenser täcker inte förekomsten i dokumentets egen appendixpost.
+
+**Vad som gäller i stället.** Den föråldrade meningen är
+`docs/beslutslogg.md:49`, inne i post #1. Den är den enda förekomst i repot som
+påstår något falskt om nuläget. Övriga förekomster av strängen är antingen
+daterad historik i `CLAUDE.md`:s appendix, eller citat inne i #3, #4 och
+versionshistoriken, som alla refererar felet i stället för att göra det.
+
+**#3 skrivs inte om**, eftersom regeln i huvudet förbjuder det för en committad
+post. Läs #3:s sista stycke som upphävt av den här posten.
+
+**Varför felet uppstod, och det är samma orsak tredje gången.** #3:s anvisning
+ersatte en räkning ("gav tre träffar") med en kategorisering ("tre sorters
+träff"). Båda formerna beskriver textens egen omgivning, och båda blir falska när
+omgivningen växer, vilket den gör av just den commit som skriver dem. Regeln som
+följer står i CLAUDE.md 0.3.1:s appendixpost: namnge fil och rad, räkna och
+kategorisera aldrig sin egen omgivning.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.4.0 — 2026-08-26
+
+Post **#4** tillkommer och upphäver #3:s verifieringsanvisning, som beskrev en
+träffsort som kommandot inte producerar. #3 är orörd.
+
+Ny post ⇒ MINOR.
 
 ### 0.3.0 — 2026-08-26
 

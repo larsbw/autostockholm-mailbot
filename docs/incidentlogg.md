@@ -1,6 +1,6 @@
 # Incidentlogg
 
-**Version:** 0.1.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.0 §0 ·
+**Version:** 0.2.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.1 §0 ·
 beslutslogg: ingen post rör incidenterna ännu
 
 Varje regel som bärs av en incident bor här. Dokumentet finns för att förlagornas
@@ -27,7 +27,7 @@ defaultvärde. Ett defaultvärde binds när modulen laddas, inte när funktionen
 anropas, så parametern höll en referens till den ursprungliga sökvägen. När
 testet bytte ut modulkonstanten `MININGLOGG` mot en temporärfil nådde utbytet
 aldrig fram, och `main()` skrev till den riktiga `docs/mining-log.md`. Tre
-påhittade körningsrader hann appendas till ett committat styrdokument innan felet
+påhittade körningsrader hann appendas till ett styrdokument innan felet
 upptäcktes. De är borttagna.
 
 Samma mönster satt kvar för `sov`, `klocka` och `slumpa`. Berörda funktioner,
@@ -49,13 +49,13 @@ committen berodde på att ett nytt test råkade skriva till en temporärfil meda
 den riktiga filen ändå växte, inte på någon spärr. Belägg:
 `git grep -n "UTC" 820c2ce -- docs/mining-log.md` ger noll träffar, och
 `git log --oneline --all -- docs/mining-log.md` visar att filens första commit är
-`820c2ce`. Hade committen legat en halvtimme tidigare hade raderna varit
-permanenta.
+`820c2ce`. Hade committen legat före upptäckten hade raderna varit permanenta.
 
 **Hur det upptäcktes.** Inte genom läsning. `logga_korning`-felet föll ut när ett
-nytt CLI-test skrev till en temporärfil och den riktiga filen ändå växte. De fyra
-kvarvarande fallen fann den oberoende granskaren genom att MÄTA svittiden, inte
-genom att läsa koden: raderna såg korrekta ut och var det inte.
+nytt CLI-test skrev till en temporärfil och den riktiga filen ändå växte. De
+kvarvarande fallen, de som rörde `sov`, `klocka` och `slumpa`, fann den oberoende
+granskaren genom att MÄTA svittiden, inte genom att läsa koden: raderna såg
+korrekta ut och var det inte.
 
 **Uppmätt effekt.** Med samtliga lager fällda blev svitens utdata i skiva 1
 `1 failed, 40 passed in 2.89s`, mot baslinjen `41 passed in 0.24s`. Granskaren
@@ -64,7 +64,9 @@ Talen är alltså två avläsningar av samma fenomen i olika körningar, inte et
 som ändrats.
 
 **Reproduktion.** Fällningen är NEUTRALISERANDE och återinför defaultbindningen i
-pacerns väg. Radnumren gäller `src/mine.py` från och med `820c2ce`:
+pacerns väg. Radnumren gäller `src/mine.py` från och med `8569073`, alltså inte
+i `820c2ce` där samma rader ligger på 121 och 226. Kontrollera dem mot filen före
+fällningen:
 
 ```
 scripts/sparr-prova.sh --fil src/mine.py \
@@ -121,6 +123,29 @@ skriva posten ännu, inte ett skäl att lämna fältet tomt.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.2.0 — 2026-08-26
+
+Post I1 utvidgad och rättad efter granskning. Per post:
+
+- Stycket "Vad som hände" sa att raderna nådde ett **committat** styrdokument.
+  Ordet är struket. Filen var otrackad när det hände. Samma fel rättades i
+  "Vad det kostade" redan i `b03139d`, men raden i "Vad som hände" lämnades kvar,
+  så posten motsade sig själv mellan två stycken.
+- Reproduktionsreceptet sa att radnumren gäller från och med `820c2ce`. De gäller
+  från och med `8569073`; i `820c2ce` ligger samma rader på 121 och 226. Den som
+  följde anvisningen bokstavligen hade muterat fel rader.
+- "Hade committen legat en halvtimme tidigare" bar ett kontrafaktiskt tal utan
+  källa. Siffran är struken, meningen bär utan den.
+- "De fyra kvarvarande fallen" räknade fall som posten inte räknar upp. Ersatt
+  med vilka värden det gällde.
+
+**Om formen.** Post I1 skrevs om på plats i `b03139d`, efter att den committats i
+`7397e8e`, utan versionshöjning och utan appendixpost. Det bryter mot §8 och mot
+beslutsloggens räckviddsregel. Den här posten är rättelsen: I1:s brödtext ändras
+härefter inte utan att en versionspost redovisar vad som ändrades.
+
+Utvidgad post och ny regel om formen ⇒ MINOR.
 
 ### 0.1.0 — 2026-08-26
 

@@ -46,6 +46,7 @@ FIXTUR="nej"
 FIXTUR_SKAPAD="nej"
 SJALVTEST="nej"
 KOPIA=""
+KOPIA_TAGEN="nej"
 KOPIA_REN=""
 SHA_FORE=""
 DIFF_FORE=""
@@ -107,6 +108,21 @@ fi
 # Prövar de två vägranden som annars bara går att läsa sig till. Har sin egen
 # trap, eftersom den varken fäller rader eller kör sviten.
 if [ "$SJALVTEST" = "ja" ]; then
+    if [ "${#MUTATIONER[@]}" -ne 0 ]; then
+        echo "sparr-prova: --sjalvtest tar ingen fällning. Ta bort --radera och --ersatt." >&2
+        exit 2
+    fi
+    if [ "$FIXTUR" = "ja" ]; then
+        echo "sparr-prova: --sjalvtest sätter fixturen själv. Ta bort --fixtur-ocommittat." >&2
+        exit 2
+    fi
+    case "$FIL" in
+        *sparr-prova.sh|*mutera.py)
+            echo "sparr-prova: --sjalvtest kan inte köras mot sitt eget verktyg." >&2
+            echo "             Skriptet läses medan det körs. Välj en annan fil." >&2
+            exit 2
+            ;;
+    esac
     if ! git -C "$ROT" ls-files --error-unmatch "$FIL" > /dev/null 2>&1; then
         echo "sparr-prova: --sjalvtest kräver en SPÅRAD fil. $FIL är otrackad." >&2
         exit 2
@@ -144,18 +160,26 @@ if [ "$SJALVTEST" = "ja" ]; then
     trap sjalvtest_stad EXIT
 
     SJT_FEL=0
+    SJT_UTDATA="$(mktemp -t sparr-prova-sjt-ut)"
+
+    # Exit 2 delas av flera lägen: okänd flagga, saknad fil, otrackad fil, fel
+    # filändelse, redan smutsig fil. Koden ensam bevisar därför inte att RÄTT
+    # kontroll fällde. Assertionen går på meddelandet, och utdatan skrivs ut så
+    # att beviset går att läsa i efterhand i stället för att kastas bort.
+    SJT_VANTAT="bär redan ocommittat arbete"
 
     echo "--- SJÄLVTEST: vägran mot fil med OSTAGAT arbete ---"
     printf '\n# %s\n' "SJALVTEST: ostagat arbete" >> "$FIL"
     set +e
     "$ROT/scripts/sparr-prova.sh" --fil "$FIL" --fixtur-ocommittat --radera 1 \
-        > /dev/null 2>&1
+        > "$SJT_UTDATA" 2>&1
     SJT_EXIT="$?"
     set -e
-    if [ "$SJT_EXIT" -eq 2 ]; then
-        echo "vägrade som den ska (exit 2): OK"
+    echo "verktygets svar: $(head -n 1 "$SJT_UTDATA")"
+    if [ "$SJT_EXIT" -eq 2 ] && grep -q "$SJT_VANTAT" "$SJT_UTDATA"; then
+        echo "vägrade av RÄTT skäl, med exit 2: OK"
     else
-        echo "STOPP: förväntade exit 2, fick $SJT_EXIT"
+        echo "STOPP: väntade exit 2 och skälet \"$SJT_VANTAT\", fick exit $SJT_EXIT."
         SJT_FEL=1
     fi
 
@@ -164,17 +188,20 @@ if [ "$SJALVTEST" = "ja" ]; then
     git -C "$ROT" add -- "$FIL"
     set +e
     "$ROT/scripts/sparr-prova.sh" --fil "$FIL" --fixtur-ocommittat --radera 1 \
-        > /dev/null 2>&1
+        > "$SJT_UTDATA" 2>&1
     SJT_EXIT="$?"
     set -e
-    if [ "$SJT_EXIT" -eq 2 ]; then
-        echo "vägrade som den ska (exit 2): OK"
-        echo 'Detta är ledet som "git diff" ensamt hade missat: arbetet ligger'
-        echo 'bara i indexet, och filen på disk är identisk med HEAD.'
+    echo "verktygets svar: $(head -n 1 "$SJT_UTDATA")"
+    if [ "$SJT_EXIT" -eq 2 ] && grep -q "$SJT_VANTAT" "$SJT_UTDATA"; then
+        echo "vägrade av RÄTT skäl, med exit 2: OK"
+        echo 'Detta är ledet som "git diff" ensamt hade missat: arbetsträdet är'
+        echo 'identiskt med INDEXET, så den ostagade diffen är tom trots att'
+        echo 'filen skiljer sig från HEAD.'
     else
-        echo "STOPP: förväntade exit 2, fick $SJT_EXIT"
+        echo "STOPP: väntade exit 2 och skälet \"$SJT_VANTAT\", fick exit $SJT_EXIT."
         SJT_FEL=1
     fi
+    rm -f "$SJT_UTDATA"
 
     echo ""
     echo "--- SJÄLVTESTETS VERDIKT ---"
@@ -198,9 +225,13 @@ aterstall() {
     UTFALL="$?"
 
     # Fixturen läggs in innan säkerhetskopian tas, så trapen kan löpa i ett
-    # läge där KOPIA ännu inte finns. Då är den rena kopian det enda som finns
+    # läge där kopian ännu inte finns. Då är den rena kopian det enda som finns
     # att gå tillbaka till, och det viktiga är att inte lämna fixturen kvar.
-    if [ -z "$KOPIA" ]; then
+    #
+    # Grenen frågar om kopian FAKTISKT ÄR TAGEN, inte om variabeln är satt.
+    # `mktemp` sätter variabeln till en tom fil, och faller något mellan den
+    # och `cp` hade den normala grenen kopierat den tomma filen över målfilen.
+    if [ "$KOPIA_TAGEN" != "ja" ]; then
         echo ""
         echo "--- ÅTERSTÄLLNING ---"
         if [ "$FIXTUR_SKAPAD" = "ja" ]; then
@@ -327,6 +358,7 @@ SHA_FORE="$(shasum -a 256 "$FIL" | awk '{print $1}')"
 DIFF_FORE="$(mktemp -t sparr-prova-diff)"
 git -C "$ROT" diff -- "$FIL" > "$DIFF_FORE" || true
 cp "$FIL" "$KOPIA"
+KOPIA_TAGEN="ja"
 
 # En otrackad fil har alltid tom git diff. Då är diff-kvittensen sann utan att
 # bevisa något, och läsaren ska veta att det bara är sha256 som bär bevis.

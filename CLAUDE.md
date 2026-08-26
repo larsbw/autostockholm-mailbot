@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.3.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** beslutslogg #2
+**Version:** 0.3.1 · **Uppdaterad:** 2026-08-26 · **Speglar:** beslutslogg #4
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -376,6 +376,32 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.3.1 — 2026-08-26
+
+Två rättelser, båda funna av granskningen av 0.3.0.
+
+**`Speglar` sätts till #4**, alltså till loggens högsta nummer efter den här
+skivans rättelser. 0.3.0 lämnade huvudet på #2 medan loggen växte, vilket är
+samma osynk som 0.3.0 infördes för att stänga. **Pekaren ska kontrolleras mot
+`grep -n "^## #" docs/beslutslogg.md` i varje pass som rör beslutsloggen**, inte
+skrivas ur minnet av vad den stod på sist.
+
+**Kvantifieringen om `shadow mode` stryks ur 0.3.0-posten.** Den sa att en
+`grep`-sökning bara träffar en mening. Sökningen träffar hela stycket, och blev
+falsk av den omskrivning som skulle rätta ett närliggande fel. Posten säger nu i
+stället var begreppet SAKNAS, vilket är ett påstående som inte förändras av att
+texten omkring växer.
+
+**Om formen.** 0.3.0:s appendixpost redigerades på plats i `b03139d`, efter att
+den committats. Det bryter mot beslutsloggens räckviddsregel, som infördes i
+samma commit. Den här posten är rättelsen: härefter rättas en committad
+appendixpost genom en ny versionspost, inte genom omskrivning.
+
+**Regeln som de tre rättelserna gav.** Skriv aldrig en mening som räknar eller
+kategoriserar sin egen omgivning. "Ger tre träffar", "bara den här meningen",
+"tre sorters träff" blir alla falska när texten omkring dem växer, och de växer
+oftast av just den commit som skriver dem. Namnge fil och rad i stället.
+
 ### 0.3.0 — 2026-08-26
 
 Fyra ändringar efter skiva 1, varav två som skiva 1 blottade och två som §7.2
@@ -402,11 +428,12 @@ dagsvolymen. Raden behåller sin pekare hit.
 
 Lars motiverade sänkningen med att ingenting skickas under shadow mode och att
 första skarpa sändningen är manuell. **Det återges här som hans plan, inte som ett
-förhållande i repot:** `shadow mode` är inte definierat någonstans i koden eller
-i styrdokumenten, och `grep -rn "shadow"` träffar bara den här meningen.
-Sänkningen vilar inte på begreppet, utan på att 1 är golvet, så motiveringen
-håller även om shadow mode aldrig införs. Begreppet ska definieras eller
-strykas när sändvägen börjar byggas.
+förhållande i repot:** `shadow mode` är inte definierat någonstans i koden, i
+konfigurationen eller i styrdokumenten. Det finns ingen kod som implementerar
+ett sådant läge och ingen post som inför det. Sänkningen vilar inte på
+begreppet, utan på att 1 är golvet, så motiveringen håller även om shadow mode
+aldrig införs. Begreppet ska definieras eller strykas när sändvägen börjar
+byggas.
 
 **§0:s styrdokumentlista räknade upp `docs/incidentlogg.md` medan filen inte
 fanns.** Filen är nu upprättad och bär sin första post, I1, om defaultvärden som

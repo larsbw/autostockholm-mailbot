@@ -1,6 +1,6 @@
 # Mining-logg
 
-**Version:** 0.2.1 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.0 §8 ·
+**Version:** 0.2.2 · **Uppdaterad:** 2026-08-26 · **Speglar:** CLAUDE.md 0.3.1 §8 ·
 beslutslogg #1
 
 Varje körning av `src/mine.py` mot brevlådan appendas här av koden, aldrig för
@@ -27,6 +27,15 @@ committat och lyder under CLAUDE.md §6.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.2.2 — 2026-08-26
+
+Korsreferensen följer med CLAUDE.md till 0.3.1. Ingen körning loggad.
+
+Posten redovisar också att 0.2.1:s appendixpost fick ett stavfel rättat på plats
+i `b03139d`, efter att den committats, utan versionshöjning. Det bryter mot §8 på
+samma sätt som de större fallen i samma commit, och står här i stället för att
+tigas ihjäl därför att det är litet. Ren synk och en formrättelse ⇒ PATCH.
 
 ### 0.2.1 — 2026-08-26
 
