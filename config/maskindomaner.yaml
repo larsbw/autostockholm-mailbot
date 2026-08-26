@@ -1,105 +1,24 @@
-# Domäner som bara skickar deklarerat maskinmail.
+# Domäner som ALLTID är maskinmail, oavsett huvuden.
 #
-# HÄRLEDD, INTE HANDSKRIVEN. Skrivs om av
-# `python -m src.klassa_maskin --harled-domaner`.
+# TOM MED AVSIKT. Varje post här är Lars beslut, aldrig kodens.
 #
-# En domän kommer med först när varje mail från den bär ett
-# maskinhuvud eller en noreply-avsändare. En domän som också skickat
-# ett odeklarerat mail lämnas utanför: den kan bära både utskick och
-# en människa, och att klassa den som maskin hade kastat kundens post.
+# Kandidater härleds ur materialet med
+#   .venv/bin/python -m src.klassa_maskin --harled-domaner
+# och skrivs till den gitignorerade `scratchpad/maskindomaner-kandidater.yaml`.
+# De förs över hit en och en, av en människa som känner igen avsändaren.
 #
-# §6: en domän är inte persondata, men en LOKALDEL kan vara det.
-# Därför står bara domäner här, aldrig hela adresser.
+# SKÄLET ÄR UPPMÄTT. Med 91 härledda domäner och med noll gav klassningen
+# identiska tal: 200/211/144 för de besvarade och 1295/309/0 för de obesvarade.
+# Lagret bidrog alltså med ingenting, vilket följer av härledningen: en domän
+# kommer bara med om huvudlagret redan fällt allt från den.
+#
+# Kvar blir enbart framåtriktad risk, och den är konkret. Den första härledda
+# listan innehöll `googlemail.com`, alltså Gmails konsumentaliasdomän: varje
+# framtida kund med den adressen hade klassats som maskinmail utan att bära ett
+# enda maskinhuvud. Den innehöll också flera offertförmedlare som
+# VIDAREBEFORDRAR riktiga kundärenden till verkstaden.
+#
+# §6: en domän är inte persondata, men en domän KAN vara ett efternamn.
+# Den som för över en post hit ska läsa den med det i åtanke.
 
-maskindomaner:
-- accounts.google.com
-- adyen.com
-- amazon.se
-- autobutler.se
-- autodude.fi
-- autodude.se
-- autotechby.com
-- bambora.com
-- batteriexperten.com
-- billiga-arbetsklader.se
-- bokadirekt-b88c555211e9.intercom-mail.com
-- bolagsplatsen.se
-- bolagsverket.se
-- bolt.eu
-- budi.se
-- comms.americanexpress.com
-- communications.paypal.com
-- confirm.bilprovningen.se
-- coop.se
-- dinadack.com
-- efaktura.bankgirot.se
-- email.apple.com
-- email.circlek.se
-- frobergs.se
-- github.com
-- googlemail.com
-- gummigrossenab.se
-- harrysson.co
-- hitta.se
-- hittabilverkstad.nu
-- hyresgastforeningen.se
-- info.if.se
-- invoice.resursbank.se
-- klaravik.se
-- link.com
-- lohelectronics.se
-- mail.instagram.com
-- mail.mathem.se
-- mail.svea.com
-- markesdemo.se
-- medeasy.se
-- medlem.snabbgross.se
-- mg-eu.merinfo.se
-- myrankx.com
-- news.bilprovningen.se
-- news.strato.com
-- nexigroup.com
-- nordixmed.se
-- notification.resursbank.se
-- noviai.se
-- nyheter.verktygsproffsen.se
-- ocbdev.axfood.se
-- okq8.se
-- oneflow.com
-- order.dack365.se
-- pageroonline.com
-- passmachine.eu
-- postnord.com
-- postnordscanning.com
-- provenexpert.com
-- ragnsells.com
-- ratedbooking.com
-- reco.se
-- recycla.se
-- releasy.cloud
-- reply.digitalon.se
-- reply.ebay.fr
-- rrr.lt
-- scrive.com
-- skydd.com
-- stripe.com
-- support.autobutler.se
-- teknikgrannen.se
-- testfreaksreviews.com
-- thatsup.se
-- theorg.com
-- transactional.bokadirekt.se
-- trodo.com
-- trodo.se
-- unobench.com
-- useaddy.ai
-- verkstadsdeal.se
-- verktygsproffsen.se
-- walley.se
-- wolt.com
-- wpmailsmtp.com
-- wrenchlane.com
-- wuerth.se
-- xwf.google.com
-- yelp.com
-- zeparts.se
+maskindomaner: []

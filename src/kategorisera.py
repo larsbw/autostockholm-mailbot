@@ -77,8 +77,10 @@ def texter_att_kategorisera(parfil: Path, besvarade: Path, obesvarade: Path,
     poster: list[dict] = []
     sedda: set[str] = set()
 
+    # `par.jsonl` är REDAN maskinfiltrerad: `src/extract.py` sållar vid källan,
+    # där trådstrukturen finns. Här filtreras inget om, och det ska inte göras
+    # om heller: en andra filtrering utan tråd-ID hade behövt gissa.
     if parfil.exists():
-        besvarade_id = _manskliga_tradar(besvarade, domaner)
         for rad in parfil.read_text(encoding="utf-8").splitlines():
             if not rad:
                 continue
@@ -88,7 +90,6 @@ def texter_att_kategorisera(parfil: Path, besvarade: Path, obesvarade: Path,
                 continue
             sedda.add(text)
             poster.append({"text": text, "kalla": "med svar"})
-        del besvarade_id
 
     if obesvarade.exists():
         for rad in obesvarade.read_text(encoding="utf-8").splitlines():
@@ -107,14 +108,6 @@ def texter_att_kategorisera(parfil: Path, besvarade: Path, obesvarade: Path,
                 break
 
     return poster
-
-
-def _manskliga_tradar(skord: Path, domaner: set[str]) -> set[str]:
-    idn = set()
-    for trad in klassa_maskin.las_tradar(skord):
-        if not klassa_maskin.tradens_skal(trad, domaner):
-            idn.add(trad.get("id", ""))
-    return idn
 
 
 def bygg_klient():

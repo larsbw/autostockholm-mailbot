@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.6.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.7.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -9,8 +9,13 @@
 > producerar alltså ett FALSKT VAKUÖSTVERDIKT, vilket är värre än inget
 > dokument. Varje post namnger därför också villkorets TEXT.
 
-**Sändvägens spärrar är ännu inte byggda och fylls i FAS 5.** En spärr är
-registrerad, och den kommer inte från sändvägen utan från mining.
+**Sändvägens spärrar är ännu inte byggda och fylls i FAS 5.** De spärrar som
+står i tabellen nedan kommer inte från sändvägen, utan från mining, urval,
+maskering och commitgrinden.
+
+*Rättelse i 0.7.0: här stod "En spärr är registrerad". Tabellen bar då fem.
+Meningen räknade sin egen omgivning och blev falsk av den commit som lade till
+poster i grannstycket, vilket är precis det CLAUDE.md 0.3.1 förbjuder.*
 
 Det här dokumentet är obligatorisk läsning före varje vakuöstprövning enligt
 CLAUDE.md §7.1. Skälet är kolumnen **Redundant med**: mailbotens spärrar är
@@ -178,9 +183,30 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
   noreply-mönstret inte är för brett, och
   `test_precedence_normal_ar_inte_maskinmail` att `Precedence: normal` inte
   fäller.
-- **Redundant med.** Ingen annan spärr. Lagren är INTE redundanta med varandra:
-  var och en fångar en egen sorts avsändare, så ett saknat lager syns inte som
-  ett rött test.
+- **Redundant med.** `src/urval.py::ar_massutskick`, som fortfarande anropas
+  från `src/cluster.py` och implementerar en AVVIKANDE maskinmailregel: den
+  saknar undantaget helt och behandlar `precedence` som huvudnamn. Den är kvar
+  enligt §3 och rörs inte, men den ska inte förväxlas med den här spärren.
+
+  De fyra lagren i `skal_maskinmail` är inte redundanta med varandra: var och
+  en fångar en egen sorts avsändare, så ett saknat lager syns inte som ett rött
+  test.
+
+  **MEN UNDANTAGET ÄR REDUNDANT INTERNT, och det överraskade en granskare.**
+  `relayar_manniska` har två `continue`-villkor, och för självadresserat
+  `Reply-To` fäller de samma fall. En fällning av det ena ensamt lämnar
+  `test_nyhetsbrev_med_reply_to_till_sig_sjalvt_ar_fortfarande_maskinmail`
+  GRÖN, alltså ett inkonklusivt utfall som utan den här raden läses som
+  vakuöst. Fäll båda:
+
+  ```
+  scripts/sparr-prova.sh --fil src/klassa_maskin.py \
+    --ersatt "<rad-brevlada>=        if False:" \
+    --ersatt "<rad-organisation>=        if False:"
+  ```
+
+  Raderna slås upp med
+  `grep -n "continue" src/klassa_maskin.py` inne i `relayar_manniska`.
 
   **UNDANTAGET ÄR DET FARLIGASTE ATT TAPPA.** Utan `relayar_manniska` klassas
   webbformulärets notis som maskinmail, eftersom den bär `X-Msg-EID`. Uppmätt
@@ -247,6 +273,23 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.7.0 — 2026-08-26
+
+Rättelser efter granskning, per post:
+
+- **"En spärr är registrerad" var falskt.** Tabellen bar fem. Meningen räknade
+  sin egen omgivning. Struken på plats med not.
+- **"Lagren är INTE redundanta med varandra" var falskt om undantaget.**
+  `relayar_manniska`s två `continue`-villkor fäller samma fall för
+  självadresserat `Reply-To`, och en fällning av det ena ensamt ger GRÖN. En
+  granskare som följde posten satte ett falskt vakuöstverdikt på ett äkta test.
+  Posten namnger nu båda och hur de fälls tillsammans.
+- **Fältet "Redundant med" sa "Ingen annan spärr".** `src/urval.py::ar_massutskick`
+  är en avvikande maskinmailregel som fortfarande anropas. Nu namngiven.
+- **`persondatakontroll` bevakar nu också `mallar/`, `config/` och `CLAUDE.md`.**
+  `mallar/` är den tyngsta posten och saknades: §11 säger att mallarna byggs ur
+  rå kundtext.
 
 ### 0.6.0 — 2026-08-26
 

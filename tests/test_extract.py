@@ -230,7 +230,25 @@ def test_extrahera_skriver_en_post_per_rad(tmp_path):
     rader = utfil.read_text(encoding="utf-8").splitlines()
     assert len(rader) == 2
     assert json.loads(rader[0])["avsandare_hash"] == urval.hasha(KUND)
-    assert rakning == {"tradar_lasta": 2, "tradar_med_par": 2, "par_totalt": 2}
+    assert rakning == {"tradar_lasta": 2, "tradar_maskin": 0,
+                       "tradar_med_par": 2, "par_totalt": 2}
+
+
+def test_maskintrad_ger_inga_par(tmp_path):
+    """Ett nyhetsbrev som vi råkat svara på är inget kundärende, och en mall
+    byggd ur det svaret vore ett svar på ett utskick."""
+    utfil = tmp_path / "par.jsonl"
+    nyhetsbrev = kundmail()
+    nyhetsbrev["payload"]["headers"].append(
+        {"name": "List-Unsubscribe", "value": "<x>"}
+    )
+    trad = {"messages": [nyhetsbrev, svar()]}
+
+    rakning = extract.extrahera([trad], utfil)
+
+    assert rakning["tradar_maskin"] == 1
+    assert rakning["par_totalt"] == 0
+    assert utfil.read_text(encoding="utf-8") == ""
 
 
 def test_ingen_adress_i_utfilen(tmp_path):

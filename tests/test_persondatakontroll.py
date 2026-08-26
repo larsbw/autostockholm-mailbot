@@ -86,8 +86,48 @@ def test_kort_straeng_maskeras_helt():
     assert kontroll._maska("abcd") == "****"
 
 
-def test_bara_docs_bevakas():
+def test_kod_bevakas_inte():
     """Kod innehåller mönster och testfixturer som ser ut som persondata."""
-    assert kontroll.bevakad("docs/kategorier-forslag.md")
     assert not kontroll.bevakad("src/maskera.py")
     assert not kontroll.bevakad("tests/test_extract.py")
+
+
+def test_mallar_config_och_claude_md_bevakas():
+    """`mallar/` är den tyngsta posten: §11 säger att mallarna byggs ur rå
+    kundtext. Den saknades i första versionen."""
+    for sokvag in ("docs/kategorier-forslag.md", "mallar/offert.txt",
+                   "config/maskindomaner.yaml", "CLAUDE.md"):
+        assert kontroll.bevakad(sokvag), sokvag
+
+
+def test_ombruten_mailadress_falls():
+    """Dokumenten är hårdbrutna vid omkring åttio tecken. En adress som bryts
+    mitt i syns inte på någon rad för sig."""
+    text = "kontakta gärna fornamn.efternamn@\nnagon.se om du undrar"
+
+    fynd = kontroll.granska(text, "docs/x.md")
+
+    assert any("mailadress" in sort for _, sort, _ in fynd)
+
+
+def test_ombrutet_telefonnummer_falls():
+    text = "ring 070-123 45\n67 på förmiddagen"
+
+    fynd = kontroll.granska(text, "docs/x.md")
+
+    assert any("telefonnummer" in sort for _, sort, _ in fynd)
+
+
+def test_ombruten_traff_markeras_som_sadan():
+    text = "skriv till fornamn@\nnagon.se"
+
+    fynd = kontroll.granska(text, "docs/x.md")
+
+    assert any("över radslut" in sort for _, sort, _ in fynd)
+
+
+def test_hopfogningen_skapar_inga_falska_traffar():
+    """Två oskyldiga rader får inte bilda persondata när de fogas ihop."""
+    text = "kategorin bär 33 ärenden\nmed svar i materialet"
+
+    assert kontroll.granska(text, "docs/x.md") == []

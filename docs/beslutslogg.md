@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.12.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
+**Version:** 0.13.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -464,7 +464,72 @@ den fullt ut.
 
 ---
 
+## #14 — Domänlagret bidrar med noll och skeppas tomt
+
+**Datum:** 2026-08-26 · **Berör:** `config/maskindomaner.yaml`, #12
+
+**Vad som mättes.** Klassningen kördes två gånger, med 91 härledda domäner och
+med noll. Utfallet var IDENTISKT: 200/211/144 för de besvarade och 1295/309/0
+för de obesvarade. Skälfördelningen visar varför: varje fällning skedde på
+`huvud` eller `avsändare`, aldrig på `domän`.
+
+**Det följer av härledningen.** En domän kommer bara med i listan om huvudlagret
+redan fällt ALLT från den. Lagret är därför en tautologi på den population det
+härleddes ur, och dess enda verkliga effekt ligger framåt i tiden.
+
+**Och den effekten är farlig.** Den första härledda listan innehöll
+`googlemail.com`, alltså Gmails konsumentaliasdomän: varje framtida kund med en
+sådan adress hade klassats som maskinmail utan att bära ett enda maskinhuvud.
+Listan innehöll också flera offertförmedlare som VIDAREBEFORDRAR riktiga
+kundärenden till verkstaden. Att klassa dem som maskinmail hade kastat
+kundärenden.
+
+**Beslut.** `config/maskindomaner.yaml` skeppas TOM. Härledningen skriver
+kandidater till en gitignorerad fil, och varje post förs över av en människa som
+känner igen avsändaren. Mekanismen finns kvar, eftersom Lars bad om den; det är
+den automatiska påfyllningen som tagits bort.
+
+**Öppen fråga till Lars.** Offertförmedlarna är den svåra delen. De skickar
+maskinmail till formen men kundärenden till innehållet, och undantaget
+`relayar_manniska` räddar dem inte, eftersom de inte sätter `Reply-To` till
+kunden. Att avgöra vilka av dem som bär affär är verksamhetskunskap, inte kod.
+
+---
+
+## #15 — Ett tal i ett commitmeddelande var påhittat
+
+**Datum:** 2026-08-26 · **Berör:** commit `b597950`, §7.2
+
+**Vad som hände.** Commitmeddelandet i `b597950` skriver att kategoriseraren är
+"testad mot en fejkad klient, 41 test". Talet motsvarar ingen avläsbar mängd i
+repot: `tests/test_kategorisera.py` bar 17 test, de tre nya testfilerna
+tillsammans 49, och hela sviten 185. Talet 41 kom inte ur en körning och inte ur
+en fil.
+
+**Varför det står här.** §7.2 säger att varje tal är avläst eller utelämnat, och
+att det inte finns någon tredje kategori. Historiken kan inte skrivas om, så
+felet redovisas här i stället, enligt §9.1:s princip att historiken ska bära vad
+som faktiskt hände.
+
+**Vad som gör felet lätt att missa.** Talet stod i en bisats om testning, i ett
+meddelande vars övriga tal alla var avlästa. Det ärvde trovärdighet från sin
+omgivning, vilket är precis det §7.2:s sista stycke beskriver.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.13.0 — 2026-08-26
+
+Posterna **#14** och **#15** tillkommer efter granskning. #14 slår fast att
+domänlagret bidrar med noll och skeppas tomt. #15 redovisar ett påhittat tal i
+ett commitmeddelande som inte går att skriva om.
+
+En rättelse i #12:s tabell: `src/extract.py` sållar nu bort maskintrådar vid
+källan, vilket sänkte antalet par från 226 till 222 och antalet trådar med par
+från 134 till 130. Fyra trådar var nyhetsbrev vi råkat svara på.
+
+Två nya poster ⇒ MINOR.
 
 ### 0.12.0 — 2026-08-26
 

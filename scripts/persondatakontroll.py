@@ -27,9 +27,18 @@ from pathlib import Path
 
 ROT = Path(__file__).resolve().parent.parent
 
-# Kataloger vars innehåll kontrolleras. Kod kontrolleras inte: den innehåller
-# mönster och testfixturer som ser ut som persondata och som är påhittade.
-BEVAKADE = ("docs/",)
+# Sökvägar vars innehåll kontrolleras.
+#
+# `mallar/` är den TYNGSTA posten och saknades i första versionen: §11 säger att
+# mallarna byggs ur `data/par.jsonl`, alltså ur RÅ kundtext. Det är projektets
+# största persondatarisk, och den var oskyddad.
+#
+# `config/` bär material härlett ur kundpost. `CLAUDE.md` ligger i roten, är
+# spårad, och innehåller redan en adress.
+#
+# Kod kontrolleras inte: den innehåller mönster och testfixturer som ser ut som
+# persondata och som är påhittade.
+BEVAKADE = ("docs/", "mallar/", "config/", "CLAUDE.md")
 
 MONSTER: list[tuple[str, re.Pattern]] = [
     ("mailadress", re.compile(r"[A-Za-z0-9._%+=-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")),
@@ -63,8 +72,12 @@ TILLATNA = {
 
 
 def _kor(argument: list[str]) -> str:
+    # `errors="replace"` matchar arbetsträdsvägen. Utan det gav en stagad
+    # binärfil under en bevakad sökväg en UnicodeDecodeError med traceback i
+    # stället för ett begripligt meddelande.
     return subprocess.run(
-        argument, cwd=ROT, capture_output=True, text=True, check=True
+        argument, cwd=ROT, capture_output=True, check=True,
+        encoding="utf-8", errors="replace",
     ).stdout
 
 
@@ -86,7 +99,7 @@ def _innehall_ur_tradet(sokvag: str) -> str:
 
 
 def bevakad(sokvag: str) -> bool:
-    return any(sokvag.startswith(katalog) for katalog in BEVAKADE)
+    return any(sokvag == post or sokvag.startswith(post) for post in BEVAKADE)
 
 
 def _tillaten(traff: str) -> bool:
@@ -99,6 +112,12 @@ def granska(text: str, sokvag: str) -> list[tuple[int, str, str]]:
     Träffen returneras för att kunna maskeras i utskriften. Den skrivs ALDRIG
     ut i klartext: ett skript som larmar om persondata får inte självt skriva
     ut den i en terminallogg.
+
+    TEXTEN GRANSKAS I TVÅ PASS, rad för rad och sedan sammanfogad. Dokumenten
+    här är hårdbrutna vid omkring åttio tecken, och en adress som bryts mitt i
+    eller ett telefonnummer som bryts mellan grupperna syns inte i något av
+    raderna var för sig. Ett radbaserat pass ensamt missade alltså normalfallet
+    och inte kantfallet.
     """
     fynd = []
     for nummer, rad in enumerate(text.splitlines(), start=1):
@@ -106,7 +125,26 @@ def granska(text: str, sokvag: str) -> list[tuple[int, str, str]]:
             for traff in monster.finditer(rad):
                 if not _tillaten(traff.group(0)):
                     fynd.append((nummer, sort, traff.group(0)))
+
+    redan = {(sort, traff) for _, sort, traff in fynd}
+    for sort, monster in MONSTER:
+        for traff in monster.finditer(_hopfogad(text)):
+            varde = traff.group(0)
+            if (sort, varde) in redan or _tillaten(varde):
+                continue
+            fynd.append((0, f"{sort} (över radslut)", varde))
+
     return fynd
+
+
+def _hopfogad(text: str) -> str:
+    """Radslut bort, så att ombruten persondata blir synlig.
+
+    Radslutet ersätts med ingenting och inte med ett mellanslag: en adress
+    bryts utan bindestreck, och ett mellanslag hade satt tillbaka den lucka
+    mönstret inte tål.
+    """
+    return "".join(rad.strip() for rad in text.splitlines())
 
 
 def _maska(traff: str) -> str:

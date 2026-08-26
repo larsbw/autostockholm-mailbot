@@ -28,6 +28,20 @@ from src import urval
 
 ROT = Path(__file__).resolve().parent.parent
 DOMANFIL = ROT / "config" / "maskindomaner.yaml"
+
+# Härledningen skriver KANDIDATER hit, inte till konfigurationen.
+#
+# Skälet är uppmätt. Med 91 härledda domäner och med noll gav klassningen
+# IDENTISKA tal: 200/211/144 och 1295/309/0. Lagret bidrog alltså med
+# ingenting, vilket följer av härledningen: en domän kommer bara med om
+# huvudlagret redan fällt allt från den. Kvar blir enbart framåtriktad risk,
+# och den risken är konkret: den första härledda listan innehöll
+# `googlemail.com`, vilket hade klassat varje framtida kund med den adressen
+# som maskinmail, samt flera offertförmedlare som vidarebefordrar RIKTIGA
+# kundärenden till verkstaden.
+#
+# En domän i konfigurationen är därför Lars beslut, inte kodens.
+KANDIDATFIL = ROT / "scratchpad" / "maskindomaner-kandidater.yaml"
 BESVARADE = ROT / "data" / "tradar.jsonl"
 OBESVARADE = ROT / "data" / "tradar_obesvarade.jsonl"
 
@@ -94,15 +108,40 @@ def relayar_manniska(meddelande: dict) -> bool:
         return False
 
     avsandare = urval.adresser(meddelande, {"from"})
-    avsandardomaner = {a.partition("@")[2] for a in avsandare}
+    if not avsandare:
+        return False
+
+    avsandarorg = {organisationsdoman(a) for a in avsandare}
 
     for adress in svarsadresser:
         if adress == urval.BREVLADA or adress in avsandare:
             continue
-        if adress.partition("@")[2] in avsandardomaner:
+        # Jämförelsen sker på ORGANISATIONSDOMÄN och inte på exakt sträng.
+        # `news.exempel.se` är inte lika med `exempel.se`, så ett nyhetsbrev
+        # med `From: news@news.exempel.se` och
+        # `Reply-To: kundservice@exempel.se` såg ut som ett relä och slapp
+        # igenom alla fyra lager. Undantaget körs först och är filens bredaste
+        # regel, så ett hål här är ett hål i hela klassningen.
+        if organisationsdoman(adress) in avsandarorg:
             continue
         return True
     return False
+
+
+def organisationsdoman(adress: str) -> str:
+    """De två sista etiketterna i domänen, eller tre för `co.uk`-formen.
+
+    Trubbig med avsikt. En fullständig lista över offentliga suffix vore ett
+    nytt beroende som måste hållas uppdaterat, och för det här bruket räcker
+    det att `news.exempel.se` och `exempel.se` räknas som samma organisation.
+    """
+    doman = adress.partition("@")[2].lower().strip(".")
+    delar = [d for d in doman.split(".") if d]
+    if len(delar) < 2:
+        return doman
+    if len(delar) >= 3 and delar[-2] in {"co", "com", "org", "net", "gov"}:
+        return ".".join(delar[-3:])
+    return ".".join(delar[-2:])
 
 
 def skal_maskinmail(meddelande: dict, domaner: set[str] | None = None) -> str:
@@ -239,14 +278,22 @@ def main(argv: list[str] | None = None) -> int:
     tolk.add_argument("--besvarade", type=Path, default=BESVARADE)
     tolk.add_argument("--obesvarade", type=Path, default=OBESVARADE)
     tolk.add_argument("--domanfil", type=Path, default=DOMANFIL)
+    tolk.add_argument("--kandidatfil", type=Path, default=KANDIDATFIL)
     tolk.add_argument("--harled-domaner", action="store_true")
     arg = tolk.parse_args(argv)
 
     if arg.harled_domaner:
         domaner = harled_domaner([arg.besvarade, arg.obesvarade])
-        skriv_domaner(domaner, arg.domanfil)
-        print(f"härledda maskindomäner: {len(domaner)}")
-        print(f"skrivna till: {arg.domanfil}")
+        skriv_domaner(domaner, arg.kandidatfil)
+        print(f"härledda KANDIDATER: {len(domaner)}")
+        print(f"skrivna till: {arg.kandidatfil}")
+        print("")
+        print("Kandidaterna hamnar INTE i konfigurationen automatiskt.")
+        print("Lagret bidrog med noll klassningar i det uppmätta materialet,")
+        print("och den första härledda listan bar googlemail.com samt flera")
+        print("offertförmedlare som vidarebefordrar riktiga kundärenden.")
+        print("Lars avgör vilka som förs över till:")
+        print(f"  {arg.domanfil}")
         return 0
 
     domaner = las_domaner(arg.domanfil)

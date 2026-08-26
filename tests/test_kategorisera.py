@@ -195,20 +195,30 @@ def test_exempelfilen_maskerar(tmp_path):
 
 
 def test_maskinmail_kommer_inte_med(tmp_path):
-    obesvarade = tmp_path / "obesvarade.jsonl"
-    kropp = {"data": "ZnLDpWdhIG9tIHJlc2VydmRlbA=="}
+    """Trådarna måste ha OLIKA brödtext, och testet måste kontrollera VILKEN
+    post som överlever.
 
-    def trad(huvuden):
+    En tidigare version gav båda trådarna samma text. Avdubbleringen ensam gav
+    då `len(poster) == 1`, och testet förblev grönt med maskinfiltret helt
+    avstängt: posten som överlevde var maskinmailet.
+    """
+    import base64
+
+    obesvarade = tmp_path / "obesvarade.jsonl"
+
+    def trad(huvuden, text):
+        kodad = base64.urlsafe_b64encode(text.encode("utf-8")).decode("ascii")
         return {"messages": [{
             "labelIds": ["INBOX"],
-            "payload": {"mimeType": "text/plain", "body": kropp,
+            "payload": {"mimeType": "text/plain", "body": {"data": kodad},
                         "headers": [{"name": n, "value": v}
                                     for n, v in huvuden.items()]},
         }]}
 
     rader = [
-        json.dumps(trad({"From": "A <a@x.se>", "List-Unsubscribe": "<x>"})),
-        json.dumps(trad({"From": "B <b@y.se>"})),
+        json.dumps(trad({"From": "A <a@x.se>", "List-Unsubscribe": "<x>"},
+                        "nyhetsbrev om verktyg")),
+        json.dumps(trad({"From": "B <b@y.se>"}, "fråga om reservdel")),
     ]
     obesvarade.write_text("\n".join(rader) + "\n", encoding="utf-8")
 
@@ -216,5 +226,5 @@ def test_maskinmail_kommer_inte_med(tmp_path):
         tmp_path / "finns-ej", tmp_path / "finns-ej-2", obesvarade, set()
     )
 
-    assert len(poster) == 1
+    assert [p["text"] for p in poster] == ["fråga om reservdel"]
     assert poster[0]["kalla"] == "utan svar"

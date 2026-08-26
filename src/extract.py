@@ -23,7 +23,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from src import urval
+from src import klassa_maskin, urval
 
 ROT = Path(__file__).resolve().parent.parent
 INFIL = ROT / "data" / "tradar.jsonl"
@@ -70,22 +70,33 @@ def par_ur_trad(trad: dict) -> list[dict]:
     return par
 
 
-def extrahera(tradar, utfil: Path) -> dict:
+def extrahera(tradar, utfil: Path, domaner=None) -> dict:
     """Skriver par.jsonl och returnerar räknare.
+
+    MASKINMAIL SÅLLAS BORT HÄR, vid källan. Ett nyhetsbrev som vi råkat svara
+    på är inget kundärende, och en mall byggd ur det svaret vore ett svar på
+    ett utskick. Filtreringen låg tidigare i kategoriseraren, där den var
+    beräknad men aldrig använd: variabeln kastades med `del` och den besvarade
+    halvan gick ofiltrerad vidare.
 
     Skrivningen går via en .delvis-fil, av samma skäl som i `src/mine.py`: en
     körning som faller får inte lämna en halv fil som ser komplett ut.
     """
+    domaner = set() if domaner is None else domaner
     utfil.parent.mkdir(parents=True, exist_ok=True)
     delvis = utfil.with_name(utfil.name + ".delvis")
 
     tradar_med_par = 0
     par_totalt = 0
     tradar_lasta = 0
+    tradar_maskin = 0
 
     with delvis.open("w", encoding="utf-8") as fil:
         for trad in tradar:
             tradar_lasta += 1
+            if klassa_maskin.tradens_skal(trad, domaner):
+                tradar_maskin += 1
+                continue
             par = par_ur_trad(trad)
             if par:
                 tradar_med_par += 1
@@ -96,6 +107,7 @@ def extrahera(tradar, utfil: Path) -> dict:
     delvis.replace(utfil)
     return {
         "tradar_lasta": tradar_lasta,
+        "tradar_maskin": tradar_maskin,
         "tradar_med_par": tradar_med_par,
         "par_totalt": par_totalt,
     }
@@ -113,9 +125,11 @@ def main(argv: list[str] | None = None) -> int:
     tolk.add_argument("--utfil", type=Path, default=UTFIL)
     arg = tolk.parse_args(argv)
 
-    rakning = extrahera(las_tradar(arg.infil), arg.utfil)
+    domaner = klassa_maskin.las_domaner(klassa_maskin.DOMANFIL)
+    rakning = extrahera(las_tradar(arg.infil), arg.utfil, domaner)
 
     print(f"trådar lästa: {rakning['tradar_lasta']}")
+    print(f"trådar bortsållade som maskinmail: {rakning['tradar_maskin']}")
     print(f"trådar med minst ett par: {rakning['tradar_med_par']}")
     print(f"par totalt: {rakning['par_totalt']}")
     print(f"utfil: {arg.utfil}")

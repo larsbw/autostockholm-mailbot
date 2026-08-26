@@ -123,6 +123,28 @@ def test_nyhetsbrev_med_reply_to_till_sig_sjalvt_ar_fortfarande_maskinmail():
     assert klassa_maskin.skal_maskinmail(brev).startswith("huvud:")
 
 
+def test_nyhetsbrev_fran_subdoman_ar_inte_relay():
+    """Jämförelsen sker på ORGANISATIONSDOMÄN. Med exakt strängmatchning såg
+    `From: news@news.exempel.se` med `Reply-To: kundservice@exempel.se` ut som
+    ett relä och slapp igenom alla fyra lager."""
+    brev = meddelande(huvuden={
+        "From": "Nyheter <news@news.exempel.se>",
+        "Reply-To": "Kundservice <kundservice@exempel.se>",
+        "List-Unsubscribe": "<x>",
+    })
+
+    assert klassa_maskin.skal_maskinmail(brev).startswith("huvud:")
+
+
+def test_organisationsdoman_slar_ihop_subdomaner():
+    assert (klassa_maskin.organisationsdoman("a@news.exempel.se")
+            == klassa_maskin.organisationsdoman("b@exempel.se"))
+    assert (klassa_maskin.organisationsdoman("a@mail.exempel.co.uk")
+            == "exempel.co.uk")
+    assert (klassa_maskin.organisationsdoman("a@exempel.se")
+            != klassa_maskin.organisationsdoman("b@annat.se"))
+
+
 def test_reply_to_pa_avsandarens_egen_doman_ar_inte_relay():
     brev = meddelande(huvuden={
         "From": "Utskick <noreply@utskickaren.se>",
