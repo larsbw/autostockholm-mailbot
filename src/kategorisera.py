@@ -134,10 +134,23 @@ def las_api_nyckel(envfil: Path | None = None) -> str:
 
     for rad in envfil.read_text(encoding="utf-8").splitlines():
         rad = rad.strip()
-        if rad.startswith("#") or "=" not in rad:
+        if not rad or rad.startswith("#"):
             continue
+
+        # En rad UTAN likhetstecken som ser ut som en Anthropic-nyckel tas som
+        # nyckeln. Formen `NAMN=värde` är den avsedda, men en bar nyckel i
+        # filen är en lika entydig avsikt, och att avvisa den hade bara flyttat
+        # ett formkrav till den som felsöker. Prefixkravet gör att en
+        # anteckning eller en tom rad inte kan tolkas som en nyckel.
+        if "=" not in rad:
+            if rad.startswith("sk-ant-"):
+                return rad
+            continue
+
         namn, _, varde = rad.partition("=")
-        if namn.strip() == "ANTHROPIC_API_KEY":
+        # `export NAMN=värde` är den form ett skalskript använder.
+        namn = namn.strip().removeprefix("export").strip()
+        if namn == "ANTHROPIC_API_KEY":
             return varde.strip().strip('"').strip("'")
     return ""
 

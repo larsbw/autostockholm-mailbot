@@ -67,6 +67,33 @@ def test_saknad_nyckel_ger_tom_strang(tmp_path, monkeypatch):
     assert kategorisera.las_api_nyckel(tmp_path / "finns-ej") == ""
 
 
+def test_bar_nyckel_utan_namn_accepteras(tmp_path, monkeypatch):
+    """En bar nyckel i filen är en lika entydig avsikt som `NAMN=värde`."""
+    envfil = tmp_path / ".env"
+    envfil.write_text("sk-ant-pahittad-nyckel\n", encoding="utf-8")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    assert kategorisera.las_api_nyckel(envfil) == "sk-ant-pahittad-nyckel"
+
+
+def test_export_prefix_accepteras(tmp_path, monkeypatch):
+    envfil = tmp_path / ".env"
+    envfil.write_text("export ANTHROPIC_API_KEY=sk-ant-x\n", encoding="utf-8")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    assert kategorisera.las_api_nyckel(envfil) == "sk-ant-x"
+
+
+def test_anteckning_utan_likhetstecken_tas_inte_for_en_nyckel(tmp_path,
+                                                              monkeypatch):
+    """Prefixkravet hindrar att en tom rad eller en anteckning blir en nyckel."""
+    envfil = tmp_path / ".env"
+    envfil.write_text("kom ihåg att förnya nyckeln\n\n", encoding="utf-8")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    assert kategorisera.las_api_nyckel(envfil) == ""
+
+
 def test_annan_variabel_i_envfilen_plockas_inte(tmp_path, monkeypatch):
     envfil = tmp_path / ".env"
     envfil.write_text("ANNAN_NYCKEL=fel\n", encoding="utf-8")
