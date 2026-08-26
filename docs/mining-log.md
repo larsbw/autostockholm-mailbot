@@ -1,9 +1,9 @@
 # Mining-logg
 
-**Version:** 0.3.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
+**Version:** 0.3.1 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
 
-Varje körning av `src/mine.py` mot brevlådan appendas här av koden, aldrig för
-hand. Kolumnerna är de §8 kräver: datum, Gmail-query, antal träffar och åtgången
+Varje körning av `src/mine.py` mot brevlådan skrivs in i tabellen nedan av koden,
+aldrig för hand. Kolumnerna är de §8 kräver: datum, Gmail-query, antal träffar och åtgången
 kvot. Anropsräknaren finns med därför att åtgången kvot annars inte går att
 härleda till vad som faktiskt kördes.
 
@@ -28,6 +28,12 @@ committat och lyder under CLAUDE.md §6.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.3.1 — 2026-08-26
+
+Inledningen sa att raden "appendas här av koden". Efter fixen i `7301f90`
+appendas den inte, den skrivs in sist i tabellen. Rättat. Ingen körning loggad
+av den här ändringen. ⇒ PATCH.
 
 ### 0.3.0 — 2026-08-26
 

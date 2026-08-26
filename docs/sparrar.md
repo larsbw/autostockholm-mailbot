@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.3.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.4.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §7.1
 
 **Sändvägens spärrar är ännu inte byggda och fylls i FAS 5.** En spärr är
 registrerad, och den kommer inte från sändvägen utan från mining.
@@ -23,6 +23,7 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 | Spärr | Vad den skyddar mot | Negativkontroll | Redundant med |
 | --- | --- | --- | --- |
 | `nollfall-max-threads` | Att en körning som ombeds hämta noll trådar raderar föregående skörd | `test_alla_tradar_over_flera_sidor_hamtas` | Sig själv, två lager (`src/mine.py:179` och `:238`). Se posten. |
+| `urval-gmail-svar` | Att maskinskriven text blir mall och att kundens röst räknas bort | `test_svar_skrivet_i_gmail_kanns_igen`, `test_inkommande_ar_kundmeddelande` | Sig själv, sex lager i `ar_gmail_svar`. Se posten. |
 
 ---
 
@@ -70,6 +71,41 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 
 ---
 
+## `urval-gmail-svar`
+
+- **Spärr.** `scripts/tradstruktur.py::ar_gmail_svar` avgör vilka meddelanden som
+  får bli HÖGER sida i ett par, och `ar_kundmeddelande` vilka som får bli vänster.
+  Beslutet fattas på **sex rader i `ar_gmail_svar`**, var och en ett eget villkor:
+  `SENT` i labelIds, inga leveranshuvuden, båda svarshuvudena, inte
+  `multipart/report`, minst en mottagare utanför brevlådan, och inget
+  vidarebefordringsprefix.
+- **Vad den skyddar mot.** Att formulärnotiser och vidarebefordringar blir de
+  faktiska svar §11 kräver att mallarna byggs ur. En mall byggd ur en
+  formulärnotis skulle vara maskinskriven text i Matte och Lars namn. Den
+  skyddar också åt andra hållet: `ar_kundmeddelande` hindrar att kundens ärende
+  räknas bort bara för att det kom in genom formuläret och därför bär `SENT`.
+- **Negativkontroll.** `test_svar_skrivet_i_gmail_kanns_igen` visar att spärren
+  SLÄPPER IGENOM ett äkta svar. `test_svar_pa_vidarebefordrat_mail_raknas_som_svar`
+  visar att den släpper igenom ett svar på något vidarebefordrat, alltså att
+  prefixvillkoret inte är för brett. `test_inkommande_ar_kundmeddelande` och
+  `test_formularnotis_ar_kundmeddelande_trots_sent` visar motsvarande för
+  kundsidan.
+- **Redundant med.** Ingen annan spärr, men **redundant med sig själv i sex
+  lager**. Varje lager har ett eget test, och fällning av ett lager i taget ger
+  RÖD i just det testet. Uppmätt: fällning av leveranshuvudvillkoret fäller
+  `test_formularnotis_med_sent_raknas_inte_som_svar`, fällning av
+  svarshuvudvillkoret fäller
+  `test_forsta_utgaende_mailet_utan_forlaga_raknas_inte_som_svar`, fällning av
+  `SENT`-villkoret fäller `test_inkommande_meddelande_raknas_aldrig_som_svar`.
+
+  **Lagringen är farlig här på ett sätt som skiljer sig från `nollfall-max-threads`:**
+  lagren är inte redundanta med varandra, de vaktar olika sorters felaktig text.
+  Ett fällt lager syns därför som ett rött test, men ett SAKNAT lager syns inte
+  alls. Så uppstod felet i #7, där vidarebefordringsvillkoret helt saknades och
+  talet blev 265 i stället för 139 utan att något test blev rött.
+
+---
+
 ## Mall för en spärrpost
 
 Kopiera blocket nedan per spärr. Varje fält fylls i, tomma fält är en ofärdig
@@ -92,6 +128,15 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.4.0 — 2026-08-26
+
+Spärren `urval-gmail-svar` registrerad. Den kommer inte från sändvägen utan från
+urvalet av träningsmaterial, och registreras därför att den är lagrat försvar i
+sex lager som INTE är redundanta med varandra. Ett fällt lager syns som ett rött
+test; ett saknat lager syns inte alls. Precis så uppstod felet i beslutslogg #7.
+
+Ny post ⇒ MINOR.
 
 ### 0.3.0 — 2026-08-26
 

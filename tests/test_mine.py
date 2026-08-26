@@ -351,7 +351,8 @@ STAMPEL = datetime(2026, 8, 26, 9, 5, tzinfo=timezone.utc)
 
 # Fixtur som liknar det RIKTIGA dokumentet: tabellen ligger mitt i filen och det
 # finns innehåll efter den. En fixtur med bara rubrikraden är blind för
-# placeringsdefekten, eftersom filens slut och tabellens slut då sammanfaller.
+# placeringsdefekten: utan avgränsare finns ingen tabell alls, och koden går då
+# genom grenen som lägger raden sist.
 EFTERTEXT = "\n---\n\n## Appendix — versionshistorik\n\n### 0.1.0\n\nText.\n"
 
 
@@ -419,6 +420,36 @@ def test_ny_rad_laggs_efter_tidigare_rader_i_tabellen(tmp_path):
     assert rader.index(tidigare) < rader.index(rad)
     assert rader[rader.index(rad) - 1] == tidigare
     assert "## Appendix" in "".join(rader[rader.index(rad) + 1:])
+
+
+@pytest.mark.parametrize(
+    "avgransare",
+    ["| --- | --- | --- | --- | --- | --- |\n", "|---|---|\n", "|:---|---:|\n"],
+)
+def test_avgransaren_kanns_igen_i_sina_giltiga_former(tmp_path, avgransare):
+    """`|---|---|` är giltig markdown. En matchning som bara kände igen
+    `| --- |` hade tyst återinfört defekten."""
+    logg = tmp_path / "mining-log.md"
+    logg.write_text(RUBRIKRAD + avgransare + EFTERTEXT, encoding="utf-8")
+    forbrukning = mine.Forbrukning()
+
+    rad = mine.logga_korning(forbrukning, logg=logg, nu=STAMPEL)
+
+    rader = logg.read_text(encoding="utf-8").splitlines(keepends=True)
+    assert rader[rader.index(rad) - 1] == avgransare
+
+
+def test_sista_tabellraden_utan_radslut_klistras_inte_ihop(tmp_path):
+    tidigare = "| 2026-08-01 08:00 UTC | `in:sent` | 1 | 2 | 50 | fullständig |"
+    logg = tmp_path / "mining-log.md"
+    logg.write_text(RUBRIKRAD + AVGRANSARE + tidigare, encoding="utf-8")
+    forbrukning = mine.Forbrukning()
+
+    rad = mine.logga_korning(forbrukning, logg=logg, nu=STAMPEL)
+
+    rader = logg.read_text(encoding="utf-8").splitlines(keepends=True)
+    assert rader[-1] == rad
+    assert rader[-2] == tidigare + "\n"
 
 
 def test_utan_tabell_hamnar_raden_sist(tmp_path):

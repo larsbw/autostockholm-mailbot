@@ -80,22 +80,101 @@ def test_tom_adressrad_ger_ingen_krasch():
     assert tradstruktur.maska_adressrad("") == "[MASKERAD, 0 tecken]"
 
 
-def meddelande(*, etiketter, huvuden):
-    return {
-        "labelIds": list(etiketter),
-        "payload": {"headers": [{"name": n, "value": ""} for n in huvuden]},
+KUND = "kund@exempel.se"
+BREVLADA = tradstruktur.BREVLADA
+
+
+def meddelande(*, etiketter, huvuden, mottagare=KUND, mimetyp=None, amne=""):
+    # Uppslagningen är skiftlägesokänslig, eftersom avsändare varierar mellan
+    # `To` och `to` och hjälparen annars ger tomma mottagare för det gemena
+    # fallet.
+    varden = {"to": mottagare, "subject": amne}
+    nyttolast = {
+        "headers": [
+            {"name": n, "value": varden.get(n.lower(), "")} for n in huvuden
+        ]
     }
+    if mimetyp:
+        nyttolast["mimeType"] = mimetyp
+    return {"labelIds": list(etiketter), "payload": nyttolast}
 
 
-GMAIL_SVAR = {
-    "etiketter": ["SENT"],
-    "huvuden": ["Content-Type", "Date", "From", "In-Reply-To", "MIME-Version",
-                "Message-ID", "References", "Subject", "To"],
-}
+SVARSHUVUDEN = ["Content-Type", "Date", "From", "In-Reply-To", "MIME-Version",
+                "Message-ID", "References", "Subject", "To"]
+GMAIL_SVAR = {"etiketter": ["SENT"], "huvuden": SVARSHUVUDEN}
+LEVERANS = ["Received", "Return-Path", "Delivered-To", "Received-SPF"]
 
 
 def test_svar_skrivet_i_gmail_kanns_igen():
     assert tradstruktur.ar_gmail_svar(meddelande(**GMAIL_SVAR))
+
+
+def test_meddelande_bara_till_brevladan_raknas_inte_som_svar():
+    fwd = meddelande(etiketter=["SENT"], huvuden=SVARSHUVUDEN,
+                     mottagare=BREVLADA)
+
+    assert not tradstruktur.ar_gmail_svar(fwd)
+
+
+def test_vidarebefordran_raknas_inte_som_svar():
+    """Bär In-Reply-To och References precis som ett svar, och saknar
+    leveranshuvuden. Huvudena skiljer den inte från ett svar; prefixet gör det.
+    Beslutslogg #5 utesluter kategorin."""
+    for amne in ("Fwd: Offert", "VB: Offert", "fw: offert", "  FWD:  Offert"):
+        fwd = meddelande(etiketter=["SENT"], huvuden=SVARSHUVUDEN, amne=amne)
+
+        assert not tradstruktur.ar_gmail_svar(fwd), amne
+
+
+def test_svar_pa_vidarebefordrat_mail_raknas_som_svar():
+    """`Re: Fwd: X` betyder att något vidarebefordrats TILL oss och att vi
+    svarat. Det är ett äkta svar, och bara det yttersta prefixet avgör."""
+    for amne in ("Re: Fwd: Offert", "SV: VB: Offert"):
+        svar = meddelande(etiketter=["SENT"], huvuden=SVARSHUVUDEN, amne=amne)
+
+        assert tradstruktur.ar_gmail_svar(svar), amne
+
+
+def test_svar_med_svarsprefix_raknas_som_svar():
+    for amne in ("Re: Offert", "SV: Offert", "Ang: Offert", "Offert"):
+        svar = meddelande(etiketter=["SENT"], huvuden=SVARSHUVUDEN, amne=amne)
+
+        assert tradstruktur.ar_gmail_svar(svar), amne
+
+
+def test_svar_till_bade_kund_och_brevladan_raknas_som_svar():
+    """Kopia till sig själv är vanligt och får inte diskvalificera svaret."""
+    kopia = meddelande(etiketter=["SENT"], huvuden=SVARSHUVUDEN,
+                       mottagare=f"{KUND}, {BREVLADA}")
+
+    assert tradstruktur.ar_gmail_svar(kopia)
+
+
+def test_leveransrapport_raknas_inte_som_svar():
+    """multipart/report avsänds från brevlådan och kan bära In-Reply-To utan
+    att vara skriven av någon (beslutslogg #7)."""
+    studs = meddelande(etiketter=["SENT"], huvuden=SVARSHUVUDEN,
+                       mimetyp="multipart/report")
+
+    assert not tradstruktur.ar_gmail_svar(studs)
+
+
+def test_formularnotis_ar_kundmeddelande_trots_sent():
+    """Notisen bär kundens ärende och har kunden i Reply-To. Att kräva ett
+    meddelande UTAN SENT uteslöt hela den här sortens par."""
+    notis = meddelande(etiketter=["SENT"], huvuden=SVARSHUVUDEN + LEVERANS)
+
+    assert tradstruktur.ar_kundmeddelande(notis)
+
+
+def test_gmail_svar_ar_inte_kundmeddelande():
+    assert not tradstruktur.ar_kundmeddelande(meddelande(**GMAIL_SVAR))
+
+
+def test_inkommande_ar_kundmeddelande():
+    inkommande = meddelande(etiketter=["INBOX"], huvuden=SVARSHUVUDEN)
+
+    assert tradstruktur.ar_kundmeddelande(inkommande)
 
 
 def test_formularnotis_med_sent_raknas_inte_som_svar():

@@ -40,6 +40,16 @@ HELMASKADE_HUVUDEN = {"subject"}
 
 SVARSPREFIX = re.compile(r"^\s*((?:re|sv|ang|vb|fwd|fw)\s*:\s*)+", re.IGNORECASE)
 
+# Vidarebefordringsprefix, svenska och engelska. En vidarebefordran bär
+# In-Reply-To och References precis som ett svar, och går inte att skilja från
+# ett svar på huvudena. Prefixet är det enda signalementet.
+#
+# Bara det YTTERSTA prefixet avgör. `Fwd: X` är en vidarebefordran vi skickat,
+# medan `Re: Fwd: X` är ett SVAR på något som vidarebefordrats till oss. Att
+# tillåta re- och sv-prefix före fwd hade uteslutit den andra sorten, som är
+# äkta svar.
+VIDAREPREFIX = re.compile(r"^\s*(?:vb|fwd|fw)\s*:", re.IGNORECASE)
+
 # Huvuden som bara finns på post som PASSERAT INKOMMANDE LEVERANS. Ett mail som
 # skrivits i Gmail och skickats därifrån har dem inte. De skiljer alltså ett
 # skrivet svar från en formulärnotis som bär SENT men kommit utifrån.
@@ -48,17 +58,43 @@ LEVERANSHUVUDEN = {"received", "delivered-to", "return-path", "received-spf"}
 # Huvuden som ett SVAR bär, till skillnad från ett första mail.
 SVARSHUVUDEN = {"in-reply-to", "references"}
 
+MOTTAGARHUVUDEN = {"to", "cc", "bcc"}
+
+# Brevlådan själv, ur CLAUDE.md §0. Ett mail vars enda mottagare är den här
+# adressen går inte till någon kund.
+BREVLADA = "info@autostockholm.se"
+
+
+def _adresser(meddelande: dict, huvudnamn: set[str]) -> set[str]:
+    ut = set()
+    for namn, varde in _huvuden(meddelande):
+        if namn.lower() in huvudnamn:
+            for _, adress in getaddresses([varde]):
+                if adress:
+                    ut.add(adress.lower())
+    return ut
+
 
 def ar_gmail_svar(meddelande: dict) -> bool:
-    """Sant för den ENDA sort som hör hemma i data/par.jsonl enligt
-    docs/beslutslogg.md #5: ett svar skrivet i Gmail av Matte eller Lars.
+    """Sant för den sort som hör hemma som HÖGER sida i ett par enligt
+    docs/beslutslogg.md #5 och #8: ett svar skrivet i Gmail till en kund.
 
-    Tre villkor, alla nödvändiga:
-      1. `SENT` i labelIds, alltså utgående.
-      2. INGA leveranshuvuden. Formulärnotiser bär SENT men har passerat
-         inkommande leverans och bär därför Received och Return-Path.
-      3. Både In-Reply-To och References, alltså ett svar i en tråd och inte ett
-         första utgående mail eller en vidarebefordran utan förlaga.
+    Villkoren, alla nödvändiga:
+
+    - `SENT` i labelIds, alltså utgående.
+    - INGA leveranshuvuden. Formulärnotiser bär `SENT` men har passerat
+      inkommande leverans och bär därför `Received` och `Return-Path`.
+    - Både `In-Reply-To` och `References`, alltså ett svar i en tråd och inte
+      ett första utgående mail.
+    - INTE `multipart/report`. Leveransrapporter och studsar avsänds från
+      brevlådan och kan bära `In-Reply-To` utan att vara skrivna av någon.
+    - MINST EN MOTTAGARE SOM INTE ÄR BREVLÅDAN.
+    - INGET VIDAREBEFORDRINGSPREFIX i ämnesraden. En vidarebefordran bär
+      `In-Reply-To` och `References` precis som ett svar och uppfyllde alla
+      tidigare villkor, trots att #5 uttryckligen utesluter den. Prefixet är det
+      enda signalementet: huvudena skiljer dem inte åt. Villkoret är därför
+      språkberoende och täcker svenska och engelska, vilket är en känd
+      begränsning och inte en förbisedd.
     """
     if "SENT" not in (meddelande.get("labelIds") or []):
         return False
@@ -66,7 +102,39 @@ def ar_gmail_svar(meddelande: dict) -> bool:
     namn = {namn.lower() for namn, _ in _huvuden(meddelande)}
     if namn & LEVERANSHUVUDEN:
         return False
-    return SVARSHUVUDEN <= namn
+    if not SVARSHUVUDEN <= namn:
+        return False
+
+    typ = meddelande.get("payload", {}).get("mimeType", "")
+    if typ.startswith("multipart/report"):
+        return False
+
+    mottagare = _adresser(meddelande, MOTTAGARHUVUDEN)
+    if not mottagare - {BREVLADA}:
+        return False
+
+    for namn_, varde in _huvuden(meddelande):
+        if namn_.lower() == "subject" and VIDAREPREFIX.match(varde):
+            return False
+    return True
+
+
+def ar_kundmeddelande(meddelande: dict) -> bool:
+    """Sant för det som kan utgöra VÄNSTER sida i ett par, alltså kundens text.
+
+    Två sorter räknas, och den andra är lätt att missa:
+
+    - Meddelanden utan `SENT`, alltså vanlig inkommande post.
+    - Formulärnotiser, som bär `SENT` MEN har passerat inkommande leverans.
+      De innehåller kundens ärende och har kunden i `Reply-To`. #5 säger att de
+      inte får bli SVAR, och det stämmer. Men de är kundens meddelande, och en
+      tråd där notisen är kundsidan och ett Gmail-skrivet svar är vår sida är
+      ett fullgott par. Att kräva ett meddelande utan `SENT` uteslöt dem.
+    """
+    if "SENT" not in (meddelande.get("labelIds") or []):
+        return True
+    namn = {namn.lower() for namn, _ in _huvuden(meddelande)}
+    return bool(namn & LEVERANSHUVUDEN)
 
 # `=` ingår i lokaldelen: VERP- och bounce-adresser kodar in en ANNAN adress
 # där, som `bounces+12-kalle=exempel.se@sg.net`. Utan `=` börjar matchningen
@@ -271,34 +339,49 @@ def rakna_svar(tradar: list[dict]) -> None:
     tradar_med_svar = 0
     svar_totalt = 0
     tradar_med_svar_och_kundmail = 0
-    tradar_med_sent_men_inget_svar = 0
+    tradar_utan_svar = 0
 
     for trad in tradar:
         meddelanden = trad.get("messages", []) or []
         svar = [m for m in meddelanden if ar_gmail_svar(m)]
-        har_sent = any("SENT" in (m.get("labelIds") or []) for m in meddelanden)
-        har_inkommande = any(
-            "SENT" not in (m.get("labelIds") or []) for m in meddelanden
-        )
+        har_kundtext = any(ar_kundmeddelande(m) for m in meddelanden)
 
         svar_totalt += len(svar)
         if svar:
             tradar_med_svar += 1
-            if har_inkommande:
+            if har_kundtext:
                 tradar_med_svar_och_kundmail += 1
-        elif har_sent:
-            tradar_med_sent_men_inget_svar += 1
+        else:
+            tradar_utan_svar += 1
 
     print("=== UNDERLAG FÖR MALLARNA ===")
     print(f"  trådar totalt: {len(tradar)}")
     print("")
-    print(f"  TRÅDAR MED MINST ETT SVAR SKRIVET I GMAIL: {tradar_med_svar}")
-    print("")
-    print(f"  sådana svar totalt: {svar_totalt}")
-    print(f"  av dessa trådar, med kundmail att para ihop med: "
+    print(f"  TRÅDAR MED SVAR OCH KUNDTEXT ATT PARA IHOP: "
           f"{tradar_med_svar_och_kundmail}")
-    print(f"  trådar med SENT men utan skrivet svar: "
-          f"{tradar_med_sent_men_inget_svar}")
+    print("")
+    print(f"  trådar med minst ett svar skrivet i Gmail: {tradar_med_svar}")
+    print(f"  sådana svar totalt: {svar_totalt}")
+    print(f"  trådar utan något skrivet svar: {tradar_utan_svar}")
+
+
+def kontrollera(trad: dict) -> None:
+    """Visar urvalsverdikten per meddelande, med mottagarna maskerade. Finns
+    för att kunna se VARFÖR ett meddelande räknas eller inte, utan att läsa
+    data/tradar.jsonl direkt."""
+    for nummer, meddelande in enumerate(trad.get("messages", []) or []):
+        namn = {n.lower() for n, _ in _huvuden(meddelande)}
+        mottagare = _adresser(meddelande, MOTTAGARHUVUDEN)
+        print(f"-- meddelande[{nummer}] --")
+        print(f"  SENT: {'SENT' in (meddelande.get('labelIds') or [])}")
+        print(f"  leveranshuvuden: {sorted(namn & LEVERANSHUVUDEN)}")
+        print(f"  svarshuvuden kompletta: {SVARSHUVUDEN <= namn}")
+        print(f"  payload.mimeType: {meddelande.get('payload', {}).get('mimeType')}")
+        print(f"  mottagare: {sorted(maska(a) for a in mottagare)}")
+        print(f"  mottagare utanför brevlådan: "
+              f"{sorted(maska(a) for a in mottagare - {BREVLADA})}")
+        print(f"  ar_gmail_svar: {ar_gmail_svar(meddelande)}")
+        print(f"  ar_kundmeddelande: {ar_kundmeddelande(meddelande)}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -307,9 +390,17 @@ def main(argv: list[str] | None = None) -> int:
     tolk.add_argument("--index", type=int, default=0)
     tolk.add_argument("--summering", action="store_true")
     tolk.add_argument("--svarsrakning", action="store_true")
+    tolk.add_argument("--kontrollera", action="store_true")
     arg = tolk.parse_args(argv)
 
     rader = arg.fil.read_text(encoding="utf-8").splitlines()
+
+    if arg.kontrollera:
+        if not 0 <= arg.index < len(rader):
+            print(f"index {arg.index} finns inte, filen har {len(rader)} rader")
+            return 2
+        kontrollera(json.loads(rader[arg.index]))
+        return 0
 
     if arg.svarsrakning:
         rakna_svar([json.loads(rad) for rad in rader if rad])

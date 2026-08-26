@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.8.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
+**Version:** 0.9.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -211,35 +211,110 @@ gitignorerad rapport inte är en källa nästa skiva kan läsa.
 
 ---
 
-## #7 — Underlaget för mallarna, uppmätt över hela brevlådan
+## #7 — Underlaget för mallarna, första mätningen
+
+> **UPPHÄVD I SIN HELHET AV #8.** Talen nedan mättes med ett urval som räknade
+> vidarebefordringar som svar och uteslöt formulärnotisen som kundsida. Läs #8.
+> Posten står kvar oförändrad utom där den påstod något falskt, enligt regeln i
+> huvudet.
 
 **Datum:** 2026-08-26 · **Berör:** fas 4 och fas 5 i `docs/roadmap.md`
 
 **Vad som mättes.** Full mining kördes 2026-08-26, loggad i `docs/mining-log.md`.
-Hela brevlådan gav 555 trådar och 1120 meddelanden, varav 725 bär `SENT`.
+Frågan `in:sent` gav 555 trådar och 1120 meddelanden, varav 725 bär `SENT`.
+
+*Rättelse i #8: här stod "Hela brevlådan gav", både i rubriken och i brödtexten.
+555 är trådar med minst ett skickat meddelande, inte brevlådan. Trådar som aldrig
+besvarats ingår inte.*
 
 **Underlaget, mätt med kriterierna i #5.** Antalet trådar som bär minst ett svar
 skrivet i Gmail är **265**. De innehåller 369 sådana svar. Av dessa trådar har
 **234** också ett kundmeddelande att para ihop svaret med.
 
-**Vad talet betyder.** 234 är taket för antalet par i `data/par.jsonl` innan
-någon kvalitetsgallring. Det är underlaget mallarna ska byggas ur enligt §11, och
-det är tillräckligt för att fasen ska kunna genomföras.
+**Vad talet betyder.** 234 är underlaget mallarna ska byggas ur enligt §11.
+
+*Rättelse i #8: här stod att 234 är "taket för antalet par" och att det "är
+tillräckligt för att fasen ska kunna genomföras". Det första är falskt: det finns
+par ovanför 234, eftersom kundsidan kunde vara en formulärnotis som bär `SENT`.
+Det andra är en värdering utan namngiven tröskel. Båda strukna.*
 
 **Vad talet inte betyder.** Det är inte 234 användbara par. Ett svar kan vara en
 rad som hänvisar vidare, och en tråd kan handla om något som inte hör till någon
 kategori. Gallringen sker i fas 4 och kommer att sänka talet.
 
-**Varför 290 trådar faller bort.** De bär `SENT` men inget skrivet svar, alltså
-formulärnotiser och vidarebefordringar enligt #5. Att `in:sent` matchar samtliga
-555 trådar säger därför ingenting: frågan är `in:sent`, så träffen är trivial.
+**Varför 290 trådar faller bort.** De bär `SENT` men inget skrivet svar.
+
+*Rättelse i #8: här stod "alltså formulärnotiser och vidarebefordringar enligt
+#5". Det är inte mätt och det är falskt: hinken innehåller också första utgående
+mail utan förlaga, en kategori #5 inte nämner. Koden vet bara att villkoren inte
+uppfylldes, inte varför.*
 
 **Nytt kantfall utöver #6.** Materialet bär `multipart/report`, alltså
 leveransrapporter och studsar. De ska inte bli par.
 
 ---
 
+## #8 — Underlaget för mallarna, rättat urval
+
+**Datum:** 2026-08-26 · **Berör:** fas 4 och fas 5 · **Upphäver:** #7
+
+**Talet.** Antalet trådar som bär både ett svar skrivet i Gmail och kundtext att
+para ihop det med är **136**. De innehåller 238 sådana svar, fördelade över 139
+trådar; av dem saknar tre kundtext.
+
+Mätt över `in:sent`-urvalets 555 trådar, alltså inte över hela brevlådan.
+
+**Vad som var fel i #7.** Två fel i urvalet, som drog åt varsitt håll och därför
+inte tog ut varandra.
+
+- **Vidarebefordringar räknades som svar.** En vidarebefordran bär `In-Reply-To`
+  och `References` precis som ett svar och saknar leveranshuvuden. Huvudena
+  skiljer dem inte åt. #5 utesluter kategorin uttryckligen, men #7:s urval
+  saknade villkoret. Detta drog talet UPP.
+- **Formulärnotisen uteslöts som kundsida.** #7 krävde ett meddelande utan
+  `SENT` för att tråden skulle räknas som parbar. Men formulärnotisen bär
+  kundens ärende och har kunden i `Reply-To`, och den bär `SENT` eftersom den
+  passerat brevlådan. En tråd med notis plus skrivet svar är ett fullgott par
+  och räknades inte. Detta drog talet NER.
+
+**Urvalet nu, som villkor.** Ett meddelande är ett svar när det bär `SENT`, sak-
+nar leveranshuvuden, bär både `In-Reply-To` och `References`, inte är
+`multipart/report`, har minst en mottagare utanför brevlådan, och inte bär ett
+vidarebefordringsprefix i ämnesraden.
+
+Ett meddelande är kundtext när det saknar `SENT`, eller när det bär `SENT` men
+har leveranshuvuden, alltså har kommit utifrån.
+
+**Känd begränsning.** Vidarebefordran skiljs från svar på ämnesradens prefix,
+eftersom huvudena inte skiljer dem. Villkoret täcker svenska och engelska
+prefix, och bara det YTTERSTA prefixet avgör: `Fwd: X` är en vidarebefordran vi
+skickat, medan `Re: Fwd: X` är ett svar på något som vidarebefordrats till oss.
+Ett vidarebefordrat mail utan prefix räknas som svar. Begränsningen är känd och
+inte förbisedd.
+
+**En andra känd begränsning.** Villkoret som utesluter leveranshuvuden utesluter
+också ett svar som lämnats in via SMTP-klient, till exempel från en mobil, om den
+sparade kopian bär `Received`. Effekten är inte uppmätt över filen.
+
+**Vad talet inte är.** Det är inte 136 användbara par. Gallringen i fas 4 kommer
+att sänka det. Om 136 är tillräckligt är Lars bedömning, inte kodens.
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.9.0 — 2026-08-26
+
+Post **#8** tillkommer och upphäver **#7**. Urvalet i #7 räknade
+vidarebefordringar som svar och uteslöt formulärnotisen som kundsida. Felen drog
+åt varsitt håll och tog inte ut varandra: talet 234 var varken tak eller golv.
+Rättat tal är 136.
+
+Falska påståenden i #7 är strukna på plats enligt undantaget i huvudet, var och
+en med en kursiv not där den stod: att 555 trådar är "hela brevlådan", att 234 är
+"taket för antalet par", att det är "tillräckligt", och att de 290 trådarna är
+formulärnotiser och vidarebefordringar. Det sista är falsifierat av ett första
+utgående mail utan förlaga, en kategori #5 inte nämner.
+
+Ny post som upphäver en tidigare ⇒ MINOR.
 
 ### 0.8.0 — 2026-08-26
 

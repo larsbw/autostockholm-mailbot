@@ -270,8 +270,10 @@ def logga_korning(forbrukning: Forbrukning, *, logg: Path | None = None,
 
     RADEN SKRIVS IN SIST I TABELLEN, inte sist i filen. Ett rent append lade
     raden efter appendix, eftersom tabellen ligger mitt i dokumentet. Testet som
-    vaktade appendningen var blint för det: dess fixtur bar bara rubrikraden, och
-    i en sådan fil är filens slut och tabellens slut samma position.
+    vaktade appendningen var blint för det: dess fixtur bar bara rubrikraden och
+    ingen avgränsare, alltså ingen tabell alls, och gick genom grenen som lägger
+    raden sist. Att den grenen gav rätt svar för fixturen sa ingenting om
+    tabellfallet.
 
     logg slås upp vid anropet och inte som defaultvärde: ett defaultvärde binds
     när modulen laddas, och pekade då på den riktiga loggen även när MININGLOGG
@@ -294,14 +296,18 @@ def logga_korning(forbrukning: Forbrukning, *, logg: Path | None = None,
 def _tabellens_slut(rader: list[str]) -> int:
     """Index EFTER tabellens sista rad.
 
-    Tabellen känns igen på avgränsarraden `| --- | ...`, och sträcker sig till
-    den sista efterföljande raden som börjar med `|`. Saknas avgränsaren finns
-    ingen tabell att skriva i, och då är filens slut rätt svar: att gissa fram
-    en plats vore värre än att lägga raden sist.
+    Tabellen känns igen på avgränsarraden, och sträcker sig till den sista
+    efterföljande raden som börjar med `|`. Saknas avgränsaren finns ingen
+    tabell att skriva i, och då är filens slut rätt svar: att gissa fram en
+    plats vore värre än att lägga raden sist.
+
+    Avgränsaren matchas tolerant. `| --- |`, `|---|---|` och `|:---|` är alla
+    giltig markdown, och en matchning som bara kände igen den första formen
+    hade tyst återinfört defekten den här funktionen finns för att rätta.
     """
     avgransare = None
     for nummer, rad in enumerate(rader):
-        if rad.startswith("| ---"):
+        if _ar_avgransare(rad):
             avgransare = nummer
             break
 
@@ -311,7 +317,20 @@ def _tabellens_slut(rader: list[str]) -> int:
     slut = avgransare + 1
     while slut < len(rader) and rader[slut].startswith("|"):
         slut += 1
+
+    # En sista tabellrad utan radslut skulle klistras ihop med den nya raden.
+    if slut > 0 and rader[slut - 1] and not rader[slut - 1].endswith("\n"):
+        rader[slut - 1] += "\n"
     return slut
+
+
+def _ar_avgransare(rad: str) -> bool:
+    if not rad.startswith("|"):
+        return False
+    celler = [cell.strip() for cell in rad.strip().strip("|").split("|")]
+    return bool(celler) and all(
+        cell and set(cell) <= set(":-") and "-" in cell for cell in celler
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
