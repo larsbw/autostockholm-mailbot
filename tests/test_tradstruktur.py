@@ -80,6 +80,70 @@ def test_tom_adressrad_ger_ingen_krasch():
     assert tradstruktur.maska_adressrad("") == "[MASKERAD, 0 tecken]"
 
 
+def meddelande(*, etiketter, huvuden):
+    return {
+        "labelIds": list(etiketter),
+        "payload": {"headers": [{"name": n, "value": ""} for n in huvuden]},
+    }
+
+
+GMAIL_SVAR = {
+    "etiketter": ["SENT"],
+    "huvuden": ["Content-Type", "Date", "From", "In-Reply-To", "MIME-Version",
+                "Message-ID", "References", "Subject", "To"],
+}
+
+
+def test_svar_skrivet_i_gmail_kanns_igen():
+    assert tradstruktur.ar_gmail_svar(meddelande(**GMAIL_SVAR))
+
+
+def test_formularnotis_med_sent_raknas_inte_som_svar():
+    """Bär SENT men har passerat inkommande leverans, alltså Received och
+    Return-Path. Skulle förgifta mallarna (beslutslogg #5)."""
+    notis = meddelande(
+        etiketter=["SENT"],
+        huvuden=GMAIL_SVAR["huvuden"] + ["Received", "Return-Path",
+                                         "Delivered-To", "Received-SPF"],
+    )
+
+    assert not tradstruktur.ar_gmail_svar(notis)
+
+
+def test_forsta_utgaende_mailet_utan_forlaga_raknas_inte_som_svar():
+    forsta = meddelande(
+        etiketter=["SENT"],
+        huvuden=["Content-Type", "Date", "From", "Message-ID", "Subject", "To"],
+    )
+
+    assert not tradstruktur.ar_gmail_svar(forsta)
+
+
+def test_inkommande_meddelande_raknas_aldrig_som_svar():
+    inkommande = dict(GMAIL_SVAR)
+    assert not tradstruktur.ar_gmail_svar(
+        meddelande(etiketter=["INBOX"], huvuden=inkommande["huvuden"])
+    )
+
+
+def test_meddelande_utan_labelids_kraschar_inte():
+    utan = {"payload": {"headers": []}}
+
+    assert not tradstruktur.ar_gmail_svar(utan)
+
+
+def test_huvudnamnens_skiftlage_spelar_ingen_roll():
+    """Avsändare varierar mellan Message-Id och Message-ID, och mellan versala
+    och gemena huvudnamn. Jämförelsen ska vara skiftlägesokänslig."""
+    gement = meddelande(
+        etiketter=["SENT"],
+        huvuden=["content-type", "date", "from", "IN-REPLY-TO", "mime-version",
+                 "message-id", "REFERENCES", "subject", "to"],
+    )
+
+    assert tradstruktur.ar_gmail_svar(gement)
+
+
 def test_svarsprefix_kanns_igen_men_amnet_slapps_aldrig_ut():
     traff = tradstruktur.SVARSPREFIX.match("Re: Offert ABC123 till Anna")
 
