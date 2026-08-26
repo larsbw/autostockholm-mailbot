@@ -262,11 +262,16 @@ def mina(tjanst, *, utfil: Path, max_tradar=None, pacer=None, forbrukning=None,
 
 def logga_korning(forbrukning: Forbrukning, *, logg: Path | None = None,
                   nu=None) -> str:
-    """Appendar en rad i docs/mining-log.md (CLAUDE.md §8). Inga adresser,
-    inga ämnesrader, bara mätvärden.
+    """Skriver in en rad i tabellen i docs/mining-log.md (CLAUDE.md §8). Inga
+    adresser, inga ämnesrader, bara mätvärden.
 
     Anropas även när körningen fallit, eftersom kvoten är förbrukad oavsett.
     Statuskolumnen skiljer den avbrutna körningen från den färdiga.
+
+    RADEN SKRIVS IN SIST I TABELLEN, inte sist i filen. Ett rent append lade
+    raden efter appendix, eftersom tabellen ligger mitt i dokumentet. Testet som
+    vaktade appendningen var blint för det: dess fixtur bar bara rubrikraden, och
+    i en sådan fil är filens slut och tabellens slut samma position.
 
     logg slås upp vid anropet och inte som defaultvärde: ett defaultvärde binds
     när modulen laddas, och pekade då på den riktiga loggen även när MININGLOGG
@@ -278,9 +283,35 @@ def logga_korning(forbrukning: Forbrukning, *, logg: Path | None = None,
         f"| {stampel} | `{FRAGA}` | {forbrukning.tradar} | "
         f"{forbrukning.anrop} | {forbrukning.enheter} | {status} |\n"
     )
-    with logg.open("a", encoding="utf-8") as fil:
-        fil.write(rad)
+
+    rader = logg.read_text(encoding="utf-8").splitlines(keepends=True)
+    infogningspunkt = _tabellens_slut(rader)
+    rader.insert(infogningspunkt, rad)
+    logg.write_text("".join(rader), encoding="utf-8")
     return rad
+
+
+def _tabellens_slut(rader: list[str]) -> int:
+    """Index EFTER tabellens sista rad.
+
+    Tabellen känns igen på avgränsarraden `| --- | ...`, och sträcker sig till
+    den sista efterföljande raden som börjar med `|`. Saknas avgränsaren finns
+    ingen tabell att skriva i, och då är filens slut rätt svar: att gissa fram
+    en plats vore värre än att lägga raden sist.
+    """
+    avgransare = None
+    for nummer, rad in enumerate(rader):
+        if rad.startswith("| ---"):
+            avgransare = nummer
+            break
+
+    if avgransare is None:
+        return len(rader)
+
+    slut = avgransare + 1
+    while slut < len(rader) and rader[slut].startswith("|"):
+        slut += 1
+    return slut
 
 
 def main(argv: list[str] | None = None) -> int:

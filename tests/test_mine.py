@@ -346,7 +346,23 @@ def test_fallda_anrop_kostar_kvot(tmp_path):
 
 
 RUBRIKRAD = "| Datum | Query | Trådar | Anrop | Kvotenheter | Status |\n"
+AVGRANSARE = "| --- | --- | --- | --- | --- | --- |\n"
 STAMPEL = datetime(2026, 8, 26, 9, 5, tzinfo=timezone.utc)
+
+# Fixtur som liknar det RIKTIGA dokumentet: tabellen ligger mitt i filen och det
+# finns innehåll efter den. En fixtur med bara rubrikraden är blind för
+# placeringsdefekten, eftersom filens slut och tabellens slut då sammanfaller.
+EFTERTEXT = "\n---\n\n## Appendix — versionshistorik\n\n### 0.1.0\n\nText.\n"
+
+
+def dokument_med_appendix(rader_i_tabellen: str = "") -> str:
+    return (
+        "# Mining-logg\n\nFörklarande stycke.\n\n"
+        + RUBRIKRAD
+        + AVGRANSARE
+        + rader_i_tabellen
+        + EFTERTEXT
+    )
 
 
 def test_mining_loggen_appendas_utan_att_rora_befintligt(tmp_path):
@@ -366,6 +382,55 @@ def test_mining_loggen_appendas_utan_att_rora_befintligt(tmp_path):
     assert "2026-08-26 09:05 UTC" in rad
     assert "`in:sent`" in rad
     assert "| 3 | 5 | 140 | fullständig |" in rad
+
+
+def test_raden_hamnar_i_tabellen_och_inte_sist_i_filen(tmp_path):
+    """Defekten som provkörningen i skiva 4 blottade: ett rent append lade raden
+    efter appendix, eftersom tabellen ligger mitt i dokumentet."""
+    logg = tmp_path / "mining-log.md"
+    logg.write_text(dokument_med_appendix(), encoding="utf-8")
+    forbrukning = mine.Forbrukning()
+    forbrukning.tradar = 3
+    forbrukning.anrop = 5
+    forbrukning.enheter = 140
+    forbrukning.fullstandig = True
+
+    rad = mine.logga_korning(forbrukning, logg=logg, nu=STAMPEL)
+
+    rader = logg.read_text(encoding="utf-8").splitlines(keepends=True)
+    plats = rader.index(rad)
+    assert rader[plats - 1] == AVGRANSARE
+    assert "## Appendix" in "".join(rader[plats + 1:])
+    assert not rader[-1].startswith("|")
+
+
+def test_ny_rad_laggs_efter_tidigare_rader_i_tabellen(tmp_path):
+    """Ordningen ska vara kronologisk: den nya raden sist i tabellen, inte
+    först, och appendix ska fortfarande ligga efter hela tabellen."""
+    tidigare = "| 2026-08-01 08:00 UTC | `in:sent` | 1 | 2 | 50 | fullständig |\n"
+    logg = tmp_path / "mining-log.md"
+    logg.write_text(dokument_med_appendix(tidigare), encoding="utf-8")
+    forbrukning = mine.Forbrukning()
+    forbrukning.fullstandig = True
+
+    rad = mine.logga_korning(forbrukning, logg=logg, nu=STAMPEL)
+
+    rader = logg.read_text(encoding="utf-8").splitlines(keepends=True)
+    assert rader.index(tidigare) < rader.index(rad)
+    assert rader[rader.index(rad) - 1] == tidigare
+    assert "## Appendix" in "".join(rader[rader.index(rad) + 1:])
+
+
+def test_utan_tabell_hamnar_raden_sist(tmp_path):
+    """Nollfallet. Saknas avgränsaren finns ingen tabell att skriva i, och då
+    är filens slut rätt svar i stället för en gissad plats."""
+    logg = tmp_path / "mining-log.md"
+    logg.write_text("# Mining-logg\n\nIngen tabell än.\n", encoding="utf-8")
+    forbrukning = mine.Forbrukning()
+
+    rad = mine.logga_korning(forbrukning, logg=logg, nu=STAMPEL)
+
+    assert logg.read_text(encoding="utf-8").endswith(rad)
 
 
 def test_avbruten_korning_loggas_som_avbruten(tmp_path):

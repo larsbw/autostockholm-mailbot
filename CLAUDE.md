@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.4.2 · **Uppdaterad:** 2026-08-26 · **Speglar:** beslutslogg #6
+**Version:** 0.5.0 · **Uppdaterad:** 2026-08-26 · **Speglar:** beslutslogg #6
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -316,8 +316,9 @@ De döljer den, och mailet går ut ändå.
 
 Stanna ALLTID och invänta Lars uttryckliga beslut före:
 
-- Första auktoriseringen mot en brevlåda, alltså varje körning som skriver eller
-  skriver om `token.json`
+- Första auktoriseringen mot en brevlåda, alltså varje körning som skapar
+  `token.json` eller begär nya scopes. Rutinmässig förnyelse av en befintlig
+  token är inte ett stopp.
 - Första sändningen i en ny miljö, även till en egen testadress
 - Att befordra en kategori från `utkast` till `auto`, eller från `aldrig` till `utkast`
 - Varje ändring i `config/sparrar.yaml`
@@ -396,6 +397,25 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.5.0 — 2026-08-26
+
+**§10:s rad om `token.json` får en snävare lydelse.** Den sa tidigare "varje
+körning som skriver eller skriver om `token.json`". Bokstavligt träffade den även
+en rutinmässig token-förnyelse, som `src/auth.py` gör utan att någon ber om det,
+och därmed hade varje framtida körning mot brevlådan varit ett §10-stopp.
+Granskaren läste den precis så i skiva 4 och rapporterade ett möjligt passerat
+stopp. Så var det inte: `token.json` bar auktoriseringens tidsstämpel och rördes
+inte av körningen. Men läsningen var rimlig, och det är regelns fel och inte
+läsarens.
+
+Skälet att rätta är inte att den gamla lydelsen var obekväm. **En regel som gör
+systemet oanvändbart börjar ignoreras**, och en ignorerad regel skyddar
+ingenting. Stoppet ska ligga där risken finns: när en brevlåda auktoriseras för
+första gången, eller när scopelistan vidgas. En förnyelse av en token som redan
+har Lars godkännande flyttar ingen gräns.
+
+Ändrad regel i §10 ⇒ MINOR.
 
 ### 0.4.2 — 2026-08-26
 
