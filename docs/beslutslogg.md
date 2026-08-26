@@ -78,7 +78,7 @@ faller med `AuthFel` i stället för att auktorisera på egen hand.
 
 Rättelser i #1 efter granskning, per post:
 
-- Kvottabellens raderade minutgränser bar inte kvalifikationen "per projekt" som
+- Kvottabellens minutgränser bar inte kvalifikationen "per projekt" som
   källsidan skriver ut. Rättat till "per minut per projekt" respektive "per minut
   per användare per projekt".
 - Konsekvensstycket kallade 75 trådar per minut för "taket" trots att
@@ -88,11 +88,12 @@ Rättelser i #1 efter granskning, per post:
 
 **Om append-only och det här passet.** Rättelserna gjordes innan loggen
 committades första gången, alltså på en post som aldrig funnits i historiken.
-Ingen committad post har skrivits om. Att `git log -- docs/beslutslogg.md` visar
-en enda commit är kontrollerbart och är själva belägget. Huruvida regeln på
-raderna 5 och 6 ska omfatta även förcommit-redigeringar är en öppen fråga till
-Lars; som den står ger den inget svar, och det här passet har valt den tolkning
-som historiken kan bekräfta.
+Ingen committad post har skrivits om. Belägget är `git show
+820c2ce:docs/beslutslogg.md`: där bär post #1 redan sin rättade lydelse, både
+kvottabellens "Per minut per användare per projekt" och konsekvensstyckets "övre
+gränsvärde". Huruvida regeln på raderna 5 och 6 ska omfatta även
+förcommit-redigeringar är en öppen fråga till Lars; som den står ger den inget
+svar, och det här passet har valt den tolkning som historiken kan bekräfta.
 
 Inga beslut ändrade, bara formuleringen av deras underlag ⇒ PATCH.
 
