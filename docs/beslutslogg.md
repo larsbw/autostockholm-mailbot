@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.6.1 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
+**Version:** 0.7.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -147,7 +147,86 @@ och rad, räkna och kategorisera aldrig sin egen omgivning.
 
 ---
 
+## #5 — `SENT` betyder inte "mänskligt skrivet svar"
+
+**Datum:** 2026-08-26 · **Berör:** kommande `src/extract.py`, `src/mine.py`:s fråga
+
+**Beslut.** `extract.py` får INTE likställa etiketten `SENT` med ett svar skrivet
+av Matte eller Lars. Urvalet måste dessutom kräva frånvaro av leveranshuvuden,
+eller motsvarande signal, innan ett meddelande får bli höger sida i ett par.
+
+**Underlag.** Uppmätt i provkörningen 2026-08-26, `--max-threads 50`, redovisad i
+`docs/mining-log.md`. Frågan `in:sent` fångar tre sorters `SENT`-meddelande:
+
+- **Svar skrivna i Gmail.** Bär `In-Reply-To` och `References`, saknar
+  `Received`, `Delivered-To` och `Return-Path`. Detta är de enda som hör hemma i
+  `data/par.jsonl` enligt §11.
+- **Formulärnotiser.** `From` är Auto Stockholm, `To` är brevlådan själv,
+  `Reply-To` är kunden. De bär `SENT` men också hela leveranskedjan med
+  `Received` och `Received-SPF`, eftersom de passerat inkommande leverans. De är
+  maskinskrivna och skulle förgifta mallarna.
+- **Vidarebefordringar till brevlådan själv.** `SENT` med svarsprefix `Fwd:` och
+  `To` lika med brevlådan. Mänskligt skrivna, men inte svar till en kund.
+
+**Konsekvens för utbytet.** Av femtio trådar bär trettiotvå enbart
+`SENT`-meddelanden, och tjugonio trådar innehåller ett enda meddelande. De bär
+alltså ingen kundtext att para ihop med. Antalet användbara par blir väsentligt
+lägre än antalet trådar, och det ska inte komma som en överraskning i fas 4.
+
+**Alternativ som valdes bort.** Att snäva Gmail-frågan i `src/mine.py` i stället
+för att filtrera i `extract.py`. Miningen ska hämta brett en gång och
+`data/tradar.jsonl` ska bära allt; ett urvalsfel i frågan kostar en ny körning
+mot brevlådan, medan ett urvalsfel i extraktionen bara kostar en ny körning mot
+disk.
+
+---
+
+## #6 — Trådstrukturens kantfall som `extract.py` måste bära
+
+**Datum:** 2026-08-26 · **Berör:** kommande `src/extract.py`
+
+**Beslut.** Följande är uppmätt i provkörningen och får inte antas bort. Varje
+punkt har fällt en naiv implementation någon gång, och de står här därför att en
+gitignorerad rapport inte är en källa nästa skiva kan läsa.
+
+- **`labelIds` saknas som nyckel.** Äldre meddelanden har den inte alls. Läs med
+  `.get`, aldrig med indexering.
+- **`text/plain` finns inte alltid.** Ett meddelande kan ha `multipart/mixed` med
+  bara `text/html` och en bilaga. En extraktor som kräver `text/plain` får tom
+  brödtext.
+- **`payload.parts` finns inte alltid.** Enkla meddelanden har brödtexten direkt
+  i `payload.body.data` med `payload.mimeType` satt till `text/plain`. En
+  rekursiv vandring över `parts` hittar då ingenting.
+- **Huvudnamn är inte unika.** `Return-Path` förekommer dubblerat. En uppslagning
+  som tar första träffen väljer godtyckligt.
+- **Huvudnamnens skiftläge varierar mellan avsändare.** `Message-Id` mot
+  `Message-ID`, och gemena `authentication-results` vid sidan av versala. Alla
+  jämförelser ska vara skiftlägesokänsliga.
+- **Bilaga kan inte definieras som "har filnamn".** Inline-bilder bär
+  `attachmentId` utan `filename`.
+- **Ämnesraden kan vara tom.** Nollfallet enligt §4.
+- **Bilagornas bytes följer inte med.** Textdelar har `body.data`, bilagor har
+  bara `attachmentId` och `size`. Vill vi ha innehållet kostar det ett
+  `messages.attachments.get` per bilaga.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.7.0 — 2026-08-26
+
+Posterna **#5** och **#6** tillkommer efter provkörningen mot brevlådan. #5
+slår fast att `SENT` inte är en proxy för mänskligt skrivet svar, och #6 räknar
+upp de strukturella kantfall `extract.py` måste bära. Båda vilar på uppmätt
+material och inte på antaganden.
+
+**Om en processräkning i historiken.** Commitmeddelandet i `6673aea` inleder ett
+stycke med "TVÅ FEL SOM FÖRSTA KÖRNINGEN BLOTTADE". Det är en räkning av
+instanser av ett mönster i ett arbetsförlopp, alltså den form §7.2 förbjuder, och
+den blev omedelbart falsk: granskningen fann fler fel i samma verktyg. Meddelandet
+ligger i historiken och kan inte skrivas om. Räkningen upphävs här.
+
+Två nya poster ⇒ MINOR.
 
 ### 0.6.1 — 2026-08-26
 

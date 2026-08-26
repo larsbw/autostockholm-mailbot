@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+from email.utils import getaddresses
 from pathlib import Path
 
 ROT = Path(__file__).resolve().parent.parent
@@ -27,14 +28,23 @@ KANSLIGA_HUVUDEN = {
     "x-original-sender", "sender",
 }
 
-# Ämnesraden maskeras HELT, inte mönstervis. Den bär rutinmässigt regnummer,
-# kundnamn och fritext, och en delvis maskering släppte igenom en identifierare
-# vid första körningen mot brevlådan. Att maska hela raden kostar ingenting:
-# strukturen syns i att huvudet finns, inte i vad det innehåller.
+# Ämnesraden maskeras HELT, inte mönstervis. Den bär regnummer, kundnamn och
+# fritext, och en delvis maskering släppte igenom en identifierare vid första
+# körningen mot brevlådan.
+#
+# Maskeringen kostar något, och det ska stå utskrivet: svarsprefixet `Re:`,
+# `Sv:` eller `Fwd:` är STRUKTUR och inte persondata, och det är just vad
+# extract.py behöver för att skilja ett första mail från ett svar. Prefixet
+# redovisas därför separat nedan, resten maskeras.
 HELMASKADE_HUVUDEN = {"subject"}
 
-EPOST = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
-REGNR = re.compile(r"\b[A-ZÅÄÖ]{3}\s?\d{2}[A-ZÅÄÖ0-9]\b")
+SVARSPREFIX = re.compile(r"^\s*((?:re|sv|ang|vb|fwd|fw)\s*:\s*)+", re.IGNORECASE)
+
+# `=` ingår i lokaldelen: VERP- och bounce-adresser kodar in en ANNAN adress
+# där, som `bounces+12-kalle=exempel.se@sg.net`. Utan `=` börjar matchningen
+# efter likhetstecknet och lämnar den inkodade adressen i klartext.
+EPOST = re.compile(r"[A-Za-z0-9._%+=-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+REGNR = re.compile(r"\b[A-ZÅÄÖa-zåäö]{3}\s?\d{2}[A-ZÅÄÖa-zåäö0-9]\b")
 SIFFROR = re.compile(r"\d[\d\s()+-]{4,}\d")
 
 
@@ -65,19 +75,28 @@ def maska_adressrad(varde: str) -> str:
     """Maskerar BÅDE adressen och visningsnamnet.
 
     Att bara maska adressen räcker inte: `Förnamn Efternamn <a@b.se>` lämnar
-    kundens namn i klartext, vilket är en §6-överträdelse. Felet uppstod i
-    första körningen mot brevlådan och fångades i granskningen av utdatan.
+    kundens namn i klartext, vilket är en §6-överträdelse.
+
+    Uppdelningen görs med `email.utils.getaddresses` och ALDRIG genom att
+    splitta på komma. Ett citerat visningsnamn av formen
+    `"Efternamn, Förnamn" <adress>` innehåller ett komma, och en rå splittning
+    bryter det i två poster varav den första saknar vinkelparenteser och
+    passerar omaskerad. Den formen är Outlooks standard, och brevlådan tar emot
+    O365-post.
+
+    Känns formen inte igen maskeras HELA värdet. Ingen gren får returnera
+    indata oförändrad: det som inte går att tolka är också det som inte går att
+    garantera är ofarligt.
     """
     poster = []
-    for post in varde.split(","):
-        post = post.strip()
-        if "<" in post and ">" in post:
-            visningsnamn, _, resten = post.partition("<")
-            adress, _, _ = resten.partition(">")
-            initialer = _initialer(visningsnamn)
-            poster.append(f"{initialer} <{maska(adress)}>".strip())
-        else:
-            poster.append(maska(post))
+    for visningsnamn, adress in getaddresses([varde]):
+        if not adress:
+            continue
+        initialer = _initialer(visningsnamn)
+        poster.append(f"{initialer} <{maska(adress)}>".strip())
+
+    if not poster:
+        return f"[MASKERAD, {len(varde)} tecken]"
     return ", ".join(poster)
 
 
@@ -131,7 +150,12 @@ def redovisa(trad: dict) -> None:
         print(f"  antal huvuden: {len(huvuden)}")
         for namn, varde in huvuden:
             if namn.lower() in HELMASKADE_HUVUDEN:
-                print(f"    {namn}: [MASKERAD, {len(varde)} tecken]")
+                traff = SVARSPREFIX.match(varde)
+                prefix = traff.group(0).strip() if traff else "inget"
+                print(
+                    f"    {namn}: [MASKERAD, {len(varde)} tecken] "
+                    f"svarsprefix={prefix!r}"
+                )
             elif namn.lower() in KANSLIGA_HUVUDEN:
                 print(f"    {namn}: {maska_adressrad(varde)}")
         namngivna = sorted({namn for namn, _ in huvuden})
@@ -142,13 +166,6 @@ def redovisa(trad: dict) -> None:
         print("  MIME-träd:")
         for rad in _deltrad(nyttolast, 2):
             print(rad)
-
-
-def _huvudvarde(meddelande: dict, sokt: str) -> str:
-    for namn, varde in _huvuden(meddelande):
-        if namn.lower() == sokt:
-            return varde
-    return ""
 
 
 def summera(tradar: list[dict]) -> None:
