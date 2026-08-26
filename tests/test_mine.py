@@ -115,8 +115,22 @@ def test_max_threads_noll_ger_inga_anrop_alls(tmp_path):
 
     assert gmail.list_anrop == []
     assert gmail.get_anrop == []
-    assert rader(utfil) == []
+    assert not utfil.exists()
     assert forbrukning.enheter == 0
+
+
+def test_max_threads_noll_raderar_inte_foregaende_skord(tmp_path):
+    utfil = tmp_path / "tradar.jsonl"
+    utfil.write_text('{"id": "tidigare-skord"}\n', encoding="utf-8")
+    gmail = fejk.FejkGmail(tva_sidor(), tre_tradar())
+
+    mine.mina(
+        gmail, utfil=utfil, max_tradar=0, pacer=snabb_pacer(),
+        sov=lambda _: None,
+    )
+
+    assert rader(utfil) == [{"id": "tidigare-skord"}]
+    assert not (tmp_path / "tradar.jsonl.delvis").exists()
 
 
 def test_tom_brevlada_ger_tom_utfil(tmp_path):
@@ -395,7 +409,29 @@ def test_main_skickar_max_threads_vidare(tmp_path, monkeypatch):
     assert utfall == 0
     assert [anrop["id"] for anrop in gmail.get_anrop] == ["t1"]
     assert len(rader(tmp_path / "tradar.jsonl")) == 1
-    assert "| 1 | 2 |" in logg.read_text(encoding="utf-8")
+    assert "| 1 | 2 | 50 | fullständig |" in logg.read_text(encoding="utf-8")
+
+
+def test_pacerns_sovfunktion_gar_att_byta_ut_utifran(tmp_path, monkeypatch):
+    """main() tar ingen sov-parameter, så sviten kan bara hålla den vaken
+    genom att byta ut mine.time.sleep. Slås den upp som defaultvärde i stället
+    för vid anropet når utbytet aldrig fram, och sviten sover på riktigt utan
+    att någon märker det."""
+    gmail = fejk.FejkGmail(tva_sidor(), tre_tradar())
+    logg = tmp_path / "mining-log.md"
+    logg.write_text(RUBRIKRAD, encoding="utf-8")
+    sov = fejk.Sovlogg()
+
+    monkeypatch.setattr(mine.auth, "hamta_credentials", lambda **kw: "fejk-cred")
+    monkeypatch.setattr(mine.auth, "bygg_tjanst", lambda cred: gmail)
+    monkeypatch.setattr(mine, "UTFIL", tmp_path / "tradar.jsonl")
+    monkeypatch.setattr(mine, "MININGLOGG", logg)
+    monkeypatch.setattr(mine.time, "sleep", sov)
+
+    mine.main([])
+
+    assert sov.sovtider, "mine.time.sleep byttes ut men anropades aldrig"
+    assert all(vantan > 0 for vantan in sov.sovtider)
 
 
 def test_main_auktoriserar_aldrig_pa_egen_hand(tmp_path, monkeypatch):
@@ -440,3 +476,25 @@ def test_main_loggar_kvoten_aven_nar_korningen_faller(tmp_path, monkeypatch):
     text = logg.read_text(encoding="utf-8")
     assert "AVBRUTEN" in text
     assert f"| 0 | 2 | {mine.KOSTNAD_THREADS_LIST + mine.KOSTNAD_THREADS_GET} |" in text
+
+
+def test_loggfel_maskerar_inte_felet_fran_hamtningen(tmp_path, monkeypatch):
+    """Faller både hämtningen och loggskrivningen är det hämtningens fel
+    operatören behöver se. Loggfelet rapporteras vid sidan av."""
+    gmail = fejk.FejkGmail(
+        {None: {"threads": [{"id": "t1"}]}},
+        {"t1": trad("t1")},
+        get_fel={"t1": [fejk.behorighetsfel()]},
+    )
+
+    def trasig_logg(forbrukning, **kw):
+        raise OSError("mining-log går inte att skriva")
+
+    monkeypatch.setattr(mine.auth, "hamta_credentials", lambda **kw: "fejk-cred")
+    monkeypatch.setattr(mine.auth, "bygg_tjanst", lambda cred: gmail)
+    monkeypatch.setattr(mine, "UTFIL", tmp_path / "tradar.jsonl")
+    monkeypatch.setattr(mine, "logga_korning", trasig_logg)
+    monkeypatch.setattr(mine.time, "sleep", lambda _: None)
+
+    with pytest.raises(HttpError):
+        mine.main([])

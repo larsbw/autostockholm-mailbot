@@ -105,10 +105,11 @@ def ar_kvotfel(fel: BaseException) -> bool:
     return _orsak(fel) in KVOTORSAKER
 
 
-def fordrojning(forsok: int, slumpa=random.random) -> float:
+def fordrojning(forsok: int, slumpa=None) -> float:
     """Exponentiell backoff med jitter. Jittern läggs ovanpå basen i stället
     för att skala ned den, så att första omförsöket aldrig hamnar under den
     sekund Google anger som golv."""
+    slumpa = random.random if slumpa is None else slumpa
     bas = min(BASFORDROJNING_S * (2**forsok), MAX_BASFORDROJNING_S)
     return bas + slumpa() * bas
 
@@ -116,13 +117,17 @@ def fordrojning(forsok: int, slumpa=random.random) -> float:
 class Kvotpacer:
     """Sprider ut anropen jämnt så att förbrukningen håller sig under
     ENHETER_PER_MINUT. Ingen skur tillåts: varje anrop reserverar sin egen
-    kostnad framåt i tiden."""
+    kostnad framåt i tiden.
 
-    def __init__(self, enheter_per_minut=ENHETER_PER_MINUT, sov=time.sleep,
-                 klocka=time.monotonic):
+    sov och klocka slås upp vid anropet och inte som defaultvärden. Ett
+    defaultvärde binder funktionsobjektet när modulen laddas, och då når ett
+    utbyte av time.sleep aldrig hit."""
+
+    def __init__(self, enheter_per_minut=ENHETER_PER_MINUT, sov=None,
+                 klocka=None):
         self._enheter_per_sekund = enheter_per_minut / 60.0
-        self._sov = sov
-        self._klocka = klocka
+        self._sov = time.sleep if sov is None else sov
+        self._klocka = time.monotonic if klocka is None else klocka
         self._nasta_tidigast: float | None = None
 
     def vanta(self, kostnad: int) -> None:
@@ -147,9 +152,9 @@ class Forbrukning:
         self.anrop += 1
 
 
-def _utfor(bygg_anrop, *, kostnad, pacer, forbrukning, sov=time.sleep,
-           slumpa=random.random):
+def _utfor(bygg_anrop, *, kostnad, pacer, forbrukning, sov=None, slumpa=None):
     """Kör ett Gmail-anrop med pacing före och backoff vid kvottak."""
+    sov = time.sleep if sov is None else sov
     senaste = None
     for forsok in range(MAX_FORSOK):
         pacer.vanta(kostnad)
@@ -168,8 +173,8 @@ def _utfor(bygg_anrop, *, kostnad, pacer, forbrukning, sov=time.sleep,
     ) from senaste
 
 
-def lista_trad_id(tjanst, *, pacer, forbrukning, max_tradar=None, sov=time.sleep,
-                  slumpa=random.random) -> list[str]:
+def lista_trad_id(tjanst, *, pacer, forbrukning, max_tradar=None, sov=None,
+                  slumpa=None) -> list[str]:
     """Tråd-ID för trådar med minst ett skickat meddelande."""
     if max_tradar is not None and max_tradar <= 0:
         return []
@@ -199,8 +204,8 @@ def lista_trad_id(tjanst, *, pacer, forbrukning, max_tradar=None, sov=time.sleep
             return idn
 
 
-def hamta_trad(tjanst, trad_id: str, *, pacer, forbrukning, sov=time.sleep,
-               slumpa=random.random) -> dict:
+def hamta_trad(tjanst, trad_id: str, *, pacer, forbrukning, sov=None,
+               slumpa=None) -> dict:
     """Hela tråden i ett anrop."""
     return _utfor(
         lambda: tjanst.users().threads().get(
@@ -215,16 +220,24 @@ def hamta_trad(tjanst, trad_id: str, *, pacer, forbrukning, sov=time.sleep,
 
 
 def mina(tjanst, *, utfil: Path, max_tradar=None, pacer=None, forbrukning=None,
-         sov=time.sleep, slumpa=random.random) -> Forbrukning:
+         sov=None, slumpa=None) -> Forbrukning:
     """Skriver en tråd per rad till utfil och returnerar förbrukningen.
 
     Hämtningen skrivs till en sidofil med suffixet .delvis och flyttas på plats
     först när den är klar. En körning som avbryts lämnar därför utfilen orörd,
     och det halva resultatet ligger kvar under ett namn som inte går att läsa
     som en färdig fil.
+
+    En körning som ombeds hämta noll trådar rör varken API:et eller utfilen.
+    Att skriva en tom fil hade raderat föregående skörd, och en felskriven
+    --max-threads får inte kunna förstöra en färdig mining.
     """
     pacer = Kvotpacer(sov=sov) if pacer is None else pacer
     forbrukning = Forbrukning() if forbrukning is None else forbrukning
+
+    if max_tradar is not None and max_tradar <= 0:
+        forbrukning.fullstandig = True
+        return forbrukning
 
     idn = lista_trad_id(
         tjanst, pacer=pacer, forbrukning=forbrukning, max_tradar=max_tradar,
@@ -297,11 +310,17 @@ def main(argv: list[str] | None = None) -> int:
             forbrukning=forbrukning,
         )
     finally:
-        rad = logga_korning(forbrukning)
         print(f"trådar: {forbrukning.tradar}")
         print(f"anrop: {forbrukning.anrop}")
         print(f"kvotenheter: {forbrukning.enheter}")
-        print(f"mining-log: {rad.strip()}")
+        # Ett fel i loggningen får inte ersätta felet från mina(). Det senare
+        # är orsaken operatören behöver se; det förra rapporteras vid sidan av.
+        try:
+            rad = logga_korning(forbrukning)
+        except OSError as fel:
+            print(f"VARNING: kunde inte skriva mining-log: {fel}")
+        else:
+            print(f"mining-log: {rad.strip()}")
 
     print(f"utfil: {UTFIL}")
     return 0

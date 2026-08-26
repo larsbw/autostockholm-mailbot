@@ -76,12 +76,25 @@ faller med `AuthFel` i stället för att auktorisera på egen hand.
 
 ### 0.1.1 — 2026-08-26
 
-Två rättelser i #1 efter granskning, båda §7.2-fynd. Kvottabellens två
-minutgränser bar inte kvalifikationen "per projekt" som källsidan skriver ut, och
-konsekvensstycket kallade 75 trådar per minut för "taket" trots att `threads.list`
-förbrukar ur samma pott. Talet 75 är omräknat och avläst på nytt enligt
-omskrivningsregeln, inte ärvt genom omformuleringen. Inga beslut ändrade, bara
-formuleringen av deras underlag ⇒ PATCH.
+Rättelser i #1 efter granskning, per post:
+
+- Kvottabellens raderade minutgränser bar inte kvalifikationen "per projekt" som
+  källsidan skriver ut. Rättat till "per minut per projekt" respektive "per minut
+  per användare per projekt".
+- Konsekvensstycket kallade 75 trådar per minut för "taket" trots att
+  `threads.list` förbrukar ur samma pott. Omformulerat till övre gränsvärde för
+  hämtningsdelen. Talet 75 är omräknat och avläst på nytt enligt
+  omskrivningsregeln, inte ärvt genom omformuleringen.
+
+**Om append-only och det här passet.** Rättelserna gjordes innan loggen
+committades första gången, alltså på en post som aldrig funnits i historiken.
+Ingen committad post har skrivits om. Att `git log -- docs/beslutslogg.md` visar
+en enda commit är kontrollerbart och är själva belägget. Huruvida regeln på
+raderna 5 och 6 ska omfatta även förcommit-redigeringar är en öppen fråga till
+Lars; som den står ger den inget svar, och det här passet har valt den tolkning
+som historiken kan bekräfta.
+
+Inga beslut ändrade, bara formuleringen av deras underlag ⇒ PATCH.
 
 ### 0.1.0 — 2026-08-26
 
