@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.17.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §8
+**Version:** 0.19.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -871,7 +871,146 @@ implementation redan råkar peka på en av dem.
 
 ---
 
+## #24 — Två fält gatar ombyggnaden
+
+**Datum:** 2026-08-27 · **Berör:** `docs/roadmap.md` fas 4.5,
+`src/fordonsuppslag.py`, `docs/sparrar.md`, #23
+
+**Beslut av Lars.** Kravbilden för a-traktorombyggnad snävas till **två fält**:
+släpvagnsvikt och draganordning. Inget annat gatar.
+
+**Vad som UTGÅR.** Tjänstevikt, drivning, karosserikod och barlastflak. De stod i
+fas 4.5 till och med skiva 11 och ingår inte längre i bedömningen. Vad uppslaget i
+övrigt kan visa är merförsäljning, inte gating.
+
+Den tidigare kravbilden var alltså felaktig, inte bara ofullständig. Det är värt
+att skriva ut, eftersom skiva 11 lade granskningsarbete på att räta ut viktledets
+riktning i ett krav som nu utgår helt.
+
+*Strykning enligt undantaget i dokumentets huvud: här stod att tröskeln 1000 kg
+är Auto Stockholms praxis och inte ett författningskrav, att §42 saknar tal, och
+att en mall som återger 1000 som författningskrav vore en sändvägsdefekt. Postens
+rubrik bar samma påstående. Allt detta är FALSKT och struket. §42 slogs upp på
+Lars instruktion i samma skiva och anger talet uttryckligen. Se versionsposten
+0.19.0 och `docs/roadmap.md` fas 4.5, som citerar paragrafen ordagrant.*
+
+**TRÖSKELN 1000 KG ÄR ETT FÖRFATTNINGSKRAV.** VVFS 2003:19 4 kap 42 § punkt 2:
+*"ursprungsfordonet är konstruerat för en släpvagnsvikt av minst 1 000 kg"*.
+Talet bor i `src/fordonsuppslag.py` som `TROSKEL_SLAPVAGNSVIKT_KG`.
+
+**§42 HAR TVÅ KRITERIER, FÖRENADE MED *ELLER*, OCH KODEN PRÖVAR ETT.** Ett fordon
+är lämpligt som dragfordon om tjänstevikten är minst 2 000 kg ELLER om
+släpvagnsvikten är minst 1 000 kg. `utvardera` prövar bara det senare.
+
+**Ett fordon med tjänstevikt 2 100 kg och släpvagnsvikt 800 kg får därför RÖTT,
+medan föreskriften säger att det duger.** Det är en sändvägsdefekt, och att rätta
+den kräver tjänstevikt som ett tredje fält, alltså just det fält den här posten
+stryker ur bedömningen.
+
+**BESLUTET OM TVÅ FÄLT FATTADES PÅ ETT UNDERLAG SOM NU ÄR MOTBEVISAT.** Punkten
+är öppen och blockerande: fasen får inte lämnas och ingen mall får skrivas innan
+Lars avgjort om tjänstevikt ska tillbaka. Ingen kod ändras av agenten.
+
+Att ändra talet ändrar vilka kunder som får ett rött svar. Det är sändväg och
+inte en konstant bland andra, och `test_troskeln_ar_tusen_kilo` finns för att en
+ändring ska kräva ett medvetet beslut i stället för att glida igenom.
+
+**HÄMTNINGEN LIGGER BAKOM GRÄNSSNITTET SOM EN UTBYTBAR IMPLEMENTATION.**
+`slag_upp` tar en `hamta`-funktion. `manuell_hamtning` är den som finns nu:
+värdena matas in för hand och modulen utvärderar.
+
+Skälet är #23. **Datakällan är inte avgjord**, varken leverantör, pris per uppslag
+eller avtalsform, och modulen ska överleva ett byte. Ett byte av källa ska vara
+ett byte av EN funktion och inte en omskrivning. Den manuella hämtningen finns
+dessutom för att fasen ska gå att bygga och pröva innan ett avtal existerar.
+
+**`hamta` har inget förval.** Den som anropar väljer källa medvetet. En tyst
+standardkälla i en sändvägsmodul är precis vad §10 finns för att hindra.
+
+**REGELUTVÄRDERINGEN ÄR DETERMINISTISK KOD.** `utvardera` är boolesk logik på två
+fält. Ingen modell avgör om ett fordon kan byggas om; modellen får formulera
+svaret, aldrig fatta beslutet.
+
+**BESLUT AV LARS: SKILLNADEN MELLAN GULT OCH OKLART ÄR ETT BESKED FRÅN KUNDEN.**
+
+Briefen till skiva 12 listade båda med samma registervillkor, "släpvagnsvikt
+minst 1000 och draganordning nej". En deterministisk funktion på två fält kan
+inte ge två utfall för samma indata, och registret kan inte skilja en omonterad
+dragkrok från en monterad men oregistrerad.
+
+Agenten föreslog att skillnaden ligger i ett besked från kunden. **Lars antog
+förslaget som beslut i skiva 12**, med hans formulering: briefen gav samma indata
+två utfall, vilket en deterministisk funktion inte kan göra.
+
+`utvardera` bär beskedet som parametern `dragkrok_bekraftad_saknas`. **Förvalet
+är OKLART utan besked**, alltså en fråga till kunden och aldrig ett påstående om
+att dragkrok saknas. Det förvalet står fast.
+
+Biten bär ingen härkomst, till skillnad från fordonsfakta som måste passera
+spärren. Den luckan är registrerad i `docs/sparrar.md`.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.19.0 — 2026-08-27
+
+**§42 ÄR UPPSLAGEN, OCH #24 BAR ETT FALSKT PÅSTÅENDE SOM ÄR STRUKET PÅ PLATS.**
+Lars gav i skiva 12 instruktionen att slå upp VVFS 2003:19 4 kap 42 § och
+rapportera vad som faktiskt står. Föreskriften är hämtad från Trafikverket och
+citerad ordagrant i `docs/roadmap.md` fas 4.5.
+
+**Paragrafen anger ett tal.** §42 punkt 2 säger *"ursprungsfordonet är
+konstruerat för en släpvagnsvikt av minst 1 000 kg"*. #24 sade att §42 saknar
+tal och att 1000 är verkstadens praxis, i rubriken och i tre stycken. Det var
+falskt, och praxisramen faller med det. Strykningen är gjord på plats med kursiv
+not, enligt undantaget i dokumentets huvud, och rubriken är ändrad av samma skäl.
+
+**En andra sak föll ut av uppslagningen, och den är allvarligare.** §42:s två
+villkor är förenade med *eller*: tjänstevikt minst 2 000 kg ELLER släpvagnsvikt
+minst 1 000 kg. `utvardera` prövar bara det senare, så ett fordon med tjänstevikt
+2 100 kg och släpvagnsvikt 800 kg får RÖTT trots att föreskriften säger att det
+duger. Att rätta det kräver tjänstevikt som ett tredje fält, alltså det fält #24
+stryker ur bedömningen. **Beslutet om två fält vilar därmed på ett underlag som
+är motbevisat**, och punkten är öppen och blockerande. Ingen kod ändrades av
+agenten.
+
+**GULT mot OKLART är inte längre en öppen punkt.** Lars antog agentens tolkning
+som beslut: skillnaden är ett besked från kunden, och förvalet OKLART utan besked
+står fast. Posten är omskriven från "agentens tolkning" till Lars beslut.
+
+Struket falskt påstående och nytt beslutsinnehåll ⇒ MINOR.
+
+### 0.18.0 — 2026-08-27
+
+**#24 tillkommer**, på beslut av Lars i skiva 12: kravbilden för
+a-traktorombyggnad snävas till släpvagnsvikt och draganordning, och tjänstevikt,
+drivning, karosserikod och barlastflak utgår ur bedömningen.
+
+*Rättelse i 0.19.0: stycket nedan återger #24:s ursprungliga påstående om
+tröskeln. Det är falskt och struket i posten. §42 anger talet.*
+
+**Tröskeln 1000 kg är Auto Stockholms praxis och inte ett författningskrav.**
+VVFS 2003:19 4 kap 42 § kräver kopplingsanordning utan att ange något tal.
+Källan, verkstadens erfarenhet och besked från besiktningsmän, är namngiven i
+posten just för att den inte är författningen, och posten slår fast att en mall
+som återger talet som författningskrav är en sändvägsdefekt.
+
+**Hämtningen ligger bakom gränssnittet som en utbytbar implementation**, med #23
+som skäl: datakällan är inte avgjord och modulen ska överleva ett byte.
+
+Posten bär en **öppen punkt**: briefens GULT och OKLART har identiska
+registervillkor, och agentens tolkning att skillnaden är ett besked från kunden
+är inte beslutad av Lars. Efter granskningen är tolkningen märkt som agentens
+också i koden, i `utvardera`:s docstring, och inte bara i `docs/`. Det ställe fas
+5 faktiskt läser är koden.
+
+**Påståendet om §42 är märkt som återgivet.** Granskningen fällde att skivan
+gjorde ett starkare påstående om föreskriften än förut, att den inte anger något
+tal, samtidigt som den strök kravet på att verifiera texten. Kravet är
+återinfört, här och i fas 4.5.
+
+Ny post ⇒ MINOR.
 
 ### 0.17.0 — 2026-08-27
 
