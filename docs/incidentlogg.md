@@ -1,6 +1,6 @@
 # Incidentlogg
 
-**Version:** 0.4.2 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §0
+**Version:** 0.4.3 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §0
 
 Varje regel som bärs av en incident bor här. Dokumentet finns för att förlagornas
 styrka är att en härdad regel namnger det fel som skapade den. En regel utan
@@ -227,6 +227,71 @@ regressionen komma tillbaka tyst, eftersom sviten förblir grön när den återv
 
 ---
 
+## I4 — Rättelser i svep inför nya fel snabbare än de tar bort gamla
+
+**Datum:** 2026-08-27 · **Uppmätt i:** skiva 10, om skivorna 8 och 9 ·
+**Berör:** `CLAUDE.md` §7, `docs/sparrar.md`, `docs/incidentlogg.md`
+
+**Vad som hände.** I2 slog fast att fyndet satt i rättelsetexten. Regeln
+RÄTTELSETEXT GRANSKAS SOM NY TEXT skrevs som svar. Den fångade varje efterföljande
+instans, men den hindrade ingen av dem, eftersom den styr GRANSKAREN och inte den
+som skriver.
+
+Det som saknades var en regel om TAKT. Varje granskningsvarv fick en lista med
+fem till sju fynd och rättade dem i ett svep, i en enda skrivomgång, utan att
+någon mening prövades mot källan innan nästa skrevs.
+
+**De verifierbara instanserna, var och en med sin plats.** Varje rad är en
+rättelsepost som själv bär ett fel, registrerat av nästa post:
+
+| Rättelsen | Felet den bar | Registrerat i |
+| --- | --- | --- |
+| `docs/sparrar.md` 0.9.0 | ett `Uppmätt`-tal som inte motsvarade någon committad svit | 0.10.0 |
+| `docs/sparrar.md` 0.10.0 | sa "Sig själv, två lager" om en rad som skriver "sex lager", och återinförde radnummer | 0.11.0 och 0.11.1 |
+| `docs/sparrar.md` 0.11.0 | "Två strykningar" när diffen bar en | 0.11.1 |
+| `docs/sparrar.md` 0.11.1 | namngav fel post, två gånger | 0.11.2 |
+| `docs/incidentlogg.md` 0.4.1 | skrev om ett tal FRÅN "två committade skivor" TILL "två committar", alltså till en direkt räkning av loggutdatan | 0.4.2 |
+| `docs/incidentlogg.md` 0.4.2 | en förbjuden processräkning, "tredje skivan i rad" | 0.4.3 |
+| `CLAUDE.md` 0.7.0 | skrev in ett tal som samma commit sa var obelagt | 0.7.1 |
+
+Summan skrivs inte ut. §7.2 kräver att det kontrollerbara redovisas per post i en
+lista och aldrig summerat i en bisats, och tabellen ovan är den listan.
+
+**En åttonde instans är äldre än mönstret och visar att det inte är nytt.**
+`CLAUDE.md` 0.4.1 registrerar att "0.4.0-posten namngav fel post för
+strykningen". Samma felklass som `docs/sparrar.md` 0.11.1 bar, två skivor
+tidigare.
+
+**Vad det kostade.** §7:s grind uttömdes i både skiva 8 och skiva 9, båda
+gångerna utan godkännande, och båda skivorna stannade före push i väntan på ett
+grindbeslut av Lars. Nio committar låg lokalt när skiva 10 började. Ingen
+falskhet nådde `origin`, men det berodde på att grinden tog slut och inte på att
+texten blev sann.
+
+**Hur det upptäcktes.** Av granskaren, varv efter varv. Aldrig av den som skrev
+rättelsen, förrän i skiva 10: utkastet till `docs/sparrar.md` 0.11.2 bar
+radnummer som den egna postens tillägg omedelbart sköt ner, och det fångades av
+att numren slogs upp på nytt innan posten committades. Det är den enda instansen
+i tabellen ovan som aldrig nådde en commit, och den fångades av precis den takt
+regeln nedan föreskriver.
+
+**Varför svepet är farligare än den enskilda rättelsen.** Tre saker verkar
+samtidigt. Den som rättar sju fynd håller sju fynd i huvudet och skriver mot
+minnet av listan i stället för mot filen. Rättelsetexten läses dessutom som ett
+svar på en anmärkning, alltså med frågan "täcker den fyndet" i stället för "är
+den sann". Och en appendixpost som läggs överst skjuter ner varje radnummer under
+sig, så en rättelse som namnger rader föråldrar sig själv i samma skrivning.
+
+**Regeln posten bär.** EN RÄTTELSE I TAGET, VERIFIERAD MOT KÄLLAN INNAN NÄSTA
+SKRIVS. Rättelser görs inte i svep. Se CLAUDE.md §7.
+
+**Vakt.** Ingen automatisk. Regeln styr arbetsordning och inte kod, och det finns
+inget test som kan se att två meningar skrevs i fel ordning. Räkna med att felet
+återkommer, och att granskarens prövning av rättelsetexten mot källan är det enda
+som fångar det.
+
+---
+
 ## Mall för en incidentpost
 
 Kopiera blocket nedan. Ett fält som inte går att fylla i är ett skäl att inte
@@ -252,6 +317,26 @@ skriva posten ännu, inte ett skäl att lämna fältet tomt.
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.4.3 — 2026-08-27
+
+**I4 tillkommer**, på beslut av Lars i skiva 10, och bär regeln EN RÄTTELSE I
+TAGET som skrivs in i CLAUDE.md §7 i samma skiva. Posten räknar upp de
+rättelseposter som själva bar ett fel, var och en med sin plats, och skriver
+ingen summa.
+
+**En processräkning struken ur 0.4.2.** Den skrev "Detta är tredje skivan i rad"
+och "i andra granskningsvarvet". §7.2 namnger båda formerna ordagrant som
+förbjudna, instanser av ett mönster respektive granskningsvarv, och den första
+går inte att belägga: dokumenterade instanser finns för skiva 8 i I2 och för
+skiva 9 i I3:s rättelsenot, alltså inte för tre skivor. Strykningen är gjord på
+plats med kursiv not, enligt beslutsloggens undantag.
+
+**Samma processräkning står kvar i commit-meddelandet till `d8e5494`** och kan
+inte rättas där utan att historiken skrivs om. Den redovisas här i stället, som
+beslutslogg #15 gjorde med ett påhittat tal i `b597950`.
+
+Ny post och en strykning ⇒ MINOR.
+
 ### 0.4.2 — 2026-08-27
 
 **I3 skrev ett totaltal tjugotvå rader under sin egen fetstil om att den inte
@@ -268,9 +353,16 @@ Meningen namnger nu de två committar som fanns FÖRE skivan, precis som stycket
 ovanför den och som CLAUDE.md §7 redan gjorde. Avgränsningen "före den här
 skivan" var det som saknades.
 
-Detta är tredje skivan i rad där fyndet sitter i rättelsetexten, vilket är exakt
-vad I2 handlar om och vad CLAUDE.md §7:s regel RÄTTELSETEXT GRANSKAS SOM NY TEXT
-finns för att fånga. Regeln fångade det här fallet, i andra granskningsvarvet.
+Fyndet satt i rättelsetexten igen, vilket är exakt vad I2 handlar om och vad
+CLAUDE.md §7:s regel RÄTTELSETEXT GRANSKAS SOM NY TEXT finns för att fånga.
+Regeln fångade det här fallet.
+
+*Rättelse i 0.4.3: här stod "Detta är tredje skivan i rad", och meningen slutade
+med "i andra granskningsvarvet". Båda är processräkningar av det slag §7.2
+namnger ordagrant som förbjudna, instanser av ett mönster respektive
+granskningsvarv, och den första går inte att belägga: dokumenterade instanser
+finns för skiva 8 i I2 och för skiva 9 här, alltså inte för tre skivor. De
+verifierbara instanserna räknas upp i I4 i stället, var och en med sin plats.*
 
 Rättat påstående ⇒ PATCH.
 

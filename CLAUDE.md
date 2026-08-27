@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.7.1 · **Uppdaterad:** 2026-08-27 · **Speglar:** beslutslogg #19
+**Version:** 0.8.0 · **Uppdaterad:** 2026-08-27 · **Speglar:** beslutslogg #22
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -16,7 +16,9 @@ Ett skickat mail går inte att ångra, och avsändaren är ett företags rykte.
   scopes). Scopes: `gmail.modify`, `gmail.send`. Refresh token i `token.json`,
   klientdata i `client_secret.json`. Båda gitignorerade.
 - **Stack:** Python · google-api-python-client · Anthropic API (klassificering och
-  generering) · lokal disk för data och loggar. Ingen molndrift, ingen extern databas.
+  generering) · lokal disk för data och loggar.
+- **Drift:** boten flyttar i sin helhet till `mailagent.dasher.se`, se
+  beslutslogg #20. Fram till dess körs allt på Lars maskin.
 - **Styrdokument:** `docs/roadmap.md` (fasordning, grindar, och definitionen av
   SKUGGLÄGE),
   `docs/kategorier-forslag.md` (maskinproducerad av `src/cluster.py`, skrivs
@@ -167,6 +169,19 @@ den övertygelsen lånar trovärdighet åt varje bisats i samma stycke. Den som 
 rättelsen har dessutom nyss läst fyndet och skriver mot minnet av det i stället för
 mot filen. Det är §7.2:s slutstycke om bisatsen, tillämpat på den text som är minst
 misstänkt och därför granskas slappast. Se `docs/incidentlogg.md` I2.
+
+**EN RÄTTELSE I TAGET, VERIFIERAD MOT KÄLLAN INNAN NÄSTA SKRIVS.** Rättelser görs
+inte i svep. Varje mening prövas mot källan före nästa skrivs, och prövningen är en
+uppslagning i filen, aldrig ett minne av vad som stod där.
+
+Regeln ovan styr GRANSKAREN. Den här styr den som skriver, och den behövs därför att
+den första fångade varje instans utan att hindra någon. Se `docs/incidentlogg.md` I4,
+som räknar upp de rättelseposter som själva bar ett fel, var och en med sin plats.
+
+Skälet är att den som rättar sju fynd håller sju fynd i huvudet och skriver mot minnet
+av listan i stället för mot filen. En särskilt snabb variant: **en appendixpost som
+läggs överst skjuter ner varje radnummer under sig**, så en rättelse som namnger rader
+föråldrar sig själv i samma skrivning.
 
 ### 7.1 Vakuösa test — ett grönt test som inte kan bli rött
 
@@ -441,6 +456,25 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.8.0 — 2026-08-27
+
+**§7 får en regel om TAKT: EN RÄTTELSE I TAGET, VERIFIERAD MOT KÄLLAN INNAN NÄSTA
+SKRIVS.** Beslut av Lars i skiva 10.
+
+Regeln RÄTTELSETEXT GRANSKAS SOM NY TEXT, som infördes i 0.7.0, styr granskaren.
+Den fångade varje instans som följde och hindrade ingen av dem, eftersom den inte
+säger något om hur den som skriver ska arbeta. Den nya raden gör det.
+`docs/incidentlogg.md` I4 räknar upp de rättelseposter som själva bar ett fel, var
+och en med sin plats, och skriver ingen summa.
+
+**§0:s rad om ingen molndrift och ingen extern databas är struken.** Den var
+aldrig Lars beslut, och den blev falsk av beslutet att flytta boten till
+`mailagent.dasher.se`. §0 bär i stället en driftrad som pekar på beslutslogg #20.
+Att stryka ett påstående som aldrig var förankrat och nu dessutom är falskt är
+inte en regeländring, men raden fanns i §0 och strykningen redovisas därför här.
+
+Ny regel i §7 ⇒ MINOR.
 
 ### 0.7.1 — 2026-08-27
 

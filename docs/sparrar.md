@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.11.1 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.11.2 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -349,15 +349,49 @@ post och inte en spärr som saknar egenskapen.
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.11.2 — 2026-08-27
+
+**0.11.1 namngav fel post, två gånger.** Den skrev att båda dess rättelser låg i
+0.11.0-posten, och att stycket om översiktstabellen var 0.11.0:s. Stycket ligger
+i 0.10.0-posten.
+
+Avläst genom att jämföra radnumret för stycket mot rubrikraderna ur
+`grep -n "^### " docs/sparrar.md`: det omskrivna stycket och dess kursiva not
+ligger EFTER rubriken `### 0.10.0` och FÖRE `### 0.9.0`. Den andra rättelsen,
+noten om "Två strykningar", ligger däremot mellan `### 0.11.0` och `### 0.10.0`
+och alltså i 0.11.0 precis som posten sa.
+
+**Radnumren skrivs inte ut här, och det är avsiktligt.** Ett utkast av den här
+posten bar dem, och de var föråldrade innan posten ens committades: posten sköt
+själv ner alla rubriker under sig när den lades överst i appendixet. Det är samma
+mekanism som rutan överst i det här dokumentet varnar för, och den slår till
+snabbast just i en appendixpost.
+
+**Detta är tredje gången samma felklass registreras i repot.** CLAUDE.md 0.4.1
+skriver "0.4.0-posten namngav fel post för strykningen", den här posten är den
+andra kända instansen i `docs/sparrar.md`, och båda gällde en rättelsepost som
+pekade på fel granne. En rättelsenot pekar på en post ovanför sig i filen, och
+avståndet mellan noten och rubriken är oftast bara några rader, vilket gör det
+lätt att skriva rubriken ur minnet i stället för att slå upp den.
+
+**Vakten mot det är mekanisk, inte moralisk:** slå upp rubrikraden med
+`grep -n "^### " docs/sparrar.md` och jämför radnumret INNAN posten namnges.
+Det är den kontroll som saknades i båda instanserna.
+
+Rättade påståenden ⇒ PATCH. Skivan åberopar §7:s dokumentdetaljundantag för den
+här posten, alltså EN granskningsomgång, och statusen är utskriven i skiva 10:s
+rapport.
+
 ### 0.11.1 — 2026-08-27
 
-Två rättelser i 0.11.0-posten, efter §7-granskningen av skiva 9.
+Två rättelser efter §7-granskningen av skiva 9, en i 0.11.0-posten och en i
+0.10.0-posten.
 
 **"Två strykningar" var en.** Diffen mot `196e60a` bär en kursiv not, i
 0.8.0-posten. §7.2: självrapportering verifieras mot diffen, inte mot minnet av
 avsikten.
 
-**0.11.0:s stycke om översiktstabellen skrevs om på plats utan not.** Det sa att
+**0.10.0:s stycke om översiktstabellen skrevs om på plats utan not.** Det sa att
 BÅDA de namngivna raderna skriver ut "Sig själv, två lager"; raden för
 `urval-gmail-svar` skriver "sex lager". Omskrivningen har nu sin kursiva not.
 

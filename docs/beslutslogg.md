@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.15.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §8
+**Version:** 0.16.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -669,7 +669,131 @@ tillfredsställa en tröskel.
 
 ---
 
+## #20 — Boten flyttar i sin helhet till mailagent.dasher.se
+
+**Datum:** 2026-08-27 · **Berör:** `CLAUDE.md` §0, `docs/roadmap.md`, `token.json`
+
+**Beslut av Lars.** Boten flyttar i sin helhet till `mailagent.dasher.se`. Inte
+bara utkastvyn.
+
+**Skälet, med Lars ord.** Delad drift betyder kunddata på två platser med en synk
+emellan. Att låta vyn ligga hostad medan mining och klassificering körs på Lars
+maskin hade krävt att trådar, par och omdömen fanns i båda ändar, och synken hade
+blivit en egen felkälla utan att lösa något.
+
+**FÖLJDEN SOM ÄR SJÄLVA RISKFÖRFLYTTNINGEN, och den ska stå utskriven:**
+`token.json` flyttar från Lars maskin till en hostad server. **Den token kan
+skicka mail som info@autostockholm.se.** Scopet `gmail.send` finns i den, enligt
+§0.
+
+Före det här beslutet låg sändningsförmågan på en maskin Lars fysiskt kontrollerar.
+Efter det ligger den på en server som är nåbar från internet. Det är inte en
+gradskillnad i förvaring, det är en flytt av var ett intrång skulle behöva ta sig
+in för att kunna skicka mail i företagets namn.
+
+**Vad som INTE följer av beslutet.** Ingen sändning aktiveras av flytten. §5:s
+undantag och §10:s stopp gäller oförändrat: `--send` aktiveras bara av Lars
+explicita val, och första sändningen i en ny miljö är ett §10-stopp. En hostad
+server ÄR en ny miljö, så den första skarpa sändningen därifrån kräver ett eget
+beslut även om sändning redan skett från Lars maskin.
+
+**Öppen punkt, inte avgjord här.** Hur `token.json` och `client_secret.json`
+förvaras på servern, och vad som skyddar dem från att läsas av något annat som
+kör där, är inte bestämt. Det avgörs innan flytten görs, inte nu.
+
+**§0:s rad om ingen molndrift är struken** i CLAUDE.md 0.8.0. Den var aldrig
+Lars beslut och blev falsk av det här.
+
+---
+
+## #21 — Inloggning till vyn: Google med domänlås plus committad whitelist
+
+**Datum:** 2026-08-27 · **Berör:** `config/`, #20
+
+**Beslut av Lars.** Autentisering till utkastvyn sker med Sign in with Google,
+med `hd=autostockholm.se`, plus en whitelist i `config/` för adresser utanför
+domänen. Första posten i whitelisten är Lars privata Gmail-adress.
+
+**Adressen står inte utskriven här.** §6 är kategorisk om att persondata aldrig
+förekommer i `docs/`, och `scripts/persondatakontroll.py` fällde committen när
+den stod här. Beslutet är återgivet, värdet hör hemma i whitelisten. Se den öppna
+punkten nedan.
+
+**WHITELISTEN ÄR COMMITTAD, ALDRIG EN MILJÖVARIABEL.** Beslut av Lars. En
+miljövariabel går att ändra på servern utan att någon ser det i historiken, och
+listan avgör vem som får läsa kundmail och fatta beslut om utgående svar. Den
+hör till samma klass som `config/sparrar.yaml`: ändras den ska ändringen synas i
+en diff.
+
+**`hd` är ett filter, inte en spärr.** Parametern styr vilket konto Google
+föreslår och kan sättas om av den som gör anropet. Domäntillhörigheten
+verifieras på svaret, mot den `hd`-claim som kommer tillbaka, aldrig mot vad som
+skickades. Detta är en implementationsföreskrift och inte ett beslut, men den
+står här därför att motsatsen ser ut att fungera.
+
+**Whitelisten prövas mot verifierad e-postadress**, inte mot namn eller
+användar-ID, och adressen ska vara bekräftad av Google i svaret.
+
+**ÖPPEN PUNKT FÖR LARS, och den måste avgöras innan whitelisten byggs.**
+`config/` står i `BEVAKADE` i `scripts/persondatakontroll.py`, så spärren kommer
+att fälla committen av whitelisten på exakt samma grund som den fällde den här
+posten. Två vägar finns, och valet är Lars:
+
+1. **Adressen läggs i `TILLATNA` med skälet utskrivet**, vilket är den väg
+   spärrens eget felmeddelande anvisar. Whitelisten blir då committad som
+   beslutat, och undantaget syns i en diff.
+2. **Whitelisten flyttas ut ur `BEVAKADE`** som filklass, med motiveringen att en
+   lista över behöriga läsare per definition bär adresser.
+
+Väg 1 är snävare och lämnar spärren orörd för allt annat under `config/`.
+**Ingen av dem får väljas genom att skriva om whitelisten tills spärren
+släpper**, vilket är §9.1:s förbjudna åtgärd i dokumentform.
+
+---
+
+## #22 — Egen OAuth-klient för inloggningen, skild från mailbot-cli
+
+**Datum:** 2026-08-27 · **Berör:** GCP-projektet `autostockholm-mailbot`, #21
+
+**Beslut av Lars.** Inloggningen till vyn får en egen OAuth-klient av typen **Web
+application**, skild från `mailbot-cli`, som är av typen desktop och sköter
+Gmail-åtkomsten. Samma consent screen, som redan är Internal.
+
+**Skälet att inte återanvända mailbot-cli.** De två klienterna gör olika saker
+och bär olika risk. `mailbot-cli` bär `gmail.modify` och `gmail.send` mot
+brevlådan; inloggningsklienten behöver bara veta vem besökaren är. En delad
+klient hade knutit vyns redirect-URI:er till den klient som bär
+sändningsscopet, och en felkonfigurerad redirect är en känd väg att fånga upp
+en auktoriseringskod.
+
+**Inloggningsklienten begär inga Gmail-scopes.** Den behöver identitet, inte
+brevlådeåtkomst. Att lägga till ett scope på den är ett §10-stopp som vilket
+annat nytt scope som helst.
+
+**Consent screen förblir Internal.** Det är vad som gör att projektet slipper
+Googles verifiering trots restricted scopes, enligt §0, och whitelisten i #21
+finns just för att Internal låser ut adresser utanför domänen.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.16.0 — 2026-08-27
+
+Tre poster tillkommer, alla på beslut av Lars i skiva 10, och alla om drift.
+
+**#20** flyttar boten i sin helhet till `mailagent.dasher.se`, med
+riskförflyttningen utskriven: `token.json` bär `gmail.send` och flyttar från
+Lars maskin till en server som är nåbar från internet.
+
+**#21** sätter inloggningen till utkastvyn: Google med `hd=autostockholm.se`
+plus en COMMITTAD whitelist, och slår fast att `hd` är ett filter och inte en
+spärr.
+
+**#22** ger inloggningen en egen OAuth-klient av typen Web application, skild
+från `mailbot-cli` som bär sändningsscopet.
+
+Tre nya poster ⇒ MINOR.
 
 ### 0.15.0 — 2026-08-26
 

@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.1.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §10
+**Version:** 0.2.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -97,6 +97,61 @@ Mallarna byggs ur `data/par.jsonl`, alltså ur faktiska svar (§11).
 `config/sparrar.yaml`, `config/priser.json` och `config/fakta.json` är ett
 §10-stopp. Hela fasen är sändväg och får full §7, ovillkorligt.
 
+### Fas 5.5 — Utkastvyn
+
+Webbvyn där Lars och Matte läser botens förslag och fäller omdöme om dem.
+Beslutad av Lars i skiva 10. Hostas på `mailagent.dasher.se` enligt
+beslutslogg #20, med inloggning enligt #21 och #22.
+
+**BYGGS FÖRE SKUGGLÄGET, och det är hela skälet till att fasen finns.** Skuggläge
+utan vy producerar en loggfil ingen läser. Fas 6 mäter klassificeringens
+träffsäkerhet och spärrarnas utfall, och den mätningen kräver att någon faktiskt
+går igenom förslagen post för post. Utan vyn blir `logg/beslut.jsonl` en fil som
+växer medan grinden till fas 7 aldrig får sitt underlag.
+
+**Fyra omdömen**, loggade åtskilt till `logg/omdomen.jsonl`, append-only:
+
+| Omdöme | Betyder |
+| --- | --- |
+| `godkann` | Förslaget dugde som det stod. |
+| `forbattra` | Förslaget dugde inte, och den redigerade texten är det som skulle skickats. |
+| `forkasta` | Förslaget dugde inte, och ingen text ersätter det. |
+| `neka` | Kategorin ska inte besvaras av boten alls. |
+
+De fyra loggas ÅTSKILT och slås aldrig ihop till godkänt eller icke godkänt.
+`forkasta` och `neka` ser lika ut i en tvågradig skala och betyder helt olika
+saker: det första är ett dåligt svar på ett riktigt ärende, det andra är att
+ärendet inte hör hemma hos boten.
+
+**`forbattra` bär den redigerade texten och skriver ett nytt par till
+`data/par.jsonl`.** Det är den enda av de fyra som tränar rösten. De andra tre
+säger vad som var fel; bara den här säger vad som skulle stått i stället, och
+§11 kräver att mallarna vilar på faktiska svar och inte på text skriven från
+grunden.
+
+**SPÄRRFÄLLDA FÖRSLAG VISAS UTAN TEXTFÄLT.** Vyn visar vilken spärr som fällde
+och varför. Ingen redigeringsruta, ingen skicka-knapp, ingen väg vidare från den
+posten.
+
+Skälet är §9.1. Den förbjuder att ett fällt mails text skrivs om tills spärren
+släpper igenom det, och en redigeringsruta bredvid ett fällt förslag gör det
+förbudet till ett klick. Spärren fällde mailet därför att något i det inte gick
+att verifiera, eller därför att tråden inte var vad klassificeraren trodde, och
+ingen omskrivning rör den orsaken.
+
+**Detta är sändväg och får full §7, ovillkorligt.** Vyn avgör vad en människa
+ser och kan göra med ett förslag, och därmed om och med vilket innehåll ett mail
+senare lämnar servern.
+
+**VYN SKICKAR ALDRIG MAIL. Den skriver omdömen.** Sändning sker i fas 6 och fas 7,
+genom `respond.py`, och styrs av `--send` enligt §5 och §10. Att lägga en
+skicka-knapp i vyn vore att flytta sändvägen till ett gränssnitt utan de stopp
+§10 föreskriver.
+
+**Grind:** Lars beslutar att omdömesvolymen räcker. Talet sätts inte i förväg,
+eftersom det beror på hur många kategorier som visar sig bära underlag, och
+skiva 9 mätte att bara två kategorier når tio par med svar.
+
 ### Fas 6 — Skuggläge
 
 `respond.py` körs i skuggläge enligt definitionen överst. Beslutsloggen samlas
@@ -120,6 +175,23 @@ visat dagsvolymen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.2.0 — 2026-08-27
+
+**Fas 5.5 UTKASTVYN tillkommer**, mellan mallar och skuggläge, på beslut av Lars
+i skiva 10.
+
+Fasen ligger FÖRE skuggläget därför att skuggläge utan vy producerar en loggfil
+ingen läser. Den bär fyra omdömen loggade åtskilt, varav `forbattra` är den enda
+som tränar rösten eftersom den ensam skriver ett nytt par till `data/par.jsonl`.
+
+**Spärrfällda förslag visas utan textfält**, vilket är §9.1 i gränssnittsform: en
+redigeringsruta bredvid ett fällt förslag gör förbudet mot att skriva om texten
+tills spärren släpper till ett klick. Fasen är sändväg och får full §7.
+
+Ingen kod skrevs i skiva 10. Fasen är beslutad, inte byggd.
+
+Ny fas ⇒ MINOR.
 
 ### 0.1.0 — 2026-08-26
 
