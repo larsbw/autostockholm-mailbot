@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.13.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.14.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -77,7 +77,8 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 | `klassning-maskinmail` | Att nyhetsbrev och notiser blir kundärenden | `test_vanligt_kundmail_ar_inte_maskinmail` | Fyra lager plus ett UNDANTAG. Se posten. |
 | `persondatakontroll` | Att en commit för in persondata i `docs/` | `test_ren_text_ger_inga_fynd` | `maskering-persondata`. Sista linjen, inte den enda. |
 | `forbjudna-maskindomaner` | Att en förmedlad kundförfrågan kastas som maskinmail | `test_liknande_doman_skyddas_inte_av_misstag` | Sig själv, två lager i `src/klassa_maskin.py`, och går FÖRE `klassning-maskinmail`. Se posten. |
-| `fordonsfakta-ur-uppslag` | Att ett utgående mail namnger fordonsfakta som inte kommer ur ett lyckat uppslag | `test_fullstandigt_svar_slapps_igenom`, `test_svar_med_okanda_nycklar_slapps_ocksa_igenom`, `test_mappningsobjekt_som_inte_ar_dict_slapps_igenom` | Ingen annan spärr. Sex lager i TVÅ funktioner, `_kontrollera` och `Uppslag.__post_init__`, varav 1, 2 och 3 är HELT redundanta. Kända luckor listas i posten. |
+| `fordonsfakta-ur-uppslag` | Att ett utgående mail namnger fordonsfakta som inte kommer ur ett lyckat uppslag | `test_fullstandigt_svar_slapps_igenom`, `test_svar_med_okanda_nycklar_slapps_ocksa_igenom`, `test_mappningsobjekt_som_inte_ar_dict_slapps_igenom` | Ingen annan spärr. Formlager i `_kontrollera` och värdelager i `Uppslag.__post_init__` via `_krav_pa_vikt`. Formlagren är HELT redundanta med varandra, och viktlagren DELAS av två fält. Kända luckor listas i posten. |
+| `dragkrokbesked-har-harkomst` | Att ett besked om dragkrok sätts av en modell och flyttar kunden från en fråga till ett prispåslag | `test_bada_tillatna_kallorna_gar_igenom` | Ingen annan spärr. Se posten, särskilt vad den INTE kan hindra. |
 
 ---
 
@@ -370,11 +371,30 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 och ingen negativkontroll. Båda fälten är nu ifyllda i sak, och spärren är prövad
 enligt §7.1.
 
-- **Spärr.** Beslutet ligger i **två funktioner** i `src/fordonsuppslag.py`, och
-  delningen är avsiktlig: `_kontrollera` prövar svarets FORM, `Uppslag.__post_init__`
-  prövar VÄRDENA. **Ett svar som namnger fordonsfakta skickas inte om fakta inte
-  kommer ur ett lyckat uppslag**, och ett tomt eller oväntat svar är INTE ett
-  lyckat uppslag: det kastar `UppslagMisslyckades` och ärendet faller till utkast.
+- **Spärr.** Beslutet ligger i **FYRA funktioner** i `src/fordonsuppslag.py`, och
+  delningen är avsiktlig:
+
+  | Funktion | Vad den prövar |
+  | --- | --- |
+  | `_kontrollera` | Svarets FORM: att det är ett mappningsobjekt och att alla tre nycklarna finns |
+  | `_krav_pa_vikt` | VÄRDENA i de två vikterna, delat mellan dem |
+  | `Uppslag.__post_init__` | Draganordningens värde, och anropar viktkravet |
+  | `slag_upp` | Att ett registreringsnummer alls finns, INNAN hämtningen anropas |
+
+  **DEN SOM SKA FÄLLA SPÄRREN ENLIGT §7.1 MÅSTE FÄLLA I ALLA FYRA.** En prövning
+  som bara rör `_kontrollera` når varken viktlagren eller regnr-lagret och ger ett
+  inkonklusivt verdikt som ser konklusivt ut. Ett femte ställe, `_bar_nyckel`,
+  bär mappningskravet och kräver en dubbelfällning; det redovisas för sig längre
+  ned.
+
+  **Ett utkast av den här posten sade "två funktioner"** och namngav bara
+  `_kontrollera` och `Uppslag.__post_init__`. Det blev falskare av skiva 13, som
+  bröt ut `_krav_pa_vikt` och samtidigt strök den mening som var regnr-lagrets
+  enda hemvist i fältet.
+
+  **Ett svar som namnger fordonsfakta skickas inte om fakta inte kommer ur ett
+  lyckat uppslag**, och ett tomt eller oväntat svar är INTE ett lyckat uppslag:
+  det kastar `UppslagMisslyckades` och ärendet faller till utkast.
 
   **VÄRDEKONTROLLEN LIGGER I TYPEN och inte hos den som råkar anropa rätt.** Det
   är fyndet ur skiva 12:s granskning: `Uppslag` var först en naken dataklass, så
@@ -383,32 +403,39 @@ enligt §7.1.
   `dataclasses.replace` stängda. Vilka vägar som ÄNDÅ kommer förbi, och att två
   av dem är konstruktion, står som lucka 2 nedan.
 
-  Beslutet fattas på **sex villkor**. Radnumren står inte här, av skälet i rutan
-  överst. Slå upp dem med
-  `grep -n "raise UppslagMisslyckades" src/fordonsuppslag.py`, som ger sju rader:
-  de sex nedan plus regnr-lagret i `slag_upp`. **Det är `raise`-raderna som
-  listas, och VILLKORET är raden omedelbart ovanför varje träff** — det är
-  villkoret som ska fällas, inte `raise`. Villkoren som TEXT:
+  Radnumren står inte här, av skälet i rutan överst. Slå upp dem med
+  `grep -n "raise UppslagMisslyckades" src/fordonsuppslag.py`. **Det är
+  `raise`-raderna som listas, och VILLKORET är raden omedelbart ovanför varje
+  träff** — det är villkoret som ska fällas, inte `raise`. Villkoren som TEXT:
 
-  | # | Funktion | Villkoret som fattar beslutet | Vad det fäller |
-  | --- | --- | --- | --- |
-  | 1 | `_kontrollera` | `if not isinstance(svar, Mapping):` | Hämtningen gav `None`, en rå JSON-sträng, en lista, eller något annat som inte är en post |
-  | 2 | `_kontrollera` | `if not _bar_nyckel(svar, "slapvagnsvikt_kg"):` | Tomt eller halvt svar, och allt som inte är ett mappningsobjekt |
-  | 3 | `_kontrollera` | `if not _bar_nyckel(svar, "draganordning"):` | Halvt svar, andra fältet, och allt som inte är ett mappningsobjekt |
-  | 4 | `Uppslag.__post_init__` | `if isinstance(vikt, bool) or not isinstance(vikt, int):` | Vikt som text, `None`, flyttal eller `bool` |
-  | 5 | `Uppslag.__post_init__` | `if vikt < 0:` | Negativ vikt, alltså ett fel i källan |
-  | 6 | `Uppslag.__post_init__` | `if not isinstance(drag, bool):` | Draganordning som text, `None` eller heltal |
+  | Funktion | Villkoret som fattar beslutet | Vad det fäller |
+  | --- | --- | --- |
+  | `_kontrollera` | `if not isinstance(svar, Mapping):` | Hämtningen gav `None`, en rå JSON-sträng, en lista, eller något annat som inte är en post |
+  | `_kontrollera` | `if not _bar_nyckel(svar, "tjanstevikt_kg"):` | Svar utan tjänstevikt, och allt som inte är ett mappningsobjekt |
+  | `_kontrollera` | `if not _bar_nyckel(svar, "slapvagnsvikt_kg"):` | Svar utan släpvagnsvikt, och detsamma |
+  | `_kontrollera` | `if not _bar_nyckel(svar, "draganordning"):` | Svar utan draganordning, och detsamma |
+  | `_krav_pa_vikt` | `if isinstance(varde, bool) or not isinstance(varde, int):` | Vikt som text, `None`, flyttal eller `bool` |
+  | `_krav_pa_vikt` | `if varde < 0:` | Negativ vikt, alltså ett fel i källan |
+  | `Uppslag.__post_init__` | `if not isinstance(drag, bool):` | Draganordning som text, `None` eller heltal |
+  | `slag_upp` | `if not normalt:` | Saknat registreringsnummer, INNAN hämtningen anropas |
 
-  Ett sjunde lager ligger i `slag_upp`: `if not normalt:` stoppar ett saknat
-  registreringsnummer INNAN hämtningen anropas. Mot en betald källa är den
-  ordningen pengar, och `test_hamtningen_anropas_inte_utan_regnr` vaktar den.
+  **VIKTLAGREN DELAS AV TVÅ FÄLT.** `_krav_pa_vikt` anropas för både
+  `tjanstevikt_kg` och `slapvagnsvikt_kg`, så **en fällning där fäller båda
+  fälten samtidigt.** Det är avsiktligt: kravet är identiskt och två kopior hade
+  drivit isär. Skälet bär fältnamnet, så testerna kan ändå skilja fälten åt, och
+  varje viktest asserar mot `f"{falt} är ..."` och inte bara mot ordet.
+
+  Regnr-lagret i `slag_upp` stoppar ett saknat nummer INNAN hämtningen anropas.
+  Mot en betald källa är den ordningen pengar, och
+  `test_hamtningen_anropas_inte_utan_regnr` vaktar den.
 
   **VARJE VILLKOR RYMS PÅ EN RAD, och det är ett krav och inte en stilfråga.** Ett
   villkor som bryts över flera rader går inte att neutralisera enligt §7.1 utan att
   filen blir syntaktiskt trasig, och då ger prövningen FEL i stället för RÖD.
-  `__post_init__` binder därför `vikt` och `drag` till lokala namn först.
+  `__post_init__` binder därför `drag` till ett lokalt namn först, och
+  `_krav_pa_vikt` finns delvis av samma skäl.
 
-  **`bool`-ledet i lager 4 ser överflödigt ut och är det inte.** `bool` är en
+  **`bool`-ledet i viktlagret ser överflödigt ut och är det inte.** `bool` är en
   subklass till `int` i Python, så `True` hade passerat som vikten 1 och `False`
   som vikten 0. Ett fabricerat utfall är värre än ett misslyckat uppslag.
 - **Vad den skyddar mot.** Ett utgående mail som påstår något om kundens bil som
@@ -428,9 +455,9 @@ enligt §7.1.
   som en täckthetsgaranti, och det är just den läsningen som gjorde att den
   första versionen av den här posten kunde skeppas med en väg rakt förbi sig.
 
-  1. **Påhittade men typriktiga värden.** `Uppslag(1400, True)` går att skriva
-     utan att någon källa svarat, och ger ett fullt trovärdigt GRÖNT. Typen
-     hindrar ogiltiga värden, inte uppdiktade. Det som skyddar är att fas 5
+  1. **Påhittade men typriktiga värden.** `Uppslag(1500, 1400, True)` går att
+     skriva utan att någon källa svarat, och ger ett fullt trovärdigt GRÖNT.
+     Typen hindrar ogiltiga värden, inte uppdiktade. Det som skyddar är att fas 5
      hämtar sina fakta via `slag_upp`.
      *Källa:* `test_typen_hindrar_ogiltiga_varden_men_inte_pahittade` i sviten.
   2. **Invarianten gäller bara där `__post_init__` faktiskt körs.** Fyra vägar
@@ -462,27 +489,24 @@ enligt §7.1.
      måste hantera båda. Kontraktet står i `slag_upp`:s docstring.
      *Källa:* `slag_upp` saknar `try` kring anropet, avläst i koden, och en
      körning i varv 2 lät ett `RuntimeError` nå anroparen orört.
-  4. **`dragkrok_bekraftad_saknas` bär ingen härkomst.** Vikten och
-     draganordningen måste passera spärren; den biten är en naken `bool` som
-     vilken anropare som helst kan sätta, inklusive en modell. En felaktigt satt
-     `True` flyttar kunden från OKLART, alltså en fråga, till GULT, alltså ett
-     svar som namnger ett prispåslag. Ingen spärr rör den biten i dag.
-     *Källa:* parameterns signatur i `utvardera`, avläst i koden. Ingen körning
-     behövs och ingen redovisas.
+  4. **Dragkroksbeskedets härkomst.** Luckan stod här till och med skiva 12:
+     beskedet var en naken `bool` som vem som helst kunde sätta. Den har nu en
+     egen spärr, `dragkrokbesked-har-harkomst` nedan, och det som ÅTERSTÅR av
+     luckan står i den posten i stället för här.
 - **Negativkontroll.** `tests/test_fordonsuppslag.py::test_fullstandigt_svar_slapps_igenom`
   visar att spärren SLÄPPER IGENOM ett fullständigt svar.
   `::test_svar_med_okanda_nycklar_slapps_ocksa_igenom` visar att den inte är för
   bred: okända nycklar tolereras, eftersom varje verklig datakälla bär fler fält
-  än de två som gatar och en strikthet mot dem hade fällt varje riktig källa vid
+  än de TRE som gatar och en strikthet mot dem hade fällt varje riktig källa vid
   första bytet.
 
-  Två nollfall vaktar samma sak från andra hållet:
+  Nollfallen vaktar samma sak från andra hållet:
   `::test_draganordning_nej_ar_ett_giltigt_uppslag` och
-  `::test_slapvagnsvikt_noll_ar_ett_giltigt_uppslag`. Både `False` och `0` är
-  AVLÄSTA värden och inte saknade, och ett lager som prövade sanningsvärdet i
-  stället för typen hade fällt dem. En spärr som fäller varje fordonsfaktum vore
-  inte en spärr utan ett stopp, och då hade inget av de fyra utfallen i fas 4.5
-  gått att besvara.
+  `::test_vikt_noll_ar_ett_giltigt_uppslag`, det senare parametriserat över BÅDA
+  vikterna. Både `False` och `0` är AVLÄSTA värden och inte saknade, och ett
+  lager som prövade sanningsvärdet i stället för typen hade fällt dem. En spärr
+  som fäller varje fordonsfaktum vore inte en spärr utan ett stopp, och då hade
+  inget av de fyra utfallen i fas 4.5 gått att besvara.
 
   Värdekontrollen i typen har sin egen negativkontroll:
   `::test_uppslag_med_giltiga_varden_gar_att_skapa_direkt` visar att ett
@@ -492,21 +516,21 @@ enligt §7.1.
 - **Redundant med. INGEN ANNAN SPÄRR, men lagren är delvis redundanta med
   varandra, och det är uppmätt.**
 
-  **LAGREN 1, 2 OCH 3 ÄR HELT REDUNDANTA MED VARANDRA, och lager 1 är inte
-  ensamt avgörande för någonting.** Uppmätt mot modulen i skiva 12:
+  **FORMLAGREN ÄR HELT REDUNDANTA MED VARANDRA, och Mapping-lagret är inte
+  ensamt avgörande för någonting.** Uppmätt mot modulen:
 
-  | Svar från hämtningen | Lager 1 | Lager 2 | Lager 3 |
-  | --- | --- | --- | --- |
-  | `None` | fäller | fäller | fäller |
-  | rå JSON-sträng | fäller | fäller | fäller |
-  | lista | fäller | fäller | fäller |
-  | `MappingProxyType` med båda nycklarna | släpper | släpper | släpper |
-  | tom `dict` | släpper | fäller | fäller |
+  | Svar från hämtningen | Mapping-lagret | Nyckellagren |
+  | --- | --- | --- |
+  | `None` | fäller | fäller |
+  | rå JSON-sträng | fäller | fäller |
+  | lista | fäller | fäller |
+  | `MappingProxyType` med alla nycklar | släpper | släpper |
+  | tom `dict` | släpper | fäller |
 
   Det var INTE så förut, och skillnaden är en kodrättelse och inte en
-  omformulering. Lagren 2 och 3 använde ett naket `nyckel in svar`, och `in`
-  fungerar på varje container. **En rå JSON-sträng bär båda nyckelnamnen som
-  delsträngar**, så lagren 2 och 3 släppte igenom den och lager 1 var ensamt
+  omformulering. Nyckellagren använde ett naket `nyckel in svar`, och `in`
+  fungerar på varje container. **En rå JSON-sträng bär alla nyckelnamnen som
+  delsträngar**, så nyckellagren släppte igenom den och Mapping-lagret var ensamt
   avgörande. Det är normalfelet vid det första bytet av `hamta`: en hämtning som
   glömt parsa svaret. Lagren prövar nu `isinstance(svar, Mapping)` via
   `_bar_nyckel`.
@@ -522,9 +546,9 @@ enligt §7.1.
   förblev GRÖNT när lager 1 fälldes ensamt, och granskningen pekade ut det som
   vakuöst. **Varje lagertest asserar därför nu mot `fel.value.skal`.**
 
-  Uppmätt efter rättelsen: fällning av lager 2 ensamt ger `1 failed, 311 passed`
-  och felet är `assert 'slapvagnsvikt_kg' in 'svaret saknar draganordning'`.
-  Assertionen mot `skal` är alltså det enda som gör lagren prövbara var för sig.
+  Assertionen mot `skal` är det enda som gör lagren prövbara var för sig, och
+  varje viktest asserar dessutom mot fältnamnet, eftersom `_krav_pa_vikt` delas
+  av två fält.
 
   §7.2:s talregel vaktar samma felklass för priser, ledtider och öppettider, men
   **den är en regel i CLAUDE.md och inte en spärr i det här dokumentet**. Den
@@ -538,23 +562,31 @@ enligt §7.1.
 
   | Fällt lager | Utfall | Sviten |
   | --- | --- | --- |
-  | 1, `not isinstance(svar, Mapping)` | RÖD | `5 failed, 310 passed` |
-  | 2, `not _bar_nyckel(svar, "slapvagnsvikt_kg")` | RÖD | `1 failed, 314 passed` |
-  | 3, `not _bar_nyckel(svar, "draganordning")` | RÖD | `1 failed, 314 passed` |
-  | 4, `isinstance(vikt, bool) or not isinstance(vikt, int)` | RÖD | `10 failed, 305 passed` |
-  | 5, `vikt < 0` | RÖD | `2 failed, 313 passed` |
-  | 6, `not isinstance(drag, bool)` | RÖD | `8 failed, 307 passed` |
-  | regnr, `not normalt` i `slag_upp` | RÖD | `5 failed, 310 passed` |
-  | tröskeln, `< TROSKEL_SLAPVAGNSVIKT_KG` | RÖD | `4 failed, 311 passed` |
-  | `uppslag.draganordning` | RÖD | `5 failed, 310 passed` |
-  | `dragkrok_bekraftad_saknas` | RÖD | `2 failed, 313 passed` |
+  | `not isinstance(svar, Mapping)` | RÖD | `5 failed, 349 passed` |
+  | `not _bar_nyckel(svar, "tjanstevikt_kg")` | RÖD | `2 failed, 352 passed` |
+  | `not _bar_nyckel(svar, "slapvagnsvikt_kg")` | RÖD | `1 failed, 353 passed` |
+  | `not _bar_nyckel(svar, "draganordning")` | RÖD | `1 failed, 353 passed` |
+  | `_krav_pa_vikt`, typkravet | RÖD | `20 failed, 334 passed` |
+  | `_krav_pa_vikt`, teckenkravet | RÖD | `4 failed, 350 passed` |
+  | `not isinstance(drag, bool)` | RÖD | `8 failed, 346 passed` |
+  | regnr, `not normalt` i `slag_upp` | RÖD | `5 failed, 349 passed` |
+  | §42, `tjanstevikt_kg >= TROSKEL_TJANSTEVIKT_KG` | RÖD | `4 failed, 350 passed` |
+  | §42, `slapvagnsvikt_kg >= TROSKEL_SLAPVAGNSVIKT_KG` | RÖD | `10 failed, 344 passed` |
+  | `not ar_lamplig_som_dragfordon(uppslag)` | RÖD | `5 failed, 349 passed` |
+  | `uppslag.draganordning` | RÖD | `6 failed, 348 passed` |
+  | `besked is not None and besked.saknas` | RÖD | `2 failed, 352 passed` |
+
+  **REGRESSIONSVAKTEN ÄR PRÖVAD.** Fällningen av §42:s tjänsteviktsvillkor gör
+  `test_tung_bil_med_lag_slapvagnsvikt_ar_inte_rott` RÖTT. Det är testet som finns
+  för att skiva 12:s defekt, att ett fordon med tjänstevikt 2 100 kg och
+  släpvagnsvikt 800 kg fick RÖTT, inte ska kunna återkomma tyst.
 
   **MAPPNINGSKRAVET I `_bar_nyckel` KRÄVER EN DUBBELFÄLLNING, och det är ett eget
   fynd ur prövningen.** Raden `return isinstance(svar, Mapping) and nyckel in svar`
   fälld ENSAM till `return nyckel in svar` ger **GRÖN**, alltså inkonklusivt:
-  lager 1 fäller strängen först och maskerar den. Fälld TILLSAMMANS med lager 1
-  ger den `5 failed, 310 passed`, och bland de röda ligger båda parametrarna i
-  `test_ra_strang_ar_inte_ett_uppslag`. Kommandot:
+  Mapping-lagret fäller strängen först och maskerar den. Fälld TILLSAMMANS med
+  det ger den `5 failed, 349 passed`, och bland de röda ligger båda parametrarna
+  i `test_ra_strang_ar_inte_ett_uppslag`. Kommandot:
 
   ```
   scripts/sparr-prova.sh --fil src/fordonsuppslag.py \
@@ -562,21 +594,36 @@ enligt §7.1.
     --ersatt "<rad i _bar_nyckel>=    return nyckel in svar"
   ```
 
-  **Svitens storlek står utskriven bredvid varje tal**, 315 test vid prövningen,
+  **Svitens storlek står utskriven bredvid varje tal**, 354 test vid prövningen,
   eftersom ett svitresultat är ett tal om koden OCH om sviten, och sviten växer av
   nästa test som skrivs. Verdikten föråldras inte, talen gör det.
 
-  Tabellen är omkörd i sin helhet efter granskningen: värdekontrollen flyttade
-  från `_kontrollera` till `Uppslag.__post_init__`, alltså flyttade raderna, och
-  en redovisad prövning mot en tidigare filversion hade varit ett tal om något
-  som inte längre finns.
+  Tabellen körs om i sin helhet varje gång modulen ändras, och den ändrades
+  flera gånger i skiva 13: det tredje fältet kom in, granskningen lade till en
+  rad i `utvardera`, och ett test togs bort. **Antalet omkörningar skrivs inte
+  ut**, eftersom det är ett arbetsförlopp och inte något som går att läsa ur
+  repot (§7.2). Det som räknas är att talen ovan gäller filen som den ligger nu:
+  en redovisad prövning mot en tidigare filversion är ett tal om något som inte
+  längre finns.
 
-  Återställningen kvitterades efter varje körning i tabellen ovan. **Bara
-  sha256-kvittensen bär bevis här.** `src/fordonsuppslag.py` är en NY fil, så
-  `git diff` mot den är tom både före och efter fällningen och kan inte skilja
-  ett återställt arbetsträd från ett trasigt. `scripts/sparr-prova.sh` skriver
-  ut den varningen bara för OTRACKADE filer, och filen var stagad vid
-  prövningen, så varningen uteblev. Den står här i stället.
+  Återställningen kvitterades efter varje körning i tabellen ovan. **BARA
+  sha256-kvittensen bär bevis, och det avgörande är att arbetet är STAGAT.**
+
+  `scripts/sparr-prova.sh` bygger sin andra kvittens på `git diff -- <fil>`,
+  alltså arbetsträd mot INDEX. När arbetsträdet är identiskt med indexet är den
+  diffen tom både före och efter en fällning, och kvittensen jämför tomt mot
+  tomt. Den som vill se det själv jämför `git diff --stat -- <fil>`, som är tom,
+  mot `git diff HEAD --stat -- <fil>`, som inte är det.
+
+  **Talen ur den jämförelsen skrivs inte ut här.** De ändras av varje commit och
+  av varje ny fällning, och de fyller ingen funktion i påståendet: det som bär
+  det är att den ena diffen är tom och den andra inte. Ett utkast skrev ut dem
+  och hade läst dem mot en filversion som inte längre fanns.
+
+  **Ett utkast av den här posten skrev att kvittensen bär bevis "eftersom filen
+  är spårad sedan `6f8bbfc`".** Det är fel skäl och fel slutsats: spårad eller
+  ny spelar ingen roll, stagad eller inte gör det. Skriptet skriver sin egen
+  varning om saken bara för OTRACKADE filer, så den uteblir i båda fallen.
 
   **Instruktionen till skiva 11 sade "prisregeln i §11". Den står i §7.2.**
   `grep -n "priser.json" CLAUDE.md` ger TVÅ rader, 266 och 371. Rad 266 är
@@ -590,6 +637,140 @@ enligt §7.1.
   spärrdokument skickar den som ska fälla spärren till fel text. **Radnumren
   föråldras**, enligt rutan överst i det här dokumentet: kommandot ovan är det som
   gäller, inte talen.
+
+---
+
+## `dragkrokbesked-har-harkomst`
+
+**BYGGD I SKIVA 13**, på beslut av Lars. Luckan stod registrerad i
+`fordonsfakta-ur-uppslag` sedan skiva 12 och är nu en egen spärr.
+
+- **Spärr.** `utvardera`, `DragkrokBesked` och `BeskedKalla` i
+  `src/fordonsuppslag.py`. **`utvardera` står först därför att den är spärrens
+  viktigaste lager**, se nedan: utan typkontrollen där binder de två andra
+  ingenting.
+  **Ett besked om att dragkrok saknas går inte att sätta utan att samtidigt
+  namnge sin källa**, och källan måste vara en medlem i `BeskedKalla`.
+
+  Beslutet fattas på fyra ställen, som TEXT:
+
+  | Var | Villkoret | Vad det fäller |
+  | --- | --- | --- |
+  | `utvardera` | `if besked is not None and not isinstance(besked, DragkrokBesked):` | Vilket objekt som helst som inte ÄR ett besked |
+  | `DragkrokBesked.__post_init__` | `if not isinstance(self.saknas, bool):` | Ett besked som inte är ja eller nej |
+  | `DragkrokBesked.__post_init__` | `if not isinstance(self.kalla, BeskedKalla):` | En källa som inte finns i uppräkningen, inklusive strängen `"kundsvar"` |
+  | `BeskedKalla` | Uppräkningens INNEHÅLL | Allt som inte är `KUNDSVAR` eller `UTKASTVY` |
+
+  **TYPKONTROLLEN I `utvardera` ÄR SPÄRRENS VIKTIGASTE LAGER, och den saknades i
+  ett utkast av den här skivan.** Utan den prövade `utvardera` bara
+  `besked.saknas`, alltså en ankuppslagning. **Vilket objekt som helst med det
+  attributet gav GULT**, förbi hela härkomstkravet. Uppmätt i granskningen:
+  `utvardera(u, besked=SimpleNamespace(saknas=True))` gav `Utfall.GULT`.
+
+  Att `DragkrokBesked` var svår att konstruera fel spelade ingen roll när ingen
+  krävde ett `DragkrokBesked`. **En spärr som inte binder vid anropsstället
+  binder ingenstans.** `test_besked_av_fel_typ_avvisas` vaktar det.
+
+  **Att `kalla` är ett obligatoriskt argument är i sig ett lager.** `DragkrokBesked(saknas=True)`
+  kastar `TypeError` innan någon vakt hinner köras, och
+  `test_besked_kraver_en_kalla` vaktar det.
+
+  De tillåtna källorna är beslutade av Lars: **ett uttryckligt kundsvar, eller
+  manuell inmatning i utkastvyn i fas 5.5. Aldrig en modell, aldrig
+  klassificeraren.** Uppräkningen bär ingen medlem för dem, och det är hela
+  mekanismen.
+- **Vad den skyddar mot.** Att ett svar namnger ett PRISPÅSLAG på grundval av
+  något ingen människa har sagt.
+
+  Beskedet flyttar utfallet från OKLART, alltså en fråga till kunden, till GULT,
+  alltså ett svar som säger att dragkrok ska monteras och vad det kostar. Före
+  skiva 13 var det en naken `bool` i `utvardera`, och en klassificerare som
+  gissade rätt sorts ärende kunde sätta den utan att någon i efterhand kunde se
+  varifrån den kom.
+
+  Fordonsfakta måste passera `fordonsfakta-ur-uppslag`; den här biten passerade
+  ingenting. Asymmetrin var luckan.
+- **Negativkontroll.** `tests/test_fordonsuppslag.py::test_bada_tillatna_kallorna_gar_igenom`
+  visar att spärren SLÄPPER IGENOM båda de tillåtna källorna. Testet är
+  parametriserat över `list(BeskedKalla)`, så en framtida tredje källa får sin
+  negativkontroll automatiskt.
+
+  `::test_uppraekningen_bar_ingen_modellkalla` vaktar från andra hållet: det
+  asserar att uppräkningen bär exakt `kundsvar` och `utkastvy`. **Läggs en
+  modellkälla till upphör spärren att betyda något**, och testet gör det till ett
+  medvetet beslut i stället för en tyst ändring (§10).
+- **Redundant med. INGEN ANNAN SPÄRR.** Lagren i tabellen ovan är inte heller
+  redundanta med varandra: de fäller olika fel, och vart och ett har ett eget
+  test som blir rött när just det fälls. Det gäller också det femte lagret, att
+  `kalla` är ett obligatoriskt argument.
+- **VAD DEN INTE KAN HINDRA. Kända luckor, och listan är inte en garanti för att
+  vara uttömmande.**
+
+  1. **En anropare som medvetet anger fel källa.** Ingenting i koden kan avgöra
+     om `BeskedKalla.KUNDSVAR` verkligen motsvarar ett kundsvar. Skillnaden mot
+     förut är att det kräver **en uttrycklig osanning i koden** i stället för ett
+     bortglömt `True`, och att källan går att logga och granska i efterhand.
+  2. **Sex uppmätta vägar ger ett objekt som `utvardera` accepterar.** De namnges
+     var för sig, av samma skäl som i posten ovan: ett samlingsord döljer att
+     listan är ojämn. **Listan är inte uttömmande** — de två sista tillkom när en
+     granskare letade bredare än den förra.
+
+     | Väg | Vad som går fel | `kalla` blir |
+     | --- | --- | --- |
+     | Subklass som skuggar `__post_init__` | Vakten överskuggas, konstruktionen körs | `"modell"` |
+     | `object.__new__` + `object.__setattr__` | `__init__` körs aldrig | `"modell"` |
+     | `pickle.loads` av en doktorerad instans | Återskapas utan `__init__` | `"modell"` |
+     | `object.__setattr__` på en FÄRDIG instans | `__post_init__` KÖRDE, objektet muterades efteråt | oförändrad, giltig |
+     | `copy.copy` och `copy.deepcopy` | Kopieras utan att `__post_init__` anropas | ärvs från förlagan |
+     | `unittest.mock.Mock(spec=DragkrokBesked)` | `isinstance` är sant mot en attrapp | finns inte alls |
+
+     **`Mock`-raden är den mest närliggande i praktiken**, eftersom fas 5:s
+     tester kommer att bygga attrapper. Uppmätt: en `Mock` med `spec` och enbart
+     `.saknas` satt ger GULT, och `kalla` existerar inte ens på objektet.
+     `utvardera` rör bara `.saknas`, så typkontrollen släpper igenom den.
+
+     **Raden om `object.__setattr__` på en färdig instans missades av ett utkast**,
+     som skrev "aldrig körde `__post_init__`" som kriterium. Just den vägen körde
+     det, och den kräver ingen exotisk konstruktion alls: den muterar ett äkta
+     besked.
+
+     De tre första sätter `kalla` till strängen `"modell"`, alltså ett värde som
+     `__post_init__` hade avvisat.
+
+     Samtliga uppmätta i skiva 13. Ingen av dem hårdnas mot, eftersom boten inte
+     möter fientlig indata.
+  3. **Att beskedet är SANT.** En kund kan minnas fel om sin egen bil. Det är
+     inte en defekt i spärren utan en gräns för vad ett besked är värt, och den
+     hör hemma i mallarnas ordalydelse i fas 5.
+
+  Spärren flyttar felet från *slarv* till *avsikt*. Det är en verklig skärpning
+  och inte en garanti, och den som läser posten ska inte ta den för mer än så.
+- **Prövning enligt §7.1, `scripts/sparr-prova.sh`.** Villkoren NEUTRALISERADES
+  till `if False:`, utom uppräkningen, där en medlem ERSATTES.
+
+  | Fällt lager | Fällning | Utfall | Sviten |
+  | --- | --- | --- | --- |
+  | typkontrollen i `utvardera` | `if False:` | RÖD | `4 failed, 350 passed` |
+  | `not isinstance(self.saknas, bool)` | `if False:` | RÖD | `1 failed, 353 passed` |
+  | `not isinstance(self.kalla, BeskedKalla)` | `if False:` | RÖD | `5 failed, 349 passed` |
+  | `kalla` obligatoriskt | `kalla: BeskedKalla = BeskedKalla.KUNDSVAR` | RÖD | `1 failed, 353 passed` |
+  | `UTKASTVY = "utkastvy"` | `MODELL = "modell"` | RÖD | `1 failed, 353 passed` |
+
+  Svitens storlek vid prövningen: 354 test. **Samtliga fem lager går att fälla
+  var för sig**, alltså är inget av dem maskerat av ett annat.
+
+  **RADEN OM DET OBLIGATORISKA `kalla`-ARGUMENTET SAKNADES i ett utkast**, trots
+  att posten deklarerade lagret fyra rader ovanför. Granskningen körde
+  fällningen och fick RÖD. Det är samma defekt som posten själv fördömer i
+  stycket nedan, en paragraf bort.
+
+  **Uppräkningen GÅR att fälla, och ett utkast av den här posten påstod motsatsen.**
+  Utkastet skrev att innehållet inte går att fälla utan att modulen slutar
+  importeras, och kallade det en svaghet i prövningen. Granskningen körde
+  fällningen och fick RÖD. Att byta ut en medlem mot `MODELL = "modell"` lämnar
+  modulen importerbar, och `test_uppraekningen_bar_ingen_modellkalla` faller.
+  **En redovisad prövning som avstår från en prövning som går att göra är sämre
+  än ingen redovisning**, eftersom den ser ut som ett fullständigt varv.
 
 ---
 
@@ -615,6 +796,84 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.14.0 — 2026-08-27
+
+**Spärren `dragkrokbesked-har-harkomst` registrerad och byggd**, på beslut av
+Lars i skiva 13. Luckan stod registrerad i `fordonsfakta-ur-uppslag` sedan skiva
+12: dragkroksbeskedet var en naken `bool` som en modell kunde sätta, och som
+flyttar kunden från en fråga till ett prispåslag.
+
+Beskedet är nu en `DragkrokBesked` som måste namnge en källa ur `BeskedKalla`, och
+uppräkningen bär bara `KUNDSVAR` och `UTKASTVY`.
+
+**GRANSKNINGEN FÄLLDE ATT SPÄRREN INTE BAND VID ANROPSSTÄLLET.** Ett utkast lät
+`utvardera` pröva bara `besked.saknas`, alltså en ankuppslagning, så vilket objekt
+som helst med det attributet gav GULT förbi hela härkomstkravet. Uppmätt:
+`SimpleNamespace(saknas=True)` gav `Utfall.GULT`. Att typen var svår att
+konstruera fel spelade ingen roll när ingen krävde den. Typkontrollen i
+`utvardera` är tillagd och är spärrens viktigaste lager.
+
+**Posten skriver ut vad spärren INTE kan hindra**, utan påstående om att listan är
+uttömmande: en anropare som medvetet anger en tillåten men osann källa, de vägar
+som kommer förbi `__post_init__`, och att beskedet är sant. Skärpningen flyttar
+felet från slarv till avsikt, vilket är verkligt men inte en garanti.
+
+**Ett utkast namngav två av de vägarna och missade två**, och dess kriterium
+"aldrig körde `__post_init__`" täckte inte `object.__setattr__` på en färdig
+instans, alltså den väg som inte kräver någon exotisk konstruktion alls. Posten
+bär nu en tabell med en rad per väg.
+
+**Ett utkast påstod att uppräkningen inte går att fälla. Det är falskt**, och
+granskningen körde fällningen. Prövningstabellen bär nu raden, och en till: det
+obligatoriska `kalla`-argumentet var deklarerat som lager men saknades i
+tabellen. Båda är fällda och röda.
+
+**Ett test togs bort ur sviten.** `test_ett_kilo_under_tjanstevikttroskeln_ensam_racker_inte`
+lades till i skivan och visade sig vara ett exakt duplikat av två andra: det
+finns inget sätt att pröva tjänsteviktströskeln NEDÅT utan att släpvagnsvillkoret
+också faller, eftersom ett uppfyllt villkor räcker. Täckningen är oförändrad, och
+skälet står i det kvarvarande testets docstring.
+
+**`fordonsfakta-ur-uppslag` prövar ett TREDJE fält, `tjanstevikt_kg`**, efter att
+gatingen rättats mot §42 andra stycket. Viktkraven delas nu av två fält genom
+`_krav_pa_vikt`, så en fällning där fäller båda samtidigt; skälet bär fältnamnet
+och varje viktest asserar mot det.
+
+**Prövningstabellerna är omkörda i sin helhet**, mot en svit om 354 test. Bland
+fällningarna ligger §42:s två lämplighetsvillkor var för sig, och fällningen av
+tjänsteviktsvillkoret gör regressionsvakten
+`test_tung_bil_med_lag_slapvagnsvikt_ar_inte_rott` röd.
+
+**Kvittensmeningen om `git diff` är rättad.** Tidigare lydelser skyllde tomheten
+på att filen var NY, och därefter på att den är spårad. Båda missade det som
+faktiskt avgör: arbetet är STAGAT, så `git diff -- <fil>` jämför arbetsträd mot
+index, som är identiska. Kvittensen jämför tomt mot tomt oavsett om filen är ny
+eller spårad. **Bara sha256 bär bevis.**
+
+Lydelserna redovisas utan att räknas. Antalet rättelseförsök är ett arbetsförlopp
+och inte något som går att läsa ur repot, eftersom mellanversionerna aldrig
+committades (§7.2).
+
+**Talen ur diffjämförelsen är strukna, inte omräknade.** En lydelse skrev ut
+antalet tillagda och borttagna rader och hade läst dem mot en filversion som inte
+längre fanns. Beslut av Lars: ett tal som ingen behöver är inte värt en tredje
+rättelse. Påståendet bärs av att den ena diffen är tom och den andra inte, inte
+av hur stor den andra är.
+
+**SPÄRR-FÄLTET SADE "TVÅ FUNKTIONER" OCH SPÄRREN LIGGER I FYRA.** Fältet bär nu
+en tabell över dem, och kravet att en §7.1-prövning måste fälla i alla fyra.
+Skivan gjorde meningen falskare genom att bryta ut `_krav_pa_vikt` och samtidigt
+stryka den mening som var regnr-lagrets enda hemvist i fältet; den hemvisten är
+återinförd. Samma utelämnande fanns i `dragkrokbesked-har-harkomst`, vars
+Spärr-fält saknade `utvardera`, och i testfilens huvud. Båda rättade.
+
+**Luckelistan för dragkroksbeskedet bär två vägar till**, `copy.copy`/`copy.deepcopy`
+och `unittest.mock.Mock(spec=...)`, båda funna av granskaren och båda uppmätta.
+`Mock`-raden är den mest närliggande i praktiken, eftersom fas 5:s tester kommer
+att bygga attrapper.
+
+Ny prövad spärr och ett tredje fält i en befintlig ⇒ MINOR.
 
 ### 0.13.0 — 2026-08-27
 

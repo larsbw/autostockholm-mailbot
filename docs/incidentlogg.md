@@ -1,6 +1,6 @@
 # Incidentlogg
 
-**Version:** 0.5.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §0
+**Version:** 0.6.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §0
 
 Varje regel som bärs av en incident bor här. Dokumentet finns för att förlagornas
 styrka är att en härdad regel namnger det fel som skapade den. En regel utan
@@ -406,6 +406,74 @@ det.
 
 ---
 
+## I6 — En sammanfattad föreskrift tappade ett kriterium och skeppade en sändvägsdefekt
+
+**Datum:** 2026-08-27 · **Uppmätt i:** skiva 13, om skivorna 11 och 12 ·
+**Berör:** `docs/roadmap.md` fas 4.5, `src/fordonsuppslag.py`
+
+**Vad som hände.** Fas 4.5 vilade på VVFS 2003:19 4 kap 42 §. Paragrafen fanns
+aldrig i repot. Det som fanns var en SAMMANFATTNING ur en brief: att §42 kräver
+kopplingsanordning och att fordonet i övrigt är lämpligt som dragfordon, utan att
+ange något tal.
+
+Sammanfattningen var fel på två sätt. Paragrafen anger ett tal, och den anger
+**två alternativa kriterier förenade med *eller***. Sammanfattningen bar bara det
+ena, och det utan tal.
+
+Följden byggdes in i koden. `utvardera` prövade släpvagnsvikten ensam, så **ett
+fordon med tjänstevikt 2 100 kg och släpvagnsvikt 800 kg fick RÖTT**, medan
+föreskriften säger att det ÄR lämpligt som dragfordon. Boten hade sagt nej till
+en kund vars bil uppfyller kravet.
+
+Ovanpå det byggdes en hel ram: talet 1 000 kallades Auto Stockholms praxis, med
+verkstadens erfarenhet och besked från besiktningsmän som namngiven källa, och
+fas 4.5 slog fast att en mall som återgav talet som författningskrav vore en
+sändvägsdefekt. **Ramen var precis tvärtemot vad som gällde**, och den hade en
+egen paragraf i fasen och tre stycken i beslutspost #24.
+
+**Samma felklass i en andra form.** §39 om barlastflak formulerades om ur minnet
+i skiva 11 och igen i skiva 12. Den återgivningen råkade stämma i sak för första
+stycket, men paragrafens andra stycke, om påhängsvagn och att minst 40 % av
+tjänstevikten skall vila på drivhjulen, fanns inte i repot förrän §39 citerades
+ordagrant.
+
+**Vad det kostade.** En skeppad sändvägsdefekt. Skiva 12 pushades med felet i
+koden, och `6f8bbfc` bär det. Skadan mot kund blev noll, men det berodde på att
+fas 4.5 inte är kopplad till någon sändning ännu och inte på att felet fångades.
+
+Granskningsarbete lades dessutom på att räta ut viktledets riktning i §39, alltså
+i ett krav som inte gatade något och som utgick helt kort därefter. Det skedde i
+skiva 11, enligt `docs/beslutslogg.md` #24 och `docs/roadmap.md` 0.3.0. **Antalet
+varv skrivs inte ut**: rapporterna ligger i den gitignorerade `scratchpad/` och
+talet går inte att läsa ur repot (§7.2).
+
+**Hur det upptäcktes.** Genom att Lars gav instruktionen att slå upp paragrafen
+och rapportera vad som faktiskt står. **Ingen granskning hittade det**, och det
+kunde ingen granskning göra: repot bar en sammanfattning och en granskare som
+prövar text mot repot hittar då bara sammanfattningen. Felet var osynligt inifrån.
+
+**Uppmätt effekt.** Sammanfattningen bar ett av två kriterier. Föreskriften är
+hämtad från `webapp.trafikverket.se/TRVFS/pdf/2003nr019.pdf` och citeras
+ordagrant i `docs/roadmap.md` fas 4.5, tryckt sida 16 för §42 och sida 15 för
+§39.
+
+**Regeln posten bär. EN FÖRESKRIFT CITERAS ORDAGRANT, ALDRIG SAMMANFATTAD.**
+Beslut av Lars i skiva 13. Det gäller varje författningstext som en fas eller en
+mall vilar på. En sammanfattning ser ut som ett faktum men bär ingen
+kontrollerbar källa, och skillnaden mellan "så här minns vi det" och "så här
+står det" måste vara synlig för nästa läsare.
+
+Följdregel: **ett citat ska ange var det är hämtat och var i källan det står.**
+Utan det är citatet bara en sammanfattning med citattecken.
+
+**Vakt.** Ingen automatisk, och det finns ingen rimlig sådan: ingen kod kan veta
+att en text i `docs/` är en korrekt avskrift av en författning. Vakten är regeln
+plus att en granskare kan jämföra ett citat mot en namngiven källa, vilket är
+precis vad en sammanfattning omöjliggör. **Räkna med att felet återkommer varje
+gång en föreskrift refereras utan att någon öppnat den.**
+
+---
+
 ## Mall för en incidentpost
 
 Kopiera blocket nedan. Ett fält som inte går att fylla i är ett skäl att inte
@@ -430,6 +498,28 @@ skriva posten ännu, inte ett skäl att lämna fältet tomt.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.6.0 — 2026-08-27
+
+**I6 tillkommer:** en sammanfattad föreskrift tappade ett kriterium och skeppade
+en sändvägsdefekt. VVFS 2003:19 4 kap 42 § fanns aldrig i repot, bara en
+sammanfattning ur en brief, och den bar ett av paragrafens två alternativa
+kriterier och utan tal.
+
+Följden byggdes in i `utvardera`: ett fordon med tjänstevikt 2 100 kg och
+släpvagnsvikt 800 kg fick RÖTT trots att föreskriften säger att det duger.
+Ovanpå det byggdes en praxisram som var raka motsatsen till vad som gällde.
+
+**Posten bär regeln EN FÖRESKRIFT CITERAS ORDAGRANT, ALDRIG SAMMANFATTAD**,
+beslutad av Lars i skiva 13, med följdregeln att ett citat ska ange var det är
+hämtat och var i källan det står.
+
+**Ingen granskning hittade felet, och ingen kunde.** Repot bar en
+sammanfattning, och en granskare som prövar text mot repot hittar då bara
+sammanfattningen. Posten skriver ut att vakten är regeln och inte kod: ingen
+kod kan veta att en text i `docs/` är en korrekt avskrift av en författning.
+
+Ny post ⇒ MINOR.
 
 ### 0.5.0 — 2026-08-27
 

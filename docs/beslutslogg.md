@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.19.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §8
+**Version:** 0.20.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -951,7 +951,99 @@ spärren. Den luckan är registrerad i `docs/sparrar.md`.
 
 ---
 
+## #25 — Tjänstevikt tillbaka som tredje fält, och beskedet får härkomst
+
+**Datum:** 2026-08-27 · **Berör:** `src/fordonsuppslag.py`, `docs/roadmap.md`
+fas 4.5, `docs/sparrar.md`, #24
+
+**Beslut av Lars.** Gatingen rättas mot VVFS 2003:19 4 kap 42 §.
+**Tjänstevikt är tillbaka som tredje fält.**
+
+**Lämplig som dragfordon enligt 42 § andra stycket:** tjänstevikt minst 2 000 kg
+**ELLER** släpvagnsvikt minst 1 000 kg. Förenade med *eller*, inte *och*.
+
+Gatingen är alltså **draganordning plus lämplighet enligt ovan**.
+
+**RÖTT KRÄVER ATT BÅDA LÄMPLIGHETSVILLKOREN FALLER.** Ett fordon med tjänstevikt
+2 100 kg och släpvagnsvikt 800 kg är GRÖNT eller GULT beroende på draganordning,
+aldrig RÖTT.
+
+`tests/test_fordonsuppslag.py::test_tung_bil_med_lag_slapvagnsvikt_ar_inte_rott`
+finns för just det fallet. Det var defekten som låg i koden när skiva 12
+skeppades, och den ska inte kunna återkomma tyst.
+
+**OM STRYKNINGEN I #24, som det var.** Tjänstevikt ströks ur bedömningen i skiva
+12. **Premissen var att §42 saknar tal. Den kom ur briefen till den skivan och
+var motbevisad av föreskriftens text**, som ingen då hade läst. Strykningen var
+alltså inte ett avvägt val mellan kända alternativ, utan ett beslut fattat på en
+felaktig uppgift. #24 bär strykningen av det falska påståendet med kursiv not.
+
+**Ett uppslag utan tjänstevikt är INTE ett giltigt uppslag** och faller till
+utkast, samma regel som för de två andra fälten. Att gissa vikten hade varit att
+fabricera underlaget för ett rött besked.
+
+**DRAGKROKSBESKEDET FÅR HÄRKOMST.** Beslut av Lars. Fältet flyttar kunden från
+OKLART, alltså en fråga, till GULT, alltså ett svar som namnger ett prispåslag.
+Det fick **enbart** sättas av ett uttryckligt kundsvar eller av manuell inmatning
+i utkastvyn. **Aldrig av en modell, aldrig av klassificeraren.**
+
+Spärren är byggd: beskedet är en `DragkrokBesked` som måste namnge en källa ur
+`BeskedKalla`, och uppräkningen bär ingen medlem för en modell. Vad spärren INTE
+kan hindra, en anropare som medvetet anger fel källa, står utskrivet i
+`docs/sparrar.md` under `dragkrokbesked-har-harkomst`.
+
+**EN FÖRESKRIFT CITERAS ORDAGRANT, ALDRIG SAMMANFATTAD.** Regeln följer av
+skivan och står i `docs/roadmap.md` fas 4.5, med incidenten i
+`docs/incidentlogg.md` I6. §39 formulerades om ur minnet i två skivor i rad, och
+§42 sammanfattades ur en brief utan att någon hade läst paragrafen. Den
+sammanfattningen tappade ett helt kriterium och skeppade en sändvägsdefekt.
+
+**#24 namnger `test_troskeln_ar_tusen_kilo`. Testet heter sedan skiva 13
+`test_trosklarna_kommer_ur_forfattningen`**, eftersom det nu asserar båda
+trösklarna. Beslutsloggen är append-only, så #24 står kvar med det gamla namnet
+och den här raden är rättelsen.
+
+**BLOCKERANDE ÖPPEN PUNKT: vems tjänstevikt avser §42 punkt 1?** Paragrafen
+inleder med "A-traktor är lämplig som dragfordon om" och punkt 1 säger
+"tjänstevikten", medan punkt 2 uttryckligen byter till "ursprungsfordonet". **Att
+paragrafen byter ord mellan två intilliggande punkter talar för att punkt 1 avser
+vikten efter ombyggnaden.**
+
+`utvardera` prövar båda mot uppslagets tjänstevikt, alltså ursprungsfordonets.
+**Antagandet att vikterna är samma är agentens och inte belagt**, och
+felriktningen är densamma som skiva 12:s defekt.
+
+**Punkten är BLOCKERANDE för fas 4.5 och avgörs av besked från en
+besiktningsman, inte av oss.** Beslut av Lars i skiva 13. Frågan är hur §42
+tillämpas vid en registreringsbesiktning, vilket varken ordalydelsen eller ett
+resonemang i repot kan avgöra. Ingen kod ändras under tiden.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.20.0 — 2026-08-27
+
+**#25 tillkommer**, på beslut av Lars i skiva 13. Tjänstevikt är tillbaka som
+tredje fält, och gatingen följer §42 andra styckets *eller*: RÖTT kräver att
+BÅDA lämplighetsvillkoren faller.
+
+Posten skriver ut strykningen i #24 **som den var**: premissen att §42 saknar tal
+kom ur briefen till skiva 12 och var motbevisad av föreskriftens text. Det var
+inte ett avvägt val utan ett beslut på en felaktig uppgift.
+
+**Dragkroksbeskedet får härkomst**, och luckan som stod registrerad i
+`docs/sparrar.md` sedan skiva 12 är nu en byggd spärr.
+
+**En föreskrift citeras ordagrant, aldrig sammanfattad.** Regeln står i fas 4.5
+och bärs av `docs/incidentlogg.md` I6.
+
+**Frågan om vems tjänstevikt §42 punkt 1 avser är BLOCKERANDE för fas 4.5 och
+avgörs av en besiktningsman.** Beslut av Lars efter tredje granskningsvarvet.
+Den går inte att avgöra ur ordalydelsen, och ingen kod ändras på antagandet
+under tiden.
+
+Ny post ⇒ MINOR.
 
 ### 0.19.0 — 2026-08-27
 

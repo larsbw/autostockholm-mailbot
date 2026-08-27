@@ -1,18 +1,31 @@
 """Tester för src/fordonsuppslag.py.
 
-Spärren heter `fordonsfakta-ur-uppslag` och står i docs/sparrar.md. Den ligger i
-`_kontrollera`, som prövar svarets FORM, och i `Uppslag.__post_init__`, som prövar
-VÄRDENA. Varje lager har ett eget test här, eftersom ett fällt lager syns som ett
-rött test medan ett SAKNAT lager inte syns alls.
+Spärren `fordonsfakta-ur-uppslag` står i docs/sparrar.md och ligger i FYRA
+funktioner: `_kontrollera` prövar formen, `_krav_pa_vikt` prövar de två vikterna,
+`Uppslag.__post_init__` prövar draganordningen, och `slag_upp` stoppar ett saknat
+registreringsnummer. Varje lager har ett eget test här, eftersom ett fällt lager
+syns som ett rött test medan ett SAKNAT lager inte syns alls.
 
-**LAGREN 1, 2 OCH 3 ÄR DELVIS REDUNDANTA, och testerna är skrivna efter det.**
-`in` fungerar på varje container, så en lista fälls av alla tre, och en tom `dict`
-fälls av både 2 och 3. Ett test som bara asserar `pytest.raises` blir därför grönt
-när ett enskilt lager fälls, och en §7.1-prövning pekar då ut ett äkta spärrtest
-som vakuöst. **Varje lagertest asserar därför mot `fel.value.skal`**, inte bara
-mot att något kastades.
+Spärren `dragkrokbesked-har-harkomst` ligger i `utvardera`, `DragkrokBesked` och
+`BeskedKalla` och har sina egna test längst ned. Typkontrollen i `utvardera` är
+dess viktigaste lager.
+
+**FORMLAGREN ÄR HELT REDUNDANTA MED VARANDRA, och testerna är skrivna efter det.**
+En rå JSON-sträng, en lista och `None` fälls av alla tre. **Varje lagertest
+asserar därför mot `fel.value.skal`**, inte bara mot att något kastades: utan det
+blir testet grönt när ett enskilt lager fälls, och §7.1:s prövning pekar då ut
+ett äkta spärrtest som vakuöst.
+
+**VIKTLAGREN DELAS av `tjanstevikt_kg` och `slapvagnsvikt_kg` genom
+`_krav_pa_vikt`.** En fällning där fäller båda fälten samtidigt. Skälet bär
+fältnamnet, så testerna kan ändå skilja dem åt.
 
 Tröskeln prövas vid EXAKT gränsvärdet, ett kilo under och ett kilo över (§4).
+
+**FIXTURERNAS TJÄNSTEVIKT LIGGER MEDVETET UNDER `TROSKEL_TJANSTEVIKT_KG`**, så
+att släpvagnsvikten är det som avgör i de test som prövar den. §42:s två villkor
+är förenade med ELLER, och en tung fixtur hade gjort varje sådant test grönt av
+fel skäl.
 
 All indata är påhittad. Registreringsnumren är påhittade i den meningen att de
 inte är hämtade ur kundmaterialet; om någon av strängarna råkar motsvara ett
@@ -21,16 +34,32 @@ verkligt fordon är inte undersökt och saknar betydelse här (§6).
 
 from __future__ import annotations
 
-from types import MappingProxyType
+from types import MappingProxyType, SimpleNamespace
 
 import pytest
 
 from src import fordonsuppslag
-from src.fordonsuppslag import Uppslag, UppslagMisslyckades, Utfall
+from src.fordonsuppslag import (
+    BeskedKalla,
+    DragkrokBesked,
+    Uppslag,
+    UppslagMisslyckades,
+    Utfall,
+)
 
 TROSKEL = fordonsuppslag.TROSKEL_SLAPVAGNSVIKT_KG
+TROSKEL_TJANST = fordonsuppslag.TROSKEL_TJANSTEVIKT_KG
 
-HELT_SVAR = {"slapvagnsvikt_kg": 1400, "draganordning": True}
+# Under tjänstevikttröskeln, så att släpvagnsvikten avgör. Se filhuvudet.
+LATT = 1500
+
+HELT_SVAR = {
+    "tjanstevikt_kg": LATT,
+    "slapvagnsvikt_kg": 1400,
+    "draganordning": True,
+}
+
+KUNDBESKED = DragkrokBesked(saknas=True, kalla=BeskedKalla.KUNDSVAR)
 
 
 def hamtning(svar):
@@ -38,6 +67,11 @@ def hamtning(svar):
     def hamta(_regnr):
         return svar
     return hamta
+
+
+def svar_med(**andringar):
+    """`HELT_SVAR` med enskilda fält utbytta."""
+    return dict(HELT_SVAR, **andringar)
 
 
 # --- negativkontroll: spärren SLÄPPER IGENOM när den ska ---------------------
@@ -49,14 +83,16 @@ def test_fullstandigt_svar_slapps_igenom():
     lika grönt som den riktiga implementationen."""
     uppslag = fordonsuppslag.slag_upp("ABC123", hamta=hamtning(HELT_SVAR))
 
-    assert uppslag == Uppslag(slapvagnsvikt_kg=1400, draganordning=True)
+    assert uppslag == Uppslag(
+        tjanstevikt_kg=LATT, slapvagnsvikt_kg=1400, draganordning=True
+    )
 
 
 def test_svar_med_okanda_nycklar_slapps_ocksa_igenom():
     """Andra halvan av negativkontrollen. Varje verklig datakälla bär fler fält
-    än de två som gatar, och en strikthet mot dem hade fällt varje riktig källa
+    än de tre som gatar, och en strikthet mot dem hade fällt varje riktig källa
     vid första bytet."""
-    svar = dict(HELT_SVAR, fabrikat="okänt", arsmodell=2011)
+    svar = svar_med(fabrikat="okänt", arsmodell=2011)
 
     uppslag = fordonsuppslag.slag_upp("ABC123", hamta=hamtning(svar))
 
@@ -66,24 +102,25 @@ def test_svar_med_okanda_nycklar_slapps_ocksa_igenom():
 def test_draganordning_nej_ar_ett_giltigt_uppslag():
     """`False` är ett SVAR och inte ett saknat värde. Ett lager som prövade
     sanningsvärdet i stället för typen hade fällt det här."""
-    svar = {"slapvagnsvikt_kg": 1400, "draganordning": False}
-
-    uppslag = fordonsuppslag.slag_upp("ABC123", hamta=hamtning(svar))
+    uppslag = fordonsuppslag.slag_upp(
+        "ABC123", hamta=hamtning(svar_med(draganordning=False))
+    )
 
     assert uppslag.draganordning is False
 
 
-def test_slapvagnsvikt_noll_ar_ett_giltigt_uppslag():
-    """Nollfallet. Vikten 0 är ett avläst värde och ska ge RÖTT längre fram,
-    inte ett misslyckat uppslag."""
-    svar = {"slapvagnsvikt_kg": 0, "draganordning": False}
+@pytest.mark.parametrize("falt", ["tjanstevikt_kg", "slapvagnsvikt_kg"])
+def test_vikt_noll_ar_ett_giltigt_uppslag(falt):
+    """Nollfallet, för BÅDA vikterna. 0 är ett avläst värde och ska påverka
+    utfallet längre fram, inte ge ett misslyckat uppslag."""
+    uppslag = fordonsuppslag.slag_upp(
+        "ABC123", hamta=hamtning(svar_med(**{falt: 0}))
+    )
 
-    uppslag = fordonsuppslag.slag_upp("ABC123", hamta=hamtning(svar))
-
-    assert uppslag.slapvagnsvikt_kg == 0
+    assert getattr(uppslag, falt) == 0
 
 
-# --- spärrens lager, ett test per lager --------------------------------------
+# --- spärrens formlager, ett test per lager ----------------------------------
 
 
 def test_hamtning_utan_traff_ar_inte_ett_uppslag():
@@ -99,66 +136,81 @@ def test_tomt_svar_ar_inte_ett_uppslag():
     with pytest.raises(UppslagMisslyckades) as fel:
         fordonsuppslag.slag_upp("ABC123", hamta=hamtning({}))
 
-    assert "slapvagnsvikt_kg" in fel.value.skal
+    assert "tjanstevikt_kg" in fel.value.skal
 
 
-def test_svar_utan_draganordning_ar_inte_ett_uppslag():
-    """Lager 3. Halva svaret är inte ett svar."""
+@pytest.mark.parametrize(
+    "saknat, skal",
+    [
+        ("tjanstevikt_kg", "saknar tjanstevikt_kg"),
+        ("slapvagnsvikt_kg", "saknar slapvagnsvikt_kg"),
+        ("draganordning", "saknar draganordning"),
+    ],
+)
+def test_svar_som_saknar_ett_falt_ar_inte_ett_uppslag(saknat, skal):
+    """Lagren 2, 3 och 4. Ett svar med två av tre fält är inte ett svar.
+
+    Skälet asseras per fält, så att en fällning av ETT nyckellager blir röd i
+    just sin parameter och inte döljs av grannlagret.
+    """
+    svar = {k: v for k, v in HELT_SVAR.items() if k != saknat}
+
     with pytest.raises(UppslagMisslyckades) as fel:
-        fordonsuppslag.slag_upp(
-            "ABC123", hamta=hamtning({"slapvagnsvikt_kg": 1400})
-        )
+        fordonsuppslag.slag_upp("ABC123", hamta=hamtning(svar))
 
-    assert "draganordning" in fel.value.skal
+    assert skal in fel.value.skal
 
 
+@pytest.mark.parametrize("falt", ["tjanstevikt_kg", "slapvagnsvikt_kg"])
 @pytest.mark.parametrize("vikt", ["1400", None, 1400.0, [1400]])
-def test_vikt_som_inte_ar_heltal_ar_inte_ett_uppslag(vikt):
-    """Lager 4. Inget av dessa jämförs med tröskeln utan att kasta.
+def test_vikt_som_inte_ar_heltal_ar_inte_ett_uppslag(falt, vikt):
+    """Viktlagret, typkravet, prövat för BÅDA vikterna.
 
     `1400.0` är med därför att en JSON-källa kommer att leverera flyttal vid
     första bytet av hämtning. Att det fälls är fail-closed och alltså rätt
     riktning, men det ska vara ett MEDVETET utfall och inte en överraskning.
     """
-    svar = {"slapvagnsvikt_kg": vikt, "draganordning": True}
-
     with pytest.raises(UppslagMisslyckades) as fel:
-        fordonsuppslag.slag_upp("ABC123", hamta=hamtning(svar))
+        fordonsuppslag.slag_upp(
+            "ABC123", hamta=hamtning(svar_med(**{falt: vikt}))
+        )
 
-    assert "heltal" in fel.value.skal
+    assert f"{falt} är inte ett heltal" in fel.value.skal
 
 
+@pytest.mark.parametrize("falt", ["tjanstevikt_kg", "slapvagnsvikt_kg"])
 @pytest.mark.parametrize("vikt", [True, False])
-def test_vikt_som_bool_ar_inte_ett_uppslag(vikt):
-    """Lager 4, det lömska fallet. `bool` ÄR en `int` i Python, så `True` hade
-    annars passerat som vikten 1 och gett RÖTT, och `False` som vikten 0."""
-    svar = {"slapvagnsvikt_kg": vikt, "draganordning": True}
-
+def test_vikt_som_bool_ar_inte_ett_uppslag(falt, vikt):
+    """Viktlagret, det lömska fallet. `bool` ÄR en `int` i Python, så `True`
+    hade annars passerat som vikten 1 och `False` som vikten 0."""
     with pytest.raises(UppslagMisslyckades) as fel:
-        fordonsuppslag.slag_upp("ABC123", hamta=hamtning(svar))
+        fordonsuppslag.slag_upp(
+            "ABC123", hamta=hamtning(svar_med(**{falt: vikt}))
+        )
 
-    assert "heltal" in fel.value.skal
+    assert f"{falt} är inte ett heltal" in fel.value.skal
 
 
-def test_negativ_vikt_ar_inte_ett_uppslag():
-    """Lager 5. Ett negativt tal är inte en vikt, det är ett fel i källan som
-    annars hade gett RÖTT och sett rimligt ut."""
-    svar = {"slapvagnsvikt_kg": -1, "draganordning": True}
-
+@pytest.mark.parametrize("falt", ["tjanstevikt_kg", "slapvagnsvikt_kg"])
+def test_negativ_vikt_ar_inte_ett_uppslag(falt):
+    """Viktlagret, teckenkravet. Ett negativt tal är inte en vikt, det är ett
+    fel i källan som annars hade gett ett utfall och sett rimligt ut."""
     with pytest.raises(UppslagMisslyckades) as fel:
-        fordonsuppslag.slag_upp("ABC123", hamta=hamtning(svar))
+        fordonsuppslag.slag_upp(
+            "ABC123", hamta=hamtning(svar_med(**{falt: -1}))
+        )
 
-    assert "negativ" in fel.value.skal
+    assert f"{falt} är negativ" in fel.value.skal
 
 
 @pytest.mark.parametrize("drag", ["nej", "ja", None, 0, 1])
 def test_draganordning_som_inte_ar_bool_ar_inte_ett_uppslag(drag):
-    """Lager 6. Strängen `"nej"` är SANN i Python och hade gett GRÖNT, alltså
-    motsatsen till vad källan sa. `None` och heltal fälls av samma skäl."""
-    svar = {"slapvagnsvikt_kg": 1400, "draganordning": drag}
-
+    """Draganordningslagret. Strängen `"nej"` är SANN i Python och hade gett
+    GRÖNT, alltså motsatsen till vad källan sa."""
     with pytest.raises(UppslagMisslyckades) as fel:
-        fordonsuppslag.slag_upp("ABC123", hamta=hamtning(svar))
+        fordonsuppslag.slag_upp(
+            "ABC123", hamta=hamtning(svar_med(draganordning=drag))
+        )
 
     assert "ja eller nej" in fel.value.skal
 
@@ -166,20 +218,20 @@ def test_draganordning_som_inte_ar_bool_ar_inte_ett_uppslag(drag):
 @pytest.mark.parametrize(
     "svar",
     [
-        '{"slapvagnsvikt_kg": 1400, "draganordning": true}',
-        "slapvagnsvikt_kg draganordning",
+        '{"tjanstevikt_kg": 1500, "slapvagnsvikt_kg": 1400,'
+        ' "draganordning": true}',
+        "tjanstevikt_kg slapvagnsvikt_kg draganordning",
     ],
 )
 def test_ra_strang_ar_inte_ett_uppslag(svar):
     """STRÄNGFALLET, och det är inte konstruerat.
 
-    En hämtning som glömt parsa svaret returnerar rå JSON. Strängen bär BÅDA
-    nyckelnamnen som delsträngar, så ett naket `nyckel in svar` är sant för
-    dem. Innan lagren 2 och 3 prövade mappningsobjekt var det bara lager 1 som
-    stoppade det här, och en fällning av lager 1 hade släppt igenom en sträng
-    som `Uppslag`-argument.
+    En hämtning som glömt parsa svaret returnerar rå JSON. Strängen bär ALLA
+    nyckelnamnen som delsträngar, så ett naket `nyckel in svar` är sant för dem.
+    Innan nyckellagren prövade mappningsobjekt var det bara lager 1 som stoppade
+    det här.
 
-    Skälet asseras: annars kan testet inte skilja lager 1 från 2 och 3.
+    Skälet asseras: annars kan testet inte skilja lager 1 från nyckellagren.
     """
     with pytest.raises(UppslagMisslyckades) as fel:
         fordonsuppslag.slag_upp("ABC123", hamta=hamtning(svar))
@@ -192,8 +244,8 @@ def test_mappningsobjekt_som_inte_ar_dict_slapps_igenom():
 
     En källa som returnerar en `MappingProxyType` eller en egen mappningsklass
     är ett fullgott svar, och ett `isinstance(svar, dict)` hade fällt den. Utan
-    det här testet vore skärpningen av lagren 2 och 3 omöjlig att skilja från
-    en förträngning till just `dict`.
+    det här testet vore skärpningen av nyckellagren omöjlig att skilja från en
+    förträngning till just `dict`.
     """
     svar = MappingProxyType(dict(HELT_SVAR))
 
@@ -205,10 +257,10 @@ def test_mappningsobjekt_som_inte_ar_dict_slapps_igenom():
 def test_lista_som_svar_ar_inte_ett_uppslag():
     """En källa som returnerar en lista med träffar i stället för en post.
 
-    ASSERTIONEN MOT `skal` ÄR INTE PYNT. En lista fälls av lager 1, 2 OCH 3,
-    eftersom `in` fungerar på varje container. Utan den här assertionen förblir
-    testet grönt när lager 1 fälls ensamt, och §7.1:s prövning pekar då ut ett
-    äkta spärrtest som vakuöst. Uppmätt av granskaren i skiva 12.
+    ASSERTIONEN MOT `skal` ÄR INTE PYNT. En lista fälls av samtliga formlager.
+    Utan den här assertionen förblir testet grönt när lager 1 fälls ensamt, och
+    §7.1:s prövning pekar då ut ett äkta spärrtest som vakuöst. Uppmätt av
+    granskaren i skiva 12.
     """
     with pytest.raises(UppslagMisslyckades) as fel:
         fordonsuppslag.slag_upp("ABC123", hamta=hamtning([HELT_SVAR]))
@@ -268,58 +320,161 @@ def test_manuell_hamtning_normaliserar_sina_egna_nycklar():
     assert fordonsuppslag.slag_upp("ABC123", hamta=hamta).slapvagnsvikt_kg == 1400
 
 
-# --- utvärderingen: fyra utfall ur två fält ----------------------------------
+# --- §42 andra stycket: två ALTERNATIVA lämplighetsvillkor -------------------
 
 
-def test_troskeln_vid_exakt_gransvardet_ar_inte_rott():
-    """GRÄNSVÄRDET, §4. `minst 1000` betyder att 1000 självt passerar. Ett `<=`
-    i stället för `<` hade fällt exakt det här fordonet och bara det."""
-    uppslag = Uppslag(slapvagnsvikt_kg=TROSKEL, draganordning=True)
+def test_tung_bil_med_lag_slapvagnsvikt_ar_inte_rott():
+    """DEFEKTEN SOM SKEPPADES I SKIVA 12, och som inte får återkomma tyst.
+
+    §42 andra stycket är ett ELLER: tjänstevikt minst 2 000 kg ELLER
+    släpvagnsvikt minst 1 000 kg. Skiva 12 prövade bara släpvagnsvikten, så ett
+    fordon med tjänstevikt 2 100 kg och släpvagnsvikt 800 kg fick RÖTT trots att
+    föreskriften säger att det ÄR lämpligt som dragfordon.
+
+    Med dragkrok är det GRÖNT, utan är det OKLART. Aldrig RÖTT.
+    """
+    tung = Uppslag(tjanstevikt_kg=2100, slapvagnsvikt_kg=800, draganordning=True)
+
+    assert fordonsuppslag.utvardera(tung) is Utfall.GRONT
+
+    utan_krok = Uppslag(
+        tjanstevikt_kg=2100, slapvagnsvikt_kg=800, draganordning=False
+    )
+
+    assert fordonsuppslag.utvardera(utan_krok) is Utfall.OKLART
+
+
+def test_rott_kraver_att_bada_lamplighetsvillkoren_faller():
+    """RÖTT är konjunktionen av två NEGATIONER. Faller bara det ena villkoret
+    är fordonet fortfarande lämpligt."""
+    bada_faller = Uppslag(
+        tjanstevikt_kg=TROSKEL_TJANST - 1,
+        slapvagnsvikt_kg=TROSKEL - 1,
+        draganordning=True,
+    )
+
+    assert fordonsuppslag.utvardera(bada_faller) is Utfall.ROTT
+
+
+@pytest.mark.parametrize(
+    "tjanstevikt, slapvagnsvikt",
+    [
+        (TROSKEL_TJANST, 0),
+        (TROSKEL_TJANST + 1, 0),
+        (0, TROSKEL),
+        (0, TROSKEL + 1),
+        (TROSKEL_TJANST, TROSKEL),
+    ],
+)
+def test_ett_uppfyllt_villkor_racker_for_lamplighet(tjanstevikt, slapvagnsvikt):
+    """Gränsvärdet i BÅDA villkoren, var för sig och tillsammans."""
+    uppslag = Uppslag(
+        tjanstevikt_kg=tjanstevikt,
+        slapvagnsvikt_kg=slapvagnsvikt,
+        draganordning=True,
+    )
+
+    assert fordonsuppslag.ar_lamplig_som_dragfordon(uppslag) is True
+
+
+@pytest.mark.parametrize(
+    "tjanstevikt, slapvagnsvikt",
+    [
+        (TROSKEL_TJANST - 1, TROSKEL - 1),
+        (0, 0),
+    ],
+)
+def test_bada_villkoren_under_gransen_ar_inte_lampligt(
+    tjanstevikt, slapvagnsvikt
+):
+    """Nollfallet och gränsvärdet, ett kilo under i båda."""
+    uppslag = Uppslag(
+        tjanstevikt_kg=tjanstevikt,
+        slapvagnsvikt_kg=slapvagnsvikt,
+        draganordning=True,
+    )
+
+    assert fordonsuppslag.ar_lamplig_som_dragfordon(uppslag) is False
+
+
+# --- utvärderingen: fyra utfall ur tre fält ----------------------------------
+
+
+def test_slapvagnsvikt_vid_exakt_gransvardet_ar_inte_rott():
+    """GRÄNSVÄRDET, §4. `minst 1000` betyder att 1000 självt passerar. Ett `<`
+    i stället för `>=` hade fällt exakt det här fordonet och bara det."""
+    uppslag = Uppslag(
+        tjanstevikt_kg=LATT, slapvagnsvikt_kg=TROSKEL, draganordning=True
+    )
 
     assert fordonsuppslag.utvardera(uppslag) is Utfall.GRONT
 
 
-def test_ett_kilo_under_troskeln_ar_rott():
-    uppslag = Uppslag(slapvagnsvikt_kg=TROSKEL - 1, draganordning=True)
+def test_tjanstevikt_vid_exakt_gransvardet_ar_inte_rott():
+    """GRÄNSVÄRDET för det ANDRA kriteriet, prövat genom `utvardera` och inte
+    bara genom hjälpfunktionen. Släpvagnsvikten ligger under sin tröskel, så
+    tjänstevikten är ensam avgörande."""
+    uppslag = Uppslag(
+        tjanstevikt_kg=TROSKEL_TJANST,
+        slapvagnsvikt_kg=TROSKEL - 1,
+        draganordning=True,
+    )
+
+    assert fordonsuppslag.utvardera(uppslag) is Utfall.GRONT
+
+
+def test_ett_kilo_under_bada_troskarna_ar_rott():
+    """Nedre sidan av BÅDA gränsvärdena. Det finns inget sätt att pröva
+    tjänsteviktströskeln nedåt utan att släpvagnsvillkoret också faller: så
+    länge ETT villkor håller är fordonet lämpligt. Därför är det här ENA testet
+    nedre gränsvärdet för båda, och `test_tjanstevikt_vid_exakt_gransvardet_ar_inte_rott`
+    är det som isolerar tjänstevikten uppåt."""
+    uppslag = Uppslag(
+        tjanstevikt_kg=TROSKEL_TJANST - 1,
+        slapvagnsvikt_kg=TROSKEL - 1,
+        draganordning=True,
+    )
 
     assert fordonsuppslag.utvardera(uppslag) is Utfall.ROTT
 
 
-def test_ett_kilo_over_troskeln_ar_inte_rott():
-    """Andra sidan av gränsvärdet, ett kilo bort och inte hundratals. Ett `>`
-    i stället för `<` hade fällt det här och lämnat gränsvärdestestet grönt."""
-    uppslag = Uppslag(slapvagnsvikt_kg=TROSKEL + 1, draganordning=True)
+def test_ett_kilo_over_slapvagnstroskeln_ar_inte_rott():
+    """Andra sidan av gränsvärdet, ett kilo bort och inte hundratals."""
+    uppslag = Uppslag(
+        tjanstevikt_kg=LATT, slapvagnsvikt_kg=TROSKEL + 1, draganordning=True
+    )
 
     assert fordonsuppslag.utvardera(uppslag) is Utfall.GRONT
 
 
-def test_vikt_noll_ar_rott():
+def test_bada_vikterna_noll_ar_rott():
     """Nollfallet för utvärderingen."""
-    uppslag = Uppslag(slapvagnsvikt_kg=0, draganordning=True)
+    uppslag = Uppslag(
+        tjanstevikt_kg=0, slapvagnsvikt_kg=0, draganordning=True
+    )
 
     assert fordonsuppslag.utvardera(uppslag) is Utfall.ROTT
 
 
 def test_rott_vager_tyngre_an_draganordning():
-    """Vikten prövas FÖRST, och det här testet vaktar ordningen mot en bil UTAN
-    dragkrok, alltså det fall där ett omkastat villkor hade gett OKLART i
-    stället för RÖTT. Fallet med dragkrok täcks av
-    `test_ett_kilo_under_troskeln_ar_rott`."""
-    uppslag = Uppslag(slapvagnsvikt_kg=TROSKEL - 1, draganordning=False)
+    """Lämpligheten prövas FÖRST, och det här testet vaktar ordningen mot en bil
+    UTAN dragkrok, alltså det fall där ett omkastat villkor hade gett OKLART i
+    stället för RÖTT."""
+    uppslag = Uppslag(
+        tjanstevikt_kg=TROSKEL_TJANST - 1,
+        slapvagnsvikt_kg=TROSKEL - 1,
+        draganordning=False,
+    )
 
     assert fordonsuppslag.utvardera(uppslag) is Utfall.ROTT
-
-
-def test_vikt_over_troskeln_med_dragkrok_ar_gront():
-    uppslag = Uppslag(slapvagnsvikt_kg=2100, draganordning=True)
-
-    assert fordonsuppslag.utvardera(uppslag) is Utfall.GRONT
 
 
 def test_utan_dragkrok_och_utan_besked_ar_oklart():
     """FÖRVALET ÄR DET FÖRSIKTIGA. Registret kan inte skilja en omonterad
     dragkrok från en monterad men oregistrerad, så svaret frågar."""
-    uppslag = Uppslag(slapvagnsvikt_kg=1400, draganordning=False)
+    uppslag = Uppslag(
+        tjanstevikt_kg=LATT, slapvagnsvikt_kg=1400, draganordning=False
+    )
 
     assert fordonsuppslag.utvardera(uppslag) is Utfall.OKLART
 
@@ -327,60 +482,78 @@ def test_utan_dragkrok_och_utan_besked_ar_oklart():
 def test_utan_dragkrok_med_bekraftat_besked_ar_gult():
     """GULT nås först när kunden bekräftat att dragkrok saknas. Utan den biten
     finns ingen information som skiljer GULT från OKLART."""
-    uppslag = Uppslag(slapvagnsvikt_kg=1400, draganordning=False)
+    uppslag = Uppslag(
+        tjanstevikt_kg=LATT, slapvagnsvikt_kg=1400, draganordning=False
+    )
 
-    utfall = fordonsuppslag.utvardera(uppslag, dragkrok_bekraftad_saknas=True)
-
-    assert utfall is Utfall.GULT
-
-
-def test_bekraftelsen_gor_inte_ett_rott_fordon_gult():
-    """Bekräftelsen får inte lyfta ett fordon över tröskeln. Vikten prövas
-    först, och det här testet vaktar ordningen."""
-    uppslag = Uppslag(slapvagnsvikt_kg=TROSKEL - 1, draganordning=False)
-
-    utfall = fordonsuppslag.utvardera(uppslag, dragkrok_bekraftad_saknas=True)
-
-    assert utfall is Utfall.ROTT
+    assert fordonsuppslag.utvardera(uppslag, besked=KUNDBESKED) is Utfall.GULT
 
 
-def test_bekraftelsen_paverkar_inte_ett_gront_fordon():
+def test_besked_om_att_dragkrok_FINNS_lamnar_fallet_oklart():
+    """`saknas=False` betyder att kunden säger att det SITTER en dragkrok som
+    registret inte känner till. Det är varken GULT, för inget ska monteras, eller
+    GRÖNT, för den är inte registrerad. Fallet är inte definierat av Lars, och
+    utfallet stannar därför på det försiktiga OKLART."""
+    uppslag = Uppslag(
+        tjanstevikt_kg=LATT, slapvagnsvikt_kg=1400, draganordning=False
+    )
+    finns = DragkrokBesked(saknas=False, kalla=BeskedKalla.KUNDSVAR)
+
+    assert fordonsuppslag.utvardera(uppslag, besked=finns) is Utfall.OKLART
+
+
+def test_beskedet_gor_inte_ett_rott_fordon_gult():
+    """Beskedet får inte lyfta ett fordon över lämplighetströskeln."""
+    uppslag = Uppslag(
+        tjanstevikt_kg=TROSKEL_TJANST - 1,
+        slapvagnsvikt_kg=TROSKEL - 1,
+        draganordning=False,
+    )
+
+    assert fordonsuppslag.utvardera(uppslag, besked=KUNDBESKED) is Utfall.ROTT
+
+
+def test_beskedet_paverkar_inte_ett_gront_fordon():
     """Sitter dragkroken registrerad är frågan redan besvarad."""
-    uppslag = Uppslag(slapvagnsvikt_kg=1400, draganordning=True)
+    uppslag = Uppslag(
+        tjanstevikt_kg=LATT, slapvagnsvikt_kg=1400, draganordning=True
+    )
 
-    utfall = fordonsuppslag.utvardera(uppslag, dragkrok_bekraftad_saknas=True)
-
-    assert utfall is Utfall.GRONT
+    assert fordonsuppslag.utvardera(uppslag, besked=KUNDBESKED) is Utfall.GRONT
 
 
 def test_oklart_och_gult_provas_ocksa_vid_exakta_gransvardet():
-    """Gränsvärdet ska gälla i ALLA grenar och inte bara i GRÖNT. Utan det här
-    testet var `TROSKEL` bara prövat på vägen mot GRÖNT."""
-    uppslag = Uppslag(slapvagnsvikt_kg=TROSKEL, draganordning=False)
+    """Gränsvärdet ska gälla i ALLA grenar och inte bara i GRÖNT."""
+    uppslag = Uppslag(
+        tjanstevikt_kg=LATT, slapvagnsvikt_kg=TROSKEL, draganordning=False
+    )
 
     assert fordonsuppslag.utvardera(uppslag) is Utfall.OKLART
-    assert fordonsuppslag.utvardera(
-        uppslag, dragkrok_bekraftad_saknas=True
-    ) is Utfall.GULT
+    assert fordonsuppslag.utvardera(uppslag, besked=KUNDBESKED) is Utfall.GULT
 
 
 # --- invarianten i typen, där __post_init__ körs -----------------------------
 
 
 @pytest.mark.parametrize(
-    "vikt, drag, skal",
+    "falt, varde, skal",
     [
-        ("gissning", True, "heltal"),
-        (None, True, "heltal"),
-        (1400.0, True, "heltal"),
-        (True, True, "heltal"),
-        (-1, True, "negativ"),
-        (1400, "kanske", "ja eller nej"),
-        (1400, None, "ja eller nej"),
-        (1400, 1, "ja eller nej"),
+        ("tjanstevikt_kg", "gissning", "tjanstevikt_kg är inte ett heltal"),
+        ("tjanstevikt_kg", None, "tjanstevikt_kg är inte ett heltal"),
+        ("tjanstevikt_kg", 1500.0, "tjanstevikt_kg är inte ett heltal"),
+        ("tjanstevikt_kg", True, "tjanstevikt_kg är inte ett heltal"),
+        ("tjanstevikt_kg", -1, "tjanstevikt_kg är negativ"),
+        ("slapvagnsvikt_kg", "gissning", "slapvagnsvikt_kg är inte ett heltal"),
+        ("slapvagnsvikt_kg", None, "slapvagnsvikt_kg är inte ett heltal"),
+        ("slapvagnsvikt_kg", 1400.0, "slapvagnsvikt_kg är inte ett heltal"),
+        ("slapvagnsvikt_kg", True, "slapvagnsvikt_kg är inte ett heltal"),
+        ("slapvagnsvikt_kg", -1, "slapvagnsvikt_kg är negativ"),
+        ("draganordning", "kanske", "draganordning är inte ja eller nej"),
+        ("draganordning", None, "draganordning är inte ja eller nej"),
+        ("draganordning", 1, "draganordning är inte ja eller nej"),
     ],
 )
-def test_uppslag_gar_inte_att_skapa_med_ogiltiga_varden(vikt, drag, skal):
+def test_uppslag_gar_inte_att_skapa_med_ogiltiga_varden(falt, varde, skal):
     """SPÄRRENS INVARIANT LIGGER I TYPEN och inte hos den som anropar rätt.
 
     Fyndet ur skiva 12:s granskning: `Uppslag` var en naken dataklass, så
@@ -392,21 +565,30 @@ def test_uppslag_gar_inte_att_skapa_med_ogiltiga_varden(vikt, drag, skal):
     subklass som skuggar den, och två av dem är konstruktion. Det ska inte läsas
     in i det här testet: luckan står utskriven i `docs/sparrar.md`.
 
-    SKÄLET ASSERAS PER PARAMETER, av samma skäl som i lagertesterna: utan det
-    kan ett lager fällas utan att någon parameter blir röd, eftersom ett annat
-    lager fångar samma värde.
+    SKÄLET ASSERAS PER PARAMETER, av samma skäl som i lagertesterna.
     """
-    with pytest.raises(UppslagMisslyckades) as fel:
-        Uppslag(slapvagnsvikt_kg=vikt, draganordning=drag)
+    argument = dict(
+        tjanstevikt_kg=LATT, slapvagnsvikt_kg=1400, draganordning=True
+    )
+    argument[falt] = varde
 
+    with pytest.raises(UppslagMisslyckades) as fel:
+        Uppslag(**argument)
+
+    # HELA skälet asseras, fältnamnet inkluderat. `_krav_pa_vikt` delas av de
+    # två vikterna, så utan fältnamnet kunde en parameter bli grön av att
+    # GRANNENS värde fällde först.
     assert skal in fel.value.skal
 
 
 def test_uppslag_med_giltiga_varden_gar_att_skapa_direkt():
     """Negativkontroll för invarianten. En vakt som fäller allt vore ett stopp
     och inte en spärr, och sviten själv bygger `Uppslag` direkt."""
-    uppslag = Uppslag(slapvagnsvikt_kg=0, draganordning=False)
+    uppslag = Uppslag(
+        tjanstevikt_kg=0, slapvagnsvikt_kg=0, draganordning=False
+    )
 
+    assert uppslag.tjanstevikt_kg == 0
     assert uppslag.slapvagnsvikt_kg == 0
     assert uppslag.draganordning is False
 
@@ -419,16 +601,98 @@ def test_typen_hindrar_ogiltiga_varden_men_inte_pahittade():
     Det som skyddar mot det är att fas 5 hämtar sina fakta via `slag_upp`, inte
     typen. Registrerat i `docs/sparrar.md`.
     """
-    pahittat = Uppslag(slapvagnsvikt_kg=1400, draganordning=True)
+    pahittat = Uppslag(
+        tjanstevikt_kg=LATT, slapvagnsvikt_kg=1400, draganordning=True
+    )
 
     assert fordonsuppslag.utvardera(pahittat) is Utfall.GRONT
 
 
-# --- tröskelns härkomst ------------------------------------------------------
+# --- spärren `dragkrokbesked-har-harkomst` -----------------------------------
 
 
-def test_troskeln_ar_tusen_kilo():
-    """Talet är VVFS 2003:19 4 kap 42 § punkt 2, uppslagen i skiva 12. Testet
-    finns för att en ändring ska kräva ett medvetet beslut: tröskeln avgör
-    vilka kunder som får ett rött svar och är därmed sändväg (§10)."""
+def test_besked_kraver_en_kalla():
+    """Spärrens kärna: beskedet går inte att sätta utan att namnge sin källa.
+
+    Före skiva 13 var det en naken `bool`, och en modell kunde sätta den utan
+    att någon kunde se varifrån den kom. Nu är argumentet obligatoriskt.
+    """
+    with pytest.raises(TypeError):
+        DragkrokBesked(saknas=True)
+
+
+@pytest.mark.parametrize("kalla", ["kundsvar", "modell", None, 1, True])
+def test_kallan_maste_vara_en_medlem_i_beskedkalla(kalla):
+    """En sträng som RÅKAR heta rätt duger inte, och `"modell"` finns inte alls
+    i uppräkningen. Det är det som gör källan granskningsbar i efterhand."""
+    with pytest.raises(UppslagMisslyckades) as fel:
+        DragkrokBesked(saknas=True, kalla=kalla)
+
+    assert "giltig källa" in fel.value.skal
+
+
+def test_beskedet_maste_vara_ja_eller_nej():
+    with pytest.raises(UppslagMisslyckades) as fel:
+        DragkrokBesked(saknas="kanske", kalla=BeskedKalla.KUNDSVAR)
+
+    assert "ja eller nej" in fel.value.skal
+
+
+@pytest.mark.parametrize("kalla", list(BeskedKalla))
+def test_bada_tillatna_kallorna_gar_igenom(kalla):
+    """NEGATIVKONTROLL för härkomstspärren. Båda de tillåtna källorna ska
+    fungera, annars är spärren ett stopp och inte en spärr."""
+    besked = DragkrokBesked(saknas=True, kalla=kalla)
+
+    assert besked.saknas is True
+    assert besked.kalla is kalla
+
+
+@pytest.mark.parametrize(
+    "falskt",
+    [
+        SimpleNamespace(saknas=True),
+        SimpleNamespace(saknas=True, kalla="modell"),
+        True,
+        {"saknas": True},
+    ],
+)
+def test_besked_av_fel_typ_avvisas(falskt):
+    """SPÄRREN MÅSTE BINDA VID ANROPSSTÄLLET, inte bara vid konstruktionen.
+
+    Fyndet ur skiva 13:s granskning: `utvardera` prövade bara `besked.saknas`,
+    alltså en ankuppslagning. Vilket objekt som helst med det attributet gav
+    GULT, alltså ett svar som namnger ett prispåslag, förbi hela härkomstkravet.
+    Att `DragkrokBesked` var svår att konstruera fel spelade ingen roll när
+    ingen krävde ett `DragkrokBesked`.
+    """
+    uppslag = Uppslag(
+        tjanstevikt_kg=LATT, slapvagnsvikt_kg=1400, draganordning=False
+    )
+
+    with pytest.raises(UppslagMisslyckades) as fel:
+        fordonsuppslag.utvardera(uppslag, besked=falskt)
+
+    assert "DragkrokBesked" in fel.value.skal
+
+
+def test_uppraekningen_bar_ingen_modellkalla():
+    """DEN AVGÖRANDE EGENSKAPEN, som ett test så att den inte tas bort tyst.
+
+    Spärren fungerar genom att uppräkningen är UTTÖMMANDE och saknar en medlem
+    för en modell eller en klassificerare. Läggs en sådan till upphör spärren att
+    betyda något, och det ska då kräva ett medvetet beslut (§10).
+    """
+    assert {k.value for k in BeskedKalla} == {"kundsvar", "utkastvy"}
+
+
+# --- tröskarnas härkomst -----------------------------------------------------
+
+
+def test_trosklarna_kommer_ur_forfattningen():
+    """Talen är VVFS 2003:19 4 kap 42 § andra stycket, uppslagen i skiva 12 och
+    citerad ordagrant i `docs/roadmap.md`. Testet finns för att en ändring ska
+    kräva ett medvetet beslut: trösklarna avgör vilka kunder som får ett rött
+    svar och är därmed sändväg (§10)."""
+    assert fordonsuppslag.TROSKEL_TJANSTEVIKT_KG == 2000
     assert fordonsuppslag.TROSKEL_SLAPVAGNSVIKT_KG == 1000

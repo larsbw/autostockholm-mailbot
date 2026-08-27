@@ -1,28 +1,27 @@
 """Slår upp de fordonsfakta som gatar en a-traktorombyggnad, och utvärderar dem.
 
-TVÅ FÄLT GATAR OMBYGGNADEN: **släpvagnsvikt** och **draganordning**. Beslut av
-Lars i skiva 12, se `docs/beslutslogg.md` #24. Tjänstevikt, drivning,
-karosserikod och barlastflak ingår INTE i bedömningen. Allt annat uppslaget
-skulle kunna visa är merförsäljning, inte gating.
+TRE FÄLT GATAR OMBYGGNADEN: **tjänstevikt**, **släpvagnsvikt** och
+**draganordning**. Beslut av Lars i skiva 13, se `docs/beslutslogg.md` #25.
+Drivning, karosserikod och barlastflak ingår INTE i bedömningen. Allt annat
+uppslaget skulle kunna visa är merförsäljning, inte gating.
 
-TRÖSKELN 1000 KG ÄR ETT FÖRFATTNINGSKRAV. VVFS 2003:19 4 kap 42 § punkt 2:
-"ursprungsfordonet är konstruerat för en släpvagnsvikt av minst 1 000 kg".
-Föreskriften är uppslagen i skiva 12 och citeras i `docs/roadmap.md` fas 4.5.
-Modulen kallade talet för verkstadens praxis fram till dess, vilket var falskt.
+GATINGEN FÖLJER VVFS 2003:19 4 kap 42 §, som citeras ORDAGRANT i
+`docs/roadmap.md` fas 4.5. Andra stycket ger två ALTERNATIVA kriterier för
+lämplighet som dragfordon, förenade med **eller**: tjänstevikt minst 2 000 kg
+eller släpvagnsvikt minst 1 000 kg. Ovanpå det kräver första stycket
+kopplingsanordning.
 
-**ÖPPEN PUNKT, BLOCKERANDE: §42 HAR TVÅ KRITERIER OCH DEN HÄR KODEN PRÖVAR ETT.**
-Villkoren är förenade med *eller*: ett fordon är lämpligt som dragfordon om
-tjänstevikten är minst 2 000 kg ELLER om släpvagnsvikten är minst 1 000 kg.
-`utvardera` prövar bara det senare, så **ett fordon med tjänstevikt 2 100 kg och
-släpvagnsvikt 800 kg får RÖTT trots att föreskriften säger att det duger.**
+**RÖTT KRÄVER ATT BÅDA LÄMPLIGHETSVILLKOREN FALLER.** Ett fordon med tjänstevikt
+2 100 kg och släpvagnsvikt 800 kg är GRÖNT eller GULT beroende på draganordning,
+aldrig RÖTT. Skiva 12 prövade bara släpvagnsvikten och skeppade den defekten;
+`test_tung_bil_med_lag_slapvagnsvikt_ar_inte_rott` finns för att den inte ska
+kunna återkomma tyst.
 
-Att rätta det kräver tjänstevikt som ett tredje fält, alltså just det fält som
-ströks ur bedömningen på premissen att §42 var tyst. Vilka fält som gatar är Lars
-beslut, se `docs/beslutslogg.md` #24, och ingen mall får skrivas innan punkten är
-avgjord.
+Tjänstevikt ströks ur bedömningen i skiva 12 på premissen att §42 saknar tal.
+Premissen kom ur briefen och motbevisades av föreskriftens text.
 
 REGELUTVÄRDERINGEN ÄR DETERMINISTISK KOD, INTE EN MODELL. `utvardera` är boolesk
-logik på två fält. Ingen modell avgör om ett fordon kan byggas om; modellen får
+logik på tre fält. Ingen modell avgör om ett fordon kan byggas om; modellen får
 formulera svaret, aldrig fatta beslutet.
 
 HÄMTNINGEN LIGGER BAKOM GRÄNSSNITTET som en utbytbar implementation. `slag_upp`
@@ -30,11 +29,18 @@ tar en `hamta`-funktion, och `manuell_hamtning` är den som finns nu. Datakälla
 är inte avgjord (beslutslogg #23), så ett byte ska vara ett byte av EN funktion
 och inte en omskrivning av modulen.
 
-Spärren `fordonsfakta-ur-uppslag` ligger i TVÅ funktioner: `_kontrollera` prövar
-svarets FORM, `Uppslag.__post_init__` prövar VÄRDENA. Den som ska fälla den
-enligt §7.1 måste fälla i båda; en prövning som bara rör `_kontrollera` når tre
-av sex lager och ger ett inkonklusivt verdikt som ser konklusivt ut. Registrerad
-i `docs/sparrar.md`.
+Spärren `fordonsfakta-ur-uppslag` är utspridd över FYRA funktioner: `_kontrollera`
+prövar svarets form, `_krav_pa_vikt` prövar de två vikterna,
+`Uppslag.__post_init__` prövar draganordningen och anropar viktkravet, och
+`slag_upp` stoppar ett saknat registreringsnummer. Den som ska fälla den enligt
+§7.1 måste fälla i alla fyra; en prövning som bara rör `_kontrollera` når inte
+värdelagren och ger ett inkonklusivt verdikt som ser konklusivt ut.
+
+Spärren `dragkrokbesked-har-harkomst` ligger i `DragkrokBesked`, i `BeskedKalla`
+och i `utvardera`. **Typkontrollen i `utvardera` är dess viktigaste lager**: utan
+den räcker vilket objekt som helst med ett `.saknas`-attribut.
+
+Båda är registrerade i `docs/sparrar.md`, med villkoren som text.
 """
 
 from __future__ import annotations
@@ -44,9 +50,11 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Callable
 
-# VVFS 2003:19 4 kap 42 § punkt 2, uppslagen i skiva 12. Se modulens huvud.
-# Ändras det här talet ändras vilka kunder som får ett rött svar, så det är
-# sändväg och inte en konstant bland andra.
+# VVFS 2003:19 4 kap 42 § andra stycket, uppslagen i skiva 12 och citerad
+# ordagrant i `docs/roadmap.md` fas 4.5. De två talen är ALTERNATIVA kriterier,
+# förenade med ELLER. Ändras något av dem ändras vilka kunder som får ett rött
+# svar, så de är sändväg och inte konstanter bland andra.
+TROSKEL_TJANSTEVIKT_KG = 2000
 TROSKEL_SLAPVAGNSVIKT_KG = 1000
 
 
@@ -63,6 +71,23 @@ class UppslagMisslyckades(Exception):
         self.skal = skal
 
 
+def _krav_pa_vikt(varde: object, falt: str) -> None:
+    """Kastar om `varde` inte är en avläsbar vikt i hela kilo.
+
+    Delas av `tjanstevikt_kg` och `slapvagnsvikt_kg`. **En fällning av en rad
+    här fäller alltså BÅDA fälten samtidigt**, och det är avsiktligt: kravet är
+    identiskt och två kopior hade drivit isär. Skälet bär fältnamnet, så ett
+    test kan skilja fälten åt trots delad implementation.
+    """
+    # `bool` är en subklass till `int` i Python, så True hade annars passerat
+    # som vikten 1 och gett ett utfall på ett fordon vi inte vet något om.
+    if isinstance(varde, bool) or not isinstance(varde, int):
+        raise UppslagMisslyckades(f"{falt} är inte ett heltal")
+
+    if varde < 0:
+        raise UppslagMisslyckades(f"{falt} är negativ")
+
+
 @dataclass(frozen=True)
 class Uppslag:
     """Ett LYCKAT uppslag, och därmed den enda källan till fordonsfakta i ett svar.
@@ -75,9 +100,9 @@ class Uppslag:
 
     **VAD TYPEN INTE SKYDDAR MOT, och det ska stå här. Två saker.**
 
-    För det första hindrar den ogiltiga VÄRDEN, inte påhittade. `Uppslag(1400,
-    True)` går att skriva utan att någon källa har svarat, och blir då ett fullt
-    trovärdigt GRÖNT.
+    För det första hindrar den ogiltiga VÄRDEN, inte påhittade.
+    `Uppslag(1500, 1400, True)` går att skriva utan att någon källa har svarat,
+    och blir då ett fullt trovärdigt GRÖNT.
 
     För det andra gäller invarianten bara där `__post_init__` faktiskt körs.
     `object.__setattr__` går förbi `frozen` på en färdig instans, och
@@ -95,6 +120,7 @@ class Uppslag:
     fantasi. Luckorna är registrerade i `docs/sparrar.md` under samma namn.
     """
 
+    tjanstevikt_kg: int
     slapvagnsvikt_kg: int
     draganordning: bool
 
@@ -103,16 +129,10 @@ class Uppslag:
         # bryts över flera rader går inte att neutralisera enligt §7.1 utan att
         # filen blir syntaktiskt trasig, och då ger prövningen FEL i stället för
         # RÖD.
-        vikt = self.slapvagnsvikt_kg
         drag = self.draganordning
 
-        # `bool` är en subklass till `int` i Python, så True hade annars passerat
-        # som vikten 1 och gett RÖTT på ett fordon vi inte vet något om.
-        if isinstance(vikt, bool) or not isinstance(vikt, int):
-            raise UppslagMisslyckades("slapvagnsvikt_kg är inte ett heltal")
-
-        if vikt < 0:
-            raise UppslagMisslyckades("slapvagnsvikt_kg är negativ")
+        _krav_pa_vikt(self.tjanstevikt_kg, "tjanstevikt_kg")
+        _krav_pa_vikt(self.slapvagnsvikt_kg, "slapvagnsvikt_kg")
 
         if not isinstance(drag, bool):
             raise UppslagMisslyckades("draganordning är inte ja eller nej")
@@ -129,6 +149,58 @@ class Utfall(str, Enum):
     GULT = "gult"
     OKLART = "oklart"
     ROTT = "rott"
+
+
+class BeskedKalla(str, Enum):
+    """De ENDA tillåtna källorna till ett dragkroksbesked. Beslut av Lars, skiva 13.
+
+    Uppräkningen är uttömmande, och det är hela poängen: **det finns ingen medlem
+    för en modell eller för klassificeraren.** Den som vill sätta beskedet måste
+    välja en av de två nedan, och båda förutsätter att en människa har sagt eller
+    skrivit något.
+    """
+
+    #: Kunden har uttryckligen svarat på frågan i sitt mail.
+    KUNDSVAR = "kundsvar"
+    #: Lars eller Matte har matat in det för hand i utkastvyn, fas 5.5.
+    UTKASTVY = "utkastvy"
+
+
+@dataclass(frozen=True)
+class DragkrokBesked:
+    """Ett besked om dragkrok, MED sin härkomst.
+
+    Finns därför att `utvardera` tidigare tog en naken `bool`. En sådan flyttar
+    kunden från OKLART, alltså en fråga, till GULT, alltså ett svar som namnger
+    ett prispåslag, och den kunde sättas av vem som helst utan att någon kunde se
+    varifrån den kom.
+
+    **VAD TYPEN GÖR:** en NORMAL konstruktion kan inte sätta beskedet utan att
+    samtidigt namnge en källa ur `BeskedKalla`, och den källan går att logga och
+    granska i efterhand.
+
+    **VAD DEN INTE GÖR.** Ordet "omöjligt" står medvetet inte här. Flera vägar
+    kommer förbi `__post_init__` och ger ett objekt som `utvardera` accepterar,
+    bland dem en subklass som skuggar vakten, `object.__setattr__` på en färdig
+    instans, `copy.deepcopy` och en `Mock` med `spec`. Den kan inte heller hindra
+    en anropare som medvetet anger en tillåten men osann källa. **Listan är inte
+    uttömmande**, och den står i `docs/sparrar.md` med en rad per väg.
+
+    Skillnaden mot den nakna `bool` som fanns förut är att felet kräver avsikt i
+    stället för slarv. Varje väg är namngiven i `docs/sparrar.md` under
+    `dragkrokbesked-har-harkomst`, och de hårdnas inte mot: boten möter ingen
+    fientlig indata.
+    """
+
+    saknas: bool
+    kalla: BeskedKalla
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.saknas, bool):
+            raise UppslagMisslyckades("beskedet är inte ja eller nej")
+
+        if not isinstance(self.kalla, BeskedKalla):
+            raise UppslagMisslyckades("beskedet saknar en giltig källa")
 
 
 def normalisera_regnr(regnr: str | None) -> str:
@@ -159,8 +231,8 @@ def _bar_nyckel(svar: object, nyckel: str) -> bool:
     """Sant bara för ett MAPPNINGSOBJEKT som bär nyckeln.
 
     Finns för att `nyckel in svar` ensamt är sant för varje container som råkar
-    innehålla strängen. En rå JSON-sträng bär båda nyckelnamnen som delsträngar
-    och hade passerat lagren 2 och 3 utan den här kontrollen.
+    innehålla strängen. En rå JSON-sträng bär alla nyckelnamnen som delsträngar
+    och hade passerat nyckellagren utan den här kontrollen.
     """
     return isinstance(svar, Mapping) and nyckel in svar
 
@@ -173,29 +245,32 @@ def _kontrollera(svar: object) -> Uppslag:
     anropet faller till utkast.
 
     OKÄNDA NYCKLAR TOLERERAS med avsikt. Varje verklig datakälla levererar fler
-    fält än de två som gatar, och en strikthet mot dem hade fällt varje riktig
-    källa vid första bytet. Det spärren vaktar är att de två fält som ANVÄNDS
+    fält än de TRE som gatar, och en strikthet mot dem hade fällt varje riktig
+    källa vid första bytet. Det spärren vaktar är att de tre fält som ANVÄNDS
     finns och är rimliga, inte att svaret är precis så stort som vi väntade oss.
 
     ARBETSDELNINGEN MOT `Uppslag.__post_init__`: här prövas svarets FORM, alltså
-    att det är ett mappningsobjekt och att båda nycklarna finns. VÄRDENA prövas
-    av typen själv. Delningen finns för att invarianten ska gälla också en direkt
-    konstruktion som aldrig passerar den här funktionen.
+    att det är ett mappningsobjekt och att alla tre nycklarna finns. VÄRDENA
+    prövas av typen själv. Delningen finns för att invarianten ska gälla också en
+    direkt konstruktion som aldrig passerar den här funktionen.
 
-    **LAGREN 2 OCH 3 PRÖVAR MAPPNINGSOBJEKT, INTE `in`.** Ett naket `in` fungerar
-    på varje container, och en RÅ JSON-STRÄNG bär båda nyckelnamnen som
-    delsträngar. Med `in` ensamt hade lagren 2 och 3 alltså släppt igenom
-    `'{"slapvagnsvikt_kg": 1400, ...}'`, vilket är precis vad en hämtning som
+    **NYCKELLAGREN PRÖVAR MAPPNINGSOBJEKT, INTE `in`.** Ett naket `in` fungerar
+    på varje container, och en RÅ JSON-STRÄNG bär alla nyckelnamnen som
+    delsträngar. Med `in` ensamt hade nyckellagren alltså släppt igenom
+    `'{"tjanstevikt_kg": 1500, ...}'`, vilket är precis vad en hämtning som
     glömt parsa svaret returnerar. Det är inte ett hypotetiskt fall: det är
     normalfelet vid det första bytet av `hamta`.
 
-    Följden är att lagren 1, 2 och 3 nu fäller SAMMA sak, alltså är helt
-    redundanta. Det gör dem inte överflödiga, men det gör att ett lagertest
+    Följden är att Mapping-lagret och nyckellagren fäller SAMMA sak, alltså är
+    helt redundanta. Det gör dem inte överflödiga, men det gör att ett lagertest
     måste assera SKÄLET för att gå att fälla för sig. Registrerat i
     `docs/sparrar.md`.
     """
     if not isinstance(svar, Mapping):
         raise UppslagMisslyckades("hämtningen gav inget svar")
+
+    if not _bar_nyckel(svar, "tjanstevikt_kg"):
+        raise UppslagMisslyckades("svaret saknar tjanstevikt_kg")
 
     if not _bar_nyckel(svar, "slapvagnsvikt_kg"):
         raise UppslagMisslyckades("svaret saknar slapvagnsvikt_kg")
@@ -204,6 +279,7 @@ def _kontrollera(svar: object) -> Uppslag:
         raise UppslagMisslyckades("svaret saknar draganordning")
 
     return Uppslag(
+        tjanstevikt_kg=svar["tjanstevikt_kg"],
         slapvagnsvikt_kg=svar["slapvagnsvikt_kg"],
         draganordning=svar["draganordning"],
     )
@@ -239,17 +315,57 @@ def slag_upp(
     return _kontrollera(hamta(normalt))
 
 
+def ar_lamplig_som_dragfordon(uppslag: Uppslag) -> bool:
+    """VVFS 2003:19 4 kap 42 § andra stycket, som boolesk logik.
+
+    Paragrafen citeras ordagrant i `docs/roadmap.md` fas 4.5. Villkoren är
+    **ALTERNATIVA och förenade med ELLER**: tjänstevikt minst 2 000 kg ELLER
+    släpvagnsvikt minst 1 000 kg.
+
+    **DET RÄCKER ATT ETT AV DEM UPPFYLLS.** Ett fordon med tjänstevikt 2 100 kg
+    och släpvagnsvikt 800 kg ÄR lämpligt som dragfordon. Skiva 12 prövade bara
+    släpvagnsvikten och gav ett sådant fordon RÖTT, vilket är den defekt som
+    skeppades och som `test_tung_bil_med_lag_slapvagnsvikt_ar_inte_rott` finns
+    för att hindra från att återkomma tyst.
+
+    Villkoren står på var sin rad så att vart och ett går att fälla för sig
+    enligt §7.1. Ett `or` på en rad hade gjort dem oskiljbara.
+
+    **BLOCKERANDE ÖPPEN PUNKT: paragrafen byter subjekt mellan punkterna, koden
+    gör det inte.** Punkt 1 säger "tjänstevikten" efter inledningen "A-traktor är
+    lämplig som dragfordon om", alltså rimligen A-traktorns vikt EFTER
+    ombyggnaden. Punkt 2 byter uttryckligen till "ursprungsfordonet". Här prövas
+    båda mot `uppslag.tjanstevikt_kg`, som kommer ur registret på kundens
+    nuvarande bil.
+
+    Antagandet att vikterna är samma är agentens och inte belagt. **Punkten
+    avgörs av besked från en besiktningsman**, inte av ordalydelsen, och fas 4.5
+    får inte lämnas innan dess. Se `docs/roadmap.md` fas 4.5 och
+    `docs/beslutslogg.md` #25.
+    """
+    if uppslag.tjanstevikt_kg >= TROSKEL_TJANSTEVIKT_KG:
+        return True
+
+    if uppslag.slapvagnsvikt_kg >= TROSKEL_SLAPVAGNSVIKT_KG:
+        return True
+
+    return False
+
+
 def utvardera(
     uppslag: Uppslag,
     *,
-    dragkrok_bekraftad_saknas: bool = False,
+    besked: DragkrokBesked | None = None,
 ) -> Utfall:
-    """Fyra utfall ur två fält. Boolesk logik, ingen modell.
+    """Fyra utfall ur tre fält. Boolesk logik, ingen modell.
 
-    `dragkrok_bekraftad_saknas` bär det enda som registret inte kan veta: om
-    kunden bekräftat att det inte sitter någon dragkrok på bilen. Utan den
-    bekräftelsen är fallet OKLART och svaret frågar, eftersom en omonterad
-    dragkrok och en monterad men oregistrerad ser likadana ut i registret.
+    GATINGEN ÄR TVÅ SAKER: lämplighet som dragfordon enligt §42 andra stycket,
+    och draganordning. **RÖTT kräver att BÅDA lämplighetsvillkoren faller**, inte
+    bara släpvagnsvikten.
+
+    `besked` bär det enda som registret inte kan veta: om kunden bekräftat att
+    det inte sitter någon dragkrok på bilen. En omonterad dragkrok och en
+    monterad men oregistrerad ser likadana ut i registret.
 
     FÖRVALET ÄR DET FÖRSIKTIGA. Utan besked blir utfallet OKLART, alltså en
     fråga till kunden, aldrig ett påstående om att dragkrok saknas.
@@ -259,19 +375,30 @@ def utvardera(
     skillnaden är ett besked från kunden föreslogs av agenten och antogs som
     beslut. Se `docs/beslutslogg.md` #24. Förvalet OKLART står fast.
 
-    **BITEN BÄR INGEN HÄRKOMST, till skillnad från fordonsfakta.** Vikten och
-    draganordningen måste passera spärren `fordonsfakta-ur-uppslag`; det här är
-    en naken `bool` som vilken anropare som helst kan sätta, inklusive en modell.
-    En felaktigt satt `True` flyttar kunden från "vi frågar" till "vi offererar".
-    Luckan är registrerad i `docs/sparrar.md`.
+    **BESKEDET BÄR SIN HÄRKOMST sedan skiva 13.** Det är inte längre en naken
+    `bool` som vilken anropare som helst kan sätta, utan en `DragkrokBesked` som
+    måste namnge sin källa, och källorna är uttömmande uppräknade i
+    `BeskedKalla`.
+
+    **TYPKONTROLLEN HÄR ÄR EN DEL AV SPÄRREN och inte en formalitet.** Utan den
+    räckte det att skicka vilket objekt som helst med ett `.saknas`-attribut för
+    att få GULT, alltså ett svar som namnger ett prispåslag, förbi hela
+    härkomstkravet. Det var ett fynd i skiva 13:s granskning, och
+    `test_besked_av_fel_typ_avvisas` vaktar det.
+
+    Vad spärren gör och inte gör står i `docs/sparrar.md` under
+    `dragkrokbesked-har-harkomst`.
     """
-    if uppslag.slapvagnsvikt_kg < TROSKEL_SLAPVAGNSVIKT_KG:
+    if besked is not None and not isinstance(besked, DragkrokBesked):
+        raise UppslagMisslyckades("beskedet är inte ett DragkrokBesked")
+
+    if not ar_lamplig_som_dragfordon(uppslag):
         return Utfall.ROTT
 
     if uppslag.draganordning:
         return Utfall.GRONT
 
-    if dragkrok_bekraftad_saknas:
+    if besked is not None and besked.saknas:
         return Utfall.GULT
 
     return Utfall.OKLART

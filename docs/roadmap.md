@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.4.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §10
+**Version:** 0.5.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -101,22 +101,40 @@ Kraven nedan är boolesk logik på uppslagets fält. **En modell avgör aldrig o
 fordon uppfyller en föreskrift.** Modellen får formulera svaret; den får inte
 fatta beslutet om vad som gäller.
 
-#### TVÅ FÄLT GATAR OMBYGGNADEN
+#### EN FÖRESKRIFT CITERAS ORDAGRANT, ALDRIG SAMMANFATTAD
 
-Beslut av Lars i skiva 12, se `docs/beslutslogg.md` #24. Kravbilden är snävad
-till **släpvagnsvikt** och **draganordning**. Inget annat gatar.
+Regeln är beslutad av Lars i skiva 13 och gäller varje författningstext den här
+fasen och mallarna i fas 5 vilar på.
 
-**Tjänstevikt, drivning, karosserikod och barlastflak utgår ur bedömningen.**
-De stod i fasen till och med skiva 11 och gör det inte längre. Vad uppslaget i
-övrigt kan visa är merförsäljning, inte gating, och får inte smyga tillbaka in
-som ett villkor.
+Skälet är mätt och står i `docs/incidentlogg.md` I6. **§39 formulerades om ur
+minnet i två skivor i rad**, och **§42 sammanfattades ur en brief utan att någon
+hade läst paragrafen.** Sammanfattningen tappade ett helt kriterium och
+skeppade en sändvägsdefekt: boten sade nej till fordon som föreskriften godkänner.
+
+En sammanfattning ser ut som ett faktum men bär ingen kontrollerbar källa. Ett
+citat gör skillnaden mellan "så här minns vi det" och "så här står det" synlig
+för nästa läsare.
+
+#### TRE FÄLT GATAR OMBYGGNADEN
+
+Beslut av Lars i skiva 13, se `docs/beslutslogg.md` #25. Kravbilden är
+**tjänstevikt**, **släpvagnsvikt** och **draganordning**.
+
+**Drivning, karosserikod och barlastflak ingår inte i bedömningen.** Vad
+uppslaget i övrigt kan visa är merförsäljning, inte gating, och får inte smyga
+tillbaka in som ett villkor.
 
 | Fält | Vad det avgör |
 | --- | --- |
-| Släpvagnsvikt | Under tröskeln är ombyggnaden inte aktuell. |
-| Draganordning | Registrerad dragkrok, ja eller nej. |
+| Tjänstevikt | Ett av två ALTERNATIVA lämplighetskriterier i §42 andra stycket. |
+| Släpvagnsvikt | Det andra av dem. |
+| Draganordning | Registrerad dragkrok, ja eller nej. Kravet i §42 första stycket. |
 
-#### TRÖSKELN 1000 KG ÄR ETT FÖRFATTNINGSKRAV
+**Tjänstevikt ströks ur bedömningen i skiva 12 och är tillbaka.** Strykningen
+gjordes på premissen att §42 saknar tal. Premissen kom ur briefen till den skivan
+och motbevisades av föreskriftens text.
+
+#### TRÖSKLARNA ÄR FÖRFATTNINGSKRAV
 
 **§42 ÄR UPPSLAGEN.** Föreskriften är hämtad från Trafikverket,
 `webapp.trafikverket.se/TRVFS/pdf/2003nr019.pdf`, och 4 kap 42 § lyder ordagrant,
@@ -129,38 +147,67 @@ tryckt sida 16:
 > 1. tjänstevikten är 2 000 kg eller högre eller
 > 2. ursprungsfordonet är konstruerat för en släpvagnsvikt av minst 1 000 kg.
 
-**Talet 1000 står alltså i föreskriften.** Fasen kallade det till och med skiva
-12 för Auto Stockholms praxis, på grundval av att §42 skulle sakna tal. Det
-påståendet var falskt, och praxisramen är struken. `TROSKEL_SLAPVAGNSVIKT_KG` i
-`src/fordonsuppslag.py` implementerar §42 punkt 2.
+**Båda talen står alltså i föreskriften**, och de är **ALTERNATIVA kriterier
+förenade med ELLER**. `src/fordonsuppslag.py` implementerar dem som
+`TROSKEL_TJANSTEVIKT_KG` och `TROSKEL_SLAPVAGNSVIKT_KG`, prövade i
+`ar_lamplig_som_dragfordon`.
 
-Mallarna i fas 5 får därför gärna återge 1000 som ett författningskrav, eftersom
-det är ett. Det som INTE får skrivas är att talet är verkstadens praxis.
+Fasen kallade till och med skiva 12 släpvagnsvikten för Auto Stockholms praxis,
+på grundval av att §42 skulle sakna tal. Det påståendet var falskt, och
+praxisramen är struken.
 
-#### ÖPPEN PUNKT, BLOCKERANDE: §42 HAR TVÅ KRITERIER, KODEN IMPLEMENTERAR ETT
+Mallarna i fas 5 får därför gärna återge talen som författningskrav, eftersom de
+är det. Det som INTE får skrivas är att de är verkstadens praxis.
 
-Villkoren i §42 är förenade med **eller**. Ett fordon är lämpligt som dragfordon
-om tjänstevikten är minst 2 000 kg, ELLER om ursprungsfordonet är konstruerat för
-en släpvagnsvikt av minst 1 000 kg.
+#### BLOCKERANDE ÖPPEN PUNKT: VEMS TJÄNSTEVIKT AVSER PUNKT 1?
 
-`utvardera` prövar bara punkt 2. **Ett fordon med tjänstevikt 2 100 kg och
-släpvagnsvikt 800 kg får därför RÖTT, medan föreskriften säger att det ÄR lämpligt
-som dragfordon.** Det är en sändvägsdefekt: boten skulle säga nej till en kund
-vars bil uppfyller kravet.
+**Paragrafen byter subjekt mellan sina två punkter, och koden gör det inte.**
 
-Att rätta det kräver **tjänstevikt som ett tredje fält**, alltså just det fält
-skiva 12 strök ur bedömningen. Strykningen gjordes på premissen att §42 var tyst,
-och den premissen höll inte.
+Inledningen lyder "A-traktor är lämplig som dragfordon om", och punkt 1 säger
+"tjänstevikten" utan att namnge något annat fordon. Punkt 2 byter uttryckligen
+till "ursprungsfordonet". En rimlig läsning är alltså att punkt 1 avser
+**A-traktorns** tjänstevikt, alltså vikten EFTER ombyggnaden, medan punkt 2 avser
+ursprungsbilens konstruktion.
 
-**Ingen kod ändras här av agenten.** Vilka fält som gatar är Lars beslut, se
-`docs/beslutslogg.md` #24, och beslutet fattades på ett underlag som nu är
-motbevisat. **Fasen får inte lämnas och ingen mall får skrivas innan punkten är
-avgjord.**
+`utvardera` prövar båda mot `uppslag.tjanstevikt_kg`, som kommer ur ett
+registeruppslag på kundens nuvarande bil, alltså ursprungsfordonet.
+**Antagandet är att de två vikterna är samma, och det antagandet är agentens och
+inte belagt.**
+
+**Att paragrafen byter ord mellan två intilliggande punkter talar för att punkt 1
+avser vikten efter ombyggnaden.** Ett lagstiftningstekniskt slarv är möjligt, men
+det är inte den läsning man ska förutsätta.
+
+Riktningen på ett eventuellt fel är densamma som skiva 12:s defekt: en
+ursprungsvikt under 2 000 kg, där den färdiga A-traktorn hamnar över, ger RÖTT
+där föreskriften kan säga ja.
+
+**PUNKTEN ÄR BLOCKERANDE FÖR FAS 4.5.** Beslut av Lars i skiva 13. Fasen får inte
+lämnas och ingen mall får skrivas innan den är avgjord.
+
+**DEN AVGÖRS AV BESKED FRÅN EN BESIKTNINGSMAN, INTE AV OSS.** Frågan är hur §42
+tillämpas i praktiken vid en registreringsbesiktning, och det är inte något som
+går att läsa sig till ur paragrafens ordalydelse eller avgöra genom att resonera
+i det här dokumentet. Ingen kod ändras på antagandet under tiden.
+
+#### RÖTT KRÄVER ATT BÅDA LÄMPLIGHETSVILLKOREN FALLER
+
+Villkoren är förenade med **eller**, så det räcker att ETT av dem uppfylls.
+
+**Ett fordon med tjänstevikt 2 100 kg och släpvagnsvikt 800 kg är GRÖNT eller
+GULT beroende på draganordning, aldrig RÖTT.** Skiva 12 prövade bara
+släpvagnsvikten och gav ett sådant fordon RÖTT, alltså ett nej till en kund vars
+bil uppfyller kravet. Defekten skeppades och är rättad i skiva 13.
+
+`tests/test_fordonsuppslag.py::test_tung_bil_med_lag_slapvagnsvikt_ar_inte_rott`
+finns för att den inte ska kunna återkomma tyst. Testet blir rött om
+tjänsteviktsvillkoret fälls.
 
 #### §39 om barlastflak, för fullständighetens skull
 
-Barlastflak ingår inte i bedömningen, men §39 citeras här eftersom skiva 11 och
-12 båda formulerade om den ur minnet. Ordagrant, tryckt sida 15:
+Barlastflak ingår inte i bedömningen, men §39 citeras här enligt regeln överst:
+en föreskrift citeras ordagrant. Skiva 11 och 12 formulerade båda om den ur
+minnet. Ordagrant, tryckt sida 15:
 
 > **39 §** Om A-traktorn har en tjänstevikt av högst 2 000 kg, och mindre än 60 %
 > av tjänstevikten vilar på drivhjulen, skall den vara försedd med barlastflak
@@ -175,24 +222,37 @@ påhängsvagn och 40-procentsgränsen, har aldrig stått i repot förrän nu.
 
 #### Fyra utfall
 
-Utvärderingen är boolesk logik på de två fälten, i
+Utvärderingen är boolesk logik på de tre fälten, i
 `src/fordonsuppslag.py::utvardera`. Varje utfall får en mall i fas 5.
+
+**LÄMPLIG** nedan betyder §42 andra stycket: tjänstevikt minst 2 000 kg ELLER
+släpvagnsvikt minst 1 000 kg.
 
 | Utfall | Villkor | Vad svaret gör |
 | --- | --- | --- |
-| **GRÖNT** | Släpvagnsvikt minst 1000 OCH draganordning ja | Redovisar vad som slagits upp, och att det slutgiltiga avgörs vid registreringsbesiktningen. |
-| **GULT** | Släpvagnsvikt minst 1000, draganordning nej, och kunden har bekräftat att dragkrok saknas | Dragkrok monteras. Svaret NAMNGER prispåslaget. |
-| **OKLART** | Släpvagnsvikt minst 1000, draganordning nej, inget besked från kunden | Som gult, men FRÅGAR om det ändå sitter en dragkrok som inte är registrerad. |
-| **RÖTT** | Släpvagnsvikt under 1000 | Svaret NAMNGER hindret. |
+| **GRÖNT** | LÄMPLIG OCH draganordning ja | Redovisar vad som slagits upp, och att det slutgiltiga avgörs vid registreringsbesiktningen. |
+| **GULT** | LÄMPLIG, draganordning nej, och kunden har bekräftat att dragkrok saknas | Dragkrok monteras. Svaret NAMNGER prispåslaget. |
+| **OKLART** | LÄMPLIG, draganordning nej, inget besked från kunden | Som gult, men FRÅGAR om det ändå sitter en dragkrok som inte är registrerad. |
+| **RÖTT** | INTE lämplig, alltså BÅDA villkoren under sin tröskel | Svaret NAMNGER hindret. |
 
 **GULT OCH OKLART HAR SAMMA REGISTERVILLKOR, och det är inte en lucka i tabellen
 utan en egenskap hos registret.** En omonterad dragkrok och en monterad men
 oregistrerad ser likadana ut i en registeruppgift. Det som skiljer utfallen är
 alltså inte något uppslaget kan svara på, utan ett besked från kunden.
 
-`utvardera` bär det som parametern `dragkrok_bekraftad_saknas`, och **förvalet är
-det försiktiga**: utan besked blir utfallet OKLART, alltså en fråga, aldrig ett
-påstående om att dragkrok saknas. GULT nås först när beskedet finns.
+`utvardera` bär det som parametern `besked`, och **förvalet är det försiktiga**:
+utan besked blir utfallet OKLART, alltså en fråga, aldrig ett påstående om att
+dragkrok saknas. GULT nås först när beskedet finns.
+
+**BESKEDET BÄR SIN HÄRKOMST sedan skiva 13.** Det är en `DragkrokBesked` som
+måste namnge en källa ur `BeskedKalla`, och de tillåtna källorna är ett
+uttryckligt kundsvar eller manuell inmatning i utkastvyn. **Aldrig en modell,
+aldrig klassificeraren.** Se `docs/sparrar.md` under
+`dragkrokbesked-har-harkomst`.
+
+Ett besked med `saknas=False`, alltså att kunden säger att det SITTER en dragkrok
+som registret inte känner till, lämnar fallet på OKLART. Det utfallet är inte
+definierat av Lars, och koden stannar därför på det försiktiga.
 
 **BESLUTAT AV LARS i skiva 12.** Briefen listade GULT och OKLART som två utfall
 med identiska villkor, vilket en deterministisk funktion inte kan honorera.
@@ -211,6 +271,11 @@ Båda bärs av `UppslagMisslyckades` i `src/fordonsuppslag.py` och leder till
 utkast. De står åtskilda från utfallen därför att de inte säger något om
 FORDONET: de säger att vi inte vet något om det. Ett tomt eller oväntat svar från
 hämtningen är ett misslyckat uppslag och aldrig ett utfall.
+
+**Ett svar som saknar TJÄNSTEVIKT är inte ett giltigt uppslag**, samma regel som
+för de två andra fälten. Beslut av Lars i skiva 13. Ett uppslag utan tjänstevikt
+går inte att pröva mot §42:s första kriterium, och att gissa det hade varit att
+fabricera underlaget för ett rött besked.
 
 **HINKTILLDELNINGEN INGÅR INTE I FASEN.** Vilka utfall som får autosvaras är
 Lars beslut enligt §10, och det fattas efter utkastvyn i fas 5.5. Ramverksregel 2
@@ -326,12 +391,19 @@ kräver ingen domänlista. Att i stället lita på avsändaren hade gett fel sva
 Avläsaren ändrar däremot ingenting i vad som får PÅSTÅS. Ett avläst
 registreringsnummer är en INDATA till uppslaget, aldrig ett faktum om bilen.
 
-**SPÄRREN SOM VAKTAR DET ÄR BYGGD I SKIVA 12.** `fordonsfakta-ur-uppslag` ligger
-i `src/fordonsuppslag.py`, fördelad på **två funktioner**: `_kontrollera` prövar
-svarets form och `Uppslag.__post_init__` prövar värdena. Den är registrerad i
-`docs/sparrar.md` med sin negativkontroll. Den hindrar att fordonsfakta som inte
-kommer ur ett lyckat uppslag når ett svar: ett tomt eller oväntat svar från
-hämtningen kastar och faller till utkast.
+**SPÄRREN SOM VAKTAR DET ÄR BYGGD.** `fordonsfakta-ur-uppslag` ligger i
+`src/fordonsuppslag.py`, fördelad på **fyra funktioner**: `_kontrollera` prövar
+svarets form, `_krav_pa_vikt` prövar de två vikterna, `Uppslag.__post_init__`
+prövar draganordningen, och `slag_upp` stoppar ett saknat registreringsnummer.
+Den är registrerad i `docs/sparrar.md` med sin negativkontroll och sin
+fullständiga §7.1-prövning. Den hindrar att fordonsfakta som inte kommer ur ett
+lyckat uppslag når ett svar: ett tomt eller oväntat svar från hämtningen kastar
+och faller till utkast.
+
+**Spärren `dragkrokbesked-har-harkomst` är byggd i skiva 13** och ligger i
+`DragkrokBesked`, i `BeskedKalla` och i `utvardera`. Den senare är dess viktigaste
+lager: utan typkontrollen där räcker vilket objekt som helst med ett
+`.saknas`-attribut.
 
 **Den vaktar hämtningen, inte formuleringen.** Att en mall återger tröskeln 1000
 som ett författningskrav är fortfarande en sändvägsdefekt som ingen kod fångar,
@@ -437,6 +509,41 @@ visat dagsvolymen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.5.0 — 2026-08-27
+
+**Fas 4.5 omskriven mot §42:s faktiska lydelse**, på beslut av Lars i skiva 13,
+se `docs/beslutslogg.md` #25.
+
+**Kravbilden är tre fält.** Tjänstevikt är tillbaka. §42 andra stycket ger två
+ALTERNATIVA lämplighetskriterier förenade med *eller*, och **RÖTT kräver att
+båda faller**. Skiva 12 prövade bara släpvagnsvikten och gav ett fordon med
+tjänstevikt 2 100 kg och släpvagnsvikt 800 kg RÖTT, alltså ett nej till en kund
+vars bil uppfyller kravet. Fasen namnger regressionsvakten som hindrar att det
+återkommer.
+
+**Ny regel: EN FÖRESKRIFT CITERAS ORDAGRANT, ALDRIG SAMMANFATTAD.** Skälet står
+i `docs/incidentlogg.md` I6. §39 formulerades om ur minnet i två skivor, och §42
+sammanfattades ur en brief utan att någon läst paragrafen; sammanfattningen
+tappade ett helt kriterium.
+
+**Beskedet om dragkrok bär sin härkomst**, och fasen namnger de två tillåtna
+källorna. Ett besked med `saknas=False` lämnar fallet på OKLART, eftersom det
+utfallet inte är definierat.
+
+**BLOCKERANDE ÖPPEN PUNKT: vems tjänstevikt avser §42 punkt 1?** Punkten är
+blockerande för fasen och avgörs av besked från en besiktningsman, inte av oss.
+Beslut av Lars. Paragrafen byter subjekt
+mellan sina punkter, koden gör det inte, och antagandet att de två vikterna är
+samma är agentens och inte belagt. Fasen bär punkten.
+
+**Om formen.** Fas 4.5 skrevs om i skiva 13 utan att den här posten skrevs och
+utan versionshöjning. §8 säger att en ändring utan appendixpost är en ospårbar
+ändring. Granskningen fällde det, och posten är skriven i efterhand inom samma
+skiva. Följden var att 0.4.0-posten nedan beskrev ett innehåll som inte längre
+fanns, utan att något upphävde den.
+
+Omskriven fas och ny regel ⇒ MINOR.
 
 ### 0.4.0 — 2026-08-27
 
