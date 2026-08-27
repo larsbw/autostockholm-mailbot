@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.21.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §8
+**Version:** 0.22.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -907,9 +907,19 @@ medan föreskriften säger att det duger.** Det är en sändvägsdefekt, och att
 den kräver tjänstevikt som ett tredje fält, alltså just det fält den här posten
 stryker ur bedömningen.
 
-**BESLUTET OM TVÅ FÄLT FATTADES PÅ ETT UNDERLAG SOM NU ÄR MOTBEVISAT.** Punkten
-är öppen och blockerande: fasen får inte lämnas och ingen mall får skrivas innan
-Lars avgjort om tjänstevikt ska tillbaka. Ingen kod ändras av agenten.
+**BESLUTET OM TVÅ FÄLT FATTADES PÅ ETT UNDERLAG SOM NU ÄR MOTBEVISAT.**
+
+*Strykning enligt undantaget i dokumentets huvud, gjord i skiva 14. Här stod, i
+sin helhet: att punkten är öppen och blockerande; att fasen inte får lämnas och
+ingen mall skrivas innan Lars avgjort om tjänstevikt ska tillbaka; och att* ingen
+kod ändras av agenten. *Allt blev falskt av #25, som förde tillbaka tjänstevikt
+som tredje fält OCH ändrade `src/fordonsuppslag.py` för att göra det. Den sista
+meningen är alltså inte struken för att den var överflödig, utan för att den var
+lika falsk som de andra.*
+
+*Strykningen ligger utanför skiva 14:s brief och gjordes därför att en känd
+falskhet inte får skeppas (§7), och därför att den satt i presens och läses som
+nuläge. Se versionsposten 0.22.0.*
 
 Att ändra talet ändrar vilka kunder som får ett rött svar. Det är sändväg och
 inte en konstant bland andra, och `test_troskeln_ar_tusen_kilo` finns för att en
@@ -1003,20 +1013,38 @@ sammanfattningen tappade ett helt kriterium och skeppade en sändvägsdefekt.
 trösklarna. Beslutsloggen är append-only, så #24 står kvar med det gamla namnet
 och den här raden är rättelsen.
 
-**BLOCKERANDE ÖPPEN PUNKT: vems tjänstevikt avser §42 punkt 1?** Paragrafen
-inleder med "A-traktor är lämplig som dragfordon om" och punkt 1 säger
-"tjänstevikten", medan punkt 2 uttryckligen byter till "ursprungsfordonet". **Att
-paragrafen byter ord mellan två intilliggande punkter talar för att punkt 1 avser
-vikten efter ombyggnaden.**
+**VEMS TJÄNSTEVIKT AVSER §42 PUNKT 1?** Paragrafen inleder med "A-traktor är
+lämplig som dragfordon om" och punkt 1 säger "tjänstevikten", medan punkt 2
+uttryckligen byter till "ursprungsfordonet". **Att paragrafen byter ord mellan två
+intilliggande punkter talar för att punkt 1 avser vikten efter ombyggnaden.**
 
 `utvardera` prövar båda mot uppslagets tjänstevikt, alltså ursprungsfordonets.
-**Antagandet att vikterna är samma är agentens och inte belagt**, och
-felriktningen är densamma som skiva 12:s defekt.
 
-**Punkten är BLOCKERANDE för fas 4.5 och avgörs av besked från en
-besiktningsman, inte av oss.** Beslut av Lars i skiva 13. Frågan är hur §42
-tillämpas vid en registreringsbesiktning, vilket varken ordalydelsen eller ett
-resonemang i repot kan avgöra. Ingen kod ändras under tiden.
+**BESLUT AV LARS: TJÄNSTEVIKTEN ÄR DENSAMMA FÖRE OCH EFTER OMBYGGNADEN.** Frågan
+saknar därmed praktisk betydelse, eftersom det är samma tal oavsett vilket av
+fordonen paragrafen syftar på, och `utvardera` prövar rätt storhet.
+
+**§39:s barlastflak är den ombyggnad som skulle kunna flytta tjänstevikten**,
+eftersom den tillför massa. Det är den enda kända invändningen mot beskedet, och
+**beskedet gäller ändå**.
+
+**Att invändningen ska stå utskriven och inte utelämnas är Lars instruktion i
+skiva 14**, inte ett redaktionellt val. Skälet är att göra beskedets räckvidd
+synlig: hittar någon ett fordon där vikterna skiljer sig är det det här beslutet
+som ska omprövas, och inte en glömd detalj.
+
+*Strykning enligt undantaget i dokumentets huvud, gjord i skiva 14 på Lars
+instruktion. Här stod, i sin helhet: att punkten är BLOCKERANDE för fas 4.5 och
+avgörs av besked från en besiktningsman och inte av oss; att detta var **Lars
+eget beslut i skiva 13**; att frågan är hur §42 tillämpas vid en
+registreringsbesiktning, vilket varken ordalydelsen eller ett resonemang i repot
+kan avgöra; att antagandet om vikterna är agentens och inte belagt; att
+felriktningen är densamma som skiva 12:s defekt; och att ingen kod ändras under
+tiden.*
+
+***Att det Lars beslutade i skiva 13 är det Lars vänder i skiva 14 ska synas.***
+*Punkten var blockerande på hans beslut, och den är avgjord på hans besked. Se
+versionsposten 0.22.0 och #26, som bär beskedet med sina skäl.*
 
 ---
 
@@ -1032,7 +1060,12 @@ A-traktorn **saknar praktisk betydelse**, eftersom det är samma tal oavsett.
 `utvardera` prövar rätt storhet, och den öppna punkten i #25 är avgjord.
 
 **#25:s status som BLOCKERANDE upphävs här.** Fas 4.5 stannar inte längre på den
-punkten. Posten #25 står kvar med sin ursprungliga lydelse, enligt append-only.
+punkten.
+
+*Rättelse i 0.22.0: här stod att posten #25 står kvar med sin ursprungliga
+lydelse, enligt append-only. Det blev falskt av skiva 14, som strök de
+presensformuleringar i #25 som beskedet ovan gjorde osanna. #25 står kvar
+oförändrad UTOM där den påstod något falskt, enligt regeln i dokumentets huvud.*
 
 **VAD SOM SKULLE KUNNA FLYTTA TJÄNSTEVIKTEN, och som beskedet gäller ändå.**
 §39:s barlastflak är den ombyggnad som tillför massa till fordonet. Skulle någon
@@ -1051,6 +1084,54 @@ kriterierna mot uppslagets tjänstevikt, och beskedet bekräftar att det är rä
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.22.0 — 2026-08-27
+
+**Strykningar på plats i #24 och #25, av påståenden som blivit falska och som
+stod i PRESENS.** Undantaget i dokumentets huvud tillåter det, och var och en bär
+en kursiv not där den stod. **#26 bär en egen not** om ett påstående den här
+skivan själv gjorde falskt.
+
+**#25 sade** att frågan om vems tjänstevikt §42 punkt 1 avser är BLOCKERANDE för
+fas 4.5; att den avgörs av besked från en besiktningsman och inte av oss; att
+detta var **Lars eget beslut i skiva 13**; att frågan är hur §42 tillämpas vid en
+registreringsbesiktning; att antagandet om vikterna är agentens och obelagt; att
+felriktningen är densamma som skiva 12:s defekt; och att ingen kod ändras under
+tiden.
+
+Lars besked i skiva 14 gör dem falska: tjänstevikten är densamma före och efter
+ombyggnaden, så frågan saknar praktisk betydelse och `utvardera` prövar rätt
+storhet. **#25 bär nu beskedet som Lars beslut med hans skäl**, i stället för
+punkten. Att det Lars beslutade i skiva 13 är det han vänder i skiva 14 står
+utskrivet i noten, eftersom det annars försvann ur posten.
+
+Beskedet fanns redan i #26. Skillnaden är att #25 fram till nu läste som om
+punkten vore öppen för den som stannade där, och strykningen gör att den inte
+längre gör det. Att komplettera med en ny post räckte alltså inte.
+
+**§39:s barlastflak står utskrivet i #25 som den enda kända invändningen**, och
+att beskedet gäller ändå. Att invändningen ska stå och inte utelämnas är Lars
+instruktion i skiva 14.
+
+**#24 sade** att punkten om två fält är öppen och blockerande; att fasen inte får
+lämnas och ingen mall skrivas innan Lars avgjort om tjänstevikt ska tillbaka; och
+att ingen kod ändras av agenten. Allt blev falskt av #25, som förde tillbaka
+tjänstevikt som tredje fält och ändrade `src/fordonsuppslag.py` för att göra det.
+
+**Den strykningen låg utanför skiva 14:s brief** och gjordes därför att
+påståendena stod i presens och läses som nuläge, och §7 tillåter inte att en känd
+falskhet skeppas.
+
+**TRE APPENDIXPOSTER BLEV OSANNA AV DEN HÄR SKIVAN och upphävs härmed
+uttryckligen**, i stället för underförstått. De står kvar som de skrevs, enligt
+Räckvidd i dokumentets huvud och §8:
+
+- **0.21.0** säger att #25 står kvar oförändrad enligt append-only. Samma
+  påstående stod i #26:s brödtext och bär där en kursiv not.
+- **0.20.0** säger att frågan om vems tjänstevikt är BLOCKERANDE för fas 4.5.
+- **0.19.0** säger att punkten om två fält är öppen och blockerande.
+
+Strykningar på plats och uttryckliga upphävanden ⇒ MINOR.
 
 ### 0.21.0 — 2026-08-27
 
