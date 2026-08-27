@@ -334,9 +334,10 @@ skriva posten ännu, inte ett skäl att lämna fältet tomt.
 
 ### 0.4.4 — 2026-08-27
 
-Rättelser i I4 efter §7-granskningen av skiva 10, som underkände posten på fyra
-punkter. Alla fyra satt i den tabell och den brödtext som är postens eget bevis,
-vilket är samma svepmönster posten dokumenterar.
+Rättelser i I4 efter §7-granskningen av skiva 10. Varje punkt nedan satt i den
+tabell eller den brödtext som är postens eget bevis, vilket är samma svepmönster
+posten dokumenterar. Antalet skrivs inte ut: listan är det kontrollerbara, och
+§7.2 kräver att sådant redovisas per post och aldrig summerat i en bisats.
 
 - **Tabellrad 2 tillskrev fel post ett fel.** Radnummerfelet bars av 0.9.0 och
   registrerades av 0.10.0, inte tvärtom. Avläst ur att stycket "Radnummer var
@@ -371,6 +372,12 @@ Rättade påståenden ⇒ PATCH.
 TAGET som skrivs in i CLAUDE.md §7 i samma skiva. Posten räknar upp de
 rättelseposter som själva bar ett fel, var och en med sin plats, och skriver
 ingen summa.
+
+*Rättelse i 0.4.4: sista ledet var falskt när det skrevs. I4 bar då ordinalen
+"En åttonde instans" tre rader under sitt eget löfte att inte summera. Ordinalen
+är struken i 0.4.4 och påståendet är sant i dag, men det var det inte här.
+CLAUDE.md 0.8.1 redovisar sin identiska tvilling; den här noten är
+incidentloggens.*
 
 **En processräkning struken ur 0.4.2.** Den skrev "Detta är tredje skivan i rad"
 och "i andra granskningsvarvet". §7.2 namnger båda formerna ordagrant som

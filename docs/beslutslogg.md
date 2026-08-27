@@ -742,15 +742,16 @@ Uppslaget i Googles dokumentation 2026-08-27: en app vars user type är
 **Internal** avvisar konton utanför organisationen med felet `org_internal`
 INNAN appen får se någon identitet. Ett privat Gmail-konto kan alltså inte logga
 in på en Internal-app i `autostockholm.se`, och whitelisten får aldrig något att
-pröva. User type sätts dessutom på PROJEKTNIVÅ, under Branding, så en ny
+pröva. User type sätts dessutom på PROJEKTNIVÅ, så en ny
 webbklient i samma projekt ärver Internal. Att ge inloggningsklienten en egen
 consent screen är alltså inte möjligt inom projektet `autostockholm-mailbot`.
 
 Tre vägar, och valet är Lars:
 
 1. **Lars får ett konto på `autostockholm.se`.** Whitelisten behövs inte, allt
-   förblir Internal, och §0:s verifieringsargument står orört. Enklast, och den
-   enda vägen som inte rör någon Google-konfiguration.
+   förblir Internal, och §0:s verifieringsargument står orört. Ingen
+   OAuth-konfiguration ändras. Ett konto kostar däremot en Workspace-licens och
+   läggs upp i Admin-konsolen, så vägen är inte gratis.
 2. **Ett EGET GCP-projekt för inloggningsklienten**, med egen consent screen satt
    till External. Inloggningen begär bara identitetsscopes, som inte är
    restricted, så External där utlöser ingen verifiering.

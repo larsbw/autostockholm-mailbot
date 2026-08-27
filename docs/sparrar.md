@@ -355,10 +355,14 @@ post och inte en spärr som saknar egenskapen.
 incidentloggen.** Den skrev "Detta är tredje gången samma felklass registreras i
 repot" och kallade sig själv "den andra kända instansen i `docs/sparrar.md`".
 Båda är räkningar av instanser av ett mönster, vilket §7.2 namnger ordagrant som
-förbjudet, och talen saknar underlag: `grep -rn "namngav fel post" docs/
-CLAUDE.md` ger två registrerade instanser, och ingen av dem är en tidigare
-instans i det här dokumentet. Stycket namnger nu instanserna och skriver ingen
-summa.
+förbjudet, och talen saknade underlag. De registrerade instanserna är CLAUDE.md
+0.4.1, som skriver att 0.4.0-posten namngav fel post för strykningen, och
+`docs/sparrar.md` 0.11.1. Stycket namnger dem nu och skriver ingen summa.
+
+**Ingen `grep`-utdata anges som belägg här**, och det är avsiktligt. Ett sådant
+kommando träffar även de rättelseposter som SKRIVER om felklassen, alltså den
+här posten och 0.11.2, så utdatan växer av varje ny rättelse och en mening som
+citerar dess antal blir falsk av sin egen commit. Instanserna namnges i stället.
 
 **0.11.1 skrevs om på plats i skiva 10 utan kursiv not.** Det är samma formfel
 som 0.11.1 själv registrerade mot 0.10.0. Den här posten är noten, i efterhand.
