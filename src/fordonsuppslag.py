@@ -331,17 +331,21 @@ def ar_lamplig_som_dragfordon(uppslag: Uppslag) -> bool:
     Villkoren står på var sin rad så att vart och ett går att fälla för sig
     enligt §7.1. Ett `or` på en rad hade gjort dem oskiljbara.
 
-    **BLOCKERANDE ÖPPEN PUNKT: paragrafen byter subjekt mellan punkterna, koden
-    gör det inte.** Punkt 1 säger "tjänstevikten" efter inledningen "A-traktor är
-    lämplig som dragfordon om", alltså rimligen A-traktorns vikt EFTER
-    ombyggnaden. Punkt 2 byter uttryckligen till "ursprungsfordonet". Här prövas
-    båda mot `uppslag.tjanstevikt_kg`, som kommer ur registret på kundens
-    nuvarande bil.
+    **PARAGRAFEN BYTER SUBJEKT MELLAN PUNKTERNA, och koden gör det inte.** Punkt 1
+    säger "tjänstevikten" efter inledningen "A-traktor är lämplig som dragfordon
+    om", alltså rimligen A-traktorns vikt EFTER ombyggnaden. Punkt 2 byter
+    uttryckligen till "ursprungsfordonet". Här prövas båda mot
+    `uppslag.tjanstevikt_kg`, som kommer ur registret på kundens nuvarande bil.
 
-    Antagandet att vikterna är samma är agentens och inte belagt. **Punkten
-    avgörs av besked från en besiktningsman**, inte av ordalydelsen, och fas 4.5
-    får inte lämnas innan dess. Se `docs/roadmap.md` fas 4.5 och
-    `docs/beslutslogg.md` #25.
+    **DET SPELAR INGEN ROLL, och det är Lars besked: tjänstevikten är densamma
+    före och efter ombyggnaden.** Se `docs/beslutslogg.md` #26. Är talet detsamma
+    saknar frågan praktisk betydelse, och den här funktionen prövar rätt storhet.
+    Punkten var blockerande för fas 4.5 fram till beskedet.
+
+    §39:s barlastflak är den ombyggnad som skulle kunna flytta vikten, eftersom
+    den tillför massa. Beskedet omfattar det. Skulle någon hitta ett fordon där
+    vikterna skiljer sig är det beslutet i #26 som ska omprövas, inte den här
+    funktionen.
     """
     if uppslag.tjanstevikt_kg >= TROSKEL_TJANSTEVIKT_KG:
         return True

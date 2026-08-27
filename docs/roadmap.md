@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.5.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §10
+**Version:** 0.6.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -159,7 +159,7 @@ praxisramen är struken.
 Mallarna i fas 5 får därför gärna återge talen som författningskrav, eftersom de
 är det. Det som INTE får skrivas är att de är verkstadens praxis.
 
-#### BLOCKERANDE ÖPPEN PUNKT: VEMS TJÄNSTEVIKT AVSER PUNKT 1?
+#### VEMS TJÄNSTEVIKT AVSER PUNKT 1? AVGJORD.
 
 **Paragrafen byter subjekt mellan sina två punkter, och koden gör det inte.**
 
@@ -171,24 +171,21 @@ ursprungsbilens konstruktion.
 
 `utvardera` prövar båda mot `uppslag.tjanstevikt_kg`, som kommer ur ett
 registeruppslag på kundens nuvarande bil, alltså ursprungsfordonet.
-**Antagandet är att de två vikterna är samma, och det antagandet är agentens och
-inte belagt.**
 
-**Att paragrafen byter ord mellan två intilliggande punkter talar för att punkt 1
-avser vikten efter ombyggnaden.** Ett lagstiftningstekniskt slarv är möjligt, men
-det är inte den läsning man ska förutsätta.
+**BESLUT AV LARS: TJÄNSTEVIKTEN ÄR DENSAMMA FÖRE OCH EFTER OMBYGGNADEN.** Se
+`docs/beslutslogg.md` #26.
 
-Riktningen på ett eventuellt fel är densamma som skiva 12:s defekt: en
-ursprungsvikt under 2 000 kg, där den färdiga A-traktorn hamnar över, ger RÖTT
-där föreskriften kan säga ja.
+**Därmed saknar frågan praktisk betydelse.** Är talet detsamma spelar det ingen
+roll vilket av fordonen paragrafen syftar på, och `utvardera` prövar rätt storhet.
+Punkten stod som blockerande för fasen fram till beskedet och gör det inte längre.
 
-**PUNKTEN ÄR BLOCKERANDE FÖR FAS 4.5.** Beslut av Lars i skiva 13. Fasen får inte
-lämnas och ingen mall får skrivas innan den är avgjord.
+**§39:s BARLASTFLAK ÄR DEN OMBYGGNAD SOM SKULLE KUNNA FLYTTA VIKTEN, och beskedet
+gäller ändå.** Ett barlastflak tillför massa, så om någon enskild ombyggnad kunde
+göra före och efter till olika tal är det den. Lars besked omfattar det.
 
-**DEN AVGÖRS AV BESKED FRÅN EN BESIKTNINGSMAN, INTE AV OSS.** Frågan är hur §42
-tillämpas i praktiken vid en registreringsbesiktning, och det är inte något som
-går att läsa sig till ur paragrafens ordalydelse eller avgöra genom att resonera
-i det här dokumentet. Ingen kod ändras på antagandet under tiden.
+Invändningen står här för att göra beskedets räckvidd synlig, inte för att
+ifrågasätta det. Hittar någon i framtiden ett fordon där vikterna skiljer sig är
+det **det här beslutet** som ska omprövas, inte en glömd detalj.
 
 #### RÖTT KRÄVER ATT BÅDA LÄMPLIGHETSVILLKOREN FALLER
 
@@ -509,6 +506,26 @@ visat dagsvolymen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.6.0 — 2026-08-27
+
+**FASENS BLOCKERANDE ÖPPNA PUNKT ÄR AVGJORD.** Beslut av Lars, se
+`docs/beslutslogg.md` #26: tjänstevikten är densamma före och efter ombyggnaden.
+
+Frågan om §42 punkt 1 avser ursprungsfordonet eller den ombyggda A-traktorn
+saknar därmed praktisk betydelse, eftersom det är samma tal oavsett, och
+`utvardera` prövar rätt storhet. **Fasen stannar inte längre på den punkten.**
+
+Avsnittet skriver ut att §39:s barlastflak är den ombyggnad som skulle kunna
+flytta vikten och att beskedet gäller ändå. Det står där för att göra beskedets
+räckvidd synlig: hittar någon ett fordon där vikterna skiljer sig är det
+beslutet som ska omprövas.
+
+**0.5.0-posten nedan säger att punkten är blockerande.** Den står kvar som den
+skrevs; den här posten är upphävandet, enligt §8:s regel att en committad
+appendixpost rättas genom en ny versionspost och inte genom omskrivning.
+
+Avgjord blockerande punkt ⇒ MINOR.
 
 ### 0.5.0 — 2026-08-27
 

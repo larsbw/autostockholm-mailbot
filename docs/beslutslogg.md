@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.20.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §8
+**Version:** 0.21.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -1020,7 +1020,56 @@ resonemang i repot kan avgöra. Ingen kod ändras under tiden.
 
 ---
 
+## #26 — Tjänstevikten är densamma före och efter ombyggnaden, och #25:s öppna punkt är därmed avgjord
+
+**Datum:** 2026-08-27 · **Berör:** `docs/roadmap.md` fas 4.5,
+`src/fordonsuppslag.py`, #25
+
+**Beslut av Lars.** **Tjänstevikten är densamma före och efter ombyggnaden.**
+
+**Följden.** Frågan om §42 punkt 1 avser ursprungsfordonet eller den ombyggda
+A-traktorn **saknar praktisk betydelse**, eftersom det är samma tal oavsett.
+`utvardera` prövar rätt storhet, och den öppna punkten i #25 är avgjord.
+
+**#25:s status som BLOCKERANDE upphävs här.** Fas 4.5 stannar inte längre på den
+punkten. Posten #25 står kvar med sin ursprungliga lydelse, enligt append-only.
+
+**VAD SOM SKULLE KUNNA FLYTTA TJÄNSTEVIKTEN, och som beskedet gäller ändå.**
+§39:s barlastflak är den ombyggnad som tillför massa till fordonet. Skulle någon
+enskild ombyggnad kunna göra före och efter till olika tal är det den. **Lars
+besked gäller ändå**, och det står här utskrivet så att nästa läsare ser att
+frågan är ställd och besvarad och inte förbisedd.
+
+Att skriva ut invändningen är inte att ifrågasätta beskedet. Det är att göra
+beskedets räckvidd synlig: den som i framtiden hittar ett fordon där vikterna
+skiljer sig vet då att det är det här beslutet som ska omprövas, och inte att
+någon glömde tänka på barlastflaket.
+
+**Ingen kod ändras av posten.** `ar_lamplig_som_dragfordon` prövade redan båda
+kriterierna mot uppslagets tjänstevikt, och beskedet bekräftar att det är rätt.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.21.0 — 2026-08-27
+
+**#26 tillkommer**, på beslut av Lars: tjänstevikten är densamma före och efter
+ombyggnaden. **#25:s öppna punkt om vems tjänstevikt §42 punkt 1 avser är därmed
+avgjord**, och dess status som blockerande för fas 4.5 är upphävd.
+
+Skälet är Lars, och det är sakligt och inte formellt: är talet detsamma spelar
+det ingen roll vilket av fordonen paragrafen syftar på. `utvardera` prövar rätt
+storhet.
+
+**Posten skriver ut §39:s barlastflak** som den ombyggnad som skulle kunna flytta
+tjänstevikten, och att beskedet gäller ändå. Skälet att ta med invändningen är
+att göra beskedets räckvidd synlig: hittar någon i framtiden ett fordon där
+vikterna skiljer sig är det det här beslutet som ska omprövas.
+
+#25 står kvar oförändrad enligt append-only.
+
+Ny post ⇒ MINOR.
 
 ### 0.20.0 — 2026-08-27
 
