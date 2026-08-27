@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.11.2 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.11.3 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -349,6 +349,22 @@ post och inte en spärr som saknar egenskapen.
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.11.3 — 2026-08-27
+
+**0.11.2 införde en förbjuden processräkning i samma commit som strök en ur
+incidentloggen.** Den skrev "Detta är tredje gången samma felklass registreras i
+repot" och kallade sig själv "den andra kända instansen i `docs/sparrar.md`".
+Båda är räkningar av instanser av ett mönster, vilket §7.2 namnger ordagrant som
+förbjudet, och talen saknar underlag: `grep -rn "namngav fel post" docs/
+CLAUDE.md` ger två registrerade instanser, och ingen av dem är en tidigare
+instans i det här dokumentet. Stycket namnger nu instanserna och skriver ingen
+summa.
+
+**0.11.1 skrevs om på plats i skiva 10 utan kursiv not.** Det är samma formfel
+som 0.11.1 själv registrerade mot 0.10.0. Den här posten är noten, i efterhand.
+
+Rättade påståenden ⇒ PATCH.
+
 ### 0.11.2 — 2026-08-27
 
 **0.11.1 namngav fel post, två gånger.** Den skrev att båda dess rättelser låg i
@@ -367,10 +383,13 @@ själv ner alla rubriker under sig när den lades överst i appendixet. Det är 
 mekanism som rutan överst i det här dokumentet varnar för, och den slår till
 snabbast just i en appendixpost.
 
-**Detta är tredje gången samma felklass registreras i repot.** CLAUDE.md 0.4.1
-skriver "0.4.0-posten namngav fel post för strykningen", den här posten är den
-andra kända instansen i `docs/sparrar.md`, och båda gällde en rättelsepost som
-pekade på fel granne. En rättelsenot pekar på en post ovanför sig i filen, och
+**Samma felklass finns registrerad på ett ställe till.** CLAUDE.md 0.4.1 skriver
+"0.4.0-posten namngav fel post för strykningen". Instanserna, avlästa ur
+`grep -rn "namngav fel post" docs/ CLAUDE.md`, är den posten och den här; båda
+gällde en rättelsepost som pekade på fel granne. Ingen summa skrivs, eftersom en
+räkning av instanser av ett mönster är den form §7.2 förbjuder.
+
+En rättelsenot pekar på en post ovanför sig i filen, och
 avståndet mellan noten och rubriken är oftast bara några rader, vilket gör det
 lätt att skriva rubriken ur minnet i stället för att slå upp den.
 

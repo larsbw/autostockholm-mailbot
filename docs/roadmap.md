@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.2.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §10
+**Version:** 0.2.1 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -143,10 +143,11 @@ ingen omskrivning rör den orsaken.
 ser och kan göra med ett förslag, och därmed om och med vilket innehåll ett mail
 senare lämnar servern.
 
-**VYN SKICKAR ALDRIG MAIL. Den skriver omdömen.** Sändning sker i fas 6 och fas 7,
-genom `respond.py`, och styrs av `--send` enligt §5 och §10. Att lägga en
-skicka-knapp i vyn vore att flytta sändvägen till ett gränssnitt utan de stopp
-§10 föreskriver.
+**VYN SKICKAR ALDRIG MAIL. Den skriver omdömen.** Sändning sker först i fas 7,
+genom `respond.py`, och styrs av `--send` enligt §6 och §10. I fas 6 anropas
+`messages.send` ALDRIG, enligt skugglägets definition överst i det här
+dokumentet. Att lägga en skicka-knapp i vyn vore att flytta sändvägen till ett
+gränssnitt utan de stopp §10 föreskriver.
 
 **Grind:** Lars beslutar att omdömesvolymen räcker. Talet sätts inte i förväg,
 eftersom det beror på hur många kategorier som visar sig bära underlag, och
@@ -175,6 +176,19 @@ visat dagsvolymen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.2.1 — 2026-08-27
+
+**En falskhet om sändvägen struken.** 0.2.0 skrev "Sändning sker i fas 6 och fas
+7". Fas 6 är SKUGGLÄGE, och det här dokumentets egen definition överst säger att
+`messages.send` anropas ALDRIG där, inte till kunden, inte till en testadress.
+Sändning sker först i fas 7. Meningen låg i ett stycke som texten själv utropar
+till sändväg, och §7:s dokumentdetaljundantag omfattar aldrig sändvägen.
+
+**En paragrafhänvisning rättad i samma stycke.** Regeln att `--send` bara
+aktiveras av Lars explicita val står i §6, inte §5.
+
+Rättad falskhet i sändvägstext ⇒ PATCH.
 
 ### 0.2.0 — 2026-08-27
 

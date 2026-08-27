@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.16.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §8
+**Version:** 0.16.1 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -691,9 +691,10 @@ Efter det ligger den på en server som är nåbar från internet. Det är inte e
 gradskillnad i förvaring, det är en flytt av var ett intrång skulle behöva ta sig
 in för att kunna skicka mail i företagets namn.
 
-**Vad som INTE följer av beslutet.** Ingen sändning aktiveras av flytten. §5:s
-undantag och §10:s stopp gäller oförändrat: `--send` aktiveras bara av Lars
-explicita val, och första sändningen i en ny miljö är ett §10-stopp. En hostad
+**Vad som INTE följer av beslutet.** Ingen sändning aktiveras av flytten. Tre
+regler gäller oförändrat: §5:s undantag, att sändning aldrig är del av att
+avsluta en uppgift; §6:s rad om att `--send` bara aktiveras av Lars explicita
+val; och §10:s stopp om första sändningen i en ny miljö. En hostad
 server ÄR en ny miljö, så den första skarpa sändningen därifrån kräver ett eget
 beslut även om sändning redan skett från Lars maskin.
 
@@ -734,7 +735,35 @@ står här därför att motsatsen ser ut att fungera.
 **Whitelisten prövas mot verifierad e-postadress**, inte mot namn eller
 användar-ID, och adressen ska vara bekräftad av Google i svaret.
 
-**ÖPPEN PUNKT FÖR LARS, och den måste avgöras innan whitelisten byggs.**
+**ÖPPEN PUNKT 1, OCH DEN ÄR EN SAKKONFLIKT I INSTRUKTIONEN.** Whitelisten och
+Internal går inte ihop, och den ena av dem måste ge vika.
+
+Uppslaget i Googles dokumentation 2026-08-27: en app vars user type är
+**Internal** avvisar konton utanför organisationen med felet `org_internal`
+INNAN appen får se någon identitet. Ett privat Gmail-konto kan alltså inte logga
+in på en Internal-app i `autostockholm.se`, och whitelisten får aldrig något att
+pröva. User type sätts dessutom på PROJEKTNIVÅ, under Branding, så en ny
+webbklient i samma projekt ärver Internal. Att ge inloggningsklienten en egen
+consent screen är alltså inte möjligt inom projektet `autostockholm-mailbot`.
+
+Tre vägar, och valet är Lars:
+
+1. **Lars får ett konto på `autostockholm.se`.** Whitelisten behövs inte, allt
+   förblir Internal, och §0:s verifieringsargument står orört. Enklast, och den
+   enda vägen som inte rör någon Google-konfiguration.
+2. **Ett EGET GCP-projekt för inloggningsklienten**, med egen consent screen satt
+   till External. Inloggningen begär bara identitetsscopes, som inte är
+   restricted, så External där utlöser ingen verifiering.
+   `autostockholm-mailbot` förblir Internal för Gmail-åtkomsten. Bevarar
+   whitelisten, men bryter mot "samma consent screen" i #22.
+3. **Hela projektet blir External.** Avvisas här: det är precis vad §0:s
+   Internal-val finns för att undvika, och det skulle utlösa Googles verifiering
+   av `gmail.modify` och `gmail.send`.
+
+**Ingen av vägarna får väljas av kod.** Punkten står öppen tills Lars avgör den,
+och whitelisten byggs inte innan dess.
+
+**ÖPPEN PUNKT 2, om spärren, och den måste avgöras innan whitelisten byggs.**
 `config/` står i `BEVAKADE` i `scripts/persondatakontroll.py`, så spärren kommer
 att fälla committen av whitelisten på exakt samma grund som den fällde den här
 posten. Två vägar finns, och valet är Lars:
@@ -746,7 +775,24 @@ posten. Två vägar finns, och valet är Lars:
    lista över behöriga läsare per definition bär adresser.
 
 Väg 1 är snävare och lämnar spärren orörd för allt annat under `config/`.
-**Ingen av dem får väljas genom att skriva om whitelisten tills spärren
+**Men den bär en invändning som måste stå med:** `TILLATNA` ligger i
+`scripts/persondatakontroll.py`, som är spårad och pushas. Väg 1 flyttar alltså
+adressen från en bevakad fil till en obevakad, utan att den slutar finnas i
+repot, och §6 säger att persondata aldrig förekommer i något som pushas. Väg 1
+gör undantaget synligt i en diff, vilket är dess förtjänst, men den löser inte
+§6-frågan utan flyttar den.
+
+Väg 2 har samma problem i annan form: adressen står kvar i `config/`, bara
+utanför spärrens räckvidd.
+
+**Frågan under båda vägarna är alltså om Lars privata adress över huvud taget
+ska stå i repot.** Blir svaret nej faller båda vägarna, och whitelisten måste
+läsas från en fil som inte committas, vilket i sin tur strider mot beslutet i
+den här posten om att listan ska vara committad. Det är samma knut som ÖPPEN
+PUNKT 1, och väg 1 där, ett konto på `autostockholm.se`, löser den här punkten
+också: då behövs ingen adress utanför domänen alls.
+
+**Ingen av vägarna får väljas genom att skriva om whitelisten tills spärren
 släpper**, vilket är §9.1:s förbjudna åtgärd i dokumentform.
 
 ---
@@ -771,12 +817,41 @@ brevlådeåtkomst. Att lägga till ett scope på den är ett §10-stopp som vilk
 annat nytt scope som helst.
 
 **Consent screen förblir Internal.** Det är vad som gör att projektet slipper
-Googles verifiering trots restricted scopes, enligt §0, och whitelisten i #21
-finns just för att Internal låser ut adresser utanför domänen.
+Googles verifiering trots restricted scopes, enligt §0.
+
+**MEN INTERNAL OCH WHITELISTEN I #21 GÅR INTE IHOP, och det är en sakkonflikt
+och inte en formulering.** Se den öppna punkten i #21. Den här posten sa
+tidigare att whitelisten "finns just för att Internal låser ut adresser utanför
+domänen". Det är falskt: Internal låser ut dem så hårt att whitelisten aldrig
+får se dem.
 
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.16.1 — 2026-08-27
+
+Rättelser i #20, #21 och #22 efter §7-granskningen av skiva 10.
+
+**#22 påstod att whitelisten finns för att Internal låser ut adresser utanför
+domänen.** Det är falskt, och motsägelsen är en sakkonflikt. Uppslaget i Googles
+dokumentation 2026-08-27: en Internal-app avvisar konton utanför organisationen
+med `org_internal` INNAN appen får se någon identitet, och user type sätts på
+projektnivå. Whitelisten kan alltså aldrig få något att pröva så länge consent
+screen är Internal. #21 bär nu ÖPPEN PUNKT 1 med tre vägar och överlämnar valet
+till Lars.
+
+**#21:s persondatapunkt saknade en invändning.** `TILLATNA` ligger i
+`scripts/persondatakontroll.py`, som pushas, så väg 1 flyttar adressen från en
+bevakad fil till en obevakad utan att den slutar finnas i repot. Punkten säger nu
+det, och namnger den underliggande frågan: om adressen över huvud taget ska stå i
+repot.
+
+**#20 tillskrev §5 en regel som står i §6.** Att `--send` bara aktiveras av Lars
+explicita val står i §6. §5:s undantag säger något annat, att sändning aldrig är
+del av att avsluta en uppgift. Båda är nu utskrivna var för sig.
+
+Rättade påståenden ⇒ PATCH.
 
 ### 0.16.0 — 2026-08-27
 

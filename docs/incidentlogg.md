@@ -1,6 +1,6 @@
 # Incidentlogg
 
-**Version:** 0.4.3 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §0
+**Version:** 0.4.4 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §0
 
 Varje regel som bärs av en incident bor här. Dokumentet finns för att förlagornas
 styrka är att en härdad regel namnger det fel som skapade den. En regel utan
@@ -86,6 +86,15 @@ modulkonstant skyddar ingenting om anropet läser konstanten via ett defaultvär
 **Injektionen ska gå genom argumentet vid anropstillfället.** Konkret: skriv
 `def f(x=None)` och `x = STANDARD if x is None else x` i kroppen, aldrig
 `def f(x=STANDARD)`, för varje värde ett test kan tänkas vilja byta ut.
+
+**Vad som gör den svår att se.** Ett verkningslöst `monkeypatch.setattr` ger
+ingen varning, inget rött test, och ingen felutskrift. Sviten förblir grön.
+Det enda observerbara är att något som borde vara snabbt är långsamt, och det
+märks inte förrän någon tittar efter. Därav kravet nedan.
+
+**Vakt.** `tests/test_mine.py::test_pacerns_sovfunktion_gar_att_byta_ut_utifran`
+asserterar att en utbytt `mine.time.sleep` FAKTISKT anropas. Utan den kan
+regressionen komma tillbaka tyst, eftersom sviten förblir grön när den återvänder.
 
 ---
 
@@ -216,15 +225,6 @@ Posten delar mekanism med CLAUDE.md 0.5.0, som sänkte §10:s token-rad av samma
 skäl: **en regel som gör systemet oanvändbart börjar ignoreras, och en ignorerad
 regel skyddar ingenting.**
 
-**Vad som gör den svår att se.** Ett verkningslöst `monkeypatch.setattr` ger
-ingen varning, inget rött test, och ingen felutskrift. Sviten förblir grön.
-Det enda observerbara är att något som borde vara snabbt är långsamt, och det
-märks inte förrän någon tittar efter. Därav kravet nedan.
-
-**Vakt.** `tests/test_mine.py::test_pacerns_sovfunktion_gar_att_byta_ut_utifran`
-asserterar att en utbytt `mine.time.sleep` FAKTISKT anropas. Utan den kan
-regressionen komma tillbaka tyst, eftersom sviten förblir grön när den återvänder.
-
 ---
 
 ## I4 — Rättelser i svep inför nya fel snabbare än de tar bort gamla
@@ -237,17 +237,19 @@ RÄTTELSETEXT GRANSKAS SOM NY TEXT skrevs som svar. Den fångade varje efterföl
 instans, men den hindrade ingen av dem, eftersom den styr GRANSKAREN och inte den
 som skriver.
 
-Det som saknades var en regel om TAKT. Varje granskningsvarv fick en lista med
-fem till sju fynd och rättade dem i ett svep, i en enda skrivomgång, utan att
-någon mening prövades mot källan innan nästa skrevs.
+Det som saknades var en regel om TAKT. Varje granskningsvarv fick en LISTA med
+fynd och rättade hela listan i ett svep, i en enda skrivomgång, utan att någon
+mening prövades mot källan innan nästa skrevs. Hur många fynd listorna bar
+skrivs inte ut: rapporterna ligger i den gitignorerade `scratchpad/` och talet
+går inte att läsa ur repot.
 
 **De verifierbara instanserna, var och en med sin plats.** Varje rad är en
 rättelsepost som själv bär ett fel, registrerat av nästa post:
 
 | Rättelsen | Felet den bar | Registrerat i |
 | --- | --- | --- |
-| `docs/sparrar.md` 0.9.0 | ett `Uppmätt`-tal som inte motsvarade någon committad svit | 0.10.0 |
-| `docs/sparrar.md` 0.10.0 | sa "Sig själv, två lager" om en rad som skriver "sex lager", och återinförde radnummer | 0.11.0 och 0.11.1 |
+| `docs/sparrar.md` 0.9.0 | ett `Uppmätt`-tal som inte motsvarade någon committad svit, och ett fällningskommando byggt på radnummer | 0.10.0 |
+| `docs/sparrar.md` 0.10.0 | sa "Sig själv, två lager" om en rad som skriver "sex lager" | 0.11.0 |
 | `docs/sparrar.md` 0.11.0 | "Två strykningar" när diffen bar en | 0.11.1 |
 | `docs/sparrar.md` 0.11.1 | namngav fel post, två gånger | 0.11.2 |
 | `docs/incidentlogg.md` 0.4.1 | skrev om ett tal FRÅN "två committade skivor" TILL "två committar", alltså till en direkt räkning av loggutdatan | 0.4.2 |
@@ -257,10 +259,17 @@ rättelsepost som själv bär ett fel, registrerat av nästa post:
 Summan skrivs inte ut. §7.2 kräver att det kontrollerbara redovisas per post i en
 lista och aldrig summerat i en bisats, och tabellen ovan är den listan.
 
-**En åttonde instans är äldre än mönstret och visar att det inte är nytt.**
-`CLAUDE.md` 0.4.1 registrerar att "0.4.0-posten namngav fel post för
-strykningen". Samma felklass som `docs/sparrar.md` 0.11.1 bar, två skivor
-tidigare.
+**En instans utanför tabellen är äldre än mönstret och visar att det inte är
+nytt.** `CLAUDE.md` 0.4.1 registrerar att "0.4.0-posten namngav fel post för
+strykningen". Det är samma felklass som `docs/sparrar.md` 0.11.1 bar. Posten
+skrevs i skiva 3, avläst ur `git log -S"0.4.1 — 2026-08-26" -- CLAUDE.md` som ger
+`0b3f0ef`, "Rätta fyra falska påståenden ur skiva 3:s granskning". Instansen i
+`docs/sparrar.md` skrevs i skiva 9.
+
+Den står utanför tabellen därför att tabellen listar rättelseposter ur skiva 8
+och 9, som är postens ämne. Ordinalen är borttagen: ett räkneord som "åttonde"
+skriver ut totalen och gör tabellen till en summa, vilket är precis vad stycket
+ovanför säger att posten inte gör.
 
 **Vad det kostade.** §7:s grind uttömdes i både skiva 8 och skiva 9, båda
 gångerna utan godkännande, och båda skivorna stannade före push i väntan på ett
@@ -271,12 +280,18 @@ texten blev sann.
 **Hur det upptäcktes.** Av granskaren, varv efter varv. Aldrig av den som skrev
 rättelsen, förrän i skiva 10: utkastet till `docs/sparrar.md` 0.11.2 bar
 radnummer som den egna postens tillägg omedelbart sköt ner, och det fångades av
-att numren slogs upp på nytt innan posten committades. Det är den enda instansen
-i tabellen ovan som aldrig nådde en commit, och den fångades av precis den takt
-regeln nedan föreskriver.
+att numren slogs upp på nytt innan posten committades.
+
+**Den instansen står INTE i tabellen ovan**, och kan inte stå där: tabellen
+listar committade poster, och den här nådde aldrig en commit. Den går därför
+inte att belägga mot repot, till skillnad från varje rad i tabellen, och den
+redovisas som det den är, ett arbetsförlopp utan spår. Det som gör den värd att
+nämna ändå är att den fångades av precis den takt regeln nedan föreskriver, och
+att den är den första instansen som fångades av skribenten och inte av
+granskaren.
 
 **Varför svepet är farligare än den enskilda rättelsen.** Tre saker verkar
-samtidigt. Den som rättar sju fynd håller sju fynd i huvudet och skriver mot
+samtidigt. Den som rättar en hel lista håller hela listan i huvudet och skriver mot
 minnet av listan i stället för mot filen. Rättelsetexten läses dessutom som ett
 svar på en anmärkning, alltså med frågan "täcker den fyndet" i stället för "är
 den sann". Och en appendixpost som läggs överst skjuter ner varje radnummer under
@@ -316,6 +331,39 @@ skriva posten ännu, inte ett skäl att lämna fältet tomt.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.4.4 — 2026-08-27
+
+Rättelser i I4 efter §7-granskningen av skiva 10, som underkände posten på fyra
+punkter. Alla fyra satt i den tabell och den brödtext som är postens eget bevis,
+vilket är samma svepmönster posten dokumenterar.
+
+- **Tabellrad 2 tillskrev fel post ett fel.** Radnummerfelet bars av 0.9.0 och
+  registrerades av 0.10.0, inte tvärtom. Avläst ur att stycket "Radnummer var
+  tillbaka. 0.9.0 byggde sitt fällningskommando på `201=` och `282=`" ligger
+  mellan rubrikerna `### 0.10.0` och `### 0.9.0` i `docs/sparrar.md`. Raderna 1
+  och 2 är rättade.
+- **"En åttonde instans" skrev ut summan tre rader under löftet att inte göra
+  det.** Ordinalen är borttagen. Samma felklass som I3 fick sin rättelse för i
+  0.4.2, med kortare avstånd.
+- **"två skivor tidigare" är sex.** CLAUDE.md 0.4.1 skrevs i skiva 3, avläst ur
+  `git log -S"0.4.1 — 2026-08-26" -- CLAUDE.md` som ger `0b3f0ef`;
+  `docs/sparrar.md` 0.11.1 skrevs i skiva 9. Talet är ersatt av de två skivorna.
+- **Utkastinstansen påstods stå "i tabellen ovan".** Den gör den inte och kan
+  inte göra det: tabellen listar committade poster. Stycket säger nu det, och
+  redovisar instansen som ett arbetsförlopp utan spår i repot.
+
+**En processräkning struken ur brödtexten.** "Varje granskningsvarv fick en lista
+med fem till sju fynd" går inte att läsa ur repot av samma skäl som posten själv
+anför om rapporterna i gitignorerade `scratchpad/`. Talet är borta.
+
+**Två stycken flyttade tillbaka till I1.** Fälten "Vad som gör den svår att se"
+och "Vakt" om `monkeypatch` och pacerns sovfunktion hörde till I1 och hamnade i
+slutet av I3 när I2 och I3 sattes in i skiva 9. Avläst ur
+`git show 196e60a:docs/incidentlogg.md`, där de ligger direkt efter I1:s "Regeln
+posten bär". Flytten är återställd.
+
+Rättade påståenden ⇒ PATCH.
 
 ### 0.4.3 — 2026-08-27
 

@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.8.0 · **Uppdaterad:** 2026-08-27 · **Speglar:** beslutslogg #22
+**Version:** 0.8.1 · **Uppdaterad:** 2026-08-27 · **Speglar:** beslutslogg #22
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -21,7 +21,7 @@ Ett skickat mail går inte att ångra, och avsändaren är ett företags rykte.
   beslutslogg #20. Fram till dess körs allt på Lars maskin.
 - **Styrdokument:** `docs/roadmap.md` (fasordning, grindar, och definitionen av
   SKUGGLÄGE),
-  `docs/kategorier-forslag.md` (maskinproducerad av `src/cluster.py`, skrivs
+  `docs/kategorier-forslag.md` (maskinproducerad av `src/ometikettera.py`, skrivs
   aldrig för hand),
   `docs/kategorier.md` (kategoridefinitioner och deras hink) — **planerad, byggs i
   fas 4**, se `docs/roadmap.md`,
@@ -178,8 +178,8 @@ Regeln ovan styr GRANSKAREN. Den här styr den som skriver, och den behövs där
 den första fångade varje instans utan att hindra någon. Se `docs/incidentlogg.md` I4,
 som räknar upp de rättelseposter som själva bar ett fel, var och en med sin plats.
 
-Skälet är att den som rättar sju fynd håller sju fynd i huvudet och skriver mot minnet
-av listan i stället för mot filen. En särskilt snabb variant: **en appendixpost som
+Skälet är att den som rättar en hel lista håller hela listan i huvudet och skriver mot
+minnet av listan i stället för mot filen. En särskilt snabb variant: **en appendixpost som
 läggs överst skjuter ner varje radnummer under sig**, så en rättelse som namnger rader
 föråldrar sig själv i samma skrivning.
 
@@ -456,6 +456,26 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.8.1 — 2026-08-27
+
+Rättelser efter §7-granskningen av skiva 10.
+
+**0.8.0-posten påstod att I4 "skriver ingen summa".** Posten skrev en, tre rader
+under sitt eget löfte, i formen "En åttonde instans". Ordinalen är borttagen ur
+I4 och påståendet här står därför kvar som sant, men det var falskt när det
+skrevs och det ska synas.
+
+**En processräkning struken ur §7.** Skälstycket sa "den som rättar sju fynd
+håller sju fynd i huvudet". Talet var illustrativt men obelagt, och formen är den
+§7.2 förbjuder. Meningen talar nu om en lista utan att räkna den.
+
+**§0 sa att `docs/kategorier-forslag.md` är maskinproducerad av
+`src/cluster.py`.** Filen själv säger `src/ometikettera.py` sedan beslutslogg
+#18. §0 bar alltså ett falskt påstående om repot fyra rader från den rad skiva 10
+redigerade. Rättat.
+
+Rättade påståenden ⇒ PATCH.
 
 ### 0.8.0 — 2026-08-27
 
