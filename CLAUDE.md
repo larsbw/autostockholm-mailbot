@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.8.1 · **Uppdaterad:** 2026-08-27 · **Speglar:** beslutslogg #22
+**Version:** 0.8.2 · **Uppdaterad:** 2026-08-27 · **Speglar:** beslutslogg #23
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -456,6 +456,23 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.8.2 — 2026-08-27
+
+`Speglar` följer med beslutsloggen till #23 efter skiva 11. Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att posten lagts till.
+
+**§0:s styrdokumentlista är oförändrad.** Fas 4.5 lades i `docs/roadmap.md`,
+spärrposten i `docs/sparrar.md`, beslutet i `docs/beslutslogg.md` och incidenten
+I5 i `docs/incidentlogg.md`. Alla fyra står redan i §0.
+
+**Skivan skapade däremot en fil: `scripts/regnr-matning.py`.** Den är ett
+mätverktyg och inget styrdokument, så §0:s lista berörs inte. Skiva 11:s brief
+sade INGEN KOD; Lars avgjorde att det syftade på botens kod och inte på ett
+verktyg som bär ett styrdokuments centrala påstående, och att §9:s krav på ett
+committat skript väger tyngre. Skälet står i `docs/incidentlogg.md` I5.
+
+Ren synk, och en fil som inte rör §0 ⇒ PATCH.
 
 ### 0.8.1 — 2026-08-27
 

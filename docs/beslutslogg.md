@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.16.1 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §8
+**Version:** 0.17.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -828,7 +828,69 @@ får se dem.
 
 ---
 
+## #23 — Datakälla för fordonsuppslag: ägaruppgifter väljs bort aktivt
+
+**Datum:** 2026-08-27 · **Berör:** `docs/roadmap.md` fas 4.5, CLAUDE.md §6
+
+**Beslut av Lars.** Fordonsuppslaget i fas 4.5 ska hämta **tekniska fält utan
+ägaruppgifter**. Vilken leverantör som levererar dem är inte beslutat, se den
+öppna punkten nedan.
+
+**Alternativen som övervägs**, återgivna ur Lars instruktion i skiva 11:
+
+| Väg | Vad den ger |
+| --- | --- |
+| Transportstyrelsens direktåtkomst, via **Bilvision** eller **Dun & Bradstreet** | Hela vägtrafikregistret, **inklusive ägaruppgifter** |
+| **Biluppgifter PRO API** | Tekniska fält, JSON mot API-nyckel, utan ägardata |
+| **Fordonsfakta** | Tekniska fält, JSON mot API-nyckel, utan ägardata |
+
+**ATT AVSTÅ ÄGARUPPGIFTER ÄR ETT AKTIVT VAL, INTE EN BEGRÄNSNING.** Boten behöver
+veta vad bilen ÄR, inte vem som äger den. Direktåtkomsten ger mer data än behovet
+och är enligt Lars sämre ur GDPR-synpunkt.
+
+Valet har en förlängning i §6, som säger att kundmail bär persondata och att den
+aldrig når rapporter, `docs/` eller något som pushas. **Ett uppslag mot
+registreringsnumret som svarar med ägaren skulle dra in persondata i ett flöde
+som i övrigt bara behöver teknik**, och den datan hade sedan funnits i varje logg
+och varje felsökning på vägen. Den billigaste hanteringen av persondata är att
+aldrig hämta den.
+
+**LEVERANTÖRSUPPGIFTERNA ÄR ÅTERGIVNA, INTE VERIFIERADE.** Att de fyra
+namngivna leverantörerna finns, och att de två sistnämnda levererar JSON mot
+API-nyckel utan ägardata, är Lars uppgift och är inte uppslaget i den här
+sessionen. Det ska prövas mot leverantörernas egen dokumentation innan avtal
+tecknas.
+
+**ÖPPEN PUNKT: leverantör är inte vald.** Priset per uppslag och avtalsformen är
+inte avlästa och **skrivs därför inte**, enligt §7.2:s regel att ett tal är avläst
+eller utelämnat. Lars avgör. Detta är fas 4.5:s grind, och fasen lämnas inte
+förrän den är avgjord.
+
+**Ingen leverantör får väljas av kod**, och ingen får väljas genom att en
+implementation redan råkar peka på en av dem.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.17.0 — 2026-08-27
+
+**#23 tillkommer**, på beslut av Lars i skiva 11: fordonsuppslaget i fas 4.5
+hämtar tekniska fält utan ägaruppgifter, och bortvalet är ett aktivt val och
+inte en begränsning.
+
+Posten namnger leverantörsvägarna Lars räknade upp och skriver ut att
+uppgifterna om dem är ÅTERGIVNA och inte uppslagna i sessionen. **Priset per
+uppslag och avtalsformen skrivs inte**, eftersom de inte är avlästa och §7.2
+inte tillåter en tredje kategori mellan avläst och utelämnat.
+
+Bortvalet av ägardata kopplas till §6: ett uppslag som svarar med ägaren hade
+dragit in persondata i ett flöde som annars bara behöver teknik, och den datan
+hade sedan legat i varje logg på vägen.
+
+**Öppen punkt: leverantör är inte vald**, och den punkten ÄR fas 4.5:s grind.
+
+Ny post ⇒ MINOR.
 
 ### 0.16.1 — 2026-08-27
 

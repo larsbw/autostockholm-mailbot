@@ -1,6 +1,6 @@
 # Incidentlogg
 
-**Version:** 0.4.4 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §0
+**Version:** 0.5.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §0
 
 Varje regel som bärs av en incident bor här. Dokumentet finns för att förlagornas
 styrka är att en härdad regel namnger det fel som skapade den. En regel utan
@@ -307,6 +307,105 @@ som fångar det.
 
 ---
 
+## I5 — `grep` mot `data/*.jsonl` ser bara ingressen, och nollan lästes som ett fynd
+
+**Datum:** 2026-08-27 · **Uppmätt i:** skiva 11 ·
+**Berör:** `data/tradar.jsonl`, `data/tradar_obesvarade.jsonl`, `src/urval.py`
+
+**Vad som hände.** Skiva 11 skulle pröva ett påstående i sin egen brief: att
+förmedlarnas notiser bär registreringsnummer i ett strukturerat fält. Prövningen
+gjordes med `grep -cE` mot filraderna i `data/tradar_obesvarade.jsonl`, fick
+noll, och skrev in i `docs/roadmap.md` att briefen var motbevisad.
+
+Nollan var en artefakt, men INTE av det skäl utkastet trodde. Filraden bär
+huvudena och fältet `snippet` i klartext; det är bara meddelandetexten som ligger
+base64url-kodad, i `body.data` på den MIME-del som bär den. Den delen är en av
+`payload.parts` när sådana finns och `payload` självt när de saknas, vilket
+`src/urval.py::brodtext` säger i sin docstring och `::_platta` hanterar genom att
+platta delträdet. En `grep` mot filraden ser alltså innehåll, men bara ingressen:
+längsta uppmätta `snippet` är 201 tecken. I förmedlarnas notiser står
+registreringsnumret längre ned, och därför fann `grep` noll.
+
+**Ett andra utkast förklarade nollan med att `grep` "per konstruktion inte kan se
+ett ord i något mail". Det är också falskt**, och det är därför den här posten
+skriver ut mekanismen i stället för att nöja sig med regeln. I
+`data/tradar.jsonl` fann rå `grep` 78 av 79 fält, samtliga via `snippet`. Vore
+filraden ogenomskinlig hade det talet varit noll.
+
+**Invändningen restes och avfärdades felaktigt, och det är postens egentliga
+innehåll.** Det första utkastet ställde uttryckligen frågan om filerna kunde bära
+base64 och prövade den med `grep -c "Hej" data/tradar_obesvarade.jsonl`, som gav
+455. Slutsatsen blev att texten var avkodad och nollan verklig.
+
+Mätningen gällde fel population. Filen bär 1604 trådar, och att 455 av dem bär
+`Hej` någonstans säger ingenting om de 411 förmedlartrådar invändningen handlade
+om. Att en invändning restes och avfärdades är värre än att den aldrig restes:
+avfärdandet skrevs in i dokumentet som ett belägg, och gav nollan en trovärdighet
+den inte hade.
+
+**Uppmätt effekt.** Etikettform i alla celler, alltså ett regnr-ord följt av
+kolon eller likhetstecken. Körningen är
+`.venv/bin/python scripts/regnr-matning.py`, som avkodar via
+`src/urval.py::brodtext`:
+
+| Population | Rå filrad | Enbart `snippet` | Avkodad kropp |
+| --- | --- | --- | --- |
+| `data/tradar.jsonl`, alla 555 | 78 | 78 | 79 |
+| `data/tradar_obesvarade.jsonl`, alla 1604 | 0 | 0 | 340 |
+| förmedlartrådar bland obesvarade, 411 | 0 | 0 | 40 |
+
+De två första kolumnerna är identiska i varje rad: allt `grep` hittade låg i
+`snippet`. Förmedlartrådar är avgjorda på `From`, `Reply-To`, `Return-Path` och
+`Sender`. Av de 40 bär `bokadirekt.se` 36 och `autobutler.se` 4.
+
+**Det andra utkastet jämförde dessutom 3 mot 40 som om talen gällde samma sak.**
+De gjorde det inte: 3 var ordträffar utan etikettkrav över hela filen, 40 var
+etikettform över förmedlarsubsetet. Två dimensioner hade bytts utöver den som
+stycket handlade om. Det ärliga paret för den populationen är 0 mot 40, och det
+står i tabellen ovan.
+
+**Vad det kostade.** Noll i sändvägen, och det berodde på grinden och inte på
+texten. Falskheten fångades av §7-granskningen före commit och nådde aldrig
+`origin`. Hade den skeppats hade fas 4.5 byggts utan fältavläsare, och boten hade
+frågat kunder efter ett registreringsnummer de redan skickat.
+
+**Hur det upptäcktes.** Av granskaren, som körde om mätningen och avkodade
+kropparna i stället för att läsa filraden. Skribenten hade rest rätt invändning
+och stängt den själv med fel mätning, alltså är det INTE ett fall där felet
+saknade misstanke. Misstanken fanns och avfärdades.
+
+**Regeln posten bär, i tre led.**
+
+1. Ett textpåstående om innehållet i `data/*.jsonl` mäts genom
+   `src/urval.py::brodtext` eller en likvärdig avkodning, aldrig genom `grep` mot
+   filraden. **En nolltäckning från `grep` mot dessa filer är INKONKLUSIV** och
+   får aldrig skrivas som ett negativt fynd. En TRÄFF är däremot äkta, vilket är
+   vad som gör felet lömskt: verktyget fungerar ibland.
+2. Prövas en hypotes om en DELMÄNGD ska kontrollmätningen göras på den
+   delmängden. En räkning över hela filen kan inte avfärda en invändning som
+   gäller en del av den, hur stort talet än blir.
+3. **Två tal ställs bara mot varandra om varje dimension utom den jämförda är
+   densamma.** Population, predikat och avkodning ska vara identiska. En
+   jämförelse där två av tre bytts är inte en mätning av något.
+
+**Vakt: `scripts/regnr-matning.py`, committat på Lars beslut i skiva 11.**
+Mätningen låg först i den gitignorerade `scratchpad/` och fanns alltså inte i
+repot. Skivans instruktion sade INGEN KOD, men den syftade på botens kod och inte
+på ett mätverktyg som bär ett styrdokuments centrala påstående, och §9:s krav på
+ett COMMITTAT skript väger tyngre. Skriptet mäter samma predikat i tre lager, rå
+filrad, `snippet` och avkodad kropp, och lånar avkodningen ur `src/urval.py` i
+stället för att kopiera den.
+
+Vakten är partiell och ska läsas så. Den hindrar att talen blir ohärledbara och
+gör talpar utan gemensam grund svåra att skriva, eftersom varje kolumn i utdatan
+bär samma predikat. **Den hindrar inte att någon ställer en ny `grep` mot
+`data/*.jsonl` och tror på nollan.** Ingen spärr kan se det, och `data/` är
+gitignorerad så inget test kan köras mot den. Räkna med att felet återkommer vid
+nästa mätning som görs snabbt, och att granskarens omkörning är det som fångar
+det.
+
+---
+
 ## Mall för en incidentpost
 
 Kopiera blocket nedan. Ett fält som inte går att fylla i är ett skäl att inte
@@ -331,6 +430,36 @@ skriva posten ännu, inte ett skäl att lämna fältet tomt.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.5.0 — 2026-08-27
+
+**I5 tillkommer:** `grep` mot `data/*.jsonl` ser bara ingressen, och nollan lästes
+som ett fynd. Uppmätt i skiva 11, där en `grep`-mätning gav noll och skrevs in i
+`docs/roadmap.md` som ett motbevis mot skivans egen brief.
+
+**Posten bär tre regler.** Innehållspåståenden om `data/*.jsonl` mäts genom
+`src/urval.py::brodtext`, och en nolltäckning från `grep` är inkonklusiv medan en
+träff är äkta. Prövas en hypotes om en delmängd görs kontrollmätningen på den
+delmängden. Och två tal ställs bara mot varandra om varje dimension utom den
+jämförda är densamma.
+
+**Mekanismen är utskriven därför att ett utkast fick den om bakfoten.** Utkastet
+skrev att filraden är base64 och att `grep` "per konstruktion" inte kan se ett ord
+i något mail. Filraden bär `snippet` i klartext, och rå `grep` fann 78 av 79 fält
+i `data/tradar.jsonl` just den vägen. Orsaken till nollan är att `snippet` är
+avkortad, längst uppmätt 201 tecken, och att fältet i förmedlarnas notiser ligger
+bortom den. En regel med rätt slutsats och fel mekanism leder nästa läsare fel i
+motsatt riktning, och det är därför den tredje regeln finns.
+
+**Posten bär en PARTIELL vakt, och det är utskrivet.** `scripts/regnr-matning.py`
+är committat på Lars beslut och gör talen härledbara med ett kommando. Den
+hindrar inte att någon ställer en ny `grep` mot `data/*.jsonl` och tror på
+nollan, och posten säger det i stället för att låta skriptet läsas som ett skydd.
+
+Skadan blev noll, och posten skriver ut att det berodde på §7-grinden och inte på
+texten.
+
+Ny post ⇒ MINOR.
 
 ### 0.4.4 — 2026-08-27
 

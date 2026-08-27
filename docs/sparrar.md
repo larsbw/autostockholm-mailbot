@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.11.3 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.12.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -9,9 +9,23 @@
 > producerar alltså ett FALSKT VAKUÖSTVERDIKT, vilket är värre än inget
 > dokument. Varje post namnger därför också villkorets TEXT.
 
-**Sändvägens spärrar är ännu inte byggda och fylls i FAS 5.** De spärrar som
-står i tabellen nedan kommer inte från sändvägen, utan från mining, urval,
-maskering och commitgrinden.
+**Sändvägens spärrar är ännu inte byggda och fylls i FAS 5.** Läs varje post för
+sig: den säger själv vad den kan och inte kan belägga. En post märkt **PLANERAD**
+är registrerad före sin kod, och då saknas fil, villkor och negativkontroll.
+**En PLANERAD post går inte att pröva enligt §7.1.**
+
+*Rättelse i 0.12.0: här stod att spärrarna i tabellen inte kommer från
+sändvägen, utan från mining, urval, maskering och commitgrinden. Två fel.
+Uppräkningen täckte inte `klassning-maskinmail` och `forbjudna-maskindomaner`,
+och den senare avgör om en förmedlad kundförfrågan alls blir besvarad, vilket
+inte utan vidare ligger utanför sändvägen. Dessutom kategoriserade meningen sin
+egen omgivning och blev falsk av den commit som lade en sändvägsspärr i tabellen,
+vilket är det CLAUDE.md 0.3.1 förbjuder.*
+
+*Rättelse i samma version, efter tredje granskningsvarvet: den första
+omskrivningen sade "Varje post nedan namnger själv var dess spärr sitter". Det
+blev falskt av den PLANERAD-post samma commit lade till, som uttryckligen inte
+kan namnge fil och villkor. Stycket påstår inte längre något om alla poster.*
 
 *Rättelse i 0.7.0: här stod "En spärr är registrerad". Tabellen bar då fem.
 Meningen räknade sin egen omgivning och blev falsk av den commit som lade till
@@ -40,6 +54,7 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 | `klassning-maskinmail` | Att nyhetsbrev och notiser blir kundärenden | `test_vanligt_kundmail_ar_inte_maskinmail` | Fyra lager plus ett UNDANTAG. Se posten. |
 | `persondatakontroll` | Att en commit för in persondata i `docs/` | `test_ren_text_ger_inga_fynd` | `maskering-persondata`. Sista linjen, inte den enda. |
 | `forbjudna-maskindomaner` | Att en förmedlad kundförfrågan kastas som maskinmail | `test_liknande_doman_skyddas_inte_av_misstag` | Sig själv, två lager i `src/klassa_maskin.py`, och går FÖRE `klassning-maskinmail`. Se posten. |
+| `fordonsfakta-ur-uppslag` **(PLANERAD, byggs i fas 5)** | Att ett utgående mail namnger fordonsfakta som inte kommer ur ett lyckat uppslag | **Finns inte. Spärren är obyggd.** Se posten. | Ingen registrerad spärr. §7.2:s talregel vaktar samma felklass för priser och fakta, men är en REGEL och inte en spärr. Se posten. |
 
 ---
 
@@ -326,6 +341,70 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 
 ---
 
+## `fordonsfakta-ur-uppslag`
+
+> **PLANERAD, INTE BYGGD.** Registrerad i skiva 11 på beslut av Lars, före sin
+> kod. **TVÅ av mallens fyra fält går ännu inte att fylla i sak:** *Spärr* saknar
+> fil och villkor, eftersom koden inte finns, och *Negativkontroll* saknar test av
+> samma skäl. Båda bär i stället utskriven text om vad som fattas och när det ska
+> fyllas.
+>
+> Posten är därför INTE ofärdig i mallens mening. Mallen säger *"Varje fält fylls
+> i, tomma fält är en ofärdig post"*, och inget fält här är tomt. Den är
+> ofullständig i sak medan den är fullständig i form, och skillnaden står här för
+> att nästa läsare inte ska ta den för prövbar. **Spärren går inte att fälla
+> enligt §7.1 förrän fil och villkor är ifyllda.**
+
+- **Spärr.** Ett svar som namnger fordonsfakta skickas inte om fakta inte kommer
+  ur ett lyckat uppslag. **Ingen tjänstevikt, ingen drivning, inget fabrikat och
+  ingen modell i brödtexten utan att värdet lästs ur uppslagets svar.**
+
+  Fil och villkor kan inte namnges ännu. Koden byggs i fas 5, och först då går
+  §7.1:s prövning att utföra utan gissningar. **Posten ska kompletteras med fil
+  och villkorets TEXT i samma skiva som spärren byggs**, inte efteråt: en
+  registrerad spärr utan namngivet villkor är en post som ser ut att gå att pröva
+  och inte gör det, vilket är den felklass rutan överst i dokumentet finns för.
+- **Vad den skyddar mot.** Ett utgående mail som påstår något om kundens bil som
+  ingen källa belägger. Samma regel som `config/priser.json`, av samma skäl:
+  **§7.2 säger att ett tal är avläst eller utelämnat**, och ett fabrikat eller en
+  drivning är samma sorts påstående som ett pris. Saknas uppslaget faller mailet
+  till `utkast`, det fylls inte med ett rimligt värde.
+
+  Fasen som spärren betjänar bär det skarpaste enskilda fallet:
+  `docs/roadmap.md` fas 4.5 slår fast att **boten aldrig påstår att en viss bil
+  klarar sig utan barlastflak**, eftersom sextioprocentsregeln inte går att
+  avgöra ur registret. Framhjulsdrift är en indikation och inte en mätning. Den
+  här spärren är vad som hindrar att indikationen skrivs ut som ett besked.
+- **Negativkontroll. FINNS INTE ÄNNU, och det är ett öppet fält och inte ett
+  saknat.** Spärren är obyggd, så inget test kan visa att den SLÄPPER IGENOM när
+  den ska. Det testet ska visa att ett svar med fordonsfakta som VERKLIGEN kommer
+  ur ett lyckat uppslag går igenom orört. En spärr som fäller varje fordonsfaktum
+  vore inte en spärr utan ett stopp, och då hade scenario 3 och 4 i fas 4.5 varit
+  omöjliga att besvara.
+- **Redundant med. INGEN REGISTRERAD SPÄRR.**
+
+  §7.2:s talregel vaktar samma felklass för priser, ledtider och öppettider, men
+  **den är en regel i CLAUDE.md och inte en spärr i det här dokumentet**, och den
+  skillnaden är hela poängen med §7.1: en regel läses av den som skriver, en
+  spärr biter i koden. Prisregelns spärr är inte heller byggd. När den byggs i
+  fas 5 ska båda posterna namnge varandra här, och då blir fältet ett äkta
+  redundansfält.
+
+  **Instruktionen till skiva 11 sade "prisregeln i §11". Den står i §7.2.**
+  `grep -n "priser.json" CLAUDE.md` ger TVÅ rader, 266 och 371. Rad 266 är
+  prisregeln och ligger inom §7.2, vars rubrik står på rad 252 och vars efterföljare
+  §8 står på 304. Rad 371 är något annat: §10:s stopp för ändringar i filen, inom
+  §10 som börjar på 361. §11 börjar på 381 och bär ingen prisregel; den skjuter
+  tvärtom ifrån sig frågan med raden *"Talregeln i §7.2 gäller parallellt och går
+  före vid konflikt."*
+
+  Rättat här hellre än återgivet, eftersom en felaktig paragrafhänvisning i ett
+  spärrdokument skickar den som ska fälla spärren till fel text. **Radnumren
+  föråldras**, enligt rutan överst i det här dokumentet: kommandot ovan är det som
+  gäller, inte talen.
+
+---
+
 ## Mall för en spärrpost
 
 Kopiera blocket nedan per spärr. Varje fält fylls i, tomma fält är en ofärdig
@@ -348,6 +427,64 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.12.0 — 2026-08-27
+
+**Spärren `fordonsfakta-ur-uppslag` registrerad**, på beslut av Lars i skiva 11.
+Ett svar som namnger fordonsfakta skickas inte om fakta inte kommer ur ett
+lyckat uppslag.
+
+**POSTEN ÄR REGISTRERAD FÖRE SIN KOD, och det är utskrivet i posten.** Spärren
+byggs i fas 5. Fältet **Negativkontroll kan därför inte fyllas**, eftersom inget
+test finns, och fältet säger det i klartext i stället för att stå tomt. Skälet är
+mallens, om än uttalat för ett annat fält: dess punkt *Redundant med* säger att
+"ett tomt fält går inte att skilja från ett obesvarat fält", och det gäller
+*Negativkontroll* lika mycket. En påhittad testnamnsrad hade varit värre än båda:
+den hade producerat exakt det falska prövbarhetssken som rutan överst varnar för.
+
+Fil och villkorets TEXT kan inte heller namnges ännu, och posten skriver ut att
+den ska kompletteras i samma skiva som spärren byggs.
+
+**Fältet "Redundant med" säger INGEN REGISTRERAD SPÄRR.** §7.2:s talregel vaktar
+samma felklass för priser och fakta, men den är en regel i CLAUDE.md och inte en
+spärr i det här dokumentet. Prisregelns spärr är inte byggd heller.
+
+**Instruktionen till skiva 11 placerade prisregeln i §11. Den står i §7.2.**
+`grep -n "priser.json" CLAUDE.md` ger TVÅ rader, 266 och 371, och posten återger
+båda: 266 är prisregeln inom §7.2, 371 är §10:s stopp för ändringar i filen. §11
+bär ingen prisregel utan hänvisar till §7.2 för talfrågan. Rättat i posten i
+stället för återgivet, eftersom en felaktig paragrafhänvisning i ett
+spärrdokument leder den som ska fälla spärren till fel text.
+
+**En mening i huvudet blev falsk av den här posten och är rättad på plats.**
+Stycket sade att spärrarna i översiktstabellen inte kommer från sändvägen, utan
+från mining, urval, maskering och commitgrinden.
+
+Ett första utkast till rättelse behöll uppräkningen och lade bara till ordet
+BYGGDA. §7-granskningen fällde den: uppräkningen täckte inte
+`klassning-maskinmail` och `forbjudna-maskindomaner`, och den senare avgör om en
+förmedlad kundförfrågan alls blir besvarad, vilket inte utan vidare ligger
+utanför sändvägen. Rättelsen hade dessutom behållit formen som var felet, en
+mening som kategoriserar sin egen omgivning och blir falsk av nästa commit.
+
+**Ett andra utkast bytte kategoriseringen mot en annan universell utsaga**,
+"Varje post nedan namnger själv var dess spärr sitter", och den var falsk redan
+när den skrevs: PLANERAD-posten i samma commit kan inte namnge fil och villkor.
+Stycket säger nu i stället att varje post ska läsas för sig, och påstår ingenting
+om alla poster.
+
+Det är RÄTTELSETEXT GRANSKAS SOM NY TEXT i praktiken, två gånger om samma
+stycke: båda rättelserna svarade på fyndet utan att bli sanna om filen.
+
+**Rubriknoten i den nya posten beskrev mallen fel och är rättad.** Den sade att
+posten är "ofärdig i den mening mallen definierar". Mallen definierar ofärdig som
+ett TOMT fält, *"Varje fält fylls i, tomma fält är en ofärdig post"*, och inget
+fält i posten är tomt. Noten sade också
+att bara *Negativkontroll* var ofyllbart; även *Spärr* är det, eftersom mallen
+kräver fil och villkor och koden inte finns. Noten namnger nu båda fälten och
+skiljer på ofullständig i sak och fullständig i form.
+
+Ny post ⇒ MINOR.
 
 ### 0.11.3 — 2026-08-27
 
