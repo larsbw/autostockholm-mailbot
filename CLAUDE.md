@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.8.6 · **Uppdaterad:** 2026-08-28 · **Speglar:** beslutslogg #27
+**Version:** 0.8.7 · **Uppdaterad:** 2026-08-28 · **Speglar:** beslutslogg #28
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -456,6 +456,21 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.8.7 — 2026-08-28
+
+`Speglar` följer med beslutsloggen till #28. Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att posten lagts till.
+
+**§0:s styrdokumentlista är oförändrad.** Skiva 16 skapade
+`scripts/etikettera-nya.py`, alltså ett verktyg och inget styrdokument.
+
+**§0:s rad om `docs/kategorier-forslag.md` står kvar sann.** Filen är fortfarande
+maskinproducerad av `src/ometikettera.py` och skrivs aldrig för hand: skiva 16:s
+tillägg gjordes genom att `scripts/etikettera-nya.py` anropade samma
+`skriv_rapport`.
+
+Ren synk ⇒ PATCH.
 
 ### 0.8.6 — 2026-08-28
 

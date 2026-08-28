@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.23.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §8
+**Version:** 0.24.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -790,6 +790,14 @@ repot, och §6 säger att persondata aldrig förekommer i något som pushas. Vä
 gör undantaget synligt i en diff, vilket är dess förtjänst, men den löser inte
 §6-frågan utan flyttar den.
 
+*Upphävt av #28 i ett led. `scripts/` ligger sedan skiva 16 i `BEVAKADE`, så
+`scripts/persondatakontroll.py` är inte längre en obevakad fil och väg 1 flyttar
+ingenting från bevakat till obevakat. **Invändningen kvarstår av ett annat
+skäl:** ett `TILLATNA`-undantag gäller exakt strängen, så adressen skulle stå
+oskyddad i en spårad fil även om filen granskas. Slutsatsen står alltså kvar, att
+väg 1 inte löser §6-frågan utan flyttar den, medan mekanismen är en annan. Den
+öppna punkten är fortfarande öppen och väntar på Lars.*
+
 Väg 2 har samma problem i annan form: adressen står kvar i `config/`, bara
 utanför spärrens räckvidd.
 
@@ -1159,7 +1167,9 @@ De 92 bidrar med **66 unika kundtexter som saknas i båda kolumnerna**.
 | Med svar | 213 | 213 |
 | Utan svar | 582 | 648 |
 
-795 är avläst på rad 54 i `docs/kategorier-forslag.md` och 213 ur körningen. 582
+795 är avläst ur raden `Texter i underlaget` i `docs/kategorier-forslag.md` som
+den stod när posten skrevs, och 213 ur körningen. **Den raden bär i dag 861**,
+eftersom #28 lade till de 66; filen är maskinproducerad och alltid aktuell. 582
 är både differensen mellan dem och ett direkt mätvärde: skriptet bygger den
 obesvarade kolumnen med samma urval som `src/kategorisera.py` rad 95–109 och får
 582 texter. Att de 66 saknas i BÅDA kolumnerna är också mätt, inte antaget:
@@ -1180,13 +1190,27 @@ Formulärets ämnesrad är en offertförfrågan om A-traktor, så de 23 är
 a-traktorärenden av kanalens konstruktion, oavsett vilken av kategorierna de
 sedan hamnar i.
 
+*Ifrågasatt av #28. När de 23 etiketterades hamnade bara 8 i en
+a-traktorkategori. Slutledningen ovan drog en slutsats om ÄRENDET ur
+ämnesradens form, och det ledet håller inte utan att kundens egen text har
+prövats. Vad de övriga är, och varför, är inte mätt.*
+
 Tabellen ger i dag 25/12/7 totalt för de tre a-traktorkategorierna med *Utan
 svar* 0, 1 och 0. Bilden av a-traktorärenden som i praktiken alltid besvarade
 vilar alltså på att de obesvarade låg i fel fil.
 
+*Talen ovan gällde när posten skrevs och är föråldrade av #28, som etiketterade
+de 66. Tabellen ger nu 29/14/9 med `Utan svar` 4, 3 och 2. Meningens slutsats
+står kvar: skevheten kom av att de obesvarade låg i fel fil. Talen läses ur
+`docs/kategorier-forslag.md`, som är maskinproducerad och alltid aktuell.*
+
 **Detta är INTE en rangordning mellan kategorier.** De återstående 43 texterna är
 oetiketterade och kan fördela sig var som helst, och ingen jämförelse mot någon
 annan kategoris basvärde är gjord.
+
+*Också föråldrat av #28: de 43 är etiketterade sedan skiva 16, och #28:s
+kanaltabell redovisar utfallet. Förbehållet i meningen står kvar i sak, eftersom
+posten ändå inte gjorde någon jämförelse mot andra kategoriers basvärden.*
 
 **Kanalerna som bär felet**, avsändardomän för de 92. Domäner med färre än tre
 träffar är hopslagna enligt §6, eftersom en personlig domän kan identifiera en
@@ -1216,6 +1240,10 @@ Anthropic API, och en omkörning av hela materialet är dessutom inte determinis
 enligt #18, alltså skulle den flytta tal som ingenting annat har ändrat. Att köra
 enbart de 66 och lägga till dem är den rimliga vägen, men det är ett eget beslut
 och fattas inte här.
+
+*Beslutet fattades i skiva 16, se #28. De 66 är etiketterade och satsen om att de
+är oetiketterade gäller alltså läget när posten skrevs. Vägen som pekas ut här,
+att köra enbart de 66, är den som togs.*
 
 **FAS 4:S GRIND ÄR INTE FATTAD I DEN HÄR POSTEN.** Kategoritabellen kan inte bära
 ett hinkbeslut förrän de 66 är etiketterade.
@@ -1260,7 +1288,221 @@ redan fast att miningen ska hämta brett en gång.
 
 ---
 
+## #28 — De 66 etiketteras, och ett lånat mönster får inte ärva sin stränghet
+
+**Datum:** 2026-08-28 · **Berör:** `scripts/etikettera-nya.py` (ny),
+`docs/kategorier-forslag.md`, `src/ometikettera.py`, `docs/roadmap.md` fas 4.5,
+`docs/sparrar.md`, `scripts/persondatakontroll.py`,
+`tests/test_persondatakontroll.py`, `scripts/besvarad-omklassning.py`, #18, #27,
+**och upphäver ett led i #21:s ÖPPEN PUNKT 2**
+
+**Beslut av Lars.** Tre saker i skiva 16.
+
+**1. De 66 texterna etiketteras, och bara de.** Ingen omkörning av materialet.
+Pass 2 är inte deterministiskt enligt #18, och en omkörning hade flyttat tal som
+ingenting annat har ändrat, i den tabell som bär fas 4:s grind.
+
+**2. Avläsaren i fas 4.5 ska vara skiftlägesokänslig.** Föreskriften står i
+`docs/roadmap.md`, luckan i `docs/sparrar.md` under
+`versalkansligt-monster-i-avlasare`.
+
+**3. `scripts/` bevakas av persondatakontrollen.** En spärr som inte täcker en
+katalog är en lucka oavsett vad som råkar ligga där.
+
+### Etiketteringen
+
+Utförd av `scripts/etikettera-nya.py`, som är idempotent: en kandidat vars text
+redan står i `data/kategorisvar.jsonl` etiketteras aldrig om, så en andra körning
+gör ingenting. Skyddet mot dubbelräkning ligger där och inte i att antalet råkar
+bli rätt.
+
+**Bara `--skarp` gör API-anrop.** `--redovisa` visar etiketterna per kanal och
+`--rapport` bygger om `docs/kategorier-forslag.md` ur `data/ometiketterade.jsonl`,
+båda utan anrop. `--rapport` är den sanktionerade vägen att skriva om filen när
+texten i `src/ometikettera.py` ändrats men etiketterna inte har det, eftersom §0
+säger att den är maskinproducerad och aldrig skrivs för hand.
+
+**BÅDA PASSEN, samma väg som resten av korpusen.** Först den fria klassningen ur
+`src/kategorisera.py`, som är den enda plats där `inget kundärende` och `oklart`
+kan uppstå. Sedan pass 2 mot den fasta taxonomin, läst ur `data/taxonomi.json`
+och inte omräknad. Hade bara pass 2 körts vore varje ny text tvingad in i en
+kundkategori, och de 41 som inte är kundärenden hade blivit det.
+
+Fördelningen av de 66:
+
+| Utfall | Antal |
+| --- | --- |
+| `inget kundärende` | 41 |
+| `fråga om a-traktorkonvertering` | 4 |
+| `boka tillbehörsmontage` | 4 |
+| `boka däckbyte` | 3 |
+| `boka service` | 3 |
+| `oklart` | 3 |
+| `boka a-traktorkonvertering` | 2 |
+| `fråga om pris a-traktorkonvertering` | 2 |
+| `boka rekond` | 1 |
+| `fråga om praktisk info` | 1 |
+| `fråga om tjänst` | 1 |
+| `övrigt` | 1 |
+
+**Noll föll utanför taxonomin, och noll anrop misslyckades.** Att `utanför
+listan` inte växte är ett utfall och inte ett mål: raden är en mätpunkt på
+taxonomins täckning, och att den står stilla säger att de 28 kategorierna räckte
+för de nya texterna.
+
+Åtgången, avläst ur API-svaren: 88 anrop, 35205 in-tokens, 829 ut-tokens.
+
+**Talet 88 går att härleda ur repot**, som 66 fria anrop plus 22 i pass 2, där 22
+är 66 minus de 44 som blev `inget kundärende` eller `oklart`. **Tokentalen gör
+det inte.** De kommer ur körningens egna API-svar och går inte att räkna om utan
+att göra anropen igen, vilket idempotensen förhindrar. De står här som kostnad,
+inte som något en granskare kan kvittera.
+
+**KORPUSEN.** 795 texter före, 861 efter. `Med svar` står oförändrad på 213, och
+det är kontrollerat mot tabellen och inte påstått: varje ny post bär
+`utan svar`, och kolumnen är identisk kategori för kategori. `Utan svar` går från
+582 till 648.
+
+### Vad de 66 säger om kanalerna, och vad det INTE avgör
+
+Uppdelat på kanal med `scripts/etikettera-nya.py --redovisa`:
+
+| Kanal | Texter | Blev kundkategori | `inget kundärende` eller `oklart` |
+| --- | --- | --- | --- |
+| Webbformuläret | 23 | 20 | 3 |
+| Övriga kanaler | 43 | 2 | 41 |
+
+**De texter som inte är kundärenden kommer nästan uteslutande från de andra
+kanalerna.** Av de 43 övriga bär 40 `inget kundärende` och 1 bär `oklart`.
+
+> **TALET 41 BÄR TVÅ BETYDELSER I DEN HÄR POSTEN, och de är olika mängder.**
+> I fördelningstabellen är 41 antalet texter som fick etiketten
+> `inget kundärende`, oavsett kanal. I kanaltabellen är 41 antalet texter ur
+> ÖVRIGA KANALER som blev `inget kundärende` eller `oklart`, alltså 40 plus 1.
+> Att de sammanfaller är ett sammanträffande. Den som räknar om ett tal härifrån
+> ska kontrollera vilken av dem som avses.
+
+**VAD DE ÄR, ÄR INTE MÄTT.** Skivan har deras etikett och deras avsändardomän,
+inte deras ärendetyp. En uppräkning av vad de innehåller vore läst ur minnet av
+att ha bläddrat, och det är precis den defekt den kursiva rättelsen i #9 bär.
+Det som är avläst är domänfördelningen i #27.
+
+Formuläret å sin sida fick en kundkategori i 20 fall av 23. Att kategorin är
+RÄTT är inte mätt, bara att den inte blev `inget kundärende` eller `oklart`.
+
+**EN ÖPPEN FRÅGA SOM INTE AVGÖRS HÄR.** Formulärets ämnesrad är en
+offertförfrågan om A-traktor, men bara 8 av de 23 hamnade i någon av de tre
+a-traktorkategorierna. Av de 15 övriga blev 12 en annan kundkategori, nämligen
+`boka tillbehörsmontage` 4, `boka service` 3, `boka däckbyte` 3, `boka rekond` 1
+och `fråga om tjänst` 1. De sista 3 är de `oklart` och `inget kundärende` som
+kanaltabellen ovan redovisar. Klassificeraren läser
+BRÖDTEXTEN och inte ämnesraden, så den läser vad kunden skrivit i formulärets
+fält. **Varför de skiljer sig är inte mätt**, och posten gissar därför inte:
+det kan vara att formuläret används för annat än a-traktor, eller att kundens
+egen text pekar mot en annan tjänst. Frågan hör till fas 4:s grind.
+
+**FAS 4:S GRIND ÄR INTE FATTAD HÄR.**
+
+### Versalkänsligheten
+
+`scripts/persondatakontroll.py` bär ett regnr-mönster som är versalkänsligt,
+avläst ur filen. Att det BÖR vara det är en slutsats och inte ett citat: en
+§6-kontroll som larmar skiftlägesokänsligt larmar på vanliga ord i löptext, och
+filens kommentar om postnummer gör samma avvägning uttryckligt för ett annat
+mönster. Mot webbformulärets fältvärde ger samma mönster 46 av 78 versalkänsligt
+och 77 av 78 skiftlägesokänsligt. **En fältavläsare som lånar mönstret utan
+`re.IGNORECASE` tappar 31 av de 77 nummer som går att läsa.**
+
+Följden är att uppslaget inte kan göras, gatingen faller till `utkast`, och
+kunden väntar på en handpåläggning som ärendet inte behövde. Ingen spärr fälls
+och inget larm går.
+
+**Det slår först i drift, och skälet är mekaniskt.** Testdata skrivs av den som
+skriver koden, och den skriver versalt. Ett test som bara matar in versala nummer
+är grönt för alltid. Luckposten kräver därför att ett test för avläsaren bär ett
+gement och ett blandat nummer.
+
+### `scripts/` under persondatakontrollen
+
+`BEVAKADE` bar `docs/`, `mallar/`, `config/` och `CLAUDE.md`. Skiva 15 lade två
+mätskript under `scripts/` som läser skarp kundpost och skriver antal ur den. En
+utskrift som råkar bära ett värde i stället för en räkning hade passerat.
+
+**`src/` och `tests/` bevakas fortfarande inte**, och skillnaden är inte att det
+ena är kod. Den är att skripten under `scripts/` läser skarp kundpost och skriver
+utdata ur den, medan `src/` och `tests/` bär mönster och påhittade fixturer.
+Kommentaren i filen sade tidigare att kod inte kontrolleras, och den var tvungen
+att skrivas om av samma ändring.
+
+Kontrollen går från 9 till 17 spårade filer och ger noll fynd.
+`test_scripts_bevakas` binder katalogen, och prövningen enligt §7.1 gav RÖD när
+`BEVAKADE`-raden neutraliserades.
+
+**ETT LED I #21:s ÖPPEN PUNKT 2 UPPHÄVS AV DEN HÄR ÄNDRINGEN.** Punkten säger
+att väg 1, att lägga Lars adress i `TILLATNA`, flyttar adressen från en bevakad
+fil till en obevakad. `scripts/persondatakontroll.py` är bevakad efter den här
+skivan, så det ledet gäller inte längre.
+
+**Punktens slutsats står ändå kvar**, av ett annat skäl: ett
+`TILLATNA`-undantag gäller exakt strängen, så adressen vore oskyddad i en spårad
+fil även när filen granskas. Väg 1 löser alltså fortfarande inte §6-frågan utan
+flyttar den. Den öppna punkten väntar oförändrat på Lars, och #21 bär en kursiv
+not som pekar hit.
+
+**Alternativ som valdes bort.** Att bevaka hela repot. Det hade fällt `src/` och
+`tests/` på påhittade fixturer, och en spärr som larmar på sin egen testdata blir
+avstängd.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.24.0 — 2026-08-28
+
+**#28 tillkommer:** de 66 texterna etiketterade, föreskriften att avläsaren i fas
+4.5 ska vara skiftlägesokänslig, och `scripts/` under persondatakontrollen.
+
+Posten redovisar fördelningen per kategori och per kanal, att `Med svar` står
+oförändrad på 213, och en öppen fråga som den inte avgör: bara 8 av formulärets
+23 texter hamnade i en a-traktorkategori trots att ämnesraden är en
+offertförfrågan om A-traktor. Skälet är inte mätt och gissas därför inte.
+
+**Rättelser efter §7-granskningen, per post.** Uppräkningen av vad formulärets
+övriga texter blev sade "de övriga" men täckte 12 av 15 och motsades av postens
+egen kanaltabell; den redovisar nu alla tre delmängderna. En karakterisering av
+vad de icke-kundärenden innehåller var inte mätt, och är struken: det är samma
+defekt som den kursiva rättelsen i #9 redan bär. Påståendet att §6-mönstret är
+versalkänsligt MED AVSIKT var en slutsats och inte ett citat, och skiljs nu från
+det avlästa. `Berör`-raden utelämnade skivans huvudleverabel. Talet 41 bär två
+betydelser i posten och har fått en varning i repots befintliga form.
+
+**Andra granskningsvarvet fällde, per post.** Skivans egen ändring av `BEVAKADE`
+gjorde ett led i #21:s ÖPPEN PUNKT 2 falskt, nämligen att väg 1 flyttar adressen
+till en obevakad fil. #21 bär nu en kursiv not, **och en sådan not är också
+inlagd i #21:s egen appendixpost**, som upprepade påståendet. #28 upphäver ledet
+uttryckligen, och punktens slutsats står kvar av ett annat skäl.
+
+**Kursiva noter är också inlagda i #27**, på tre satser som skiva 16 gjorde
+falska: a-traktortabellens tal 25/12/7, att de 43 texterna är oetiketterade, och
+att de 66 är det. Alla tre gällde när #27 skrevs och är föråldrade av
+etiketteringen, inte felaktiga då. #27:s slutledning att
+formulärets 23 texter är a-traktorärenden av kanalens konstruktion är
+ifrågasatt med en not, eftersom bara 8 blev det. Tokentalen är märkta som
+icke reproducerbara. `--rapport` och `--redovisa` var odokumenterade här.
+
+**GRINDEN ÄR FÖRBRUKAD, OCH DET SKA SYNAS.** §7 ger max tre granskningsvarv.
+Skivan förbrukade alla tre och det sista underkände också. Fynden i det varvet är
+rättade, men de rättelserna är **självmätta och inte oberoende granskade**: tre
+satser i #27 som skivans egen etikettering gjorde föråldrade, en versionspost i
+`docs/sparrar.md` som påstod som faktum det den själv sagt var en slutsats, och
+en kursiv not i `docs/roadmap.md` som sade att den strukna meningen bar ett tal.
+Den bar inget; talet stod i meningen före, avläst ur `be560a4`.
+
+Rättelserna gjordes därför att §7 förbjuder att skeppa ett känt falskt påstående
+även när varvsgränsen är uttömd. Gränsen begränsar antalet granskningar, inte
+kravet på sanning.
+
+Ny post ⇒ MINOR.
 
 ### 0.23.0 — 2026-08-28
 
@@ -1497,6 +1739,10 @@ till Lars.
 bevakad fil till en obevakad utan att den slutar finnas i repot. Punkten säger nu
 det, och namnger den underliggande frågan: om adressen över huvud taget ska stå i
 repot.
+
+*Ledet om bevakat mot obevakat är upphävt av #28: `scripts/` ligger sedan skiva
+16 i `BEVAKADE`. Den underliggande frågan och slutsatsen står kvar. Den kursiva
+noten i #21 bär skälet.*
 
 **#20 tillskrev §5 en regel som står i §6.** Att `--send` bara aktiveras av Lars
 explicita val står i §6. §5:s undantag säger något annat, att sändning aldrig är

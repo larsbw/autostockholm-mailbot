@@ -264,7 +264,7 @@ def skriv_rapport(sammanstallning: list[dict], utfil: Path, antal: int,
     rader = [
         "# Kategoriförslag",
         "",
-        "**Version:** 0.3.0 · **Uppdaterad:** 2026-08-26 · "
+        "**Version:** 0.4.0 · **Uppdaterad:** 2026-08-28 · "
         "**Implementerar** CLAUDE.md §0",
         "",
         f"Maskinproducerad av `src/ometikettera.py` med `{modell}`. "
@@ -325,6 +325,30 @@ def skriv_rapport(sammanstallning: list[dict], utfil: Path, antal: int,
         "---",
         "",
         "## Appendix — versionshistorik (nyaste överst)",
+        "",
+        "### 0.4.0 — 2026-08-28",
+        "",
+        "**Vad version 0.4.0 gjorde**, i skiva 16: "
+        "`scripts/etikettera-nya.py` lade till 66 kundtexter och etiketterade "
+        "enbart dem. De blev synliga av att `docs/beslutslogg.md` #27 rättade "
+        "uppdelningen besvarad mot obesvarad: miningens `in:sent` gjorde en "
+        "Gmail-etikett till ensam grund för vilken skördefil en tråd hamnade "
+        "i, så kundärenden utan svar i fel fil räknades i ingen kolumn.",
+        "",
+        "De 66 gick genom BÅDA passen, alltså först den fria klassningen som "
+        "avgör `inget kundärende` och `oklart`, sedan pass 2 mot den fasta "
+        "taxonomin. Taxonomin lästes från `data/taxonomi.json` och kördes "
+        "INTE om. Varje ny post bar `utan svar`, så kolumnen `Med svar` kunde "
+        "inte ändras av den körningen. Skälet att inte köra om materialet är "
+        "att pass 2 inte är deterministiskt, se beslutslogg #18.",
+        "",
+        "**APPENDIXET ÄR STATISKT OCH BESKRIVER VARJE VERSIONS ÄNDRING, "
+        "aldrig den senaste körningen.** Posterna ligger i "
+        "`src/ometikettera.py::skriv_rapport` och skrivs ut oförändrade vid "
+        "varje körning. En full omkörning av `src/ometikettera.py` "
+        "etiketterar om HELA korpusen och är alltså inte det posten ovan "
+        "beskriver; den som gör en sådan körning ska höja versionen och lägga "
+        "till en egen post innan filen committas.",
         "",
         "### 0.3.0 — 2026-08-26",
         "",

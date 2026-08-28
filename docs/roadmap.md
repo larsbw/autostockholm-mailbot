@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.7.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §10
+**Version:** 0.8.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -349,8 +349,13 @@ besvarade fälttrådar bär också huvudet, ändrar inget: den kopplingen finns 
 alls i den andra filen, som är den större. Att webbformulärets notis BÄR
 `X-Msg-EID` står i beslutslogg #12 och i `docs/sparrar.md` under
 `klassning-maskinmail`, men ingen av dem säger att huvudet är unikt för
-formuläret. **Avläsaren i fas 4.5 ska leta efter FÄLTET, aldrig efter huvudet
-och aldrig efter avsändaren.**
+formuläret. **Avläsaren i fas 4.5 ska läsa VÄRDET i fältet, aldrig huvudet och
+aldrig avsändaren.**
+
+*Meningen sade tidigare att avläsaren ska leta efter FÄLTET. Motsatsställningen
+mot huvudet och avsändaren är oförändrad, men ordet FÄLTET bar där den betydelse
+som upphävs längre ned: att fältet finns är inte samma sak som att ett värde gick
+att läsa. Fältraden bärs av 78 av 78 formulärtrådar medan värdet duger i 77.*
 
 **BRIEFENS PÅSTÅENDE STÅR SIG FÖR EN DOMÄN, INTE FÖR FÖRMEDLARNA SOM GRUPP.**
 Briefen sade att notiserna från de fem domänerna bär registreringsnummer i ett
@@ -413,9 +418,15 @@ kopieras inte.
 
 **Skiftläget är inte en detalj.** Samma mönster prövat VERSALKÄNSLIGT, alltså
 precis som §6-kontrollen använder det, ger 46 av 78 i stället för 77 av 78.
-Kunden skriver alltså inte sitt nummer versalt. §6-kontrollen är avsiktligt
-versalkänslig för att inte larma på vanliga ord i löptext, men en avläsare som
-ärver den strängheten skulle tappa 31 av de 77 nummer som går att läsa.
+§6-kontrollen är versalkänslig för att inte larma på vanliga ord i löptext, men
+en avläsare som ärver den strängheten skulle tappa 31 av de 77 nummer som går
+att läsa.
+
+*Här stod meningen "Kunden skriver alltså inte sitt nummer versalt." Den är
+falsk som allmän sats, och motsägs av talet i meningen FÖRE den, som den drog
+sin slutsats ur: 46 av 78 matchar det versalkänsliga mönstret, alltså skriver
+en majoritet versalt. Det som gäller är att INTE ALLA gör det. Struket i skiva
+16 efter §7-granskningen.*
 
 **Talet 31 gäller en FÄLTAVLÄSARE, inte en fritextsökning.** Skriptet prövar det
 strikta mönstret mot FÄLTVÄRDET, alltså mot samma sträng som den giltiga
@@ -426,6 +437,21 @@ ger samma 46 är en kontroll, inte källan till talet.
 Att de 31 BÄR ett nummer och inte saknar ett följer av mätningen: båda talen
 kommer ur samma mönster mot samma sträng, och det enda som skiljer prövningarna
 är `re.IGNORECASE`. Vilket skiftläge de 31 har är däremot inte mätt.
+
+> **FÖRESKRIFT: AVLÄSAREN I FAS 4.5 SKA VARA SKIFTLÄGESOKÄNSLIG.**
+> Beslut av Lars i skiva 16, se `docs/beslutslogg.md` #28 och luckan
+> `versalkansligt-monster-i-avlasare` i `docs/sparrar.md`.
+>
+> Mönstret får lånas ur `scripts/persondatakontroll.py`, men det ska prövas med
+> `re.IGNORECASE`. Att låna mönstret utan flaggan är att ärva en stränghet som
+> §6-kontrollen behöver och avläsaren inte tål.
+>
+> **Detta är en sändvägsdefekt, inte en formfråga.** Ett tappat
+> registreringsnummer betyder att uppslaget inte kan göras, att gatingen faller
+> till `utkast`, och att kunden får vänta på en handpåläggning som ärendet inte
+> behövde. Felet syns inte i något test som matar in versala nummer, eftersom
+> testdata skrivs av den som skriver koden och den skriver versalt. **Det slår
+> först i drift, mot kundens egen inmatning.**
 
 **TALEN GÅR ATT RÄKNA OM.** Kör `.venv/bin/python scripts/formular-matning.py`.
 Skriptet bär avsnittets MÄTTA tal, mäter mot avkodad brödtext, och
@@ -610,6 +636,37 @@ visat dagsvolymen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.8.0 — 2026-08-28
+
+**Fas 4.5 får en FÖRESKRIFT: avläsaren ska vara skiftlägesokänslig.** Beslut av
+Lars i skiva 16, se `docs/beslutslogg.md` #28 och luckan
+`versalkansligt-monster-i-avlasare` i `docs/sparrar.md`.
+
+Skiva 15 mätte upp skillnaden men skrev bara ut den. Mätningen band ingen kod:
+en avläsare som lånar mönstret ur `scripts/persondatakontroll.py` utan
+`re.IGNORECASE` tappar 31 av de 77 nummer som går att läsa. Föreskriften säger nu
+vad avläsaren ska göra, och varför det är en sändvägsdefekt och inte en formfråga.
+
+**Meningen om att avläsaren ska leta efter FÄLTET är rättad.** Den stod kvar
+oannoterad medan avsnittet längre ned upphävde just den betydelsen: att fältet
+finns är inte samma sak som att ett värde gick att läsa. Motsatsställningen mot
+huvudet och avsändaren är oförändrad, men villkoret gäller VÄRDET. Skiva 15
+rättade `Följden för fasen` längre ned i fasen men rörde inte den här meningen,
+vilket syns på att dess stycke ligger utanför den commitens hunkar, och Lars
+avgjorde i skiva 16 att den skulle rättas.
+
+**Rättelse efter §7-granskningen.** Posten sade först vad granskningen av skiva
+15 bedömde om den meningen. Granskningsrapporterna ligger i den gitignorerade
+`scratchpad/` och går inte att belägga ur repot, så påståendet är ersatt av det
+som syns i historiken: meningen lämnades orörd medan grannmeningarna rättades.
+
+**En mening ur skiva 15 är struken i skiftlägesstycket.** Den sade att kunden
+alltså inte skriver sitt nummer versalt, vilket motsägs av talet i meningen före
+den: 46 av 78 matchar det versalkänsliga mönstret. Fälld i granskningen av skiva
+16, och struken med en kursiv not där den stod.
+
+Ny föreskrift ⇒ MINOR.
 
 ### 0.7.0 — 2026-08-28
 

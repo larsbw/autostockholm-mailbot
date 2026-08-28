@@ -92,6 +92,17 @@ def test_kod_bevakas_inte():
     assert not kontroll.bevakad("tests/test_extract.py")
 
 
+def test_scripts_bevakas():
+    """Skripten läser SKARP kundpost och skriver antal ur den.
+
+    Skillnaden mot `src/` och `tests/` är inte att det ena är kod. Det är att
+    ett mätskript kan skriva ett värde där det skulle ha skrivit en räkning,
+    och den utdatan hamnar i en rapport. Se `docs/beslutslogg.md` #28.
+    """
+    assert kontroll.bevakad("scripts/besvarad-omklassning.py")
+    assert kontroll.bevakad("scripts/formular-matning.py")
+
+
 def test_mallar_config_och_claude_md_bevakas():
     """`mallar/` är den tyngsta posten: §11 säger att mallarna byggs ur rå
     kundtext. Den saknades i första versionen."""

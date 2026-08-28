@@ -1,6 +1,6 @@
 # Kategoriförslag
 
-**Version:** 0.3.0 · **Uppdaterad:** 2026-08-26 · **Implementerar** CLAUDE.md §0
+**Version:** 0.4.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §0
 
 Maskinproducerad av `src/ometikettera.py` med `claude-sonnet-4-6`. **Skriv inte i den här filen för hand**: den skrivs om vid nästa körning.
 
@@ -51,30 +51,30 @@ Maskinproducerad av `src/ometikettera.py` med `claude-sonnet-4-6`. **Skriv inte 
 
 ## Kategorier
 
-Texter i underlaget: 795
+Texter i underlaget: 861
 
 | Kategori | Totalt | Med svar | Utan svar |
 | --- | --- | --- | --- |
-| inget kundärende | 547 | 52 | 495 |
-| oklart | 38 | 31 | 7 |
-| fråga om a-traktorkonvertering | 25 | 25 | 0 |
-| boka rekond | 22 | 4 | 18 |
+| inget kundärende | 588 | 52 | 536 |
+| oklart | 41 | 31 | 10 |
+| fråga om a-traktorkonvertering | 29 | 25 | 4 |
+| boka rekond | 23 | 4 | 19 |
+| fråga om pris a-traktorkonvertering | 14 | 11 | 3 |
 | avboka bokning | 13 | 1 | 12 |
-| fråga om pris a-traktorkonvertering | 12 | 11 | 1 |
+| boka tillbehörsmontage | 12 | 7 | 5 |
+| boka däckbyte | 12 | 2 | 10 |
 | boka reparation | 11 | 4 | 7 |
 | boka biltvätt | 11 | 0 | 11 |
+| fråga om praktisk info | 11 | 9 | 2 |
 | begära offert | 11 | 8 | 3 |
-| fråga om praktisk info | 10 | 9 | 1 |
-| boka däckbyte | 9 | 2 | 7 |
-| boka tillbehörsmontage | 8 | 7 | 1 |
+| boka service | 9 | 4 | 5 |
+| boka a-traktorkonvertering | 9 | 7 | 2 |
+| övrigt | 8 | 4 | 4 |
 | fråga om pris rekond | 7 | 6 | 1 |
 | omboka bokning | 7 | 7 | 0 |
-| boka a-traktorkonvertering | 7 | 7 | 0 |
 | begära dokument | 7 | 4 | 3 |
-| övrigt | 7 | 4 | 3 |
-| boka service | 6 | 4 | 2 |
+| fråga om tjänst | 6 | 3 | 3 |
 | fråga om pris reparation | 5 | 4 | 1 |
-| fråga om tjänst | 5 | 3 | 2 |
 | fråga om pris service | 5 | 5 | 0 |
 | godkänna offert | 5 | 4 | 1 |
 | reklamera utfört arbete | 3 | 1 | 2 |
@@ -90,6 +90,14 @@ Texter i underlaget: 795
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.4.0 — 2026-08-28
+
+**Vad version 0.4.0 gjorde**, i skiva 16: `scripts/etikettera-nya.py` lade till 66 kundtexter och etiketterade enbart dem. De blev synliga av att `docs/beslutslogg.md` #27 rättade uppdelningen besvarad mot obesvarad: miningens `in:sent` gjorde en Gmail-etikett till ensam grund för vilken skördefil en tråd hamnade i, så kundärenden utan svar i fel fil räknades i ingen kolumn.
+
+De 66 gick genom BÅDA passen, alltså först den fria klassningen som avgör `inget kundärende` och `oklart`, sedan pass 2 mot den fasta taxonomin. Taxonomin lästes från `data/taxonomi.json` och kördes INTE om. Varje ny post bar `utan svar`, så kolumnen `Med svar` kunde inte ändras av den körningen. Skälet att inte köra om materialet är att pass 2 inte är deterministiskt, se beslutslogg #18.
+
+**APPENDIXET ÄR STATISKT OCH BESKRIVER VARJE VERSIONS ÄNDRING, aldrig den senaste körningen.** Posterna ligger i `src/ometikettera.py::skriv_rapport` och skrivs ut oförändrade vid varje körning. En full omkörning av `src/ometikettera.py` etiketterar om HELA korpusen och är alltså inte det posten ovan beskriver; den som gör en sådan körning ska höja versionen och lägga till en egen post innan filen committas.
 
 ### 0.3.0 — 2026-08-26
 

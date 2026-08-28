@@ -75,6 +75,25 @@ def forsta_kundmeddelande(trad: dict) -> dict | None:
     return None
 
 
+def flyttande_kundarenden(besvarade: Path, domaner):
+    """Trådarna som miningen kallade besvarade men som saknar mänskligt svar.
+
+    Ger `(tråd, första kundmeddelandet)` för de trådar som ÄR kundärenden,
+    alltså inte maskinmail och inte utan kundmeddelande. Det är populationen
+    bakom talet `KUNDÄRENDEN som flyttar`.
+
+    Funktionen finns för att `scripts/etikettera-nya.py` ska härleda samma
+    mängd ur samma kod. Två definitioner av samma population glider isär.
+    """
+    for trad in las(besvarade):
+        if har_gmail_svar(trad):
+            continue
+        m0 = forsta_kundmeddelande(trad)
+        if m0 is None or klassa_maskin.tradens_skal(trad, domaner):
+            continue
+        yield trad, m0
+
+
 def las(sokvag: Path):
     if not sokvag.exists():
         return
@@ -126,7 +145,14 @@ def kor(besvarade: Path, obesvarade: Path) -> int:
             continue
         if klassa_maskin.tradens_skal(trad, domaner):
             flyttar_maskin += 1
-            continue
+
+    # Den flyttande populationen räknas ur `flyttande_kundarenden`, som är dess
+    # enda DEFINITION. Loopen ovan prövar med nödvändighet samma tre villkor en
+    # gång till, eftersom den ska redovisa mellanstegen var för sig: hur många
+    # som bär svar, hur många som saknar kundmeddelande, och hur många som är
+    # maskinmail. Den räknar alltså fack OCH `flyttar_maskin`, men den avgör
+    # inte vilka trådar som utgör den flyttande mängden.
+    for _, m0 in flyttande_kundarenden(besvarade, domaner):
         flyttar_kund += 1
         flyttar_formular += ar_formular(m0)
         flyttar_doman[klassa_maskin.avsandardoman(m0) or "<ingen>"] += 1
@@ -187,12 +213,7 @@ def kor(besvarade: Path, obesvarade: Path) -> int:
     # Samma texter som `nya`, men OAVDUBBLADE, så prefixkontrollen nedan kan
     # jämföra avdubbling på hela strängen mot avdubbling på ett prefix.
     rana: list[str] = []
-    for trad in las(besvarade):
-        if har_gmail_svar(trad):
-            continue
-        m0 = forsta_kundmeddelande(trad)
-        if m0 is None or klassa_maskin.tradens_skal(trad, domaner):
-            continue
+    for trad, m0 in flyttande_kundarenden(besvarade, domaner):
         text = urval.brodtext(m0)
         if text and text not in par_texter:
             if text not in nya and ar_formular(m0):

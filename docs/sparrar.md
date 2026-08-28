@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.15.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.16.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -75,16 +75,16 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 | `urval-gmail-svar` | Att maskinskriven text blir mall och att kundens röst räknas bort | `test_svar_skrivet_i_gmail_kanns_igen`, `test_inkommande_ar_kundmeddelande` | Sig själv, sex lager i `ar_gmail_svar`. Se posten. |
 | `maskering-persondata` | Att persondata når ett dokument under `docs/` | `test_ord_vid_meningsstart_maskeras_ocksa` | `src/cluster.py::namn_i_korpus`, i en ANNAN fil, och `scripts/persondatakontroll.py`. Se posten. |
 | `klassning-maskinmail` | Att nyhetsbrev och notiser blir kundärenden | `test_vanligt_kundmail_ar_inte_maskinmail` | Fyra lager plus ett UNDANTAG. Se posten. |
-| `persondatakontroll` | Att en commit för in persondata i `docs/` | `test_ren_text_ger_inga_fynd` | `maskering-persondata`. Sista linjen, inte den enda. |
+| `persondatakontroll` | Att en commit för in persondata i en bevakad sökväg. Vilka de är står i `BEVAKADE` i skriptet. | `test_ren_text_ger_inga_fynd` | `maskering-persondata`. Sista linjen, inte den enda. |
 | `forbjudna-maskindomaner` | Att en förmedlad kundförfrågan kastas som maskinmail | `test_liknande_doman_skyddas_inte_av_misstag` | Sig själv, två lager i `src/klassa_maskin.py`, och går FÖRE `klassning-maskinmail`. Se posten. |
 | `fordonsfakta-ur-uppslag` | Att ett utgående mail namnger fordonsfakta som inte kommer ur ett lyckat uppslag | `test_fullstandigt_svar_slapps_igenom`, `test_svar_med_okanda_nycklar_slapps_ocksa_igenom`, `test_mappningsobjekt_som_inte_ar_dict_slapps_igenom` | Ingen annan spärr. Formlager i `_kontrollera` och värdelager i `Uppslag.__post_init__` via `_krav_pa_vikt`. Formlagren är HELT redundanta med varandra, och viktlagren DELAS av två fält. Kända luckor listas i posten. |
 | `dragkrokbesked-har-harkomst` | Att ett besked om dragkrok sätts av en modell och flyttar kunden från en fråga till ett prispåslag | `test_bada_tillatna_kallorna_gar_igenom` | Ingen annan spärr. Se posten, särskilt vad den INTE kan hindra. |
 
 **Tabellen räknar SPÄRRAR, alltså sådant som kod verkställer.** Dokumentet bär
-dessutom en LUCKA UTAN SPÄRR, `gmail-etikett-som-ensam-grund`, som ingen kod
-implementerar och som därför inte kan bära någon av kolumnerna ovan. Den står i
-en egen sektion före mallen. Den som läser den här listan före en prövning enligt
-§7.1 ska läsa den posten också.
+dessutom poster märkta LUCKA UTAN SPÄRR, som ingen kod implementerar och som
+därför inte kan bära någon av kolumnerna ovan: `gmail-etikett-som-ensam-grund`
+och `versalkansligt-monster-i-avlasare`. De står i egna sektioner före mallen.
+Den som läser den här listan före en prövning enligt §7.1 ska läsa dem också.
 
 ---
 
@@ -344,9 +344,18 @@ en egen sektion före mallen. Den som läser den här listan före en prövning 
 ## `persondatakontroll`
 
 - **Spärr.** `scripts/persondatakontroll.py` vägrar en commit vars STAGADE
-  innehåll under `docs/` matchar mönster för mailadress, telefonnummer,
-  registreringsnummer, postnummer med ort, gatuadress eller personnummer.
-  Installeras som pre-commit-hook med `scripts/installera-hook.sh`.
+  innehåll matchar mönster för mailadress, telefonnummer, registreringsnummer,
+  postnummer med ort, gatuadress eller personnummer. Installeras som
+  pre-commit-hook med `scripts/installera-hook.sh`.
+
+  **Vilka sökvägar som bevakas står i `BEVAKADE` i skriptet, inte här.** Listan
+  har utvidgats mer än en gång, och en kopia i det här dokumentet blir föråldrad
+  av nästa utvidgning. `test_kod_bevakas_inte` och `test_scripts_bevakas` binder
+  ytterkanterna: `src/` och `tests/` är utanför, `scripts/` är innanför.
+
+  *Fältet sade tidigare att spärren gäller stagat innehåll under `docs/`. Det
+  var föråldrat redan när `mallar/`, `config/` och `CLAUDE.md` lades till i
+  0.7.0, alltså långt före den här rättelsen.*
 - **Vad den skyddar mot.** §6. Skiva 5 och skiva 6 hade båda persondata nära en
   commit, och i skiva 6 nådde det ända in i en commit. Båda gångerna fångades
   det av en granskning. **En granskare tittar ibland. En spärr biter varje
@@ -850,6 +859,64 @@ aldrig som ensam grund.
 
 ---
 
+## LUCKA UTAN SPÄRR: `versalkansligt-monster-i-avlasare`
+
+> **DET HÄR ÄR INTE EN SPÄRR OCH GÅR INTE ATT FÄLLA ENLIGT §7.1.** Avläsaren i
+> fas 4.5 finns inte ännu, så det finns ingen kod att pröva. Posten står här för
+> att luckan ska vara känd INNAN koden skrivs, vilket är enda tillfället då den
+> går att undvika i stället för att upptäckas.
+>
+> **Mot mallens fyra fält:** *Spärr* är den inte. *Vad den skyddar mot* står som
+> **Vad den vaktar**. **Negativkontroll: ingen finns**, eftersom det inte finns
+> någon kod att pröva; vad som skulle krävas står under *Vad som skulle göra den
+> till en spärr*. **Redundant med: ingen.**
+
+**ETT MÖNSTER SOM LÅNAS UR §6-KONTROLLEN ÄRVER DESS VERSALKÄNSLIGHET.**
+Registrerad i skiva 16 på Lars beslut, se `docs/beslutslogg.md` #28.
+
+- **Vad den vaktar.** Att en avläsare i sändvägen tappar giltig kundinmatning
+  därför att den ärvt en stränghet som fanns av ett helt annat skäl.
+  `scripts/persondatakontroll.py` bär mönstret
+  `\b[A-ZÅÄÖ]{3}[\s-]?\d{2}[A-ZÅÄÖ0-9]\b`. Att det är VERSALKÄNSLIGT är avläst
+  ur filen; att det är det med avsikt står inte utskrivet där och är en
+  slutsats. Skälet håller ändå: en §6-kontroll som larmar skiftlägesokänsligt
+  larmar på vanliga ord i löptext, och filens egen kommentar om postnummer visar
+  samma avvägning. Samma stränghet i en AVLÄSARE är däremot ett fel, eftersom
+  **inte alla kunder skriver versalt**: 46 av de 77 läsbara fältvärdena matchar
+  det versalkänsliga mönstret, alltså gör en majoritet det och 31 gör det inte.
+  En avläsare måste bära båda.
+- **UPPMÄTT INSTANS, skiva 15.** Mot webbformulärets fältvärde ger mönstret 46 av
+  78 versalkänsligt och 77 av 78 skiftlägesokänsligt. **En fältavläsare som ärver
+  strängheten tappar alltså 31 av de 77 nummer som går att läsa.** Avläst med
+  `scripts/formular-matning.py`, som skriver ut båda varianterna.
+- **Varför den är en sändvägsdefekt.** Ett tappat registreringsnummer betyder att
+  fordonsuppslaget inte kan göras, att gatingen faller till `utkast`, och att
+  kunden väntar på en handpåläggning som ärendet inte behövde. Ingen spärr fälls,
+  inget larm går, och utfallet ser ut som försiktighet.
+- **VARFÖR DEN INTE SYNS I TEST.** Testdata skrivs av den som skriver koden, och
+  den skriver versalt. Kunden skriver det som faller ur tangentbordet. Ett test
+  som bara matar in versala nummer är grönt för alltid, och det är därför luckan
+  slår först i drift. Ett test för den avläsare den här posten gäller måste bära
+  ett gement och ett blandat nummer, annars är det vakuöst i §7.1:s mening utan
+  att se ut så.
+
+  *Här stod ett utskrivet exempelnummer, och `persondatakontroll` fällde posten
+  på det. Spärren hade rätt: §6 säger att registreringsnummer aldrig förekommer i
+  `docs/`, och en läsare kan inte se att ett nummer är påhittat. Att lägga det i
+  `TILLATNA` hade varit fel av samma skäl som mönsterkommentaren anger för
+  postnummer: undantaget hade släppt igenom ett framtida RIKTIGT nummer som råkar
+  vara detsamma. Meningen säger nu vad exemplet visade i stället för att visa det.*
+- **Vad som skulle göra den till en spärr.** Att avläsaren i fas 4.5 kompilerar
+  sitt mönster med `re.IGNORECASE` och bär ett test med gement indata.
+  Föreskriften ligger i `docs/roadmap.md` fas 4.5. Tills koden finns är detta en
+  regel som en granskare bär, inte kod.
+- **Räckvidden är inte bara det här mönstret.** Regeln är generell: ett mönster
+  som lånas ur en kontroll vars syfte är att INTE larma för brett får inte
+  användas oförändrat där syftet är att INTE missa. `scripts/formular-matning.py`
+  visar formen, den håller `REGNR_STRIKT` och `REGNR` isär och skriver ut båda.
+
+---
+
 ## Mall för en spärrpost
 
 Kopiera blocket nedan per spärr. Varje fält fylls i, tomma fält är en ofärdig
@@ -872,6 +939,61 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.16.0 — 2026-08-28
+
+**`versalkansligt-monster-i-avlasare` tillkommer**, märkt LUCKA UTAN SPÄRR.
+Registrerad i skiva 16 på Lars beslut, se `docs/beslutslogg.md` #28.
+
+Ett mönster som lånas ur `scripts/persondatakontroll.py` ärver dess
+versalkänslighet, som är rimlig i en §6-kontroll och fel i en avläsare. Uppmätt mot
+webbformulärets fältvärde: 46 av 78 versalkänsligt mot 77 av 78
+skiftlägesokänsligt, alltså 31 tappade nummer av de 77 som går att läsa.
+
+Posten skriver ut varför luckan inte syns i test, nämligen att testdata skrivs
+versalt av den som skriver koden, och kräver därför att ett test för avläsaren
+bär ett gement och ett blandat nummer. Föreskriften ligger i `docs/roadmap.md`.
+
+**`persondatakontroll` fällde den här posten under arbetet**, på ett utskrivet
+exempelnummer i just den punkten. Spärren hade rätt, och exemplet är borttaget.
+Att lägga det i `TILLATNA` avvisades av samma skäl som mönsterkommentaren anger
+för postnummer: undantaget gäller exakt strängen och hade släppt igenom ett
+framtida riktigt nummer som råkar vara detsamma. En kursiv not står kvar där
+exemplet stod.
+
+**Rättelser efter §7-granskningen, per post.** Rättelsenoten i Spärr-fältet
+daterade utvidgningen till 0.6.0. Den skedde i 0.7.0, vars post i det här
+appendixet bär punkten om att `mallar/`, `config/` och `CLAUDE.md` tillkom.
+Samma fel stod i den här posten och är rättat på båda ställena. **Översikt-tabellens rad om `persondatakontroll` bar kvar exakt den
+falskhet som Spärr-fältet rättades från**, alltså att spärren gäller `docs/`, och
+var efter skivan mer fel än före eftersom en katalog till tillkommit; raden pekar
+nu på `BEVAKADE`. En räkning av hur många gånger listan vuxit gick inte att
+belägga och är ersatt av "mer än en gång". Påståendet om avsikten bakom
+versalkänsligheten skiljs nu från det avlästa.
+
+**Andra varvet fällde luckpostens skäl.** Den sade att kunden inte skriver
+versalt, vilket motsägs av talet i punkten under: 46 av de 77 läsbara
+fältvärdena matchar det versalkänsliga mönstret, alltså skriver en majoritet
+versalt. Det som gäller är att inte alla gör det, och luckan är verklig av det
+skälet. Samma formulering står committad i `docs/roadmap.md` sedan skiva 15 och
+är struken där med en kursiv not. Posten kallade dessutom sig själv en spärr i
+sin sista punkt, och den här versionsposten räknade luckorna i stället för att
+namnge dem.
+
+**Noten under Översikt-tabellen namnger nu båda luckposterna.** Den räknar dem
+inte, eftersom en mening som räknar sin egen omgivning blir falsk av nästa post.
+
+**`persondatakontroll` bevakar nu `scripts/`.** Postens negativkontroll är
+oförändrad; det nya testet `test_scripts_bevakas` binder katalogen och gav RÖD
+vid prövning enligt §7.1.
+
+**Postens Spärr-fält bar ett föråldrat påstående och pekar nu på konstanten.**
+Det sade att spärren gäller stagat innehåll under `docs/`, vilket slutade vara
+sant redan i 0.7.0 när `mallar/`, `config/` och `CLAUDE.md` lades till. En kopia
+av kataloglistan i det här dokumentet blir föråldrad av varje utvidgning, så
+fältet namnger `BEVAKADE` i stället och överlåter innehållet åt skriptet.
+
+Ny post ⇒ MINOR.
 
 ### 0.15.0 — 2026-08-28
 

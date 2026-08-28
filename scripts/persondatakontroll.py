@@ -36,9 +36,16 @@ ROT = Path(__file__).resolve().parent.parent
 # `config/` bär material härlett ur kundpost. `CLAUDE.md` ligger i roten, är
 # spårad, och innehåller redan en adress.
 #
-# Kod kontrolleras inte: den innehåller mönster och testfixturer som ser ut som
-# persondata och som är påhittade.
-BEVAKADE = ("docs/", "mallar/", "config/", "CLAUDE.md")
+# `scripts/` tillkom i skiva 16. Skiva 15 lade två mätskript där som läser
+# kundpost och skriver antal ur den, och de var därmed oskyddade: en utskrift
+# som råkar bära ett värde i stället för en räkning hade passerat. En spärr som
+# inte täcker en katalog är en lucka oavsett vad som råkar ligga där.
+#
+# `src/` och `tests/` kontrolleras fortfarande INTE. De bär mönster och
+# testfixturer som ser ut som persondata och som är påhittade. Skillnaden mot
+# `scripts/` är inte att det ena är kod och det andra inte, utan att skripten
+# under `scripts/` läser skarp kundpost och skriver utdata ur den.
+BEVAKADE = ("docs/", "mallar/", "config/", "scripts/", "CLAUDE.md")
 
 MONSTER: list[tuple[str, re.Pattern]] = [
     ("mailadress", re.compile(r"[A-Za-z0-9._%+=-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")),
