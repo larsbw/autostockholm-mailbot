@@ -1,6 +1,6 @@
 # Incidentlogg
 
-**Version:** 0.7.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §0
+**Version:** 0.7.1 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §0
 
 Varje regel som bärs av en incident bor här. Dokumentet finns för att förlagornas
 styrka är att en härdad regel namnger det fel som skapade den. En regel utan
@@ -552,9 +552,48 @@ kontroller av samma storhet, filens innehåll, ger ingen täckning av en tredje
 storhet, tolkens cache. Ett verktyg som betygsätter sig självt genom att
 rapportera OK är inte prövat förrän någon prövat det utfall det inte tittar på.
 
+### VARJE §7.1-PRÖVNING GJORD FÖRE DEN HÄR POSTEN BÄR ETT TVIVEL
+
+Noterat på Lars instruktion i skiva 18, se `docs/beslutslogg.md` #30.
+
+Prövningarna före I7 kvitterades med sha256 och `git diff`, och ingen av dem
+säger något om vad tolken skulle köra härnäst. **De vilar alltså på en kvittens
+som inte bevisade vad den påstods bevisa.**
+
+**De är inte därmed fel.** Fönstret kräver en fällning av exakt samma längd som
+originalet, skriven inom samma sekund som förra skrivningen av filen, och de
+flesta fällningar ändrar längden. Ett `if villkor:` som blir `if False:` gör det
+nästan alltid. Sannolikheten att en enskild prövning träffade fönstret är låg.
+
+**Men skillnaden ska stå utskriven.** En prövning gjord med ett verktyg vars
+kvittens hade ett hål är inte samma sak som en prövning gjord utan det, och den
+som läser ett gammalt RÖD-verdikt som belagt ska veta vilket av de två det är.
+Det gäller varje verdikt i `docs/sparrar.md` och i beslutsloggen som sattes före
+skiva 17.
+
+**Prövningarna körs INTE om.** Beslut av Lars. En omkörning hade gett ett nytt
+utfall att lita på utan att säga något om vad de gamla var värda.
+
+Regeln framåt: **ett verdikt daterar sig till det verktyg som producerade det.**
+Den som lutar sig tungt mot ett enskilt gammalt verdikt kör om just det, i
+stället för att lita på eller misstro dem alla på en gång.
+
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.7.1 — 2026-08-28
+
+**I7 får ett avsnitt om tvivlet.** Varje §7.1-prövning gjord före posten vilar på
+en kvittens som inte bevisade vad den påstods bevisa. Noterat på Lars instruktion
+i skiva 18, se `docs/beslutslogg.md` #30.
+
+Avsnittet skriver ut både att prövningarna inte därmed är fel, eftersom fönstret
+krävde en fällning av exakt samma längd inom samma sekund, och att skillnaden
+mellan de två ändå ska synas för den som läser ett gammalt verdikt som belagt.
+**Prövningarna körs inte om**, på Lars beslut.
+
+Tillägg till en befintlig post ⇒ PATCH.
 
 ### 0.7.0 — 2026-08-28
 

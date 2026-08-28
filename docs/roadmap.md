@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.9.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §10
+**Version:** 0.10.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -77,29 +77,28 @@ redovisat trådstruktur och faktisk kvotåtgång. `data/tradar.jsonl` raderas n�
 
 ### Fas 4 — Kategorier
 
-`docs/kategorier.md` och `config/kategorier.yaml` upprättas ur `data/par.jsonl`.
-Varje kategori får en hink: `auto`, `utkast` eller `aldrig`.
-`scripts/kategoristatus.py` byggs, så att §12:s maskinproducerade statusrad går
-att köra.
+`config/kategorier.yaml` upprättas ur materialet, och varje kategori får en
+hink: `auto`, `utkast` eller `aldrig`. `scripts/kategoristatus.py` byggs, så att
+§12:s maskinproducerade statusrad går att köra.
 
-**Grind:** Lars beslutar kategorilistan och varje kategoris STARTHINK. Ingen
-kategori startar i `auto`. Kod flyttar aldrig en kategori mellan hinkar
-(§0, ramverksregel 2).
+**Grind:** Lars beslutar kategorilistan och varje kategoris STARTHINK. Kod
+flyttar aldrig en kategori mellan hinkar (§0, ramverksregel 2).
+
+*Grindvillkoret bar tidigare meningen "Ingen kategori startar i `auto`". Den är
+STRUKEN på Lars beslut i skiva 18, se `docs/beslutslogg.md` #30. Villkoret
+skrevs i skiva 3, verifierat med `git log -S`, alltså innan något underlag
+fanns. Det var en förhandsgissning om ett beslut som tillhör Lars, och aldrig en
+ramverksregel: ramverksregel 2 förbjuder att KOD flyttar en kategori till `auto`
+och kräver Lars uttryckliga beslut. Det beslutet är fattat i skiva 17.*
+
+*Raden om `docs/kategorier.md` är struken i samma skiva. Filen behövs inte, se
+#30.*
 
 > **GRINDEN ÄR FATTAD I SKIVA 17, se `docs/beslutslogg.md` #29.**
-> `config/kategorier.yaml` finns. `docs/kategorier.md` och
-> `scripts/kategoristatus.py` gör det INTE, och de ingick inte i skivans brief.
-> Fasen är därmed inte avslutad.
->
-> **VILLKORET "Ingen kategori startar i `auto`" HÖLL INTE.** Lars beslut lägger
-> `fråga om a-traktorkonvertering` direkt i `auto`. Villkoret var en förväntan
-> skriven i skiva 3, innan något underlag fanns, och det var aldrig en
-> ramverksregel: ramverksregel 2 säger att ingen kategori flyttas till `auto`
-> AV KOD, och att bara Lars uttryckliga beslut får göra det. Beslutet är
-> uttryckligt och dikterat.
->
-> Meningen står kvar oförändrad ovan, eftersom den var sann som förväntan när
-> den skrevs. Den som läser fasen ska veta att den inte längre beskriver läget.
+> `config/kategorier.yaml` kom i samma skiva, `scripts/kategoristatus.py` i
+> skiva 18. Fasens leverabler är därmed på plats, räknat från den commit som
+> bär den här raden: §5 säger att en uppgift inte är klar förrän origin/main
+> bär den, och den här meningen skeppas i samma commit som skriptet.
 
 ### Fas 4.5 — Fordonsuppslag
 
@@ -652,6 +651,21 @@ visat dagsvolymen.
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.10.0 — 2026-08-28
+
+**Grindvillkoret "Ingen kategori startar i `auto`" är STRUKET**, på Lars beslut i
+skiva 18, se `docs/beslutslogg.md` #30. Skiva 17 lät meningen stå kvar med en
+not; Lars avgör att en förhandsgissning som visat sig fel inte ska stå kvar i ett
+grindvillkor, eftersom nästa läsare tar den för ett krav.
+
+En kursiv not står där meningen stod, med härkomsten verifierad via `git log -S`.
+
+**Raden om `docs/kategorier.md` är struken ur fasen.** Filen behövs inte, se #30.
+Fas 4:s leverabler är därmed `config/kategorier.yaml` och
+`scripts/kategoristatus.py`, och båda finns.
+
+Struket grindvillkor ⇒ MINOR.
+
 ### 0.9.0 — 2026-08-28
 
 **Fas 4:s grind är fattad**, se `docs/beslutslogg.md` #29. En not under fasen
@@ -667,6 +681,10 @@ och kräver Lars uttryckliga beslut, vilket är exakt vad som skedde.
 
 Meningen står kvar oförändrad, eftersom den var sann som förväntan när den
 skrevs. Noten säger att den inte längre beskriver läget.
+
+*Föråldrad av 0.10.0. Meningen är STRUKEN på Lars beslut i skiva 18, och samma
+post gjorde också det som stod högre upp här falskt: `docs/kategorier.md` behövs
+inte och `scripts/kategoristatus.py` finns. Båda leden gällde när posten skrevs.*
 
 Ändrat grindläge ⇒ MINOR.
 

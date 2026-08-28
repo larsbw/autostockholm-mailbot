@@ -87,10 +87,14 @@ def test_de_nio_aldrig_kategorierna_star_kvar(hinkar):
 def test_prisfragan_star_inte_i_auto(hinkar):
     """`fråga om pris a-traktorkonvertering` står inte i `auto`.
 
-    VARFÖR den inte gör det är en ÖPPEN PUNKT, se `docs/beslutslogg.md` #29.
-    Testet prövar bara var kategorin står, inte skälet, och tar därför inte
-    ställning till om den ska flyttas när `config/priser.json` fylls eller
-    kräver ett nytt beslut även då.
+    Kategorin är KVALIFICERAD för `auto` och hindras enbart av att
+    `config/priser.json` saknas, se `docs/beslutslogg.md` #30. Den flyttas
+    ändå inte automatiskt när filen fylls: flytten kräver ett nytt uttryckligt
+    beslut av Lars.
+
+    Testet binder alltså var kategorin står i dag, och det ska falla den dag
+    någon flyttar den. Att det faller är poängen: flytten ska vara ett beslut
+    och inte en följdverkan.
     """
     assert "fråga om pris a-traktorkonvertering" not in hinkar["auto"]
 

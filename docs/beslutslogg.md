@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.25.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §8
+**Version:** 0.26.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -1580,6 +1580,13 @@ bär tio eller fler i kolumnen *Med svar*, nämligen `inget kundärende` 52,
 `oklart` 31, `fråga om a-traktorkonvertering` 25 och `fråga om pris
 a-traktorkonvertering` 11. De två första är inga kundkategorier.
 
+*Ledet "Bara en kategori uppfyller båda" är UPPHÄVT av #30. Där avgör Lars att
+`fråga om pris a-traktorkonvertering` når tröskeln OCH att dess svar inte beror
+på en bedömning i verkstaden, alltså att den uppfyller båda kriterierna. Två
+kategorier gör det. Vad som håller prisfrågan i `utkast` är i stället att
+`config/priser.json` saknas, och att flytten kräver ett eget beslut även när
+filen fylls. Resten av stycket står kvar: talen är avlästa och riktiga.*
+
 `fråga om pris a-traktorkonvertering` når tröskeln med 11 par men **står i
 utkast tills `config/priser.json` är fylld**. En prismall utan priskälla faller
 ändå på §7.2. Att flytta den när filen finns är ett eget beslut.
@@ -1599,6 +1606,12 @@ Skillnaden är inte akademisk: den avgör om kategorin flyttas automatiskt när
 `config/kategorier.yaml` säger därför bara att kategorin står i utkast och att
 frågan är öppen. **Ingen av Lars meningar är omskriven, och ingen tolkning är
 vald.** §10: vid tvetydig instruktion som rör sändning frågas vad som menas.
+
+*AVGJORD I #30. Lars valde den andra meningen: kategorin är kvalificerad och
+hindras enbart av att `config/priser.json` saknas, men den flyttas inte
+automatiskt när filen fylls. Stycket ovan beskriver alltså läget när posten
+skrevs. `config/kategorier.yaml` säger inte längre att frågan är öppen, och en
+tolkning ÄR vald. Frågan ställdes, och den blev besvarad.*
 
 `godkänna offert` och `begära dokument` står i `aldrig` för att de **utlöser
 handling i verkstaden**, inte för att de är känsliga.
@@ -1639,9 +1652,283 @@ standardhinken. Prövat enligt §7.1: en fälld standardhink ger RÖD.
 Grinden är fattad men filen finns inte, och den ingick inte i den här skivans
 brief. Frågan är ställd och obesvarad.
 
+*AVGJORD I #30: filen behövs inte, och §0:s rad är struken och ersatt av
+`config/kategorier.yaml`. Frågan är alltså besvarad, inte obesvarad.*
+
+---
+
+## #30 — Grindvillkoret stryks, prisfrågan avgörs, och fas 4 får sina filer
+
+**Datum:** 2026-08-28 · **Berör:** `docs/roadmap.md`, `config/kategorier.yaml`,
+`scripts/kategoristatus.py` (ny), `tests/test_kategoristatus.py` (ny),
+`tests/test_kategorier_yaml.py`, `CLAUDE.md` §0, `docs/incidentlogg.md`, #29
+
+### DEL A — "Ingen kategori startar i `auto`" stryks
+
+**Beslut av Lars.** Villkoret i `docs/roadmap.md` fas 4 tas BORT. Det är inte
+`auto`-raden i `config/kategorier.yaml` som ska bort.
+
+**Skälet.** Villkoret skrevs i skiva 3. Verifierat med
+`git log -S "startar i \`auto\`" -- docs/roadmap.md`, som ger TVÅ committar:
+`e9a6772 Skiva 3`, där frasen infördes, och `05a6596 Skiva 17`, som rörde den
+när noten skrevs. Den äldre är införandet.
+
+Villkoret skrevs alltså innan något underlag fanns. **Det är en förhandsgissning
+om ett beslut som tillhör Lars**, och det var aldrig en ramverksregel:
+ramverksregel 2 förbjuder att KOD flyttar en kategori till `auto` och kräver
+Lars uttryckliga beslut. Det beslutet är fattat i skiva 17.
+
+*Skälstycket sade först att §10 gör beslutet till Lars. §10:s punkt gäller att
+BEFORDRA en kategori mellan hinkar, och en kategori som startar i `auto` har
+inte befordrats. Att starthinken är Lars beslut följer av ramverksregel 2 och av
+fasens egen grindrad, inte av §10.*
+
+#29 lät meningen stå kvar med en not, på grunden att den var sann som förväntan
+när den skrevs. Lars avgör att en förhandsgissning som visat sig fel inte ska stå
+kvar i ett grindvillkor: den läses av nästa läsare som ett krav.
+
+### DEL B — prisfrågan, tolkning vald
+
+**Beslut av Lars.** #29:s öppna punkt är avgjord. **Den andra meningen gäller**,
+och svaret har två led som båda ska stå skrivna.
+
+**LED 1. Kategorin är KVALIFICERAD för `auto`.** `fråga om pris
+a-traktorkonvertering` når tröskeln med 11 par, och **svaret beror inte på en
+bedömning i verkstaden**. Det enda som hindrar den är att `config/priser.json`
+saknas.
+
+**LED 2. Den flyttas ändå INTE automatiskt när filen fylls.** En fylld prisfil är
+inte samma sak som verifierade priser, och flytten kräver ett nytt uttryckligt
+beslut av Lars.
+
+**Led 2 är inte en formalitet.** Utan det hade led 1 gjort flytten till en
+följdverkan av att en fil får innehåll, alltså till något kod kunde utlösa. Det
+är precis vad ramverksregel 2 förbjuder.
+
+**#29:S "BARA EN KATEGORI UPPFYLLER BÅDA" UPPHÄVS HÄRMED.** Led 1 säger att
+prisfrågan uppfyller båda kriterierna, alltså att två kategorier gör det. En
+kursiv not i #29 pekar hit. Talen i den posten står kvar: de var och är avlästa. Båda leden står därför i
+`config/kategorier.yaml`, och filen bär ingen villkorad markering som en
+framtida läsare kunde ta för en instruktion.
+
+### DEL C — fasens egna filer
+
+**`scripts/kategoristatus.py` är byggd.** Den producerar statusraden §12 kräver:
+antal kategorier per hink, antal texter per kategori, och datum för senaste
+mining. Allt ur filer i arbetsträdet, aldrig för hand. Två av de fyra ligger
+under `data/` och är alltså inte committade, se nedan.
+
+Källorna är `config/kategorier.yaml`, `data/ometiketterade.jsonl`,
+`data/taxonomi.json` och `docs/mining-log.md`.
+
+**EN SAKNAD ELLER OLÄSLIG KÄLLA ÄR ETT STOPP, inte en tystnad.** Skriptet
+namnger filen och avslutar med exit 1 utan att skriva någon tabell. En halv
+statusrad ser komplett ut och är värre än ett namngivet hål, vilket är hela
+skälet till att §12 lät raden utebli i stället för att någon skrev den för hand.
+
+**En fil som FINNS men inte går att läsa är samma hål.** En katalog i stället för
+en fil, trasig JSON eller YAML, en YAML som parsar till fel typ, en JSONL-rad
+utan `etikett`: alla ger det namngivna hålet i stället för ett traceback. Den
+trasiga raden namnges med sitt RADNUMMER och aldrig med sitt innehåll, eftersom
+raderna bär kundtext (§6).
+
+**§7.1-PRÖVNINGEN, redovisad per fällning.** Samtliga NEUTRALISERADE, inte
+raderade: en radering av `if not sokvag.exists():` lämnar ett hängande `raise`
+och ger `IndentationError`, alltså FEL och inte ett verdikt.
+
+**RADERNA CITERAS, DE NUMRERAS INTE.** Ett radnummer föråldras av varje
+redigering i filen, och den här tabellen bevisade det själv: dess första lydelse
+namngav rader som en rättelse av ett ANNAT fynd, i samma skrivning, hade skjutit
+ner. Hur många steg går inte att belägga, eftersom filen var otrackad och ingen
+tidigare version finns i git; talet är därför inte utskrivet. Se §7:s stycke om
+appendixposten som föråldrar sig själv.
+
+Talen nedan är avlästa ur körningar mot filen som den levereras, gjorda EFTER
+varje annan ändring i skivan, och sviten är hela svitens.
+
+| Fälld rad, citerad | Fällning | Svitens utdata | Verdikt |
+| --- | --- | --- | --- |
+| `if not sokvag.exists():` i `las_text` | `if False:` | `438 passed` | **GRÖN, inkonklusiv** |
+| Samma rad OCH `except OSError as fel:` | `if False:` respektive `except ZeroDivisionError as fel:` | `7 failed, 431 passed` | **RÖD** |
+| `except Saknas as fel:` i `main` | `except ZeroDivisionError as fel:` | `6 failed, 432 passed` | **RÖD** |
+| `if standard == "auto":` i `las_hinkar` | `if False:` | `1 failed, 437 passed` | **RÖD** |
+| `if kallor:` i `statusrader` | `if False:` | `1 failed, 437 passed` | **RÖD** |
+
+De två sista vakterna infördes i rättelsevarvet och prövades i samma varv.
+Ingendera bär lagrat försvar: `if standard not in HINKAR` släpper igenom `auto`,
+eftersom `auto` ÄR en giltig hink, och källutskriften har ingen andra väg.
+
+**LAGRAT FÖRSVAR, och det var inte planerat.** Existenskontrollen
+`if not sokvag.exists():` och `except OSError as fel:`, båda i `las_text`,
+producerar samma `Saknas` för en saknad fil: `FileNotFoundError` ÄR en
+`OSError`. Fälls bara den ena förblir sviten grön, och prövningen hade pekat ut
+ett äkta test som vakuöst. Det är precis det fall §7.1 varnar för, och det
+uppstod av den refaktorering som skrevs för att täcka oläsliga filer. Verdiktet
+sattes först efter att båda lagren fällts tillsammans.
+
+*Stycket numrerade först de två raderna, tolv rader under den rubrik som säger
+att rader ska citeras och inte numreras. Numren var föråldrade av samma
+redigeringar som föråldrade tabellens. Rättelsen av tabellen tillämpades alltså
+inte på stycket rakt under den.*
+
+**Statusraden går bara att köra där `data/` finns.** Två av de fyra källorna
+ligger där, och `.gitignore` utesluter hela katalogen, så en färsk klon kan inte
+producera raden.
+
+**Skälen för de två är olika, och de ska inte slås ihop.**
+`data/ometiketterade.jsonl` bär kundtext och kan inte committas enligt §6.
+`data/taxonomi.json` bär 28 kategorinamn och ingen kundtext; den är ocommittad
+enbart därför att den ligger under `data/`. Att flytta den är inte den här
+skivans fråga, men skälet ska stå rätt: `git check-ignore -v data/taxonomi.json`
+ger `.gitignore:4:data/`, inte §6.
+
+**Utfallet vid skrivögonblicket:** `auto` 1 kategori och 29 texter, `utkast` 21
+kategorier och 181 texter, `aldrig` 9 kategorier och 651 texter. 861 texter
+totalt, senaste mining 2026-08-26 16:42 UTC.
+
+**STATUSRADEN NAMNGER SINA KÄLLOR.** Flaggorna gör det möjligt att producera
+raden ur godtyckliga filer, och utan källorna utskrivna hade en sådan rad varit
+teckenidentisk med en producerad ur repot. §12:s krav är att raden inte ska gå
+att skriva för hand; en rad utan härkomst går att skriva för hand med en omväg.
+
+**`standardhink: auto` avvisas.** `auto` är en giltig hink men en otillåten
+STANDARDhink: en kategori ingen tagit ställning till hade då blivit sändbar av
+att någon lade till den i taxonomin. Att `utkast` är standard är hela poängen.
+
+**§12 säger "mail", skriptet räknar TEXTER, och skillnaden står utskriven i
+docstringen.** `src/kategorisera.py` avdubblar per kundtext och tar ett
+meddelande per tråd, så en kategori med tio texter kan vila på fler mail än tio.
+Kolumnerna heter därför `Texter` och inte `Mail`.
+
+**Ett fel hittades av testerna, inte av läsning.** Felhanteringen anropade
+`Path.relative_to(ROT)`, som KASTAR för en sökväg utanför repot. Varje
+`--hinkar` som pekade någon annanstans fick alltså ett traceback i stället för
+beskedet om vilken fil som saknades, alltså i precis det läge skriptet finns
+för. Rättat med en vakt, och `test_sokvag_utanfor_repot_kraschar_inte` binder
+den.
+
+**§6-kontrollen täckte inte den nya koden när skivan granskades.**
+`scripts/persondatakontroll.py` läser `git ls-files`, alltså enbart spårade
+filer, och `scripts/kategoristatus.py` och `tests/test_kategoristatus.py` var
+otrackade. Kontrollen biter först vid `git add`, och commit-hookens utfall står
+i skivans rapport. Filerna skriver antal, kategorinamn, ett datum och ett
+RADNUMMER för en trasig rad, aldrig radens innehåll.
+
+### `docs/kategorier.md` behövs inte, och §0:s rad stryks
+
+**Avgjort i den här skivan.** §0 listade filen som "kategoridefinitioner och
+deras hink", planerad till fas 4. Ingen av de två delarna motiverar en fil till:
+
+- **Hinken** står i `config/kategorier.yaml`, som är committad och som
+  `scripts/kategoristatus.py` läser.
+- **Kategorinamnen** står i `docs/kategorier-forslag.md`, som bär taxonomins 28
+  rader och är committad. `data/taxonomi.json` är gitignorerad, så det är
+  dokumentet som är den committade hemvisten.
+- **DEFINITIONER utöver namnen finns inte, och systemet är byggt så med avsikt.**
+  `src/ometikettera.py::bygg_system_pass2` ger modellen enbart namnen, en per
+  rad. Namnen ÄR alltså definitionen i den mening som styr utfallet. En
+  definitionsfil hade antingen upprepat namnen eller hittat på semantik som
+  ingen kod läser, och den senare hade blivit citerad som om den styrde något.
+
+§0:s rad pekar därför på `config/kategorier.yaml` i stället. **Kartan ska peka på
+det som finns.**
+
+### Tvivlet om §7.1-prövningar gjorda före I7
+
+`docs/incidentlogg.md` I7 visade att en kvitterad återställning kunde lämna
+fällningens kod kvar i bytekoden. **Varje §7.1-prövning som gjordes före den
+åtgärden vilar därmed på en kvittens som inte bevisade vad den påstods bevisa.**
+
+Prövningarna är inte därmed fel. Fönstret krävde en fällning av exakt samma
+längd inom samma sekund, och de flesta fällningar ändrar längden. Men skillnaden
+mellan "prövad" och "prövad med ett verktyg vars kvittens hade ett hål" ska stå
+utskriven där någon senare läser dem som belagda.
+
+**Prövningarna körs INTE om.** Beslut av Lars. En omkörning hade gett ett nytt
+utfall att lita på utan att säga något om vad de gamla var värda, och kostnaden
+bärs inte av den frågan.
+
+Noteringen står i `docs/incidentlogg.md` under I7.
+
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.26.0 — 2026-08-28
+
+**#30 tillkommer:** grindvillkoret "Ingen kategori startar i `auto`" stryks,
+#29:s öppna punkt om prisfrågan avgörs, och fas 4 får sina egna filer.
+
+Posten redovisar att `docs/kategorier.md` INTE behövs och varför: hinken står i
+`config/kategorier.yaml`, namnen i `docs/kategorier-forslag.md`, och definitioner
+utöver namnen finns inte, eftersom pass 2 ger modellen enbart namnen. §0:s rad
+pekar därför på yaml-filen i stället.
+
+Prisfrågans svar bär två led, och led 2 är det som hindrar en automatisk flytt
+när `config/priser.json` fylls. Utan det hade led 1 gjort flytten till en
+följdverkan av att en fil får innehåll, alltså till något kod kunde utlösa.
+
+`scripts/kategoristatus.py` faller högljutt när en källa saknas eller inte går
+att läsa, i stället för att skriva en halv statusrad. Ett fel i felhanteringen
+hittades av testerna: `relative_to` kastar för sökvägar utanför repot.
+
+**Rättelser efter §7-granskningen, per post.** Påståendet att två av fyra källor
+bär kundtext var fel; bara `data/ometiketterade.jsonl` gör det, och
+`data/taxonomi.json` är ocommittad enbart därför att `data/` är gitignorerad. En
+räkning av hur många skivor §12:s hål stått var varken avläst eller tillåten
+enligt §7.2 och är struken. En testdocstring sade att alla kategorinamn var
+påhittade; tre är verkliga, med avsikt. §7.1-redovisningen namngav varken rad,
+utdata eller om fällningen var en radering, vilket §7.1 kräver.
+
+**Prövningen avslöjade dessutom ett lagrat försvar**, och den delen är ett fynd
+i sak: existenskontrollen och `except OSError` ger båda `Saknas` för en saknad
+fil, så en ensam fällning gav GRÖN. Verdiktet sattes först efter att båda lagren
+fällts.
+
+Två kvarlämnade motsägelser är också rättade: en testdocstring och yaml-filens
+företrädesregel pekade båda på #29:s öppna punkt, som den här posten avgör.
+
+**Andra granskningsvarvet fällde §7.1-tabellen, och mekanismen är den §7 varnar
+för.** Tabellens radnummer var riktiga när prövningen kördes och föråldrades av
+rättelsen av ett ANNAT fynd i samma skrivning: `las_text`:s docstring växte, och
+varje nummer under den sköts ner lika mycket. Svitens utdata var dessutom räknad
+före de två vakter samma varv införde. Tabellen citerar nu raderna i stället för
+att numrera dem, prövningarna är omkörda mot filen som levereras, och de två nya
+vakterna är med.
+
+**#29:s båda öppna punkter bar kvar sin presens.** Den om prisfrågan sade att
+ingen tolkning var vald, och den om `docs/kategorier.md` att frågan var
+obestämd. Båda avgörs av den här posten, och båda bär nu en kursiv not.
+
+**Tredje varvet fällde samma mekanism en gång till.** Stycket om lagrat försvar
+numrerade två rader, tolv rader under rubriken som säger att rader ska citeras
+och inte numreras. Rättelsen av tabellen tillämpades inte på stycket rakt under
+den. Talet "sex steg" gick dessutom inte att belägga, eftersom filen var otrackad
+och ingen tidigare version finns i git; det är struket i stället för omräknat.
+`Berör`-raden saknade `tests/test_kategorier_yaml.py`, vilket är tredje skivan i
+rad som fäller den raden.
+
+**Ett fynd i varv 3 höll INTE, och det ska stå här.** Granskaren skrev att
+`src/kategorisera.py` lägger till en post per kundmeddelande och inte en per
+tråd, och att docstringens formulering därför är falsk. Loopen i
+`texter_att_kategorisera` avslutas med ett ovillkorligt `break` sist i
+kroppen, så den tar trådens FÖRSTA kundmeddelande och bryter. Påståendet står
+kvar oförändrat. Granskaren hade sannolikt `kontext_per_text` i sikte, som
+skiva 17 ändrade från `break` till `continue` av just det skälet att den ska se
+varje kundmeddelande.
+
+**GRINDEN ÄR FÖRBRUKAD FÖR DEL C, OCH DET SKA SYNAS.** §7 ger max tre
+granskningsvarv. DEL C förbrukade alla tre och det sista underkände också.
+Fynden i det varvet är rättade, men de rättelserna är **självmätta och inte
+oberoende granskade**. DEL A och B åberopade dokumentdetaljundantaget och
+förbrukade sin enda omgång i varv 1; deras rättelser i varv 2 och 3 är
+självmätta av samma skäl.
+
+Rättelserna gjordes därför att §7 förbjuder att skeppa ett känt falskt påstående
+även när varvsgränsen eller undantaget är uttömt. Gränsen begränsar antalet
+granskningar, inte kravet på sanning.
+
+Ny post ⇒ MINOR.
 
 ### 0.25.0 — 2026-08-28
 

@@ -5,9 +5,10 @@
 # bara av Lars uttryckliga beslut. Den här filen ändras alltså för hand, på
 # Lars ord, och aldrig av en körning.
 #
-# SKÄLEN STÅR I `docs/beslutslogg.md` #29, och den posten går före den här filen
-# om de någonsin säger emot varandra. Kommentarerna nedan är korta och kan bli
-# föråldrade av ett senare beslut; #29 är källan.
+# SKÄLEN STÅR I BESLUTSLOGGEN: #29 fattade grinden, #30 avgjorde prisfrågan.
+# **Den SENASTE posten går före den här filen** om de någonsin säger emot
+# varandra, och posterna går före varandra i nummerordning. Kommentarerna nedan
+# är korta och kan bli föråldrade av ett senare beslut; loggen är källan.
 #
 # STANDARDHINKEN ÄR `utkast`. En kategori som inte står nedan hamnar där, aldrig
 # i `auto`. Det är avsiktligt: taxonomin kan växa, och en ny kategori som ingen
@@ -32,6 +33,17 @@ aldrig:
   - oklart
   - utanför listan
 
-# ÖPPEN PUNKT, se #29. `fråga om pris a-traktorkonvertering` står i utkast.
-# Vad som håller den där är inte entydigt avgjort, och den flyttas inte förrän
-# Lars sagt vilket. Frågan är ställd i #29 och obesvarad.
+# `fråga om pris a-traktorkonvertering` står i utkast. #29:s öppna punkt är
+# avgjord av Lars i skiva 18, se #30, och svaret har TVÅ led:
+#
+# 1. Kategorin är KVALIFICERAD för `auto`. Den når tröskeln med 11 par, och
+#    svaret beror inte på en bedömning i verkstaden. Det enda som hindrar den
+#    är att `config/priser.json` saknas.
+#
+# 2. Den flyttas ändå INTE automatiskt när filen fylls. En fylld prisfil är
+#    inte samma sak som verifierade priser, och flytten kräver ett nytt
+#    uttryckligt beslut av Lars.
+#
+# Led 2 är skälet att kategorin inte kan stå här med en villkorad markering:
+# en sådan hade bjudit in till att koden läser den och flyttar av sig själv,
+# vilket ramverksregel 2 förbjuder.

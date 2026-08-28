@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.8.8 · **Uppdaterad:** 2026-08-28 · **Speglar:** beslutslogg #29
+**Version:** 0.9.0 · **Uppdaterad:** 2026-08-28 · **Speglar:** beslutslogg #30
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -23,8 +23,7 @@ Ett skickat mail går inte att ångra, och avsändaren är ett företags rykte.
   SKUGGLÄGE),
   `docs/kategorier-forslag.md` (maskinproducerad av `src/ometikettera.py`, skrivs
   aldrig för hand),
-  `docs/kategorier.md` (kategoridefinitioner och deras hink) — **planerad, byggs i
-  fas 4**, se `docs/roadmap.md`,
+  `config/kategorier.yaml` (varje kategoris hink, ändras bara av Lars),
   `docs/sparrar.md` (varje spärr, vad den skyddar mot, dess negativkontroll, och om
   den är redundant med någon annan spärr),
   `docs/beslutslogg.md` (sekventiell, append-only),
@@ -457,6 +456,40 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.9.0 — 2026-08-28
+
+**§0:s rad om `docs/kategorier.md` är STRUKEN och ersatt av
+`config/kategorier.yaml`.** Beslut av Lars i skiva 18, se `docs/beslutslogg.md`
+#30. Filen har listats sedan repots första commit `f9b680a` och behövs inte:
+hinken står i yaml-filen, namnen i `docs/kategorier-forslag.md`, och definitioner
+utöver namnen finns inte, eftersom pass 2 ger modellen enbart namnen.
+
+Markeringen "planerad, byggs i fas 4" är däremot yngre än raden själv: den
+tillkom i `0b3f0ef`, vilket 0.4.1-posten nedan redovisar. I `f9b680a` stod raden
+utan förbehåll, alltså som om filen fanns.
+
+Raden pekade alltså på något som inte fanns och inte skulle byggas. **Kartan ska
+peka på det som finns.**
+
+**`config/kategorier.yaml` byter position, och det ska sägas rakt ut.** 0.8.8
+skrev att skiva 17:s nya filer, den inräknad, inte är styrdokument. Nu står den i
+§0:s styrdokumentlista. Skälet är att listan är kartan över vad som styr
+projektet, och filen styr **om ett mail får gå ut** enligt ramverksregel 1. Att
+den är maskinläsbar gör den inte till något annat: `docs/kategorier-forslag.md`
+står redan i listan och är maskinPRODUCERAD. 0.8.8:s mening var rimlig när den
+skrevs, som en anteckning om att skivan inte skapade något nytt styrdokument, och
+den står kvar som historik.
+
+`Speglar` följer med beslutsloggen till #30, avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att posten lagts till.
+
+**§12:s hål är fyllt.** `scripts/kategoristatus.py` finns sedan skiva 18, så
+statusraden går att producera. §12:s stycke om vad som gäller före fas 4 står
+kvar oförändrat: det beskriver ett läge som inte längre råder, men det är sant om
+det läget och gäller igen om filen någon gång saknas.
+
+Ändrad rad i §0 ⇒ MINOR.
+
 ### 0.8.8 — 2026-08-28
 
 `Speglar` följer med beslutsloggen till #29. Avläst ur
@@ -468,6 +501,9 @@ upprättades i skiva 17 på Lars diktamen. Regeltexten är oförändrad.
 **§0:s rad om `docs/kategorier.md` står kvar som PLANERAD.** Fas 4:s grind är
 fattad men den filen byggdes inte, och den ingick inte i skivans brief. Frågan är
 ställd som en öppen punkt i #29.
+
+*Föråldrad av 0.9.0: raden är struken och ersatt, och den öppna punkten är
+avgjord i #30. Påståendet gällde när posten skrevs.*
 
 **§0:s styrdokumentlista är i övrigt oförändrad.** Skiva 17 skapade
 `config/kategorier.yaml`, som §0:s ramverksregel 1 redan namngav, samt
