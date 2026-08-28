@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.22.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §8
+**Version:** 0.23.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -314,6 +314,13 @@ Frågan besvarades med mängddifferens, `-in:sent` minus tråd-ID i
 **De obesvarade är tre gånger fler än de besvarade**, 1604 mot 555. En
 klassificerare tränad enbart på besvarade trådar hade varit blind för
 huvuddelen av inflödet.
+
+*Upphävt av #27 i den del som gäller BESVARAT. Talen 1604 och 555 är riktiga om
+FILERNA, men filen säger inget om huruvida någon svarat: uppdelningen gjordes med
+`in:sent`, alltså på en Gmail-etikett som ensam grund. Mätt på ett svar i tråden
+bär 139 trådar ett mänskligt svar och 2020 gör det inte. Rubrikens förhållande
+gäller alltså skördarnas storlek och inte besvarat mot obesvarat. Slutsatsen i
+stycket står kvar och blir starkare: skevheten är större än posten trodde.*
 
 **MEN DE ÄR MESTADELS INTE KUNDÄRENDEN.** Efter att massutskick sållats bort på
 `List-Unsubscribe`, `Precedence` och besläktade huvuden återstår omkring tusen
@@ -1083,7 +1090,227 @@ kriterierna mot uppslagets tjänstevikt, och beskedet bekräftar att det är rä
 
 ---
 
+## #27 — Besvarad avgörs av ett svar i tråden, aldrig av vilken fil tråden ligger i
+
+**Datum:** 2026-08-28 · **Berör:** `docs/kategorier-forslag.md`, `src/kategorisera.py`,
+`docs/sparrar.md`, fas 4:s grind, #5, **och upphäver #9 i den del som gäller
+besvarat**
+
+**Beslut av Lars.** **EN GMAIL-ETIKETT FÅR ALDRIG VARA ENDA GRUNDEN FÖR EN
+KLASSNING.** Etiketter sätts för hand av Lars och Matte, retroaktivt och ojämnt.
+Ett mail utan etikett är inte ett mail utan ärende. En etikett får användas som
+bekräftande signal och som säker positiv träff, aldrig som nödvändigt villkor och
+aldrig som ensam grund. Regeln bor i `docs/sparrar.md` under
+`gmail-etikett-som-ensam-grund`.
+
+**Följden här.** En tråd är BESVARAD om den bär ett mänskligt skrivet svar enligt
+`src/urval.py::ar_gmail_svar`, och obesvarad annars. Vilken skördefil den ligger i
+säger ingenting.
+
+**#5 AVGJORDE REDAN DET HÄR, ETT PLAN NER.** #5 slår fast att `SENT` inte betyder
+"mänskligt skrivet svar", och `src/extract.py` följer den. Men miningen delade
+materialet med `in:sent`, alltså på samma etikett, som ensam grund för vilken FIL
+en tråd hamnade i. Sammanblandningen #5 förbjöd på meddelandenivå återinfördes
+alltså på filnivå av frågan som hämtade materialet.
+
+**Ingen ny mining behövs, och det är tur snarare än förtjänst.** Den obesvarade
+skörden kördes som `-in:sent` minus redan hämtade tråd-ID, så komplementet hämtades
+också. Trådarna ligger på disk, i fel fil. #5:s egen varning, att ett urvalsfel i
+frågan kostar en ny körning mot brevlådan, gällde alltså med nöd och näppe inte.
+
+**Uppmätt med `scripts/besvarad-omklassning.py`:**
+
+| Fack | Antal |
+| --- | --- |
+| `data/tradar.jsonl`, rader | 555 |
+| varav bär ett mänskligt svar | 139 |
+| varav SAKNAR svar | 416 |
+| — därav utan kundmeddelande alls | 141 |
+| — därav maskinmail | 183 |
+| — därav **kundärenden som flyttar** | **92** |
+| `data/tradar_obesvarade.jsonl`, rader | 1604 |
+| varav ändå bär ett svar | 0 |
+
+Kontrollen åt andra hållet ger noll: ingen tråd i den obesvarade filen bär ett
+svar. Felet går alltså bara åt ett håll.
+
+**#9 UPPHÄVS I DEN DEL SOM GÄLLER BESVARAT.** Dess rubrik lyder "De obesvarade är
+tre gånger fler, och mestadels inte kundärenden", och dess bärande tal står i
+brödtexten: "De obesvarade är tre gånger fler än de besvarade, 1604 mot 555".
+Båda beskriver skördarnas storlek och inte besvarat mot obesvarat. Mätt på ett svar i tråden är
+förhållandet 139 mot 2020. #9:s slutsats står kvar och blir starkare: en
+klassificerare tränad enbart på den besvarade filen hade varit blind för mer av
+inflödet än posten trodde. En kursiv not i #9 pekar hit.
+
+**KOLUMNEN *MED SVAR* VAR ALDRIG FEL, och briefens premiss stämde inte.** Briefen
+antog att talen 213 och a-traktorns 43 vilar på den gamla uppdelningen.
+`src/kategorisera.py` rad 84–93 tar den besvarade sidan ur `data/par.jsonl`, som
+byggs på `ar_gmail_svar` via `src/extract.py`, inte ur filnamnet. 213 unika
+kundtexter står kvar. A-traktorns 43 är summan av *Med svar* över de tre
+a-traktorkategorierna och står också kvar.
+
+**Det är den obesvarade sidan som var underräknad.** Rad 95–109 läser bara
+`tradar_obesvarade.jsonl`, så en tråd utan svar i fel fil hamnade i INGEN kolumn.
+De 92 bidrar med **66 unika kundtexter som saknas i båda kolumnerna**.
+
+| Korpus | Före | Efter |
+| --- | --- | --- |
+| Texter i underlaget | 795 | 861 |
+| Med svar | 213 | 213 |
+| Utan svar | 582 | 648 |
+
+795 är avläst på rad 54 i `docs/kategorier-forslag.md` och 213 ur körningen. 582
+är både differensen mellan dem och ett direkt mätvärde: skriptet bygger den
+obesvarade kolumnen med samma urval som `src/kategorisera.py` rad 95–109 och får
+582 texter. Att de 66 saknas i BÅDA kolumnerna är också mätt, inte antaget:
+överlappet mot den obesvarade kolumnen är 0.
+
+**WEBBFORMULÄRET ÄR DEN ENSKILT STÖRSTA KANALEN BLAND DE 92**, med 32 trådar,
+och 23 av de 66 nya texterna kommer därifrån. Båda talen läses ur
+`scripts/besvarad-omklassning.py`, som känner igen formuläret på ÄMNESRADEN och
+inte på avsändardomänen: den egna domänen bär också annan maskinell trafik. Att
+domänraden i tabellen nedan också står på 32 är alltså en kontroll och inte
+samma mätning.
+
+Talet 23 räknas per unik text när texten läggs till första gången, vilket vore
+ordningsberoende om samma text bars av både en formulärtråd och en annan tråd.
+Skriptet mäter det: noll texter korsar den gränsen.
+
+Formulärets ämnesrad är en offertförfrågan om A-traktor, så de 23 är
+a-traktorärenden av kanalens konstruktion, oavsett vilken av kategorierna de
+sedan hamnar i.
+
+Tabellen ger i dag 25/12/7 totalt för de tre a-traktorkategorierna med *Utan
+svar* 0, 1 och 0. Bilden av a-traktorärenden som i praktiken alltid besvarade
+vilar alltså på att de obesvarade låg i fel fil.
+
+**Detta är INTE en rangordning mellan kategorier.** De återstående 43 texterna är
+oetiketterade och kan fördela sig var som helst, och ingen jämförelse mot någon
+annan kategoris basvärde är gjord.
+
+**Kanalerna som bär felet**, avsändardomän för de 92. Domäner med färre än tre
+träffar är hopslagna enligt §6, eftersom en personlig domän kan identifiera en
+person:
+
+| Domän | Trådar |
+| --- | --- |
+| `autostockholm.se` (eget webbformulär) | 32 |
+| `gmail.com` | 20 |
+| `autobutler.se` | 12 |
+| `wint.se` | 5 |
+| `smartab.com` | 4 |
+| `googlemail.com` | 3 |
+| `melias.se` | 3 |
+| 10 domäner med färre än 3 träffar | 13 |
+
+**Varför de saknar svar**, räknat per meddelande i de 92 trådarna och inte per
+tråd: 64 meddelanden är inte skickade av oss, 48 är skickade men vidarebefordran,
+32 är skickade men bär leveranshuvud, 12 är skickade men saknar svarshuvud.
+**Vidarebefordran är den intressanta posten.** Ett vidarebefordrat ärende kan ha
+hanterats utanför brevlådan. *Obesvarad* betyder här att brevlådan inte
+svarade, aldrig att kunden lämnades utan svar.
+
+**PER KATEGORI GÅR INTE ATT SVARA PÅ UTAN EN NY ETIKETTERINGSKÖRNING.** De 66
+texterna är oetiketterade. Pass 2 i `src/ometikettera.py` kostar anrop mot
+Anthropic API, och en omkörning av hela materialet är dessutom inte deterministisk
+enligt #18, alltså skulle den flytta tal som ingenting annat har ändrat. Att köra
+enbart de 66 och lägga till dem är den rimliga vägen, men det är ett eget beslut
+och fattas inte här.
+
+**FAS 4:S GRIND ÄR INTE FATTAD I DEN HÄR POSTEN.** Kategoritabellen kan inte bära
+ett hinkbeslut förrän de 66 är etiketterade.
+
+**Bokningsnotiserna är INTE kundärenden, och domänvägen vore fel verktyg ändå.**
+De 8 trådar vars ämnesrad innehåller `Appointment` är 210 till 272 tecken långa,
+25 till 32 ord, bär inga fältetiketter, inget registreringsnummer och inget
+mänskligt svar. Det är statusmallar om en bokning, inte kundens egna ord.
+
+Även om bedömningen varit den motsatta kan `config/maskindomaner-forbjudna.yaml`
+inte uttrycka den, eftersom posten matchar på DOMÄN.
+
+**POPULATIONEN, utskriven så att talen går att räkna om.** En tråd räknas som
+maskinmail med egen domän om `klassa_maskin.tradens_skal` är sann OCH
+`klassa_maskin.avsandardoman` på trådens första kundmeddelande är
+`autostockholm.se`. Populationen är BÅDA skördarna. Det ger 105 trådar, varav 8
+är bokningsnotiserna och 97 är övriga. Alla 8 har en och samma avsändaradress,
+och 103 av de 105 delar den adressen.
+
+En post på `autostockholm.se` hade alltså slutat klassa 105 trådar som maskinmail
+för att komma åt 8. Vad de 97 övriga är, mätt mot AVKODAD text och inte mot
+filraden: 78 av 97 bär ordet `wordpress` någonstans i tråden, och 97 av 97 bär
+huvudet `X-Msg-EID`. Att 19 saknar ordet är skälet att posten inte kallar dem
+något mer bestämt än övriga notiser från den egna sajten.
+
+**Filen ändras inte i den här skivan.**
+
+**PREFIXKOLLISION, registrerad som förbehåll.** En jämförelse av kundtexter på
+deras första 400 tecken slår ihop två texter som delar ingress men skiljer sig
+längre ned. `scripts/besvarad-omklassning.py` jämför HELA strängen, så talet 66
+vilar inte på ett prefix.
+
+**Kollisionen är inte realiserad i det här materialet.** Skriptets prefixkontroll
+ger 74 texter bakom de nya, 66 unika på hela strängen och 66 unika på 400 teckens
+prefix. Att formulärmailen har fast ingress gör risken tänkbar men den utfaller
+inte här, och förbehållet står som en regel för framtida mätningar och inte som
+ett påstående om ett fel som finns.
+
+**Alternativ som valdes bort.** Att köra om miningen med en riktig fråga.
+Materialet finns på disk, en ny körning kostar kvot mot brevlådan, och #5 slog
+redan fast att miningen ska hämta brett en gång.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.23.0 — 2026-08-28
+
+**#27 tillkommer:** besvarad avgörs av ett svar i tråden, aldrig av vilken
+skördefil tråden ligger i. Lars regel om att en Gmail-etikett aldrig får vara
+ensam grund för en klassning, dess uppmätta instans, den omräknade korpusen,
+bokningsnotiserna och prefixförbehållet.
+
+Posten redovisar också att briefens premiss inte stämde: kolumnen *Med svar* tas
+ur `data/par.jsonl` och var aldrig påverkad. Det var den obesvarade sidan som
+räknade för lågt.
+
+**#9 får en kursiv not och upphävs i den del som gäller besvarat.** Dess rubrik
+säger att de obesvarade är tre gånger fler, och dess brödtext skriver ut talen
+1604 mot 555. Båda beskriver skördarnas storlek och inte besvarat mot obesvarat. Mätt på ett svar i
+tråden är förhållandet 139 mot 2020. Posten i övrigt står kvar, och dess slutsats
+blir starkare av rättelsen.
+
+**Rättelser efter §7-granskningen av den här skivan, per post.** Ett superlativ om
+vilken kategori som påverkas mest är struket och ersatt med det som är mätt, att
+webbformuläret är den enskilt största kanalen bland de 92. En självrapportering om
+att ett skript var committat är struken, eftersom filen var ospårad när den
+skrevs. Karakteriseringen "WordPress-brus" är ersatt av mätvärden mot AVKODAD
+text, 78 av 97 respektive 97 av 97. Populationen bakom talet 105 står nu utskriven
+som predikat. Bisatsen om att formulärmail är särskilt utsatta för
+prefixkollision är ersatt av en mätning som visar noll kollisioner.
+
+**Andra granskningsvarvet fällde rättelsetexten, per post.** Talet 23 om
+webbformulärets bidrag producerades inte av något skript och mäts nu av
+`scripts/besvarad-omklassning.py`, som dessutom känner igen formuläret på
+ÄMNESRADEN i stället för på avsändardomänen. Citatet ur #9 tillskrevs rubriken
+men står i brödtexten. Ett hårdkodat 92 i skriptets utskrift räknas nu.
+Motsvarande fynd i `docs/sparrar.md` och `docs/roadmap.md` redovisas i de
+filernas egna appendixposter.
+
+**GRINDEN ÄR FÖRBRUKAD, OCH DET SKA SYNAS.** §7 ger max tre granskningsvarv.
+Skivan förbrukade alla tre och det sista underkände också. Fynden i det varvet är
+rättade, men de rättelserna är **självmätta och inte oberoende granskade**:
+grep-meningen om etikett-ID:n som skivans egen appendixpost gjorde falsk, den
+versalkänsliga jämförelsen som mätte kroppen där avsnittet talar om fältvärdet,
+och en universell bisats om att mätskriptet bär varje tal i sitt avsnitt.
+
+Rättelserna gjordes därför att §7 förbjuder att skeppa ett känt falskt påstående
+även när undantaget eller varvsgränsen är uttömd. Varvsgränsen begränsar antalet
+granskningar, inte kravet på sanning. Två av de tre krävde ny mätning i
+`scripts/formular-matning.py`, som nu prövar det strikta mönstret mot
+FÄLTVÄRDET, och i `scripts/besvarad-omklassning.py`, som mäter om någon text
+korsar formulärgränsen. Båda mätningarna är körda och deras utfall står i posten.
+
+Ny post ⇒ MINOR.
 
 ### 0.22.0 — 2026-08-27
 

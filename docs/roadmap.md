@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.6.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §10
+**Version:** 0.7.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -379,10 +379,114 @@ sökväg, `scratchpad/kategorier-exempel.md`, och `scratchpad/` är gitignorerad
 Att just skiva 6:s fil skrivits över är inte belagt, bara att ingen skiva 6-utdata
 ligger kvar på sökvägen.
 
+**WEBBFORMULÄRET ÄR DEN KANAL SOM FAKTISKT BÄR NUMRET, och den är vår egen.**
+Uppmätt i skiva 15. Predikatet för en formulärtråd är att ämnesraden på trådens
+första kundmeddelande innehåller `offertförfrågan a-traktor`,
+skiftlägesokänsligt. Det ger 78 trådar i `data/tradar.jsonl` och noll i den
+obesvarade filen, av skäl som står under `gmail-etikett-som-ensam-grund` i
+`docs/sparrar.md`.
+
+Formuläret skickar ett fast fältblock. Etiketterna, avlästa ur den avkodade
+kroppen med `src/urval.py::brodtext`:
+
+| Fältetikett | Bärs av |
+| --- | --- |
+| `Namn` | 78/78 |
+| `E-post` | 78/78 |
+| `Växellåda` | 78/78 |
+| `Bilmodell` | 78/78 |
+| `Telefon` | 78/78 |
+| `Registreringsnummer` | 78/78 |
+| `Meddelande` | 56/78 |
+| `Tillval` | 26/78 |
+| `Övriga frågor` | 1/78 |
+
+**Fältnamnet är `Registreringsnummer`, utskrivet i sin helhet.** Det matchas av
+etikettformen ovan, som redan bär `registreringsnummer` skiftlägesokänsligt, så
+ingen ändring av predikatet behövs. Att formen är den fullständiga och inte en
+förkortning är däremot värt att veta för den som skriver avläsaren.
+
+**MÖNSTRET FÖR ETT REGISTRERINGSNUMMER, utskrivet så att talen nedan går att
+räkna om.** `\b[A-ZÅÄÖ]{3}[\s-]?\d{2}[A-ZÅÄÖ0-9]\b`, prövat
+SKIFTLÄGESOKÄNSLIGT. Mönstret lånas ur `scripts/persondatakontroll.py` och
+kopieras inte.
+
+**Skiftläget är inte en detalj.** Samma mönster prövat VERSALKÄNSLIGT, alltså
+precis som §6-kontrollen använder det, ger 46 av 78 i stället för 77 av 78.
+Kunden skriver alltså inte sitt nummer versalt. §6-kontrollen är avsiktligt
+versalkänslig för att inte larma på vanliga ord i löptext, men en avläsare som
+ärver den strängheten skulle tappa 31 av de 77 nummer som går att läsa.
+
+**Talet 31 gäller en FÄLTAVLÄSARE, inte en fritextsökning.** Skriptet prövar det
+strikta mönstret mot FÄLTVÄRDET, alltså mot samma sträng som den giltiga
+avläsningen använder, och får 46 där. Bortfallet 31 av 77 är alltså mätt på det
+som fasen ska bygga och inte på kroppen som helhet. Att kroppen och ämnesraden
+ger samma 46 är en kontroll, inte källan till talet.
+
+Att de 31 BÄR ett nummer och inte saknar ett följer av mätningen: båda talen
+kommer ur samma mönster mot samma sträng, och det enda som skiljer prövningarna
+är `re.IGNORECASE`. Vilket skiftläge de 31 har är däremot inte mätt.
+
+**TALEN GÅR ATT RÄKNA OM.** Kör `.venv/bin/python scripts/formular-matning.py`.
+Skriptet bär avsnittets MÄTTA tal, mäter mot avkodad brödtext, och
+skriver ut båda skiftlägesvarianterna. Skulle en framtida körning ge andra tal än
+texten här är det texten som är föråldrad.
+
+Undantaget är talet tre i **Formuläret löser INTE gatingen** nedan, som räknar
+fält i `src/fordonsuppslag.py` och läses där.
+
+**FÄLTET FINNS ALLTID, VÄRDET DUGER INTE ALLTID.** Fältraden
+`Registreringsnummer:` finns med ett icke-tomt värde i 78 av 78, medan det värdet
+tolkas som ett registreringsnummer i 77 av 78. Den enda tråd som faller har
+alltså ett ifyllt fält vars innehåll inte är ett nummer. Det senare mäts på just den raden och inte som en fritextsökning i kroppen,
+eftersom det är fältvärdet en avläsare ska använda.
+
+Den skillnaden är exakt det tillstånd fasen finns för: fältet är läst, numret är
+oanvändbart, ärendet faller till utkast. **En avläsare som testar om ETIKETTEN
+finns svarar fel på den tråden.** Villkoret är att ett giltigt värde gick att
+läsa, aldrig att fältet fanns.
+
+**Ämnesraden bär samma nummer, och de säger aldrig emot varandra.** Av de 78
+matchar 77 ämnesrader mönstret, samma 77 som i kroppen, och i alla 77 är värdena
+identiska. Noll trådar har numret i kroppen men inte i ämnesraden.
+
+**Det gör ämnesraden till en bekräftande signal, aldrig till en ensam grund.**
+Negativkontroll, samma mönster mot ämnesraden på varje tråds FÖRSTA
+kundmeddelande, alltså en rad per tråd och inte varje meddelandes: 8 av de 411
+trådar i `data/tradar.jsonl` som bär ett kundmeddelande matchar utan att vara
+formulärtrådar, och 23 av de 1604 obesvarade. Mätningen avgör INTE om de
+träffarna är verkliga registreringsnummer, som en kund mycket väl kan skriva i en
+ämnesrad, eller sammanträffanden i fakturareferenser. Den avgör bara att mönstret
+ensamt inte skiljer kanalerna åt. Avläsaren läser alltså fältet, och får använda
+ämnesraden för att kontrollera det den redan läst.
+
+> **TALET 411 BÄR TVÅ BETYDELSER I DET HÄR AVSNITTET, och de är olika mängder.**
+> Ovan, i tabellen över förmedlare, är 411 antalet förmedlartrådar bland de
+> OBESVARADE. Här är 411 antalet trådar i `data/tradar.jsonl` som bär ett
+> kundmeddelande. Båda är uppmätta och sammanfallandet är ett sammanträffande.
+> Den som räknar om ett tal härifrån ska kontrollera vilken av dem som avses.
+
+**Formuläret löser INTE gatingen.** Inget av fälten är tjänstevikt,
+släpvagnsvikt eller draganordning, alltså de tre fält som `src/fordonsuppslag.py`
+utvärderar. Formuläret bidrar med registreringsnumret, som är INDATA till
+uppslaget, och med `Bilmodell` och `Växellåda`, som är kundens egna uppgifter och
+inte fakta om fordonet. Gatingen vilar oförändrat på uppslaget.
+
+**§6-följd som gäller varje framtida rapport.** Formulärets ämnesrad bär
+registreringsnumret i klartext i 77 av 78 trådar. En rapport, ett commitmeddelande
+eller ett dokument som citerar ämnesrader ur det här materialet läcker alltså
+persondata, även när brödtexten aldrig rörs.
+
 **Följden för fasen.** Fas 4.5 bygger en fältavläsare, och den villkoras på
-FÄLTET och aldrig på avsändaren: finns etikettformen i tråden används numret,
-saknas den faller ärendet till utkast. Det är samma regel för alla inflöden och
-kräver ingen domänlista. Att i stället lita på avsändaren hade gett fel svar för
+VÄRDET i fältet och aldrig på avsändaren: gick ett giltigt nummer att läsa ur
+etikettformen används det, annars faller ärendet till utkast. Det är samma regel
+för alla inflöden och kräver ingen domänlista.
+
+*Villkoret stod tidigare som att numret används om etikettformen finns i tråden.
+Den lydelsen är upphävd av mätningen ovan: etiketten bärs av 78 av 78
+formulärtrådar medan ett giltigt värde går att läsa i 77. Att fältet finns är
+alltså inte samma sak som att numret gick att läsa, och det är värdet som
+villkoret gäller.* Att i stället lita på avsändaren hade gett fel svar för
 `autobutler.se`, där 283 av 287 trådar saknar fältet.
 
 Avläsaren ändrar däremot ingenting i vad som får PÅSTÅS. Ett avläst
@@ -506,6 +610,44 @@ visat dagsvolymen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.7.0 — 2026-08-28
+
+**Fas 4.5 får ett avsnitt om webbformuläret**, uppmätt i skiva 15. Formulärets
+fältblock med etiketternas täckning, att fältnamnet är `Registreringsnummer`
+utskrivet i sin helhet, och att fältet bärs av 78 av 78 medan ett giltigt värde
+går att läsa i 77 av 78. Den skillnaden är fasens utkastfall, och en avläsare som
+prövar om ETIKETTEN finns svarar fel på den tråden.
+
+**`FÖLJDEN FÖR FASEN` BAR PRECIS DEN AVLÄSAREN, och lydelsen är upphävd.** Den
+sade att numret används om etikettformen finns i tråden. Mätningen ovan
+falsifierar det. Villkoret gäller nu att ett giltigt värde gick att läsa, och en
+kursiv not står kvar där den gamla lydelsen stod.
+
+Ämnesraden bär samma nummer i alla 77 och säger aldrig emot kroppen, men 8
+ämnesrader bland de besvarade och 23 bland de obesvarade matchar samma mönster
+utan att vara formulärtrådar. Ämnesraden skrivs därför in som bekräftande signal
+och aldrig som ensam grund, vilket är Lars etikettregel i `docs/sparrar.md`
+tillämpad på en annan signal.
+
+**Mönstret står utskrivet och skiftläget är en egen mätning.** Prövat
+versalkänsligt, alltså som §6-kontrollen använder det, faller talet från 77 till
+46 av 78. `scripts/formular-matning.py` bär varje tal i avsnittet och skriver ut
+båda varianterna.
+
+**Granskningen fällde följande led i det här avsnittet.** Bortfallet
+beskrevs som "nästan var tredje nummer" där mätvärdet är 31 av 77, alltså mer än
+var tredje. Talet 77 tillskrevs "ett giltigt värde" medan skriptet sökte mönstret
+i hela kroppen; skriptet mäter nu VÄRDET på fältraden och ger samma 77. Och
+`Följden för fasen` återanvände ordet FÄLTET i den betydelse den kursiva noten
+just upphävt, och säger nu VÄRDET i fältet.
+
+Avsnittet skriver också ut att formuläret INTE löser gatingen: inget av dess fält
+är någon av de tre `src/fordonsuppslag.py` utvärderar. Och att ämnesraden bär
+registreringsnumret i klartext, alltså att en rapport som citerar ämnesrader ur
+materialet läcker persondata enligt §6.
+
+Nytt avsnitt ⇒ MINOR.
 
 ### 0.6.0 — 2026-08-27
 

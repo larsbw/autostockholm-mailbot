@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.14.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.15.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -79,6 +79,12 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 | `forbjudna-maskindomaner` | Att en förmedlad kundförfrågan kastas som maskinmail | `test_liknande_doman_skyddas_inte_av_misstag` | Sig själv, två lager i `src/klassa_maskin.py`, och går FÖRE `klassning-maskinmail`. Se posten. |
 | `fordonsfakta-ur-uppslag` | Att ett utgående mail namnger fordonsfakta som inte kommer ur ett lyckat uppslag | `test_fullstandigt_svar_slapps_igenom`, `test_svar_med_okanda_nycklar_slapps_ocksa_igenom`, `test_mappningsobjekt_som_inte_ar_dict_slapps_igenom` | Ingen annan spärr. Formlager i `_kontrollera` och värdelager i `Uppslag.__post_init__` via `_krav_pa_vikt`. Formlagren är HELT redundanta med varandra, och viktlagren DELAS av två fält. Kända luckor listas i posten. |
 | `dragkrokbesked-har-harkomst` | Att ett besked om dragkrok sätts av en modell och flyttar kunden från en fråga till ett prispåslag | `test_bada_tillatna_kallorna_gar_igenom` | Ingen annan spärr. Se posten, särskilt vad den INTE kan hindra. |
+
+**Tabellen räknar SPÄRRAR, alltså sådant som kod verkställer.** Dokumentet bär
+dessutom en LUCKA UTAN SPÄRR, `gmail-etikett-som-ensam-grund`, som ingen kod
+implementerar och som därför inte kan bära någon av kolumnerna ovan. Den står i
+en egen sektion före mallen. Den som läser den här listan före en prövning enligt
+§7.1 ska läsa den posten också.
 
 ---
 
@@ -774,6 +780,76 @@ enligt §7.1.
 
 ---
 
+## LUCKA UTAN SPÄRR: `gmail-etikett-som-ensam-grund`
+
+> **DET HÄR ÄR INTE EN SPÄRR OCH GÅR INTE ATT FÄLLA ENLIGT §7.1.** Ingen kod
+> implementerar den. Posten står i det här dokumentet därför att den vaktar samma
+> sorts fel som spärrarna, och därför att den som läser dokumentet före en
+> prövning ska se den.
+>
+> **Mot mallens fyra fält:** *Spärr* är den inte, se rubriken. *Vad den skyddar
+> mot* står som **Vad den vaktar** nedan. **Negativkontroll: ingen finns**,
+> eftersom det inte finns någon kod att pröva; vad som skulle krävas för att ge
+> den en står under *Vad som skulle göra den till en spärr*. **Redundant med:
+> ingen.**
+
+**EN GMAIL-ETIKETT FÅR ALDRIG VARA ENDA GRUNDEN FÖR EN KLASSNING.** Regel av Lars
+i skiva 15, se `docs/beslutslogg.md` #27.
+
+Etiketter sätts för hand av Lars och Matte, retroaktivt och ojämnt. **Ett mail
+utan etikett är inte ett mail utan ärende.** En etikett får användas som
+bekräftande signal och som säker positiv träff, aldrig som nödvändigt villkor och
+aldrig som ensam grund.
+
+- **Vad den vaktar.** Att en klassning tar en etikett för ett sakförhållande. En
+  etikett säger vad någon HAR MARKERAT, inte vad som ÄR. De två sammanfaller så
+  ofta att skillnaden inte märks förrän den kanal dyker upp där de går isär.
+- **UPPMÄTT INSTANS, skiva 15.** Miningen delade materialet med Gmail-queryn
+  `in:sent`, alltså på etiketten `SENT` som ensam grund. En tråd hamnade i
+  `data/tradar.jsonl`, "besvarade", om den innehöll ett skickat meddelande.
+
+  **Webbformuläret skickar från brevlådan.** Varje formulärnotis bär därför `SENT`
+  och matchade `in:sent`, oavsett om någon svarat. Obesvarade-skörden kördes
+  dessutom som `-in:sent` minus redan hämtade tråd-ID, så samma trådar var
+  utestängda även därifrån.
+
+  Uppmätt med `scripts/besvarad-omklassning.py`: av 555 trådar i besvarade-skörden
+  bär **139** ett mänskligt svar enligt `urval.ar_gmail_svar`. **92 är
+  kundärenden utan svar**, och de bidrar med **66 kundtexter som saknas i BÅDA
+  kolumnerna** i `docs/kategorier-forslag.md`.
+- **Vad som INTE var fel.** Kolumnen *Med svar* tas ur `data/par.jsonl`, som
+  byggs på `ar_gmail_svar` via `src/extract.py` (`src/kategorisera.py` rad 84–93).
+  Den var alltså riktig hela tiden. Felet låg i att den obesvarade sidan bara
+  hämtades ur den ena filen, så trådar utan svar i fel skörd räknades i ingen
+  kolumn.
+- **Andra etiketter som används som villkor i dag.** `urval.ar_gmail_svar` kräver
+  `SENT` för att ett meddelande ska räknas som svar, och `ar_kundmeddelande`
+  läser samma fält. Det är SYSTEMSATTA etiketter och inte handsatta, vilket är
+  skillnaden regeln vilar på: `SENT` säger sanningsenligt att brevlådan skickade
+  meddelandet. Felet uppstod inte av att `SENT` lästes, utan av att `SENT` fick
+  betyda "besvarad".
+
+  Materialet bär 13 distinkta handsatta etiketter, avlästa med
+  `scripts/formular-matning.py`, som räknar PER TRÅD och tar med varje etikett i
+  tråden. Den som följer formuläret, `Label_4067421502860552187`, bärs av 89
+  trådar, varav 76 av de 78 formulärtrådarna.
+
+  **Ingen kod läser något etikett-ID.** `grep -rn "Label_" src tests config` ger
+  exit 1, alltså noll träffar. Den enda kod som rör etiketterna alls är
+  mätskriptet, som räknar dem på prefixet och aldrig på ett enskilt ID. Det är
+  rätt läge: regeln tillåter dem som bekräftande signal, aldrig som villkor.
+
+  > Meningen ovan söker i `src`, `tests` och `config` och räknar INTE upp var
+  > träffarna ligger i `docs/`. En sådan uppräkning blir falsk av nästa
+  > appendixpost som nämner ett etikett-ID, alltså ofta av just den commit som
+  > skriver den. En tidigare lydelse här gjorde precis det. Se CLAUDE.md §7.2.
+- **Vad som skulle göra den till en spärr.** En kontroll som vägrar en klassning
+  vars enda indata är ett fält ur `labelIds`. Den finns inte, och skulle vara
+  svår att formulera utan att också fälla de legitima systemetikettsläsningarna
+  ovan. Tills vidare är det här en regel som en granskare bär, inte kod.
+
+---
+
 ## Mall för en spärrpost
 
 Kopiera blocket nedan per spärr. Varje fält fylls i, tomma fält är en ofärdig
@@ -796,6 +872,40 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.15.0 — 2026-08-28
+
+**`gmail-etikett-som-ensam-grund` tillkommer**, som en LUCKA UTAN SPÄRR. Regel av
+Lars i skiva 15, se `docs/beslutslogg.md` #27. Posten bär sin uppmätta instans:
+miningens `in:sent` gjorde etiketten `SENT` till ensam grund för uppdelningen
+besvarad mot obesvarad, och webbformuläret skickar från brevlådan så att varje
+formulärnotis bär `SENT` oavsett om någon svarat.
+
+Posten skriver ut att den INTE går att fälla enligt §7.1, eftersom ingen kod
+implementerar den, och vad som skulle krävas för att göra den till en spärr.
+Den skiljer också systemsatta etiketter från handsatta: `ar_gmail_svar` läser
+`SENT` och får göra det, felet var att `SENT` fick betyda besvarad.
+
+**Posten sade först "den handsatta etikett som finns i materialet".** Materialet
+bär 13 distinkta handsatta etiketter. Den bestämda formen var alltså falsk, och
+den bar postens poäng om att läget är rätt.
+
+**Talet bakom rättelsen var i sin tur fel, och felet satt i mätskriptet.**
+Etikettloopen bröt efter varje meddelandes FÖRSTA `Label_`-id, så räknaren blev
+ett meddelandetal medan posten kallade det trådar, och mängden distinkta
+etiketter blev en undre gräns: en etikett som aldrig låg först räknades aldrig.
+Skriptet räknar nu per tråd och tar med varje etikett i tråden.
+
+De felaktiga talen skrivs inte ut här. De stod aldrig i en committad version och
+går inte att räkna om, eftersom loopen som producerade dem är borta. De riktiga
+talen är avlästa i posten ovan och går att kvittera mot `grep -c` i datafilerna.
+
+**Översikten fick en rad om att den här posten inte står i den.** Tabellen räknar
+spärrar som kod verkställer och kan inte bära en lucka utan kod utan att göra sina
+egna kolumnrubriker falska. Posten är i stället utpekad i en mening under
+tabellen, och redovisar mot mallens fyra fält vilka den saknar och varför.
+
+Ny post ⇒ MINOR.
 
 ### 0.14.0 — 2026-08-27
 
