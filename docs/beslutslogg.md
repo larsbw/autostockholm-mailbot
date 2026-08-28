@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.24.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §8
+**Version:** 0.25.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -1455,7 +1455,265 @@ avstängd.
 
 ---
 
+## #29 — Kanalen blir kontext, och fas 4:s grind fattas
+
+**Datum:** 2026-08-28 · **Berör:** `src/kanal.py` (ny), `src/kategorisera.py`,
+`src/ometikettera.py`, `config/kategorier.yaml` (ny), `scripts/etikettera-nya.py`,
+`scripts/besvarad-omklassning.py`, `scripts/formular-matning.py`,
+`tests/test_kanal.py` (ny), `tests/test_kategorier_yaml.py` (ny),
+`tests/test_etikettera_nya.py` (ny), `scripts/sparr-prova.sh`,
+`docs/incidentlogg.md`, `requirements.txt`, `docs/sparrar.md`,
+`docs/roadmap.md`, `CLAUDE.md`, #18, #27, #28
+
+### DEL A — klassificeraren ser ämnesraden och kanalen
+
+**FYNDET.** Webbformuläret ÄR a-traktorformuläret. Dess fältblock bär
+`Registreringsnummer`, `Bilmodell` och `Växellåda`, alla tre i 78 trådar av 78.
+Klassificeraren läste bara fritexten och såg aldrig att inskicket kom den vägen.
+
+**VARFÖR `Växellåda` finns i formuläret är Lars uppgift, inte en mätning:**
+manuell och automat påverkar hastighetsbegränsningen vid ombyggnad. Skälet står
+utskrivet därför att det förklarar varför fältblocket är a-traktorspecifikt, men
+det går inte att belägga ur repot. Det som ÄR mätt är att fälten finns.
+
+Mätt med `scripts/formular-matning.py` över alla 78 formulärtrådar, alla
+återfunna i korpusen:
+
+| Utfall | Antal |
+| --- | --- |
+| **Klassade som en a-traktorkategori** | **36** |
+| **Klassade som något annat** | **42** |
+
+De 42, fallande: `boka tillbehörsmontage` 14, `boka service` 7, `oklart` 6,
+`boka däckbyte` 5, `boka rekond` 4, `fråga om tjänst` 2, `inget kundärende` 1,
+`fråga om pris rekond` 1, `begära offert` 1, `fråga om pris tillbehör` 1.
+De 36: `fråga om a-traktorkonvertering` 21, `fråga om pris
+a-traktorkonvertering` 9, `boka a-traktorkonvertering` 6.
+
+**Talet gäller alla 78 och inte bara de 23 nya.** #28 mätte 8 av 23 bland de
+texter skiva 16 lade till. Över hela formulärpopulationen är det 36 av 78.
+
+**Beslut av Lars.** Ämnesrad och kanal går in i prompten som KONTEXT.
+
+**KANALEN ÄR BEKRÄFTANDE SIGNAL, ALDRIG ENSAM GRUND.** Samma regel som #27, nu
+tillämpad på en andra signal. En text som kom via formuläret men uppenbart
+handlar om något annat ska fortfarande kunna klassas som det.
+
+**Konstruktionen.** `src/kanal.py` namnger kanalen och lämnar ämnesraden.
+Kontexten läggs i ett avgränsat block överst i användarmeddelandet, och
+systemprompten säger ordagrant att kanalen aldrig ensam avgör kategorin och att
+texten går före när de säger emot varandra.
+
+**SYSTEMPROMPTEN ÄNDRAS FÖR ALLA TEXTER, inte bara för dem med kontext.**
+`KONTEXTREGEL` läggs till ovillkorligt. Det är avsiktligt: två olika
+systemprompter hade gjort klassningen beroende av om kontexten råkade gå att
+fastställa, och den skillnaden hade inte synts i utfallet. Regeln är formulerad
+så att den är sann också när blocket saknas. Följden är att varje framtida
+klassificering, även av en text utan kanal, körs mot en annan systemprompt än
+före den här skivan.
+
+**DEN BESVARADE SIDANS KONTEXT SLÅS UPP PÅ TEXTEN.** `data/par.jsonl` bär ingen
+ämnesrad, så `kontext_per_text` bygger ett index ur trådfilen. Indexet tar med
+VARJE kundmeddelande och inte bara trådens första, eftersom
+`src/extract.py::par_ur_trad` parar ett svar med `senaste_kund`: en par-text kan
+komma från vilken position som helst i tråden. Ett index på förstameddelanden
+hade dessutom låtit en text från position tre kollidera ouppdagat med en annan
+tråds förstameddelande och få dess kanal.
+
+**Bär samma text motstridig kontext får den ingen alls.** VET INTE är svaret,
+aldrig en gissning avgjord av läsordningen.
+
+**INGEN KOD MAPPAR KANAL TILL KATEGORI.** Det är hela skyddet, och det är
+prövat: `tests/test_kanal.py` låter modellen svara `boka biltvätt` medan kanalen
+är a-traktorformuläret och kräver att svaret står kvar orört. Prövningen enligt
+§7.1 gjordes genom att INFÖRA den förbjudna kopplingen i `ometikettera_en`, och
+tre negativkontroller föll. En regel om frånvaro av kod går inte att fälla genom
+att radera en rad; den fälls genom att skriva dit den.
+
+**Trunkeringen gäller texten, inte summan.** Vore taket satt på hela strängen
+hade ett långt kontextblock ätit av kundens egna ord, alltså det enda som får
+avgöra kategorin. Prövat: fälld trunkering ger RÖD.
+
+**Kanalen fastställs på ÄMNESRADEN, inte på avsändardomänen.** Den egna domänen
+bär också annan maskinell trafik, uppmätt i #27: 103 av 105 maskinmailtrådar med
+egen domän delar adress med bokningsnotiserna.
+
+**Predikatet bodde på två ställen och bor nu på ett.**
+`scripts/besvarad-omklassning.py` och `scripts/formular-matning.py` bar var sin
+kopia. Båda läser nu `src/kanal.py`. Talen är oförändrade efter flytten.
+
+**KORPUSEN ETIKETTERAS INTE OM AV DEN HÄR ÄNDRINGEN.** Tabellen i
+`docs/kategorier-forslag.md` bär etiketter satta UTAN kontext. Fixen gäller
+framtida klassificering. En omkörning hade flyttat tal som ingenting annat har
+ändrat, eftersom pass 2 inte är deterministiskt enligt #18, och den är inte
+gjord.
+
+**Den inkrementella vägen bär kontexten.** `scripts/etikettera-nya.py` byggde
+sina poster utan `amne` och `kanal`, och eftersom den är den enda sanktionerade
+körningen hade fixen då inte nått någon körbar väg alls. Den bygger dem nu ur
+meddelandet direkt, inte via uppslagningen på text: där finns meddelandet i
+handen.
+
+**Varför det är sändväg.** I drift misdirigerar samma fel samma ärenden: ett
+a-traktorärende som hamnar i `boka däckbyte` bedöms mot fel kategoris hink och
+fel mall.
+
+### DEL B — fas 4:s grind
+
+**Beslut av Lars, dikterat.** `config/kategorier.yaml` upprättad.
+
+**`auto`:** `fråga om a-traktorkonvertering`.
+
+**`aldrig`:** `bestrida faktura`, `reklamera utfört arbete`, `godkänna offert`,
+`begära dokument`, `ansöka om praktikplats`, `ge feedback`, `inget kundärende`,
+`oklart`, `utanför listan`.
+
+**`utkast`:** allt övrigt, som STANDARDHINK. Filen räknar inte upp den. En
+kategori som ingen tagit ställning till faller därmed till `utkast` och aldrig
+till `auto`, och en ny kategori i taxonomin ändrar inget utan Lars beslut.
+
+**Skälen, Lars ord.**
+
+`auto` kräver **minst tio par med svar OCH att svaret inte beror på en bedömning
+i verkstaden**. Bara en kategori uppfyller båda. Avläst ur tabellen: fyra rader
+bär tio eller fler i kolumnen *Med svar*, nämligen `inget kundärende` 52,
+`oklart` 31, `fråga om a-traktorkonvertering` 25 och `fråga om pris
+a-traktorkonvertering` 11. De två första är inga kundkategorier.
+
+`fråga om pris a-traktorkonvertering` når tröskeln med 11 par men **står i
+utkast tills `config/priser.json` är fylld**. En prismall utan priskälla faller
+ändå på §7.2. Att flytta den när filen finns är ett eget beslut.
+
+**ÖPPEN PUNKT: DE TVÅ SKÄLEN GÅR INTE IHOP, och de är inte omskrivna.** Lars
+första mening säger att bara EN kategori uppfyller båda kriterierna. Hans andra
+säger att prisfrågan NÅR TRÖSKELN och står i utkast TILLS priskällan finns.
+
+Läses de tillsammans följer att prisfrågan skulle falla på det andra kriteriet,
+alltså att dess svar beror på en bedömning i verkstaden. **Det står ingenstans i
+repot**, och den slutsatsen är inte dragen här. Läses den andra meningen ensam
+är prisfrågan kvalificerad och hindras bara av den saknade filen, men då är
+"bara en uppfyller båda" inte riktigt.
+
+Skillnaden är inte akademisk: den avgör om kategorin flyttas automatiskt när
+`config/priser.json` fylls, eller om den kräver ett nytt beslut även då.
+`config/kategorier.yaml` säger därför bara att kategorin står i utkast och att
+frågan är öppen. **Ingen av Lars meningar är omskriven, och ingen tolkning är
+vald.** §10: vid tvetydig instruktion som rör sändning frågas vad som menas.
+
+`godkänna offert` och `begära dokument` står i `aldrig` för att de **utlöser
+handling i verkstaden**, inte för att de är känsliga.
+
+**GRINDEN FATTAS PÅ TAL SOM FORTSÄTTER RÖRA SIG, OCH DET ÄR AVSIKTLIGT.** Talen
+har räknats om upprepade gånger utan att slutsatsen har ändrats: a-traktor är
+den enda ärendetyp som bär mallunderlag. Det är avläsbart i dag, inte ett
+påstående om historien: de enda KUNDKATEGORIER som når tio par med svar är
+`fråga om a-traktorkonvertering` 25 och `fråga om pris a-traktorkonvertering`
+11, och båda är a-traktor.
+
+**Lars skäl att fatta grinden ändå:** DEL A kan göra kategorin större, aldrig
+mindre, och en större kategori ändrar inte hinken.
+
+*Ledet "aldrig mindre" är Lars bedömning och inte belagt här. Kontexten kan i
+princip flytta en text MELLAN de tre a-traktorkategorierna, och formulärtrådarna
+fördelar sig redan i dag över alla tre: 21, 9 och 6. Att a-traktor som helhet
+skulle krympa vore däremot att en formulärtråd slutar vara ett a-traktorärende
+av att klassificeraren FÅR VETA att den kom via a-traktorformuläret, och pass 2
+är dessutom inte deterministiskt enligt #18. Bedömningen är rimlig; belagd är
+den inte, och hinkbeslutet vilar inte på den.*
+
+**NOTERAT, INTE BESLUTAT.** De KUNDKATEGORIER som bär flest obesvarade texter är
+`boka rekond` 19, `avboka bokning` 12, `boka biltvätt` 11 och `boka däckbyte` 10.
+
+Kvalifikationen är nödvändig och inte en artighet: `inget kundärende` bär 536
+obesvarade och `oklart` 10, alltså mer respektive lika mycket som den fjärde i
+listan. Ingen av dem är en kundkategori, och båda står i `aldrig`.
+**`boka biltvätt` har noll svar av elva.** Det är kunder som skrev och aldrig
+fick svar, och det är där botens värde ligger även om mallunderlaget saknas.
+
+**Filen ändras för hand, aldrig av en körning.** Ramverksregel 2. Testerna i
+`tests/test_kategorier_yaml.py` binder varje namn mot taxonomin, så att ett
+stavfel inte tyst tar bort en kategori ur `aldrig` och lägger den i
+standardhinken. Prövat enligt §7.1: en fälld standardhink ger RÖD.
+
+**ÖPPEN PUNKT.** §0 listar `docs/kategorier.md` som planerad och byggd i fas 4.
+Grinden är fattad men filen finns inte, och den ingick inte i den här skivans
+brief. Frågan är ställd och obesvarad.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.25.0 — 2026-08-28
+
+**#29 tillkommer:** kanalen blir kontext i klassificeringen, och fas 4:s grind
+fattas.
+
+DEL A bär mätningen som föranledde bygget: av 78 formulärtrådar klassades 42 som
+något annat än en a-traktorkategori. Posten skriver ut att ingen kod mappar kanal
+till kategori, och hur den regeln fälldes enligt §7.1 genom att den förbjudna
+kopplingen SKREVS DIT. Den skriver också ut att korpusen inte etiketteras om.
+
+DEL B återger Lars diktamen och hans skäl, och noterar utan att besluta att
+`boka biltvätt` har noll svar av elva.
+
+**Rättelser efter §7-granskningen, per post.** `kontext_per_text` var helt
+otestad och gick att neutralisera utan att ett enda test föll; den har nu tester
+för konfliktfallet, positionskollisionen, nollfallen och den tomma texten.
+Funktionens konfliktvakt såg bara trådarnas FÖRSTA kundmeddelanden och kunde
+därför ge fel kanal till en par-text från en senare position; indexet täcker nu
+varje kundmeddelande. `scripts/etikettera-nya.py` byggde poster utan kontext, så
+den enda körbara vägen levererade ingenting av fixen. Påståendet att anropet är
+teckenidentiskt utan kontext var falskt och gällde bara användarmeddelandet.
+Superlativet om obesvarade texter saknade kvalifikationen KUNDKATEGORI, och
+`inget kundärende` bär 536. `config/kategorier.yaml`:s kommentar sade "bara en
+kategori" utan samma kvalifikation och räknade två kriterier medan filen själv
+tillämpade ett tredje. `Berör`-raden var ofullständig mot diffen.
+
+**Andra granskningsvarvet fällde, per post.** `config/kategorier.yaml` lovade att
+inte återge skäl och återgav dem sedan; kommentarerna namnger nu kriteriet och
+pekar vidare. Filens två förklaringar till varför prisfrågan står i utkast gick
+inte ihop, och den motsägelsen är INTE omskriven utan lyft som en öppen punkt.
+Rättelsen av `scripts/etikettera-nya.py` var varken exekverad eller testad,
+eftersom torrkörningen filtrerar bort varje kandidat innan raden nås;
+`tests/test_etikettera_nya.py` binder den nu och en fälld kontext ger RÖD.
+Påståendet om varför `Växellåda` finns i formuläret stod under rubriken
+"uppmätt" men är Lars uppgift. En processräkning om hur många skivor talen
+räknats om i är struken.
+
+**Granskningen fann också ett fel i §7.1:s eget verktyg**, se
+`docs/incidentlogg.md` I7. En kvitterad återställning lämnade fällningens kod
+kvar i bytekoden, och repots svit var röd utan att någon rad bar felet.
+`scripts/sparr-prova.sh` städar nu `__pycache__` i båda riktningarna och
+kvitterar att katalogerna är borta.
+
+**GRINDEN ÄR FÖRBRUKAD, OCH DET SKA SYNAS.** §7 ger max tre granskningsvarv.
+Skivan förbrukade alla tre och det sista underkände också. Fynden i det varvet är
+rättade, men de rättelserna är **självmätta och inte oberoende granskade**:
+
+- **Ett sändvägsgap.** `texter_att_kategorisera`:s inkoppling av kontexten gick
+  att strippa i BÅDA grenarna utan att ett test föll. Hela DEL A kunde alltså
+  tas bort ur den fulla korpusvägen tyst. Tre tester binder den nu, och båda
+  grenarna ger RÖD vid fällning. Det är samma defektklass som varv 2 fällde för
+  systerfunktionen, åtgärdad där och lämnad kvar här.
+- En testdocstring valde den tolkning av prisfrågan som den här posten säger att
+  ingen valt.
+- `config/kategorier.yaml` lovade fortfarande att inte återge resonemang och
+  gjorde det sex rader ned.
+- Bisatsen "aldrig mindre" är Lars bedömning och står nu som det.
+- `CLAUDE.md` räknade fyra nya filer där det är fem, och `Berör`-raden var
+  ofullständig mot diffen igen.
+- Verktygsåtgärden täckte bara den riktning incidenten visade.
+
+Rättelserna gjordes därför att §7 förbjuder att skeppa ett känt falskt påstående
+även när varvsgränsen är uttömd. Gränsen begränsar antalet granskningar, inte
+kravet på sanning.
+
+**En sakkonflikt är utskriven, inte tyst löst.** `docs/roadmap.md` fas 4 sade
+"Ingen kategori startar i `auto`". Lars beslut lägger en kategori där. Villkoret
+var en förväntan och inte en ramverksregel, meningen står kvar oförändrad, och en
+not under fasen säger att den inte längre beskriver läget.
+
+Ny post ⇒ MINOR.
 
 ### 0.24.0 — 2026-08-28
 

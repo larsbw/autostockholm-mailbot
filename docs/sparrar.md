@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.16.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.17.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -79,6 +79,7 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 | `forbjudna-maskindomaner` | Att en förmedlad kundförfrågan kastas som maskinmail | `test_liknande_doman_skyddas_inte_av_misstag` | Sig själv, två lager i `src/klassa_maskin.py`, och går FÖRE `klassning-maskinmail`. Se posten. |
 | `fordonsfakta-ur-uppslag` | Att ett utgående mail namnger fordonsfakta som inte kommer ur ett lyckat uppslag | `test_fullstandigt_svar_slapps_igenom`, `test_svar_med_okanda_nycklar_slapps_ocksa_igenom`, `test_mappningsobjekt_som_inte_ar_dict_slapps_igenom` | Ingen annan spärr. Formlager i `_kontrollera` och värdelager i `Uppslag.__post_init__` via `_krav_pa_vikt`. Formlagren är HELT redundanta med varandra, och viktlagren DELAS av två fält. Kända luckor listas i posten. |
 | `dragkrokbesked-har-harkomst` | Att ett besked om dragkrok sätts av en modell och flyttar kunden från en fråga till ett prispåslag | `test_bada_tillatna_kallorna_gar_igenom` | Ingen annan spärr. Se posten, särskilt vad den INTE kan hindra. |
+| `kanal-som-kontext-aldrig-grund` | Att kanalen ett mail kom in genom blir ensam grund för dess kategori | `test_kanalen_overstyr_aldrig_modellens_svar`, `test_samma_svar_ger_samma_etikett_med_och_utan_kanal`, `test_kanalen_gor_inte_ett_svar_utanfor_taxonomin_giltigt` | Ingen annan spärr. Vaktar FRÅNVARON av kod och fälls därför genom att skriva dit kopplingen. Se posten. |
 
 **Tabellen räknar SPÄRRAR, alltså sådant som kod verkställer.** Dokumentet bär
 dessutom poster märkta LUCKA UTAN SPÄRR, som ingen kod implementerar och som
@@ -789,6 +790,60 @@ enligt §7.1.
 
 ---
 
+## `kanal-som-kontext-aldrig-grund`
+
+**BYGGD I SKIVA 17.** Till skillnad från `gmail-etikett-som-ensam-grund`, som
+är en regel utan kod, har den här posten kod och går att fälla.
+
+- **Spärr.** Ingen funktion mappar en kanal till en kategori.
+  `src/kanal.py::namnge` returnerar ett kanalNAMN eller `None`, och
+  `src/kategorisera.py::bygg_anvandarmeddelande` lägger namnet i ett avgränsat
+  kontextblock i användarmeddelandet. `src/ometikettera.py::ometikettera_en`
+  prövar modellens svar mot taxonomin och gör inget annat. Kanalen påverkar
+  alltså vad modellen SER, aldrig vad koden GÖR med svaret.
+- **Vad den skyddar mot.** Att en bekräftande signal blir ensam grund. Lars
+  regel i #27, tillämpad på kanalen i #29. Frestelsen är konkret: 42 av 78
+  formulärtrådar klassades som något annat än a-traktor, och en
+  kanal-till-kategori-koppling hade rättat statistiken i ett slag. Den hade
+  också gjort varje biltvättsfråga som råkat komma via formuläret till ett
+  a-traktorärende.
+- **Negativkontroll.** `test_kanalen_overstyr_aldrig_modellens_svar` låter
+  modellen svara `boka biltvätt` medan kanalen är a-traktorformuläret och kräver
+  att svaret står kvar. `test_samma_svar_ger_samma_etikett_med_och_utan_kanal`
+  visar att efterbehandlingen är identisk med och utan kanal.
+  `test_kanalen_gor_inte_ett_svar_utanfor_taxonomin_giltigt` visar att kanalen
+  inte heller räddar ett svar utanför listan.
+- **Redundant med.** Ingen annan spärr.
+
+**PRÖVNINGEN GÅR INTE TILL SOM DE ANDRA, och det är inte en brist.** Posten
+vaktar FRÅNVARON av kod. Att radera en rad gör ingenting, eftersom raden inte
+finns. Fällningen sker genom att SKRIVA DIT den förbjudna kopplingen:
+
+    scripts/sparr-prova.sh --fil src/ometikettera.py \
+      --ersatt '<rad>=    return "boka a-traktorkonvertering" if kanal else (namn if namn in taxonomi else UTANFOR)' \
+      -- -q tests/test_kanal.py
+
+Utfört i skiva 17: RÖD, tre negativkontroller föll. Radnumret skrivs inte ut
+här, eftersom det flyttar av varje redigering i filen; raden är den enda
+`return` i `ometikettera_en`.
+
+**Trunkeringen är ett eget lager.** `bygg_anvandarmeddelande` kortar TEXTEN
+och lägger kontexten till efteråt. Vore taket satt på summan hade ett långt
+kontextblock ätit av kundens egna ord, alltså det enda som får avgöra
+kategorin. `test_trunkeringen_galler_texten_inte_summan` binder det, och en
+fälld trunkering ger RÖD.
+
+**Kanalen fastställs på ÄMNESRADEN, inte på avsändardomänen.** Den egna
+domänen bär också annan maskinell trafik: uppmätt i #27 delar 103 av 105
+maskinmailtrådar med egen domän adress med bokningsnotiserna. En domänprövning
+hade därför gjort varje WordPress-notis till ett formulärinskick.
+
+**`None` betyder VET INTE, aldrig `e-post` som slasktratt.** En påhittad kanal
+hade varit en signal som såg mätt ut, och en signal man hittat på bekräftar
+ingenting.
+
+---
+
 ## LUCKA UTAN SPÄRR: `gmail-etikett-som-ensam-grund`
 
 > **DET HÄR ÄR INTE EN SPÄRR OCH GÅR INTE ATT FÄLLA ENLIGT §7.1.** Ingen kod
@@ -939,6 +994,23 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.17.0 — 2026-08-28
+
+**`kanal-som-kontext-aldrig-grund` tillkommer som SPÄRR**, byggd i skiva 17, se
+`docs/beslutslogg.md` #29. Till skillnad från de två luckposterna har den kod och
+går att fälla.
+
+Posten vaktar FRÅNVARON av en kanal-till-kategori-koppling, och skriver därför ut
+att prövningen inte går till som de andra: fällningen sker genom att SKRIVA DIT
+kopplingen, inte genom att radera en rad. Utfört i skiva 17, RÖD, tre
+negativkontroller föll. Radnumret skrivs INTE ut i posten, eftersom det flyttar
+av varje redigering i filen.
+
+Trunkeringen är redovisad som ett eget lager: taket gäller texten och inte
+summan, så ett långt kontextblock inte äter av kundens egna ord.
+
+Ny post ⇒ MINOR.
 
 ### 0.16.0 — 2026-08-28
 

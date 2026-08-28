@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.8.7 · **Uppdaterad:** 2026-08-28 · **Speglar:** beslutslogg #28
+**Version:** 0.8.8 · **Uppdaterad:** 2026-08-28 · **Speglar:** beslutslogg #29
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -456,6 +456,26 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.8.8 — 2026-08-28
+
+`Speglar` följer med beslutsloggen till #29. Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att posten lagts till.
+
+**§0:s ramverksregel 1 pekar nu på en fil som finns.** `config/kategorier.yaml`
+upprättades i skiva 17 på Lars diktamen. Regeltexten är oförändrad.
+
+**§0:s rad om `docs/kategorier.md` står kvar som PLANERAD.** Fas 4:s grind är
+fattad men den filen byggdes inte, och den ingick inte i skivans brief. Frågan är
+ställd som en öppen punkt i #29.
+
+**§0:s styrdokumentlista är i övrigt oförändrad.** Skiva 17 skapade
+`config/kategorier.yaml`, som §0:s ramverksregel 1 redan namngav, samt
+`src/kanal.py`, `tests/test_kanal.py`, `tests/test_kategorier_yaml.py` och
+`tests/test_etikettera_nya.py`, alltså kod och tester. Ingen av dem är ett
+styrdokument.
+
+Ren synk ⇒ PATCH.
 
 ### 0.8.7 — 2026-08-28
 

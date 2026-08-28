@@ -30,13 +30,13 @@ import json
 import re
 import sys
 from collections import Counter
-from email.header import decode_header, make_header
+
 from pathlib import Path
 
 ROT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROT))
 
-from src import klassa_maskin, urval  # noqa: E402
+from src import kanal, klassa_maskin, urval  # noqa: E402
 
 sys.path.insert(0, str(ROT / "scripts"))
 import importlib  # noqa: E402
@@ -55,8 +55,13 @@ REGNR = re.compile(REGNR_STRIKT.pattern, re.IGNORECASE)
 
 BESVARADE = ROT / "data" / "tradar.jsonl"
 OBESVARADE = ROT / "data" / "tradar_obesvarade.jsonl"
+OMETIKETTERADE = ROT / "data" / "ometiketterade.jsonl"
 
-AMNESMARKOR = "offertförfrågan a-traktor"
+# Kategorierna som rör a-traktor. Prövningen är på ORD och inte på substräng,
+# lånad ur `src/ometikettera.py::ror_a_traktor`, eftersom `epa` är en substräng
+# av `reparation` och en substrängsprövning räknade in `boka reparation`.
+_ome = importlib.import_module("src.ometikettera")
+
 EGEN_DOMAN = "autostockholm.se"
 FALT = re.compile(r"^\s*([A-Za-zÅÄÖåäö][A-Za-zÅÄÖåäö \-]{1,24})\s*:", re.M)
 
@@ -72,11 +77,8 @@ def meddelanden(trad: dict) -> list[dict]:
 
 
 def amne(meddelande: dict) -> str:
-    ra = urval.huvudvarde(meddelande, "subject")
-    try:
-        return str(make_header(decode_header(ra)))
-    except Exception:
-        return ra
+    """Avkodad ämnesrad. Bor i `src/kanal.py` sedan skiva 17."""
+    return kanal.amnesrad(meddelande)
 
 
 def forsta_kundmeddelande(trad: dict) -> dict | None:
@@ -125,7 +127,7 @@ def kor() -> int:
                 continue
             med_kundmeddelande[fil] += 1
             rubrik = amne(m0)
-            ar_form = AMNESMARKOR in rubrik.lower()
+            ar_form = kanal.ar_webbformular(m0)
 
             if klassa_maskin.tradens_skal(trad, domaner) \
                     and klassa_maskin.avsandardoman(m0) == EGEN_DOMAN:
@@ -202,6 +204,43 @@ def kor() -> int:
     print("=== NEGATIVKONTROLL: ämnesrad matchar mönstret utan att vara formulär")
     for fil in ("besvarade", "obesvarade"):
         print(f"  {fil:12} {amne_annat[fil]} av {med_kundmeddelande[fil]}")
+    print()
+
+    # VILKEN KATEGORI FORMULÄRTRÅDARNA FICK. Formuläret ÄR a-traktorformuläret,
+    # men klassificeraren ser bara fritexten och aldrig att inskicket kom den
+    # vägen. Talet nedan är hur ofta det slår fel.
+    etikett_for_text = {}
+    if OMETIKETTERADE.exists():
+        for rad in OMETIKETTERADE.open(encoding="utf-8"):
+            rad = rad.strip()
+            if rad:
+                post = json.loads(rad)
+                etikett_for_text[post["text"]] = post["etikett"]
+
+    print("=== FORMULÄRTRÅDARNAS KATEGORI")
+    if not etikett_for_text:
+        print("  data/ometiketterade.jsonl saknas, prövningen kan inte göras.")
+    else:
+        fick = Counter()
+        for _, _, m0, _ in form:
+            fick[etikett_for_text.get(urval.brodtext(m0), "<ej i korpusen>")] += 1
+        i_korpus = sum(a for e, a in fick.items() if e != "<ej i korpusen>")
+        traktor = sum(a for e, a in fick.items()
+                      if e != "<ej i korpusen>" and _ome.ror_a_traktor(e))
+        print(f"  formulärtrådar: {len(form)}   återfunna i korpusen: {i_korpus}")
+        print(f"  klassade som a-traktor:     {traktor}")
+        print(f"  klassade som NÅGOT ANNAT:   {i_korpus - traktor}")
+        print("  fördelning, fallande:")
+        for e, antal in fick.most_common():
+            if e == "<ej i korpusen>":
+                continue
+            markor = "a-traktor" if _ome.ror_a_traktor(e) else "ANNAT"
+            print(f"    {e:38} {antal:3}  {markor}")
+        saknas = fick.get("<ej i korpusen>", 0)
+        if saknas:
+            print(f"  ej återfunna i korpusen: {saknas}")
+            print("    Texten paras i `src/extract.py` och behöver inte vara")
+            print("    teckenidentisk med `brodtext` på första kundmeddelandet.")
     print()
 
     print("=== HANDSATTA ETIKETTER I MATERIALET, fallande")

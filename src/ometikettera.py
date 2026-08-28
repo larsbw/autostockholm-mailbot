@@ -189,10 +189,17 @@ def bygg_system_pass2(taxonomi: list[str]) -> str:
 
 def ometikettera_en(klient, text: str, taxonomi: list[str], system: str,
                     modell: str = kategorisera.MODELL,
-                    atgang: kategorisera.Tokenatgang | None = None) -> str:
-    """PASS 2, en text. Svar utanför taxonomin RÄTTAS INTE, de märks."""
+                    atgang: kategorisera.Tokenatgang | None = None,
+                    amne: str = "", kanal: str | None = None) -> str:
+    """PASS 2, en text. Svar utanför taxonomin RÄTTAS INTE, de märks.
+
+    `amne` och `kanal` är KONTEXT och går in i användarmeddelandet, aldrig i
+    valet. Ingenting här mappar en kanal till en kategori: svaret prövas bara
+    mot taxonomin, precis som utan kontext.
+    """
     namn = kategorisera.kategorisera_en(
-        klient, text, modell=modell, atgang=atgang, system=system
+        klient, text, modell=modell, atgang=atgang, system=system,
+        amne=amne, kanal=kanal,
     )
     return namn if namn in taxonomi else UTANFOR
 
@@ -212,7 +219,9 @@ def ometikettera_alla(klient, poster: list[dict], taxonomi: list[str],
     for nummer, post in enumerate(poster, start=1):
         try:
             namn = ometikettera_en(klient, post["text"], taxonomi, system,
-                                   modell=modell, atgang=atgang)
+                                   modell=modell, atgang=atgang,
+                                   amne=post.get("amne", ""),
+                                   kanal=post.get("kanal"))
         except Exception as fel:  # noqa: BLE001
             skriv(f"  fel på text {nummer}: {type(fel).__name__}")
             namn = "fel"

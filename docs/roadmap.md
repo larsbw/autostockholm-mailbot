@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.8.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §10
+**Version:** 0.9.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -85,6 +85,21 @@ att köra.
 **Grind:** Lars beslutar kategorilistan och varje kategoris STARTHINK. Ingen
 kategori startar i `auto`. Kod flyttar aldrig en kategori mellan hinkar
 (§0, ramverksregel 2).
+
+> **GRINDEN ÄR FATTAD I SKIVA 17, se `docs/beslutslogg.md` #29.**
+> `config/kategorier.yaml` finns. `docs/kategorier.md` och
+> `scripts/kategoristatus.py` gör det INTE, och de ingick inte i skivans brief.
+> Fasen är därmed inte avslutad.
+>
+> **VILLKORET "Ingen kategori startar i `auto`" HÖLL INTE.** Lars beslut lägger
+> `fråga om a-traktorkonvertering` direkt i `auto`. Villkoret var en förväntan
+> skriven i skiva 3, innan något underlag fanns, och det var aldrig en
+> ramverksregel: ramverksregel 2 säger att ingen kategori flyttas till `auto`
+> AV KOD, och att bara Lars uttryckliga beslut får göra det. Beslutet är
+> uttryckligt och dikterat.
+>
+> Meningen står kvar oförändrad ovan, eftersom den var sann som förväntan när
+> den skrevs. Den som läser fasen ska veta att den inte längre beskriver läget.
 
 ### Fas 4.5 — Fordonsuppslag
 
@@ -636,6 +651,24 @@ visat dagsvolymen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.9.0 — 2026-08-28
+
+**Fas 4:s grind är fattad**, se `docs/beslutslogg.md` #29. En not under fasen
+säger vad som finns och vad som inte gör det: `config/kategorier.yaml` finns,
+`docs/kategorier.md` och `scripts/kategoristatus.py` gör det inte, och fasen är
+därmed inte avslutad.
+
+**Grindvillkoret "Ingen kategori startar i `auto`" höll inte.** Lars beslut lägger
+`fråga om a-traktorkonvertering` direkt i `auto`. Villkoret var en förväntan
+skriven i skiva 3, innan något underlag fanns, och det var aldrig en
+ramverksregel: ramverksregel 2 förbjuder att KOD flyttar en kategori till `auto`
+och kräver Lars uttryckliga beslut, vilket är exakt vad som skedde.
+
+Meningen står kvar oförändrad, eftersom den var sann som förväntan när den
+skrevs. Noten säger att den inte längre beskriver läget.
+
+Ändrat grindläge ⇒ MINOR.
 
 ### 0.8.0 — 2026-08-28
 

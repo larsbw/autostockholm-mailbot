@@ -218,6 +218,34 @@ if [ "${#MUTATIONER[@]}" -eq 0 ]; then
     exit 2
 fi
 
+# Raderar all bytekod under repot, utom i `.venv`. Kvitteras av anroparen.
+#
+# ANROPAS I BÅDA RIKTNINGARNA, och det är inte symmetri för sakens skull.
+# EFTER körningen skyddar den mot att en föråldrad .pyc gör repot rött när
+# källan är återställd. FÖRE muteringen skyddar den mot det farligare fallet:
+# en mutation skriven inom samma sekund som förra skrivningen, med samma längd,
+# kan läsas ur en färsk .pyc så att FÄLLNINGEN ALDRIG FÅR EFFEKT. Verktyget
+# hade då rapporterat GRÖN, och ett äkta spärrtest hade dömts som vakuöst.
+stada_bytekod() {
+    find "$ROT" -name "__pycache__" -type d -not -path "$ROT/.venv/*" \
+        -exec rm -rf {} + 2>/dev/null || true
+}
+
+# Kvitterar att ingen bytekod ligger kvar. En städning som tyst misslyckas är
+# precis det `docs/incidentlogg.md` I7 handlar om: ett verktyg som rapporterar
+# OK om ett utfall det inte tittar på.
+kvittera_bytekod() {
+    KVAR="$(find "$ROT" -name "__pycache__" -type d \
+        -not -path "$ROT/.venv/*" 2>/dev/null | wc -l | tr -d ' ')"
+    if [ "$KVAR" = "0" ]; then
+        echo "bytekod under repot städad: OK"
+    else
+        echo "STOPP: $KVAR __pycache__ ligger kvar efter städning."
+        echo "  Nästa svitkörning kan läsa fällningens kod ur cachen."
+        exit 2
+    fi
+}
+
 # Trapen sätts INNAN något ändras, och funktionen definieras innan trapen. Ett
 # fönster mellan fixturens insättning och en senare trap hade kunnat lämna
 # ocommittad text kvar i en spårad fil om skriptet föll däremellan under set -e.
@@ -245,6 +273,20 @@ aterstall() {
     fi
 
     cp "$KOPIA" "$FIL"
+
+    # BYTEKODEN MÅSTE BORT, och sha256 fångar inte det.
+    #
+    # CPython validerar en .pyc på källans mtime OCH storlek. En fällning som
+    # är exakt lika lång som originalet och landar i samma sekund ger en .pyc
+    # som ser giltig ut men bär FÄLLNINGENS kod. Efter en kvitterad
+    # återställning körde nästa `pytest` då den fällda modulen ur cachen, och
+    # ett test föll utan att någon rad i repot bar felet.
+    #
+    # Uppmätt i skiva 17: `return ra` → `return ""` i `src/kanal.py`, samma
+    # längd, samma sekund. Trapen kvitterade sha256 OK och sviten var ändå
+    # röd. Se `docs/incidentlogg.md` I7.
+    stada_bytekod
+
     SHA_EFTER="$(shasum -a 256 "$FIL" | awk '{print $1}')"
     DIFF_EFTER="$(mktemp -t sparr-prova-diff)"
     git -C "$ROT" diff -- "$FIL" > "$DIFF_EFTER" || true
@@ -261,6 +303,8 @@ aterstall() {
         rm -f "$DIFF_FORE" "$DIFF_EFTER"
         exit 2
     fi
+
+    kvittera_bytekod
 
     if cmp -s "$DIFF_FORE" "$DIFF_EFTER"; then
         if [ "$SPARAD" = "ja" ]; then
@@ -373,6 +417,11 @@ fi
 
 echo "--- FÄLLNING i $FIL ---"
 "$ROT/.venv/bin/python" "$ROT/scripts/mutera.py" --fil "$FIL" "${MUTATIONER[@]}"
+
+# FÖRE sviten, inte bara efter. En mutation av samma längd skriven inom samma
+# sekund som förra skrivningen kan annars läsas ur en färsk .pyc, så att
+# fällningen aldrig får effekt och verktyget rapporterar GRÖN. Se I7.
+stada_bytekod
 
 echo ""
 echo "--- SVIT ---"

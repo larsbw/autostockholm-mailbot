@@ -1,0 +1,37 @@
+# Kategoriernas hinkar. Fas 4:s grind, beslutad av Lars i skiva 17.
+#
+# RAMVERKSREGEL 1 i CLAUDE.md §0: inget mail skickas vars kategori inte står i
+# hinken `auto`. RAMVERKSREGEL 2: ingen kategori flyttas till `auto` av kod,
+# bara av Lars uttryckliga beslut. Den här filen ändras alltså för hand, på
+# Lars ord, och aldrig av en körning.
+#
+# SKÄLEN STÅR I `docs/beslutslogg.md` #29, och den posten går före den här filen
+# om de någonsin säger emot varandra. Kommentarerna nedan är korta och kan bli
+# föråldrade av ett senare beslut; #29 är källan.
+#
+# STANDARDHINKEN ÄR `utkast`. En kategori som inte står nedan hamnar där, aldrig
+# i `auto`. Det är avsiktligt: taxonomin kan växa, och en ny kategori som ingen
+# tagit ställning till ska falla till en människa och inte gå ut som mail.
+
+standardhink: utkast
+
+# Kriteriet: minst tio par med svar, och att svaret inte beror på en bedömning
+# i verkstaden.
+auto:
+  - fråga om a-traktorkonvertering
+
+# Går aldrig ut automatiskt.
+aldrig:
+  - bestrida faktura
+  - reklamera utfört arbete
+  - godkänna offert
+  - begära dokument
+  - ansöka om praktikplats
+  - ge feedback
+  - inget kundärende
+  - oklart
+  - utanför listan
+
+# ÖPPEN PUNKT, se #29. `fråga om pris a-traktorkonvertering` står i utkast.
+# Vad som håller den där är inte entydigt avgjort, och den flyttas inte förrän
+# Lars sagt vilket. Frågan är ställd i #29 och obesvarad.

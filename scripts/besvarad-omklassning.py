@@ -24,13 +24,12 @@ import argparse
 import json
 import sys
 from collections import Counter
-from email.header import decode_header, make_header
 from pathlib import Path
 
 ROT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROT))
 
-from src import klassa_maskin, urval  # noqa: E402
+from src import kanal, klassa_maskin, urval  # noqa: E402
 
 BESVARADE = ROT / "data" / "tradar.jsonl"
 OBESVARADE = ROT / "data" / "tradar_obesvarade.jsonl"
@@ -56,16 +55,11 @@ def har_gmail_svar(trad: dict) -> bool:
 def ar_formular(meddelande: dict) -> bool:
     """Webbformulärets notis, igenkänd på ämnesraden.
 
-    Samma predikat som `scripts/formular-matning.py`: ämnesraden innehåller
-    `offertförfrågan a-traktor`, skiftlägesokänsligt. Avsändardomänen duger
-    INTE, eftersom den egna domänen också bär annan maskinell trafik.
+    Predikatet bor i `src/kanal.py` sedan skiva 17 och lånas härifrån. Det låg
+    tidigare som en egen kopia i den här filen och en till i
+    `scripts/formular-matning.py`, alltså två definitioner av samma sak.
     """
-    ra = urval.huvudvarde(meddelande, "subject")
-    try:
-        rubrik = str(make_header(decode_header(ra)))
-    except Exception:
-        rubrik = ra
-    return "offertförfrågan a-traktor" in rubrik.lower()
+    return kanal.ar_webbformular(meddelande)
 
 
 def forsta_kundmeddelande(trad: dict) -> dict | None:

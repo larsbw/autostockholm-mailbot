@@ -30,7 +30,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from src import klassa_maskin, maskera, urval
+from src import kanal, klassa_maskin, maskera, urval
 
 ROT = Path(__file__).resolve().parent.parent
 PARFIL = ROT / "data" / "par.jsonl"
@@ -64,19 +64,88 @@ Regler:
 
 Svara med enbart namnet. Ingen förklaring, inga citattecken, ingen punkt."""
 
+# Regeln om kontext, tillagd i samma sträng för både den fria klassningen och
+# pass 2. Den står som en egen konstant för att de två systemprompterna ska
+# säga ORDAGRANT samma sak om kontexten: en omformulering i den ena hade gjort
+# passen olika utan att det syntes.
+KONTEXTREGEL = """
+
+Ett mail kan bära ett kontextblock överst, mellan raderna
+--- KONTEXT --- och --- SLUT KONTEXT ---. Det anger vilken kanal mailet kom in
+genom och vad ämnesraden var. Kontextblocket är INTE kundens text.
+
+Kanalen är en BEKRÄFTANDE SIGNAL. Den får aldrig ensam avgöra kategorin och är
+aldrig ett nödvändigt villkor. Handlar kundens egen text uppenbart om något
+annat än kanalen antyder, så följ TEXTEN."""
+
+# Avgränsarna. De är literala och innehåller inga tecken som förekommer i en
+# etikett, så ett svar som råkar återge dem syns i stället för att smälta in.
+KONTEXT_START = "--- KONTEXT ---"
+KONTEXT_SLUT = "--- SLUT KONTEXT ---"
+
 # Ett svar som inte ser ut som en kort etikett är ett fel, inte en kategori.
 GILTIG_ETIKETT = re.compile(r"^[a-zåäöéèü][a-zåäöéèü \-]{2,48}$")
 
 
+def kontext_per_text(besvarade: Path) -> dict[str, dict]:
+    """Ämnesrad och kanal per kundtext i den besvarade skörden.
+
+    `data/par.jsonl` bär ingen ämnesrad, bara texterna. Kontexten hämtas därför
+    ur trådfilen och slås upp på texten. Det är vad parametern `besvarade` i
+    `texter_att_kategorisera` är till för; den togs emot utan att användas fram
+    till skiva 17.
+
+    VARJE KUNDMEDDELANDE INDEXERAS, inte bara trådens första.
+    `src/extract.py::par_ur_trad` parar ett utgående svar med `senaste_kund`,
+    alltså med det kundmeddelande som stod närmast före svaret. En par-text kan
+    därför komma från vilken position som helst i tråden. Ett index byggt på
+    enbart förstameddelanden hade dels missat de texterna, dels låtit en text
+    från position tre kollidera OUPPTÄCKT med en annan tråds förstameddelande
+    och få dess kanal.
+
+    EN TEXT SOM BÄR MOTSTRIDIG KONTEXT FÅR INGEN. Ligger samma text i två
+    trådar med olika ämnesrad går det inte att veta vilken som hör till posten,
+    och då är svaret VET INTE. En gissad kanal hade sett mätt ut, och regeln i
+    `src/kanal.py` bygger på att kanalen är en bekräftande signal.
+    """
+    funna: dict[str, dict | None] = {}
+    if not besvarade.exists():
+        return {}
+    for rad in besvarade.read_text(encoding="utf-8").splitlines():
+        if not rad:
+            continue
+        trad = json.loads(rad)
+        # `or []` och inte `or [trad]`: en TRÅD är inget meddelande, och
+        # `ar_kundmeddelande` returnerar sant för den eftersom den saknar
+        # `labelIds`. Samma form som systerloopen i `texter_att_kategorisera`.
+        for meddelande in trad.get("messages", []) or []:
+            if not urval.ar_kundmeddelande(meddelande):
+                continue
+            text = urval.brodtext(meddelande)
+            if not text:
+                continue
+            ny = {"amne": kanal.amnesrad(meddelande),
+                  "kanal": kanal.namnge(meddelande)}
+            if text in funna and funna[text] != ny:
+                funna[text] = None
+            else:
+                funna.setdefault(text, ny)
+    return {text: k for text, k in funna.items() if k is not None}
+
+
 def texter_att_kategorisera(parfil: Path, besvarade: Path, obesvarade: Path,
                             domaner: set[str]) -> list[dict]:
-    """Mänskliga inkommande texter ur båda skördarna.
+    """Mänskliga inkommande texter ur båda skördarna, med sin kontext.
 
     Den besvarade sidan tas ur `par.jsonl`, som redan är parad och avdubblad
     per kundtext. Den obesvarade tas ur trådfilen, ett meddelande per tråd.
+
+    Varje post bär `amne` och `kanal` när de går att fastställa. De är KONTEXT
+    till klassificeringen och aldrig dess grund, se `src/kanal.py`.
     """
     poster: list[dict] = []
     sedda: set[str] = set()
+    kontext = kontext_per_text(besvarade)
 
     # `par.jsonl` är REDAN maskinfiltrerad: `src/extract.py` sållar vid källan,
     # där trådstrukturen finns. Här filtreras inget om, och det ska inte göras
@@ -90,7 +159,8 @@ def texter_att_kategorisera(parfil: Path, besvarade: Path, obesvarade: Path,
             if text in sedda:
                 continue
             sedda.add(text)
-            poster.append({"text": text, "kalla": "med svar"})
+            poster.append({"text": text, "kalla": "med svar",
+                           **kontext.get(text, {})})
 
     if obesvarade.exists():
         for rad in obesvarade.read_text(encoding="utf-8").splitlines():
@@ -105,7 +175,10 @@ def texter_att_kategorisera(parfil: Path, besvarade: Path, obesvarade: Path,
                 text = urval.brodtext(meddelande)
                 if text and text not in sedda:
                     sedda.add(text)
-                    poster.append({"text": text, "kalla": "utan svar"})
+                    poster.append({
+                        "text": text, "kalla": "utan svar",
+                        "amne": kanal.amnesrad(meddelande),
+                        "kanal": kanal.namnge(meddelande)})
                 break
 
     return varva(poster)
@@ -309,14 +382,43 @@ def systemblock(text: str) -> list[dict]:
              "cache_control": {"type": "ephemeral"}}]
 
 
+def bygg_anvandarmeddelande(text: str, amne: str = "",
+                            kanal: str | None = None) -> str:
+    """Kundens text, med ett kontextblock överst när kontext finns.
+
+    TRUNKERINGEN GÄLLER TEXTEN, inte summan. Vore taket satt på hela strängen
+    hade ett långt kontextblock ätit av kundens egna ord, alltså det enda som
+    får avgöra kategorin. Kontexten läggs till EFTER trunkeringen.
+
+    Saknas både ämne och kanal returneras texten oförändrad. Det gäller
+    ANVÄNDARMEDDELANDET och inte anropet i sin helhet: `kategorisera_en` lägger
+    `KONTEXTREGEL` till systemprompten OVILLKORLIGT, så systemblocket skiljer
+    sig från det som skickades före skiva 17 även för en text utan kontext.
+    Regeln är formulerad så att den är sann också när blocket saknas, och
+    prompten hålls medvetet identisk för alla texter: två olika systemprompter
+    hade gjort klassningen beroende av om kontexten råkade gå att fastställa.
+    """
+    kropp = text[:MAX_TECKEN]
+    rader = []
+    if kanal:
+        rader.append(f"Kanal: {kanal}")
+    if amne.strip():
+        rader.append(f"Ämnesrad: {amne.strip()}")
+    if not rader:
+        return kropp
+    return "\n".join([KONTEXT_START, *rader, KONTEXT_SLUT, "", kropp])
+
+
 def kategorisera_en(klient, text: str, modell: str = MODELL,
                     atgang: Tokenatgang | None = None,
-                    system: str = SYSTEM) -> str:
+                    system: str = SYSTEM, amne: str = "",
+                    kanal: str | None = None) -> str:
     svar = klient.messages.create(
         model=modell,
         max_tokens=MAX_TOKENS,
-        system=systemblock(system),
-        messages=[{"role": "user", "content": text[:MAX_TECKEN]}],
+        system=systemblock(system + KONTEXTREGEL),
+        messages=[{"role": "user",
+                   "content": bygg_anvandarmeddelande(text, amne, kanal)}],
     )
     if atgang is not None:
         atgang.lagg_till(getattr(svar, "usage", None))
@@ -352,7 +454,9 @@ def kategorisera_alla(klient, poster: list[dict], modell: str = MODELL,
     ut = []
     for nummer, post in enumerate(poster):
         try:
-            etikett = kategorisera_en(klient, post["text"], modell, atgang)
+            etikett = kategorisera_en(
+                klient, post["text"], modell, atgang,
+                amne=post.get("amne", ""), kanal=post.get("kanal"))
         except Exception as fel:  # noqa: BLE001
             etikett = "fel"
             print(f"  fel på post {nummer}: {type(fel).__name__}")

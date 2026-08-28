@@ -1,6 +1,6 @@
 # Incidentlogg
 
-**Version:** 0.6.0 · **Uppdaterad:** 2026-08-27 · **Implementerar** CLAUDE.md §0
+**Version:** 0.7.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §0
 
 Varje regel som bärs av en incident bor här. Dokumentet finns för att förlagornas
 styrka är att en härdad regel namnger det fel som skapade den. En regel utan
@@ -497,7 +497,76 @@ skriva posten ännu, inte ett skäl att lämna fältet tomt.
 
 ---
 
+## I7 — En kvitterad återställning lämnade fällningens kod kvar i bytekoden
+
+**Uppmätt i:** skiva 17, av granskaren · **Berör:** `scripts/sparr-prova.sh`,
+CLAUDE.md §7.1
+
+**Vad som hände.** En §7.1-fällning av `src/kanal.py` bytte `        return ra`
+mot `        return ""`. Verktyget körde sviten, fick RÖD, återställde filen och
+kvitterade: `filens sha256 identisk med utgångsläget: OK` och `git diff
+identisk med utgångsdiffen: OK`.
+
+**Nästa `pytest` var ändå röd.** Samma test föll, med
+`AssertionError: assert '' == 'Fråga om pris'`, alltså på fällningens beteende,
+medan ingen rad i repot bar felet.
+
+**Orsaken.** CPython validerar en `.pyc` mot källans MTIME och STORLEK, inte mot
+dess innehåll. De två raderna är exakt lika långa, och fällning och
+återställning skedde inom samma sekund. Bytekoden såg därför giltig ut och kördes
+i stället för den återställda källan.
+
+**Varför kvittensen inte fångade det.** Både sha256 och `git diff` mäter FILEN.
+Ingen av dem säger något om vad tolken kommer att köra. §7.1:s regel "Kvittera
+återställningen, anta den aldrig" var alltså uppfylld till punkt och pricka, och
+ändå var repot i ett falskt tillstånd.
+
+**Följden under granskningen.** En fällning rapporterade fyra fallna test i
+stället för tre. Det fjärde var föroreningen. Granskaren såg avvikelsen, spårade
+den, och kunde visa att källan var oskadd genom att köra sviten med
+`PYTHONPYCACHEPREFIX` satt utanför repot.
+
+**Åtgärd.** `scripts/sparr-prova.sh` raderar `__pycache__` under repot i BÅDA
+riktningarna, och kvitterar att katalogerna är borta.
+
+- **Efter körningen**, i återställningen, mot det som hände här: en föråldrad
+  `.pyc` gör repot rött när källan är återställd.
+- **Före sviten**, direkt efter muteringen, mot det FARLIGARE fallet. En mutation
+  skriven inom samma sekund som förra skrivningen, med samma längd, kan läsas ur
+  en färsk `.pyc` så att fällningen aldrig får effekt. Verktyget hade då
+  rapporterat GRÖN, och ett äkta spärrtest hade dömts som vakuöst.
+- **Kvittensen** räknar kvarvarande `__pycache__` och stoppar med exit 2 om
+  någon finns. En städning som tyst misslyckas hade återskapat samma lucka.
+
+Verifierat genom att reproducera fällningen ordagrant: verdiktet är RÖD,
+kvittensraden `bytekod under repot städad: OK` skrivs ut, och sviten är grön
+efteråt. Verktygets `--sjalvtest` kör oförändrat igenom.
+
+**Den andra riktningen upptäcktes av granskaren i samma varv som åtgärden.**
+Den första fixen täckte bara det fall incidenten visade, alltså den riktning som
+råkade göra sig hörd. Att den motsatta var den farligare syntes först när någon
+frågade vad åtgärden INTE gjorde.
+
+**Vad incidenten säger i stort.** En kvittens mäter det den mäter. Två oberoende
+kontroller av samma storhet, filens innehåll, ger ingen täckning av en tredje
+storhet, tolkens cache. Ett verktyg som betygsätter sig självt genom att
+rapportera OK är inte prövat förrän någon prövat det utfall det inte tittar på.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.7.0 — 2026-08-28
+
+**I7 tillkommer:** en kvitterad §7.1-återställning lämnade fällningens kod kvar
+i `__pycache__`, och nästa svitkörning var röd utan att någon rad i repot bar
+felet. Funnen av granskaren i skiva 17.
+
+Posten bär åtgärden i `scripts/sparr-prova.sh` och skälet: sha256 och `git diff`
+mäter båda FILEN, och två oberoende kontroller av samma storhet ger ingen
+täckning av tolkens cache.
+
+Ny post ⇒ MINOR.
 
 ### 0.6.0 — 2026-08-27
 

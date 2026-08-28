@@ -35,7 +35,11 @@ KOLUMNEN `Med svar` KAN INTE ÄNDRAS AV DEN HÄR KÖRNINGEN. Varje ny post får
 `kalla: "utan svar"`, och inget befintligt ändras. Skriptet kontrollerar det mot
 tabellen efteråt i stället för att påstå det.
 
-§6: skriptet skriver ENBART antal och etikettnamn. Aldrig kundtext.
+§6: skriptets UTSKRIFTER bär enbart antal och etikettnamn, aldrig kundtext.
+Till `data/` skriver det däremot kundtexten och sedan skiva 17 även ämnesraden,
+som bär registreringsnummer i 77 av 78 formulärtrådar. Båda filerna ligger under
+`data/`, som är gitignorerat, och `docs/kategorier-forslag.md` bär bara etikett
+och antal.
 
     .venv/bin/python scripts/etikettera-nya.py             # torrkörning
     .venv/bin/python scripts/etikettera-nya.py --skarp     # anropar API:t
@@ -60,7 +64,7 @@ from pathlib import Path
 ROT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROT))
 
-from src import kategorisera, klassa_maskin, ometikettera, urval  # noqa: E402
+from src import kanal, kategorisera, klassa_maskin, ometikettera, urval  # noqa: E402
 
 BESVARADE = ROT / "data" / "tradar.jsonl"
 PAR = ROT / "data" / "par.jsonl"
@@ -102,24 +106,31 @@ def lagg_till_jsonl(poster: list[dict], sokvag: Path) -> None:
         fil.write(rader)
 
 
-def nya_texter() -> list[str]:
-    """De nya kundtexterna, avdubblade, i filens ordning.
+def nya_texter() -> list[dict]:
+    """De nya kundtexterna med sin KONTEXT, avdubblade, i filens ordning.
 
     Populationen kommer ur `scripts/besvarad-omklassning.py`. Filtret mot
     `kategorisvar.jsonl` är det som gör körningen idempotent.
+
+    POSTERNA BÄR `amne` OCH `kanal`. Utan dem hade den här vägen, som är den
+    enda sanktionerade körningen, skickat texterna utan den kontext skiva 17
+    infördes för att ge dem. Kontexten tas från meddelandet direkt och inte via
+    `kategorisera.kontext_per_text`: här finns meddelandet i handen, och en
+    uppslagning på text hade bara kunnat bli sämre.
     """
     bo = las_grannskript("besvarad-omklassning")
     domaner = klassa_maskin.las_domaner(klassa_maskin.DOMANFIL)
     redan = {p["text"] for p in las_jsonl(KATEGORISVAR)}
 
     sedda: set[str] = set()
-    ut: list[str] = []
+    ut: list[dict] = []
     for _, m0 in bo.flyttande_kundarenden(BESVARADE, domaner):
         text = urval.brodtext(m0)
         if not text or text in redan or text in sedda:
             continue
         sedda.add(text)
-        ut.append(text)
+        ut.append({"text": text, "kalla": "utan svar",
+                   "amne": kanal.amnesrad(m0), "kanal": kanal.namnge(m0)})
     return ut
 
 
@@ -207,10 +218,8 @@ def kor(skarp: bool) -> int:
     klient = kategorisera.bygg_klient()
     atgang = kategorisera.Tokenatgang()
 
-    poster = [{"text": t, "kalla": "utan svar"} for t in texter]
-
-    print(f"\nFRI KLASSNING: {len(poster)} anrop")
-    fria = kategorisera.kategorisera_alla(klient, poster, atgang=atgang)
+    print(f"\nFRI KLASSNING: {len(texter)} anrop")
+    fria = kategorisera.kategorisera_alla(klient, texter, atgang=atgang)
     lagg_till_jsonl(fria, KATEGORISVAR)
     print(f"  tillagda i {KATEGORISVAR.name}")
 
