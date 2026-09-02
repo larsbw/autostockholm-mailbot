@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.10.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §10
+**Version:** 0.11.0 · **Uppdaterad:** 2026-09-02 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -557,8 +557,24 @@ instans, en källa som KASTAR i stället för att svara fångas inte, och
 `dragkrok_bekraftad_saknas` bär ingen härkomst. Spärren täcker hämtningens svar,
 inte tystnaden och inte anroparens fantasi.
 
-**Grind:** Lars beslut om **datakälla och avtal**, se beslutslogg #23. Fasen
-lämnas inte av att koden fungerar mot en testnyckel.
+**Grind:** Lars beslut om **datakälla och avtal**, se beslutslogg #23 och #31.
+Fasen lämnas inte av att koden fungerar mot en testnyckel.
+
+> **GRINDEN ÄR PASSERAD. BÅDA LEDEN ÄR AVGJORDA AV LARS.**
+> #31 väljer **den öppna fordonssidan** hos biluppgifter.se, utan API-nyckel och
+> utan avtal. Avtalsledet avgjorde Lars 2026-09-02 genom att stryka det:
+> **källans användarvillkor läses inte, och frågan ska inte tas upp igen.**
+>
+> **Villkoren är alltså olästa, och ingenting påstås här om vad de säger.** Två
+> frågor lämnas obesvarade med avsikt: om automatiserad hämtning av de öppna
+> sidorna är tillåten, och om vidareförmedling av fälten i ett kommersiellt
+> kundmail är tillåten. Risken är **oläst och accepterad**, inte bedömd. Se #31:s
+> avsnitt *AVGJORT AV LARS* för vad beslutet inte innebär.
+>
+> `src/biluppgifter.py` är byggd och prövad enligt §7.1, se spärren
+> `fordonsfakta-ur-sida` i `docs/sparrar.md`. **Att den fungerar var aldrig
+> grindens villkor**, av samma skäl som raden ovan ger om testnyckeln. Grinden
+> passeras av beslutet, inte av koden.
 
 ### Fas 5 — Mallar och spärrar
 
@@ -650,6 +666,23 @@ visat dagsvolymen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.11.0 — 2026-09-02
+
+**Fas 4.5:s grindrad bär nu #31 och en ruta om att grinden är passerad.** Nytt
+innehåll i ett grindvillkor ⇒ MINOR.
+
+Datakällan är avgjord i #31, den öppna fordonssidan. Avtalsledet avgjorde Lars
+samma dag genom att stryka det: källans användarvillkor läses inte. **Båda leden är
+alltså avgjorda och grinden är passerad**, och rutan skriver ut att villkoren därmed
+är olästa och att risken är accepterad utan att vara bedömd.
+
+*Rutan bar först lydelsen att avtalsledet var bortdefinierat och att ett led
+återstod. Det står inte kvar. Se #31:s avsnitt AVGJORT AV LARS.*
+
+Rutan säger också uttryckligen att en byggd och prövad `src/biluppgifter.py`
+inte passerar grinden. Skälet är att fasens egen rad redan varnar för samma
+förväxling i testnyckelns form, och den nya källan har ingen nyckel att peka på.
 
 ### 0.10.0 — 2026-08-28
 

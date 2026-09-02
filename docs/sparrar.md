@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.17.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.18.0 · **Uppdaterad:** 2026-09-02 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -78,6 +78,7 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 | `persondatakontroll` | Att en commit för in persondata i en bevakad sökväg. Vilka de är står i `BEVAKADE` i skriptet. | `test_ren_text_ger_inga_fynd` | `maskering-persondata`. Sista linjen, inte den enda. |
 | `forbjudna-maskindomaner` | Att en förmedlad kundförfrågan kastas som maskinmail | `test_liknande_doman_skyddas_inte_av_misstag` | Sig själv, två lager i `src/klassa_maskin.py`, och går FÖRE `klassning-maskinmail`. Se posten. |
 | `fordonsfakta-ur-uppslag` | Att ett utgående mail namnger fordonsfakta som inte kommer ur ett lyckat uppslag | `test_fullstandigt_svar_slapps_igenom`, `test_svar_med_okanda_nycklar_slapps_ocksa_igenom`, `test_mappningsobjekt_som_inte_ar_dict_slapps_igenom` | Ingen annan spärr. Formlager i `_kontrollera` och värdelager i `Uppslag.__post_init__` via `_krav_pa_vikt`. Formlagren är HELT redundanta med varandra, och viktlagren DELAS av två fält. Kända luckor listas i posten. |
+| `fordonsfakta-ur-sida` | Att ett tal eller ett dragkroksbesked läses ur en annan sida än det efterfrågade fordonets, eller ur en etikett som bara inleds likadant | `test_alla_tre_falten_lases_ur_ett_avlast_svar`, `test_avlast_fordon_ger_oklart`, `test_normaliserat_nummer_slar_igenom_till_canonical` | `fordonsfakta-ur-uppslag`, men bara DELVIS: den fångar saknade och otolkbara fält, aldrig ett välformat tal ur fel sida. Fyra lager, lager 3 ensamt om sitt fall. Se posten. |
 | `dragkrokbesked-har-harkomst` | Att ett besked om dragkrok sätts av en modell och flyttar kunden från en fråga till ett prispåslag | `test_bada_tillatna_kallorna_gar_igenom` | Ingen annan spärr. Se posten, särskilt vad den INTE kan hindra. |
 | `kanal-som-kontext-aldrig-grund` | Att kanalen ett mail kom in genom blir ensam grund för dess kategori | `test_kanalen_overstyr_aldrig_modellens_svar`, `test_samma_svar_ger_samma_etikett_med_och_utan_kanal`, `test_kanalen_gor_inte_ett_svar_utanfor_taxonomin_giltigt` | Ingen annan spärr. Vaktar FRÅNVARON av kod och fälls därför genom att skriva dit kopplingen. Se posten. |
 
@@ -656,6 +657,235 @@ enligt §7.1.
 
 ---
 
+## `fordonsfakta-ur-sida`
+
+**BYGGD I SKIVA 19.** Spärren är prövad enligt §7.1 med `scripts/sparr-prova.sh`.
+Den sitter i `src/biluppgifter.py` och vaktar steget FÖRE
+`fordonsfakta-ur-uppslag`: att de tre fälten som `src/fordonsuppslag.py` utvärderar
+verkligen är avlästa ur den efterfrågade fordonets sida, och inte ur någon annan
+sida källan råkade svara med.
+
+**Datakällan är den öppna fordonssidan, inte ett API.** Se `docs/beslutslogg.md`
+#31, som också bär förbehållen. Att sidan är öppen HTML och inte ett kontrakterat
+gränssnitt är själva skälet till att den här spärren behöver fyra lager: det finns
+ingen leverantör som garanterar svarets form.
+
+- **Spärr.** Beslutet ligger i **FYRA LAGER** i `src/biluppgifter.py`, och varje
+  lager fäller ett eget fel:
+
+  | Lager | Villkorets text | Vad det fäller |
+  | --- | --- | --- |
+  | 1 | `MONSTER`, alltså `<span class="label">\s*{etikett}\s*</span>`, där `\s*</span>` är det som gör etiketten exakt | Att en etikett läses som PREFIX till en annan |
+  | 2 | `if len(traffar) > 1:` som kastar `Hamtningsfel` med texten `tvetydigt` | Att första träffen tas när samma etikett förekommer flera gånger |
+  | 3 | `if not _galler_fordonet(sida, regnr):` plus `_galler_fordonet` själv, som jämför `CANONICAL` mot numret | Att en sida som inte gäller numret läses som fordonets |
+  | 4 | `_tal` med `re.fullmatch` mot `kg`, och `_ja_nej` med förvalet `None` | Att ett värde som inte är rent tolkas som ett tal eller ett ja |
+
+  **DEN SOM SKA FÄLLA SPÄRREN MÅSTE FÄLLA I ALLA FYRA.** Lager 3 har dessutom TRE
+  skilda beslut i sig, och en prövning som bara neutraliserar anropet når inte de
+  två andra: att saknad `canonical` ger `False`, och att jämförelsen är
+  skiftlägesokänslig.
+
+  **`re.escape` ÄR INTE ETT AV LAGREN, FÖR DEN ÄR INTE FÄLLBAR.** Anropet står i
+  koden på raden med `MONSTER.format` och ska stå kvar, men **neutraliseras det
+  blir sviten GRÖN**, `50 passed`. Skälet: ingen av de tre etiketterna i
+  `EXAKT_ETIKETT` innehåller ett regex-metatecken, så escapad och oescapad etikett
+  ger identiskt mönster. Den är alltså ett skydd mot en FRAMTIDA etikett, inte ett
+  lager i den här spärren, och den ska inte räknas som prövad. Sidan bär
+  `Släp totalvikt (B)` med parenteser; läggs den etiketten någon gång till blir
+  escapen fällbar, och då hör den till lager 1. *Här namngavs `re.escape` tidigare
+  som en del av lager 1:s villkor och låg i dess sökmönster. Det var fel: ett
+  villkor som inget test fäller är inte ett lager, och §7.1 ställer just den frågan.*
+
+  Radnumren står inte här, av skälet i rutan överst. Slå upp villkoren med ett
+  sökmönster per lager, i `src/biluppgifter.py`:
+
+  | Lager | `grep -n` |
+  | --- | --- |
+  | 1 | `'EXAKT_ETIKETT = \|MONSTER = \|{etikett}'` |
+  | 2 | `'len(traffar) > 1'` |
+  | 3 | `'CANONICAL = \|def _galler_fordonet\|slutet\.upper()\|_galler_fordonet(sida'` |
+  | 4 | `'re\.fullmatch\|def _ja_nej'` |
+
+  **Ett enda kombinerat mönster duger inte, och den här posten har själv burit TVÅ
+  som inte gjorde det.** Det första missade det försiktiga förvalet vid saknad
+  `canonical`, skiftlägesokänsligheten och `_ja_nej`:s `None`, och gav dessutom en
+  träff i en kommentar. Det andra, som ersatte det för lager 1 och löd
+  `'EXAKT_ETIKETT = \|re\.escape'`, **missade `MONSTER` självt**, alltså den enda
+  rad som bär exaktheten, och gav i stället en träff i en docstring. Båda fälldes
+  av §7-granskningen, det första i varv 1 och det andra i varv 2.
+
+  Lager 3:s och 4:s förval ligger INNE i de funktioner mönstren pekar på och
+  behöver läsas där, inte räknas ur träfflistan. **Räkna aldrig antalet träffar
+  som ett mått på antalet villkor, och kontrollera alltid att mönstret träffar
+  KODRADEN och inte en docstring som nämner den.**
+
+  **LAGER 1 OCH 2 ÄR DELVIS REDUNDANTA, och det är avsiktligt.** Etikettmönstret
+  är exakt, så det ger normalt en träff, och tvetydighetskontrollen är då tystnad.
+  Faller mönstrets stränghet bort träffar det flera etiketter, och då är det
+  kontrollen i lager 2 som fäller. Prövningen: fälls lager 1 ensamt föll fem test,
+  fälls lager 2 ensamt föll ett, och fälls **båda samtidigt föll tre** — alltså
+  färre än vid lager 1 ensamt.
+
+  **Att dubbelfällningen ger FÄRRE röda är inte en räknefråga, och den första
+  förklaringen i den här posten var fel.** Fyra av lager 1:s fem föll på
+  `Hamtningsfel ... tvetydigt`, alltså på lager 2:s kast och inte på det de
+  själva asserar. Inget av dem kontrollerar tvetydigheten; det gör bara lager 2:s
+  eget test, och det passerar när lager 1 fälls ensamt. Neutraliseras lager 2
+  också tas första träffen i stället, och **tre av de fyra blir gröna** eftersom
+  första träffen råkar vara den rätta i deras fixturer. Den fjärde,
+  `test_slapvagnsvikt_ar_den_bromsade_aven_i_omvand_radordning`, förblir röd men
+  byter felskäl från undantag till assert, vilket är hela dess uppgift. Kvar blir
+  den, `test_etikett_med_annat_suffix_ger_inte_falt` som föll på assert redan vid
+  lager 1, och lager 2:s `test_dubblerad_etikett_kastar`: 5 − 3 + 1 = 3.
+
+  **Följden för hur den här spärren ska prövas i framtiden:** ett rött verdikt vid
+  fällning av lager 1 ensamt säger nästan ingenting, eftersom rödheten kommer från
+  lager 2. Fyra av lager 1:s test har alltså sitt bevisvärde först i
+  dubbelfällningen. **Fäll alltid lager 1 och 2 samtidigt**, och läs felskälet och
+  inte bara verdiktet.
+
+- **Vad den skyddar mot.** Att ett utgående mail bär en vikt eller ett
+  dragkroksbesked som är läst ur något annat än det efterfrågade fordonets sida.
+  Det konkreta utfallet: kunden får ett svar där släpvagnsvikten är en annan bils,
+  eller den obromsade vikten presenterad som den bromsade. Båda talen står under
+  etiketter som inleds likadant, och **det ena ligger under `src/fordonsuppslag.py`
+  tröskel och det andra över**, så en defekt i lager 1 kan byta ärendets utfall
+  tyst, utan att något syns i loggen. **Kan**, inte gör: när det sker beror på
+  källans radordning, se stycket om riktningen nedan.
+
+  **RIKTNINGEN ÄR UPPMÄTT, INTE HÄRLEDD, OCH DEN ÄR INTE DEFEKTENS EGENSKAP.** På
+  den avlästa sidan ger en prefixmatchning två träffar, i ordningen 2 400 kg och
+  därefter 750 kg. Första träffen blir alltså den BROMSADE, det vill säga den RÄTTA.
+  **Prefixdefekten gör ingen skada på det avlästa fordonet: den ger rätt tal, av
+  ren radordning.** Verifierat genom att fälla lager 1 till prefix och lager 2
+  samtidigt, vilket ger `3 failed, 43 passed` med
+  `test_slapvagnsvikt_ar_den_bromsade` GRÖNT och värdet 2 400.
+
+  *Här stod tidigare att prefixmatchningen bara kan sätta in den OBROMSADE vikten.
+  Det var fel, och det var en skärpning av ett tidigare fel: §7-granskningens varv 1
+  underkände ett "eller omvänt" som icke-producerbart, och rättelsen bytte det mot
+  ett "bara" som är icke-producerbart åt andra hållet. Varv 2 fällde det. Skriv
+  aldrig riktningen som en egenskap hos defekten.*
+
+  **Skälet till att spärren finns är därmed starkare än det felaktiga skälet var.**
+  Utfallet får inte bero på i vilken ordning källan råkar skriva sina två rader.
+  Byter källan ordningen blir första träffen den obromsade, och då kommer 750 in
+  där 2 400 hörde. **Först då** tas ett uppfyllt viktkrav bort: 750 ligger under
+  `TROSKEL_SLAPVAGNSVIKT_KG`, avläst till 1 000 i `src/fordonsuppslag.py`, medan
+  2 400 ligger över. Ingenting skulle synas i loggen, eftersom båda talen är
+  välformade vikter.
+
+  **En kvalifikation hör till, och den håller.** Defekten kan bara nå ett fordon
+  **där tjänstevikten inte redan räcker**, eftersom de två trösklarna prövas med
+  ELLER: tjänstevikten testas först och returnerar direkt, så släpvagnsvikten
+  läses aldrig på ett tungt fordon.
+
+  Den skyddar också mot ett fel som statuskoden INTE fångar: källan svarar
+  **HTTP 200 med sin söksida** på ett nummer som inte finns, inte 404. Ett
+  statusberoende "finns fordonet" är alltså fel byggt mot den här källan. Avläst
+  2026-09-02 på ett nummer utan fordon: HTTP 200, och noll förekomster av
+  `class="label"` i svaret. Att det senare är noll är det som gör att en naiv
+  parser tiger i stället för att ljuga, men det är inte något källan har lovat.
+  `canonical`-ankaret i lager 3 är det som gör skillnaden till ett beslut.
+
+- **Negativkontroll.** `tests/test_biluppgifter.py::test_alla_tre_falten_lases_ur_ett_avlast_svar`,
+  `tests/test_biluppgifter.py::test_avlast_fordon_ger_oklart` och
+  `tests/test_biluppgifter.py::test_normaliserat_nummer_slar_igenom_till_canonical`.
+  Den första visar att alla tre fälten läses ur ett svar som är avläst ur den
+  skarpa källan, den andra att resultatet går hela vägen genom
+  `src/fordonsuppslag.py` till ett utfall, och den tredje att ett nummer som
+  normaliserats till VERSALER accepteras mot en `canonical` skriven i GEMENER.
+  Riktningen är inte godtycklig: `slag_upp` normaliserar bort blanksteg och
+  bindestreck och versaliserar numret, medan källan själv skriver sin `canonical`
+  med numret i GEMENER, avläst 2026-09-02. Jämförelsen måste alltså tåla båda
+  hållen, och det är därför båda sidor av likheten bär `.upper()`. Numren står
+  inte utskrivna här, av §6:s skäl.
+
+- **Redundant med.** `fordonsfakta-ur-uppslag` i `src/fordonsuppslag.py`, men bara
+  DELVIS och bara i en riktning. Den spärren prövar svarets FORM och värdenas
+  giltighet efter att den här modulen lämnat ifrån sig en mappning. Den kan
+  därför fånga att ett fält saknas eller är otolkbart, eftersom nyckeln då
+  utelämnas här och `_kontrollera` fäller. **Den kan INTE fånga ett fält som är
+  formellt giltigt men läst ur fel sida**, eftersom ett tal ur en annan bils sida
+  är ett välformat tal. Lager 3 är alltså ensamt om sitt fall, och de två
+  spärrarna får inte räknas som varandras ersättning.
+
+### Prövningen, utförd i skiva 19
+
+Elva fällningar med `scripts/sparr-prova.sh`, neutraliserade och aldrig raderade,
+sedan `-- tests/test_biluppgifter.py -q`. Skriptet kvitterade sha256 identisk med
+utgångsläget i varje körning.
+
+**BASLINJEN ÄR 50 GRÖNA, OCH HELA TABELLEN ÄR KÖRD OM MOT DEN.** De tio första
+fällningarna prövades vid 46 gröna. Sedan tillkom den elfte, `.strip()`-fällningen,
+och med den fyra nya parametriserade testfall, så baslinjen blev 50. Tabellen
+kördes då om i sin helhet: **samtliga verdikt och alla tal i kolumnen Röda test är
+oförändrade.** Ett tal som mäts vid en baslinje slutar gälla när baslinjen rör sig,
+och det enda som duger är att mäta om.
+
+**FYRA AV FÄLLNINGARNA GICK INTE ATT REKONSTRUERA UR TABELLENS TIDIGARE
+BESKRIVNINGAR**, och det upptäcktes just vid omkörningen. Lager 1:s prefixfällning
+måste behålla `[^<]*</span>` för att mönstret alls ska matcha; tas `\s*</span>`
+bort helt matchar det ingenting och fällningen ger 9 röda i stället för 5, alltså
+RÖD av fel skäl. Lager 3:s skiftlägesfällning sitter i JÄMFÖRELSEN på
+`slutet.upper() == regnr.upper()`, inte i `re.search`-flaggan; fälls flaggan i
+stället blir sviten GRÖN, `50 passed`. Statusgrenens fällning måste ha samma
+indentering som `raise`-raden, annars stannar körningen på insamlingsfel.
+Beskrivningarna i tabellen är därför skrivna om till att bära det uttryck som
+byts, så att var och en går att köra om utan att gissa.
+
+| Fällning | Verdikt | Röda test |
+| --- | --- | --- |
+| Lager 1, exakt etikett görs till prefix: `{etikett}\s*</span>` blir `{etikett}[^<]*</span>` | RÖD | 5 |
+| Lager 2, `if len(traffar) > 1:` blir `if False:` | RÖD | 1 |
+| **Lager 1 och 2 samtidigt** | **RÖD** | **3** |
+| Lager 3, `if not _galler_fordonet(...)` blir `if False:` | RÖD | 1 |
+| Lager 3, saknad `canonical` godtas: `return False` blir `return True` | RÖD | 1 |
+| Lager 3, skiftläget i JÄMFÖRELSEN: `slutet.upper() == regnr.upper()` blir `slutet == regnr` | RÖD | 7 |
+| Lager 4, `_tal` `fullmatch` blir `search` | RÖD | 2 |
+| Lager 4, `_ja_nej` förval `None` blir `False` | RÖD | 5 |
+| Lager 4, `.strip()` före matchningen borttagen | RÖD | 4 |
+| Statusgrenen kastar inte: `raise Hamtningsfel(...)` blir `return None` | RÖD | 6 |
+| 404-grenen neutraliserad: `if status == 404:` blir `if False:` | RÖD | 1 |
+
+**ETT TEST VAR VAKUÖST OCH RÄTTADES.** Fällningen av lager 1 och 2 samtidigt lät
+först `test_slapvagnsvikt_ar_den_bromsade` stå GRÖNT — just det test som skrevs
+för prefixfällan. Skälet: med prefixmatchning ger `re.findall` två träffar, och
+den första råkade bli den rätta eftersom den bromsade raden står först i källans
+HTML. **Testet vaktade dokumentordningen och inte spärren.** Åtgärdat med
+`test_slapvagnsvikt_ar_den_bromsade_aven_i_omvand_radordning`, som lägger den
+obromsade raden först. Först därefter fäller dubbelfällningen tre test.
+
+**EN FÄLLNING PÅ EN TOM RAD GER FALSKT GRÖNT, och det hände i den här prövningen.**
+Lager 3:s förval prövades först på ett radnummer som pekade en rad FEL, på den tomma
+raden efter `return False`. Fällningen blev då död kod efter en `return`, alltså en
+no-op, och skriptet svarade GRÖN. Verdiktet var korrekt för det som faktiskt gjordes
+och helt fel om lagret. **Skriptet skrev ut felet i klartext**, som
+`NEUTRALISERAD rad N: '' -> ...`, med en tom sträng som ursprungsvärde. Den som
+prövar ska läsa `NEUTRALISERAD`-raden och kontrollera att ursprungsvärdet är det
+villkor som skulle fällas, aldrig bara verdiktet. Detta är samma feltyp som rutan
+överst varnar för, med den skillnaden att radnumret var felräknat och inte
+föråldrat. Effekten är identisk.
+
+### Kända luckor
+
+1. **Källan filtrerar på klient och kan börja neka.** Att svaret alls går att hämta
+   beror på ett `User-Agent`-huvud. Det är inte ett kontrakt, och en skärpning hos
+   källan gör hämtningen till ett `Hamtningsfel` utan förvarning. Det är hanterat
+   som ett fall, ärendet faller till utkast, men det är inte hanterat som en risk.
+2. **Etiketternas stavning är avläst en dag, inte garanterad.** Byter källan
+   `Släpvagnsvikt` mot något annat utelämnas nyckeln, `fordonsfakta-ur-uppslag`
+   fäller, och varje ärende faller till utkast. Det är rätt utfall, men felet syns
+   först som en tystnad i flödet och inte som ett larm.
+3. **Ägaruppgifter ligger bakom inloggning hos källan och hämtas inte.** Det är
+   #23:s aktiva val och gäller så länge modulen bara begär den öppna sidan. Skulle
+   någon lägga till en inloggning finns ingen spärr som hindrar det.
+4. **Spärren gäller svaret, inte anroparens fantasi.** `Uppslag` går att
+   konstruera förbi den här modulen helt, precis som lucka 2 under
+   `fordonsfakta-ur-uppslag` beskriver.
+
+---
+
 ## `dragkrokbesked-har-harkomst`
 
 **BYGGD I SKIVA 13**, på beslut av Lars. Luckan stod registrerad i
@@ -961,6 +1191,40 @@ Registrerad i skiva 16 på Lars beslut, se `docs/beslutslogg.md` #28.
   `TILLATNA` hade varit fel av samma skäl som mönsterkommentaren anger för
   postnummer: undantaget hade släppt igenom ett framtida RIKTIGT nummer som råkar
   vara detsamma. Meningen säger nu vad exemplet visade i stället för att visa det.*
+- **UPPMÄTT INSTANS, skiva 19: SAMMA STRÄNGHET ÅT ANDRA HÅLLET.** Versalkänsligheten
+  har en följd för `docs/` som inte stod här: **§6-kontrollen släpper igenom ett
+  registreringsnummer skrivet i GEMENER.** I skiva 19 kom två nummer in i den här
+  filen i en och samma rättelsemening. Det VERSALA, ett påhittat testnummer, fälldes
+  av `scripts/persondatakontroll.py`. Det GEMENA, som var ett verkligt fordons
+  nummer, passerade kontrollen utan larm och hittades först av en manuell
+  skiftlägesokänslig sökning. Båda är borta nu.
+
+  **Följden: en grön `persondatakontroll` är inget bevis för att §6 hålls.** Kör
+  före commit också `grep -rniE '\b[A-ZÅÄÖ]{3}[[:space:]-]?[0-9]{2}[A-ZÅÄÖ0-9]\b'`
+  **med de stagade filerna som uttryckliga sökvägsargument**, och läs träfflistan
+  för hand.
+
+  **Sökvägsargumenten är inte valfria.** Utan dem söker kommandot hela trädet,
+  `.venv/` inräknat, och gav i skiva 19 **8 361 rader**. Med skivans sex
+  stagade filer som argument gav samma mönster **38 rader**, en lista
+  som går att läsa för hand. *Här föreskrevs kommandot tidigare utan
+  sökvägsargument.*
+
+  **BÅDA TALEN ÄR MÄTTA EFTER ATT ALL TEXT I POSTEN VAR SKRIVEN.** De tal som
+  först stod här mätte ett tidigare skede och föråldrades av rättelsemeningarna
+  själva, som lade till egna träffrader i den här filen. Brusexemplen nedan är
+  en del av bruset. En uppgift om antal träffar i filer som uppgiften själv
+  ändrar måste mätas sist av allt.
+
+  Den bullrar även då, och brusets dominerande klass är **ett treställigt ord följt
+  av ett mätvärde**: `mot 555`, `Max 750`, `och 371`, `ver 795`, `rad 252`. Ordet
+  `sha256` ger fyra träffar. *Här stod tidigare att den bullrar på sha256-SUMMOR.
+  Det är fel: i de sex filerna finns NOLL 64-teckens hexsträngar, och de fyra
+  träffarna kommer av ordet i löptext.* Bruset är just den bräddning som motiverar
+  att skriptets eget mönster är strängt.
+
+  **Att därför göra skriptets mönster skiftlägesokänsligt föreslås inte här**, av
+  skälet i punkten ovan; det vore ett beslut för Lars och inte för en granskare.
 - **Vad som skulle göra den till en spärr.** Att avläsaren i fas 4.5 kompilerar
   sitt mönster med `re.IGNORECASE` och bär ett test med gement indata.
   Föreskriften ligger i `docs/roadmap.md` fas 4.5. Tills koden finns är detta en
@@ -994,6 +1258,83 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.18.0 — 2026-09-02
+
+**`fordonsfakta-ur-sida` tillkommer som SPÄRR**, byggd i skiva 19, se
+`docs/beslutslogg.md` #31. MINOR då en post tillkommer. Posten står efter
+`fordonsfakta-ur-uppslag` eftersom den vaktar steget före den, och
+översiktstabellen bär nu tio rader.
+
+**En befintlig post ändras också.** `versalkansligt-monster-i-avlasare` får en
+uppmätt instans: §6-kontrollens versalkänslighet gör att den SLÄPPER IGENOM ett
+gement registreringsnummer i `docs/`. Instansen uppstod i den här skivan, i en
+rättelsemening i den nya spärrposten, och är åtgärdad. Punkten bär också den
+manuella sökning som behövs före commit, och skriver ut att den bullrar.
+
+**§7-granskningen underkände första varvet på den här posten**, på fyra
+sakpåståenden om koden: prövningens förklaring till varför dubbelfällningen ger
+färre röda än lager 1 ensamt, versal- och gemenriktningen i negativkontrollen,
+ett "eller omvänt" om utfallsriktningen som inte är producerbart, och ett
+`grep`-kommando som missade fyra av de villkor posten påstår att det slår upp.
+Samtliga är rättade mot avläst källa. **Talen 5, 1 och 3 var däremot riktiga hela
+tiden**; det var förklaringen till dem som var fel, vilket är svårare att se.
+
+**ANDRA VARVET UNDERKÄNDE OCKSÅ, på åtta fynd.** Ett i sändvägen: det "bara" som
+ersatte varv 1:s "eller omvänt" var icke-producerbart åt andra hållet. Mot den
+avlästa sidan ger en prefixmatchning den RÄTTA vikten, av radordning, så
+riktningen skrivs nu som en egenskap hos källans radordning och inte hos defekten.
+Sex i koden: samma felaktiga följdsats i modulens filhuvud och i ett
+testdocstring, ett `grep`-mönster som missade `MONSTER` och gav en docstringträff,
+ett `grep`-kommando utan sökvägsargument som söker hela trädet, en onåbar gren i
+`_tal`, `re.escape` utpekad som ett lager utan att något test fäller den, och
+fixturkommentarens påstående om radordningen, som är källans för sju av åtta och
+inte för alla. Ett i dokumentdetalj: `SIDA_AVLAST` bär åtta avlästa värden, inte
+tre.
+
+*Uppräkningen ovan namngav först bara FEM kodfynd och lade det sjätte,
+fixturkommentarens radordning, i dokumentdetaljmeningen. Klasstotalerna 1/6/1 var
+rätt, men uppräkningen bakom dem var det inte. Det spelar roll, för undantaget
+gäller PER DEFEKTKLASS: ett kodfynd som journalförs som dokumentdetalj ser i
+efterhand ut att ha fått en lägre bevisbörda än det fick. Varv 2:s klassning är
+avläst i rapporten: fynd 1 SÄNDVÄG, fynd 2 till 7 KOD, fynd 8 DOKUMENTDETALJ.*
+
+**Två av rättelserna ändrar KODEN och inte bara texten.** `_tal`s tomkontroll är
+borttagen: en svepning över samtliga 1 114 112 Unicode-kodpunkter visar att inget
+tecken finns där regexens `\s` matchar men `str.strip()` inte tar bort det, så
+grenen var bevisat onåbar och inte bara oprövad. Onåbarheten vilar på TVÅ led,
+`.strip()` före matchningen och kvantifikatorn `+`, och båda står nu utskrivna i
+docstringen med ett uppmätt utfall per led.
+`test_bara_blanktecken_fore_enheten_ger_none` fäller ledet `.strip()` med `4`
+röda; det befintliga `'kg'`-fallet fäller ledet `+`. *Återinförandevillkoret
+namngav först bara `+`. Det var för smalt: `.strip()` är en lika tillräcklig
+utlösare, och den fällningen lämnade sviten GRÖN, `46 passed`, så länge testet
+inte fanns.* Och `re.escape` står kvar i koden men är utskriven
+som ett skydd mot en FRAMTIDA etikett, inte som ett lager.
+
+**Ett nionde fynd tillkom vid rättelsearbetet, utanför granskningen.** En kommentar
+i modulen påstod att `(?!\s*<)` fäller en tom etikett. Uttrycket finns inte i
+mönstret. Den FÖRSTA rättelsen av den var i sin tur också fel: den påstod att en
+tom söksträng ger första label/value-parets värde. Uppmätt ger den NOLL träffar
+mot den avlästa sidan, för med tom etikett kräver mönstret en label-span som bara
+bär blanktecken, och någon sådan finns inte där. Mot en konstruerad sida som HAR
+en sådan span ger den det TOMMA parets värde, inte det första. Ofarligt i dag
+eftersom `EXAKT_ETIKETT` bara bär icke-tomma etiketter. **Lärdomen: en kommentar
+som namnger ett regex-uttryck ska läsas mot mönstret, och en rättelse av den ska
+MÄTAS och inte resoneras fram.**
+
+Redundansen mot `fordonsfakta-ur-uppslag` är utskriven som DELVIS och i en
+riktning, eftersom den äldre spärren prövar form och inte härkomst. Ett tal ur en
+annan bils sida är ett välformat tal och passerar den. Redundansen INOM posten,
+mellan lager 1 och 2, är också utskriven, med talen ur prövningen.
+
+**Två fynd ur prövningen står i posten och gäller alla framtida §7.1-prövningar.**
+Det första: ett test som skrevs för prefixfällan visade sig vakta källans
+radordning i stället för spärren, och rättades med ett test i omvänd ordning. Det
+andra: en fällning på en TOM rad blir död kod och ger falskt GRÖNT.
+`scripts/sparr-prova.sh` avslöjar det i sin `NEUTRALISERAD`-rad, som då bär en tom
+sträng som ursprungsvärde. Posten föreskriver att den raden läses, inte bara
+verdiktet.
 
 ### 0.17.0 — 2026-08-28
 

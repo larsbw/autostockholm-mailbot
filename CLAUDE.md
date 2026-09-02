@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.9.0 · **Uppdaterad:** 2026-08-28 · **Speglar:** beslutslogg #30
+**Version:** 0.9.1 · **Uppdaterad:** 2026-09-02 · **Speglar:** beslutslogg #31
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -455,6 +455,12 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.9.1 — 2026-09-02
+
+**`Speglar` följer med till beslutslogg #31**, som väljer datakälla för fas 4.5.
+Enbart pekaren ändras och ingen regel i det här dokumentet rörs ⇒ PATCH, enligt
+§12:s ordning att bara CLAUDE.md bär en pekare mot ett rörligt nummer.
 
 ### 0.9.0 — 2026-08-28
 

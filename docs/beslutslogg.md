@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.26.0 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §8
+**Version:** 0.27.0 · **Uppdaterad:** 2026-09-02 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -1852,7 +1852,145 @@ Noteringen står i `docs/incidentlogg.md` under I7.
 
 ---
 
+## #31 — Datakällan för fordonsuppslaget: den öppna fordonssidan, och villkoren är olästa
+
+**Datum:** 2026-09-02 · **Berör:** `docs/roadmap.md` fas 4.5, `docs/sparrar.md`
+`fordonsfakta-ur-sida`, `src/biluppgifter.py` (ny), `tests/test_biluppgifter.py`
+(ny), CLAUDE.md §6, #23
+
+**Beslut av Lars.** #23:s öppna punkt är besvarad i ett led och inte i två. Fas
+4.5 hämtar de tre fälten ur **den öppna fordonssidan hos biluppgifter.se**, alltså
+HTML utan API-nyckel, och inte ur någon av de fyra leverantörer #23 ställde upp.
+PRO-API:t står kvar som ett alternativ men är inte valt.
+
+**Vad valet ger.** De tre fält `src/fordonsuppslag.py` utvärderar finns på sidan.
+Avläst 2026-09-02: alla tre står på svaret för ett fordon, var etikett en gång.
+Det svaret ger `Uppslag(tjanstevikt_kg=2140, slapvagnsvikt_kg=2400,
+draganordning=False)`. Avbildningen är:
+
+| Fält i `Uppslag` | Etikettens text på sidan |
+| --- | --- |
+| `tjanstevikt_kg` | `Tjänstevikt` |
+| `slapvagnsvikt_kg` | `Släpvagnsvikt` |
+| `draganordning` | `Draganordning` |
+
+**MEN DE TRE FÄLTEN STÅR INTE PÅ VARJE FORDONS SIDA.** Ett andra skarpt svar,
+avläst samma dag, bär `Tjänstevikt` men **noll** förekomster av `Släpvagnsvikt` och
+`Draganordning` — och det trots att svarets `canonical` matchar det begärda numret,
+alltså trots att fordonet finns. Modulen utelämnar då nycklarna och
+`src/fordonsuppslag.py` kastar `UppslagMisslyckades: svaret saknar
+slapvagnsvikt_kg`. Ärendet blir alltså inget besked, vilket är rätt beteende: ett
+A-traktorbesked på en gissad släpvagnsvikt vore värre än tystnad.
+
+**Det är likväl ett driftsfaktum som hör till valet:** den här källan kan inte ge
+besked om alla verkliga fordon. **Hur stor andel är inte mätt**, och två avlästa
+svar duger inte för att uppskatta den. Ett PRO-API med ett dokumenterat fältschema
+hade gett ett svar på den frågan i förväg. Den öppna sidan ger det inte, och det
+är en kostnad för valet som inte var känd när valet gjordes.
+
+**`Släpvagnsvikt` är den BROMSADE vikten.** Sidan bär också
+`Släpvagnsvikt obromsad` som en egen rad, och det är den avbildningen som bestämmer
+vilket tal som når tröskeln i `src/fordonsuppslag.py`. Att etiketterna inleds
+likadant är skälet till att `fordonsfakta-ur-sida` matchar etiketten exakt och inte
+som prefix.
+
+**ÄGARDATA HÄMTAS INTE, OCH DET ÄR GRATIS HÄR.** #23:s aktiva val håller: sidans
+ägaruppgifter ligger bakom inloggning hos källan, och modulen begär bara den
+öppna sidan. Valet av öppen HTML försämrar alltså inte §6-läget jämfört med ett
+API utan ägardata. Det ska inte tolkas som att en spärr hindrar en framtida
+inloggning. Ingen sådan spärr finns, och luckan står utskriven i
+`docs/sparrar.md`.
+
+### FÖRBEHÅLL 1 — valet byter ut ett kontrakt mot en avläsning
+
+Ett API mot nyckel har en form någon lovat. Den öppna sidan har en form vi har
+**avläst en dag**. Skillnaden är inte teoretisk:
+
+- **Källan filtrerar på klient.** Hämtningen lyckas beroende på `User-Agent`.
+  Det är inte ett kontrakt, och en skärpning hos källan stoppar flödet utan
+  förvarning.
+- **Sidan svarar HTTP 200 med sin söksida** på ett nummer som inte finns, inte
+  404. Ett statusberoende "finns fordonet" är alltså fel byggt mot den här
+  källan, och `fordonsfakta-ur-sida` löser det med `canonical` i stället.
+- **Etiketternas stavning kan ändras** utan att någon meddelar det. Utfallet är
+  rätt — nyckeln utelämnas, `fordonsfakta-ur-uppslag` fäller, ärendet faller till
+  utkast — men felet syns som en tystnad och inte som ett larm.
+
+Beslutet fattas med de tre förbehållen skrivna, inte utan dem. **Kostnaden för
+valet är inte noll bara för att priset är noll.**
+
+### FÖRBEHÅLL 2 — IMPLEMENTATIONEN KOM FÖRE DEN HÄR POSTEN
+
+#23 avslutas med: *"Ingen leverantör får väljas av kod, och ingen får väljas
+genom att en implementation redan råkar peka på en av dem."*
+
+**Ordningen i skiva 19 var den omvända.** `src/biluppgifter.py` skrevs mot den
+öppna sidan innan någon beslutspost fanns, och den här posten är valets första
+skriftliga form. Det är utskrivet här och inte utelämnat, eftersom en läsare annars
+ser en beslutspost och en modul som pekar samma väg, och drar slutsatsen att posten
+kom först.
+
+Valet står kvar som Lars, inte som kodens. Men den som ändrar det ska veta att
+det finns kod byggd mot den här källan, och att kodens existens inte är ett
+skäl att behålla källan.
+
+### AVGJORT AV LARS: ANVÄNDARVILLKOREN LÄSES INTE
+
+**Fas 4.5:s grind är passerad, och avtalsledet är avgjort genom att strykas.**
+Grindraden i `docs/roadmap.md` lyder *"Lars beslut om datakälla och avtal"*.
+Datakällan är avgjord ovan. Avtalsledet avgjorde Lars 2026-09-02: **källans
+användarvillkor ska inte läsas, och frågan ska inte tas upp igen.**
+
+**Vad beslutet innebär, utskrivet.** Två frågor lämnas obesvarade och ska inte
+utredas: om automatiserad hämtning av de öppna sidorna är tillåten, och om
+vidareförmedling av fälten i ett kommersiellt kundmail är tillåten. Ingen har
+läst villkoren, och **den här posten påstår ingenting om vad de säger.** Risken är
+därmed varken bedömd eller avförd, utan **oläst och accepterad**. Det är en
+juridisk fråga och inte en teknisk, och den är Lars att avgöra, också genom att
+låta den vara.
+
+**Vad beslutet INTE innebär.** Det är inget påstående om att hämtningen är
+tillåten. Skulle källan invända är det här posten som visar att frågan var ställd
+och att beslutet var att inte utreda den. **Ingen spärr och ingen annan post ska
+läsas som ett juridiskt godkännande**, och det gäller även `fordonsfakta-ur-sida`,
+som prövar härkomst och inte rättighet.
+
+Modulen är byggd och prövad enligt §7.1. Att den fungerar var aldrig grindens
+villkor, precis som fasens egen rad säger om testnyckeln; grinden passeras av
+beslutet ovan och inte av koden.
+
+### Vad posten INTE avgör
+
+- **Om luckan `versalkansligt-monster-i-avlasare` är stängd.** Den gäller
+  avläsaren som plockar registreringsnumret ur MEJLTEXT, som inte är byggd.
+  `src/biluppgifter.py` tar emot ett redan normaliserat nummer och rör inte
+  luckan.
+- **Om `config/priser.json` finns.** #30:s led 2 står oförändrat.
+- **Var driften körs.** #20 står oförändrat.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.27.0 — 2026-09-02
+
+**#31 tillkommer.** Datakällan för fas 4.5 är vald: den öppna fordonssidan, inte
+PRO-API:t. Ny post ⇒ MINOR.
+
+Posten stänger #23:s öppna punkt i BÅDA leden. Datakällan är vald. Avtalsledet
+avgjorde Lars samma dag genom att stryka det: **källans användarvillkor läses
+inte.** **Fas 4.5:s grind är därmed passerad**, av beslutet och inte av koden, och
+grindrutan i `docs/roadmap.md` är omskriven till samma lydelse.
+
+*Posten bar först rubriken ÖPPEN PUNKT och lydelsen att grinden inte var passerad.
+Det var sant när den skrevs och står inte kvar: avsnittet heter nu AVGJORT AV LARS
+och journalför beslutet i stället för att vänta på en åtgärd. Vad beslutet inte
+innebär är utskrivet där: risken är oläst och accepterad, inte bedömd, och ingen
+spärr ska läsas som ett juridiskt godkännande.*
+
+Posten bär också att ordningen var omvänd: `src/biluppgifter.py` skrevs före
+beslutsposten, vilket är det #23:s sista mening förbjuder. Utskrivet i posten
+i stället för utelämnat.
 
 ### 0.26.0 — 2026-08-28
 
