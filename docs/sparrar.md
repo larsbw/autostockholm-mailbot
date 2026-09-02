@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.18.0 · **Uppdaterad:** 2026-09-02 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.18.1 · **Uppdaterad:** 2026-09-02 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -848,6 +848,77 @@ byts, så att var och en går att köra om utan att gissa.
 | Statusgrenen kastar inte: `raise Hamtningsfel(...)` blir `return None` | RÖD | 6 |
 | 404-grenen neutraliserad: `if status == 404:` blir `if False:` | RÖD | 1 |
 
+**SAMTLIGA ELVA RADER ÄR REPRODUCERADE I SKIVA 20, OCH AV DESS GRANSKARE.**
+Tabellen ovan var självmätt när den skrevs, se statusrubriken i 0.18.0-posten.
+Den är nu körd om två gånger av andra pass än det som skrev den: först av skiva
+20 och sedan av skiva 20:s **oberoende granskare** i §7:s mening. Båda körde
+`scripts/sparr-prova.sh` med `-- tests/test_biluppgifter.py -q` mot baslinjen 50
+gröna. **Verdikt och antal röda test stämmer i varje rad i båda körningarna**, och
+skriptet kvitterade sha256 identisk med utgångsläget varje gång.
+
+Ordvalet är avsiktligt: `oberoende` är i det här repot §7:s term, satt i motsats
+till `självmätt`. Det gäller granskarens körning. Skiva 20:s egen var bara ett
+annat pass.
+
+**De fyra som tidigare inte gick att rekonstruera går det nu.** Beskrivningarna
+bär det uttryck som byts, och `NEUTRALISERAD`-raden visade i varje fällning ett
+ursprungsvärde som var det avsedda villkoret, aldrig en tom sträng. Grep-tabellen
+per lager slår upp rätt rader. Också det kontraintuitiva ledet reproducerar:
+dubbelfällningen av lager 1 och 2 ger färre röda än lager 1 ensamt.
+
+**EN REPRODUKTIONSDETALJ I FÄLLNING 7 OCH 9.** Bägge byter ut raden med
+`re.fullmatch`, vars teckenklass bär en escape för hårt blanksteg, skriven med
+omvänt snedstreck följt av `u00a0`. **Den escapen når inte oförändrad fram till
+`--ersatt`.** Den blir ett blankstegstecken i den ersatta raden, alltså osynligt
+i stället för utskrivet.
+
+**ORSAKEN ÄR INTE SKALET, och den första lydelsen här påstod det.** Uppmätt av
+granskningen: `\d`, `\s` och dubblerade snedstreck i samma argument når fram
+intakta. Omvandlingen sitter alltså före skalet, i lagret som skriver
+verktygsanropet, och inte i skalet.
+
+**UTFALLET ÄR INTE HELLER INVARIANT.** I ett försök blev det det hårda
+blanksteget, U+00A0, och i ett annat ett vanligt blanksteg, U+0020. Inuti
+teckenklassen är alla tre semantiskt likvärdiga för den här fällningen, och
+verdikt och antal röda test blev oförändrade i båda fallen. Men den som följer
+tabellen ordagrant kan se ett tredje tecken i `NEUTRALISERAD`-raden än de två som
+nämns här, och ska veta att det är väntat och inte en missad fällning.
+
+**Escapen skrivs därför ut i ord här och inte som tecken.** Risken går åt det
+motsatta hållet mot vad den första lydelsen sade: ett dokument som bär tecknet
+går inte att skilja från ett som bär ett vanligt blanksteg, och läsaren kan inte
+se vilket som avsågs. Att skriva escapen som synliga tecken är den lätta
+riktningen. Sådana osynliga tecken skrevs in i den här posten när den först
+formulerades och är borttagna.
+
+**TRE FÄLLOR I VERKTYGSKEDJAN VAR SANDBOXENS, INTE REPOTS.** Överlämningen till
+skiva 20 varnade för dem, och de gäller inte här. Avläst på Lars maskin
+2026-09-02, alltså en avläsning och inget påstående om varje maskin:
+
+- **`scripts/sparr-prova.sh` fungerar.** Varningen gällde att skriptet använder
+  BSD:s `mktemp -t` och faller i en Linux-sandbox, som därför behövde en egen
+  kopia. På darwin är den formen inhemsk, och samtliga elva fällningar kördes med
+  repots eget skript.
+- **DEN HÄR SPÄRRENS tester är självbärande.** Varningen namngav HTML-fixturer
+  utanför repot. `tests/test_biluppgifter.py` kördes utan dem, med 50 gröna som
+  baslinje. Påståendet gäller den filen och inte sviten som helhet; nästa punkt
+  handlar om det.
+- **Sviten är hel.** Varningen sade att ett test i
+  `tests/test_kategorier_yaml.py` är rött därför att det kräver den gitignorerade
+  `data/taxonomi.json`. På den här maskinen finns filen, och hela sviten ger 488
+  gröna.
+
+**Skälet att skriva ut det:** utan den här noteringen drar nästa läsare slutsatsen
+att sviten är beroende av filer utanför repot. Det är den inte. Den är beroende av
+`data/`, som är gitignorerad, och det är en annan sak än en fixtur i en
+temporärkatalog.
+
+**Skälen att katalogen är ocommittad ska inte slås ihop.** `data/tradar.jsonl` och
+`data/par.jsonl` bär kundtext, och §6 hindrar att de committas.
+`data/taxonomi.json`, som är den enda fil det röda testet handlar om, bär 28
+kategorinamn och ingen kundtext; den är ocommittad enbart av katalogregeln i
+`.gitignore`. Samma skillnad står i `docs/beslutslogg.md` #30.
+
 **ETT TEST VAR VAKUÖST OCH RÄTTADES.** Fällningen av lager 1 och 2 samtidigt lät
 först `test_slapvagnsvikt_ar_den_bromsade` stå GRÖNT — just det test som skrevs
 för prefixfällan. Skälet: med prefixmatchning ger `re.findall` två träffar, och
@@ -1259,6 +1330,50 @@ post och inte en spärr som saknar egenskapen.
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.18.1 — 2026-09-02
+
+**0.18.0-posten fick en statusrubrik som saknades.** Skiva 19 förbrukade §7:s tre
+granskningsvarv, varv 3 underkände formellt på kriterierna 2, 4, 5, 8 och 9, och
+rättelserna är självmätta. Posten bar ingen sådan rubrik och läste därför som en
+avslutad redovisning. Tillagd i efterhand på Lars beslut i skiva 20, i den form
+`docs/beslutslogg.md` använt sedan skiva 15. **Det här dokumentets egna poster har
+aldrig burit en**, så kontrasten gäller mot beslutsloggen och inte mot
+spärrdokumentets historik.
+
+Posten bär också att granskningsrapporterna låg i `/tmp` i den dåvarande
+sandboxen och inte är bevarade, så att ingen letar efter dem.
+
+**Mutationstabellen bär nu sin egen verifiering.** Samtliga elva rader är
+oberoende reproducerade i skiva 20 mot baslinjen 50 gröna, med sha256 kvitterad
+per körning. Verdikt och antal röda test stämmer i varje rad, och de fyra som
+tidigare inte gick att rekonstruera går det nu. En reproduktionsdetalj är
+utskriven: escapen för hårt blanksteg når inte oförändrad genom skalet i fällning
+7 och 9, men är semantiskt identisk inuti teckenklassen.
+
+**Tre fällor ur överlämningen var sandboxens och inte repots**, och det står nu
+utskrivet som en avläsning på Lars maskin: repots eget `scripts/sparr-prova.sh`
+fungerar, testerna är självbärande, och hela sviten ger 488 gröna. Utan noteringen
+drar nästa läsare slutsatsen att sviten beror på filer utanför repot.
+
+**Granskningsomgången fällde två falska påståenden i den här skivans egen text.**
+Det första: att skivorna 15 till 18 alla bar en statusrubrik. Sant om
+`docs/beslutslogg.md`, falskt om det dokument meningen stod i, som aldrig burit
+en och som skiva 18 inte ens rörde. Det andra: att escapen omvandlas av SKALET.
+Granskaren mätte att `\d`, `\s` och dubblerade snedstreck når fram intakta i
+samma argument, så omvandlingen sitter före skalet, och utfallet visade sig
+dessutom variera mellan hårt och vanligt blanksteg.
+
+Fem formuleringsfynd är också rättade: skälet till kriterienumren stod i presens
+och upphävdes av nästa stycke, en räkning av tecken i ett aldrig committat utkast
+är struken, meningen om förväxlingsrisken hade riktningen bakvänd, rubriken om
+självbärande tester lovade mer än brödtexten belade, och ordet `oberoende` användes
+om skivans egen körning i stället för granskarens.
+
+**Granskaren körde om samtliga elva rader och alla stämde.** Tabellen bär därför
+nu två oberoende reproduktioner och inte bara skiva 20:s egen.
+
+Tillägg till en befintlig post ⇒ PATCH.
+
 ### 0.18.0 — 2026-09-02
 
 **`fordonsfakta-ur-sida` tillkommer som SPÄRR**, byggd i skiva 19, se
@@ -1335,6 +1450,39 @@ andra: en fällning på en TOM rad blir död kod och ger falskt GRÖNT.
 `scripts/sparr-prova.sh` avslöjar det i sin `NEUTRALISERAD`-rad, som då bär en tom
 sträng som ursprungsvärde. Posten föreskriver att den raden läses, inte bara
 verdiktet.
+
+**GRINDEN ÄR FÖRBRUKAD, OCH DET SKA SYNAS.** §7 ger max tre granskningsvarv.
+Skiva 19 förbrukade alla tre, och **varv 3 UNDERKÄNDE FORMELLT på kriterierna
+2, 4, 5, 8 och 9**. Fynden är rättade. **RÄTTELSERNA ÄR SJÄLVMÄTTA, INTE
+OBEROENDE GRANSKADE.**
+
+Kriterienumren står utskrivna och inte bara fyndklasserna. **Ett nummer HADE gått
+att slå upp mot granskningen, en klass hade det inte**, och det är skälet att
+skriva ut dem. Att uppslagningen inte längre går att göra ändrar inte vilket av
+de två som bär mer.
+
+**DETALJERNA BAKOM KRITERIERNA ÄR INTE ÅTERFINNBARA.** Granskningsrapporterna från
+skiva 19 låg enligt överlämningen i `/tmp` i den dåvarande sandboxen och är inte
+bevarade, varken i repot eller någon annanstans. Vad varje kriterium prövade, och
+exakt vilket fynd som fällde det, går alltså inte att slå upp. Det står här för
+att nästa läsare inte ska tro att materialet ligger någonstans och bara är svårt
+att hitta.
+
+**NUMREN HAR OLIKA HÄRKOMST, och det ska synas.** Kriterium 5 är belagt i en
+committad källa: commitmeddelandet för `3c7c751` skriver ut det ordagrant.
+**Kriterierna 2, 4, 8 och 9 kommer ur Lars överlämning till skiva 20** och går
+inte att kvittera mot repot. Det gör dem inte osanna, men läsaren ska inte tro
+att de går att kontrollera här.
+
+**Statusrubriken saknades ända till skiva 20.** Följden var att posten läste som
+en grundlig och avslutad redovisning, utan något som sade att skivan skeppades
+underkänd. Rubriken är tillagd i efterhand på Lars beslut, och tillägget
+redovisas i 0.18.1.
+
+*Formen är hämtad från `docs/beslutslogg.md`, där skivorna 15 till 18 alla bar en
+sådan rubrik. **Det här dokumentets egna poster gjorde det inte**: 0.15.0, 0.16.0
+och 0.17.0 bär ingen, och skiva 18 rörde inte den här filen alls. Kontrasten
+gäller alltså mot beslutsloggen och inte mot spärrdokumentets egen historik.*
 
 ### 0.17.0 — 2026-08-28
 

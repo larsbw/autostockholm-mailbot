@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.27.0 · **Uppdaterad:** 2026-09-02 · **Implementerar** CLAUDE.md §8
+**Version:** 0.27.1 · **Uppdaterad:** 2026-09-02 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -1972,6 +1972,35 @@ beslutet ovan och inte av koden.
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.27.1 — 2026-09-02
+
+**0.27.0-posten fick en statusrubrik som saknades.** Skiva 19 förbrukade §7:s tre
+granskningsvarv, varv 3 underkände formellt på kriterierna 2, 4, 5, 8 och 9, och
+rättelserna är självmätta. Tillagd i efterhand på Lars beslut i skiva 20, i samma
+form som skivorna 15 till 18 bar.
+
+Posten bär också två saker som annars går förlorade: att granskningsrapporterna
+låg i `/tmp` i den dåvarande sandboxen och inte är bevarade, och att
+commitmeddelandet för `3c7c751` bar underkännandet men inte att rättelserna är
+oberoende ogranskade.
+
+**Ingen ny beslutspost.** Skiva 20 fattar inget beslut och journalför en status
+som redan gällde, så `Speglar` i CLAUDE.md står kvar på #31.
+
+**Granskningsomgången fällde skälet till kriterienumren.** Meningen stod i presens
+och sade att ett nummer går att slå upp mot granskningen, vilket nästa stycke i
+samma post upphäver: rapporterna finns inte. Den står nu i konditionalis, och
+härkomsten är utskriven — kriterium 5 är belagt i commitmeddelandet, medan 2, 4,
+8 och 9 kommer ur överlämningen och inte går att kvittera mot repot.
+
+**STATUSEN GÄLLER ÄVEN DEN HÄR SKIVAN.** Dokumentdetaljundantaget ger en
+granskningsomgång, och den är förbrukad. Fynden i den är rättade, och de
+rättelserna är **självmätta**. Undantaget begränsar antalet omgångar, aldrig
+kravet på sanning: de två falska påståendena rättades därför att §7 förbjuder att
+skeppa ett känt falskt påstående, inte därför att en omgång fanns kvar.
+
+Tillägg till en befintlig post ⇒ PATCH.
+
 ### 0.27.0 — 2026-09-02
 
 **#31 tillkommer.** Datakällan för fas 4.5 är vald: den öppna fordonssidan, inte
@@ -1991,6 +2020,32 @@ spärr ska läsas som ett juridiskt godkännande.*
 Posten bär också att ordningen var omvänd: `src/biluppgifter.py` skrevs före
 beslutsposten, vilket är det #23:s sista mening förbjuder. Utskrivet i posten
 i stället för utelämnat.
+
+**GRINDEN ÄR FÖRBRUKAD, OCH DET SKA SYNAS.** §7 ger max tre granskningsvarv.
+Skiva 19 förbrukade alla tre, och **varv 3 UNDERKÄNDE FORMELLT på kriterierna
+2, 4, 5, 8 och 9**. Fynden är rättade. **RÄTTELSERNA ÄR SJÄLVMÄTTA, INTE
+OBEROENDE GRANSKADE.**
+
+Kriterienumren står utskrivna och inte bara fyndklasserna, eftersom ett nummer
+HADE gått att slå upp mot granskningen och en klass inte hade det. Att
+uppslagningen inte längre går att göra ändrar inte vilket av de två som bär mer.
+
+**DETALJERNA BAKOM KRITERIERNA ÄR INTE ÅTERFINNBARA.** Granskningsrapporterna låg
+enligt överlämningen i `/tmp` i den dåvarande sandboxen och är inte bevarade,
+varken i repot eller någon annanstans. Vad varje kriterium prövade går alltså
+inte att slå upp, och det står här i stället för att läsaren ska tro att
+materialet finns någonstans.
+
+**NUMREN HAR OLIKA HÄRKOMST.** Kriterium 5 är belagt i commitmeddelandet för
+`3c7c751`. Kriterierna 2, 4, 8 och 9 kommer ur Lars överlämning till skiva 20 och
+går inte att kvittera mot repot.
+
+**Commitmeddelandet för `3c7c751` bar en del av detta och dokumenten ingen.**
+Meddelandet skriver att varv 3 underkände på fyra kodfynd och två
+dokumentdetaljfynd, samtliga rättade. Det är riktigt, men det säger inte att
+rättelserna är oberoende ogranskade, och en läsare av dokumenten såg ingenting
+alls. Rubriken ovan är tillagd i efterhand på Lars beslut i skiva 20, och
+tillägget redovisas i 0.27.1.
 
 ### 0.26.0 — 2026-08-28
 
