@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.27.1 · **Uppdaterad:** 2026-09-02 · **Implementerar** CLAUDE.md §8
+**Version:** 0.27.2 · **Uppdaterad:** 2026-09-03 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -1852,57 +1852,6 @@ Noteringen står i `docs/incidentlogg.md` under I7.
 
 ---
 
-## #32 — Skiva 21 stängs inte, och avläsningen byggs om till en parser
-
-**Datum:** 2026-09-03 · **Berör:** `src/biluppgifter.py`,
-`tests/test_biluppgifter.py`, `docs/sparrar.md` `fordonsfakta-ur-sida`,
-`docs/incidentlogg.md` I8, CLAUDE.md §6 och §7, #31
-
-**Beslut av Lars.** Skiva 21 gick in i sitt tredje och sista granskningsvarv och
-underkändes. §7 säger då stoppa och rapportera öppet, vilket gjordes. **Lars
-beslut är att skivan inte stängs utan fortsätter som skiva 22**, och att det som
-finns committas först, med statusen utskriven.
-
-**Grunden för beslutet.** Skiva 21 prövade vad som händer när SIDAN ändras i
-stället för när koden gör det. Prövningen hittade fem sändvägsdefekter av samma
-klass: ett regexmönster skrivet för sidans nuvarande markup TYSTNAR i stället för
-att kasta när markupen ser annorlunda ut, och släpper då ut ett värde. Tre
-stängdes under skivan, två står öppna.
-
-**De elva mutationsfällningarna mot koden hittade ingen av de fem**, eftersom
-koden var självkonsistent i samtliga fall. Det är skillnaden mellan att pröva
-koden och att pröva källan, och den är nu uppmätt och inte antagen.
-
-**Beslutet om metoden: sidan ska PARSAS, inte matchas som text.** Grundfelet
-bakom båda de öppna defekterna är att modulen läser HTML som en sträng. En
-HTML-kommentar och ett `<template>`-element är inte noder i ett parsat träd, och
-en etikett räknas som en nod i stället för som en strängmatchning. `html.parser`
-ur stdlib används om den räcker; krävs ett beroende ska det namnges och motiveras
-före det läggs till.
-
-**Ett larm som alltid går blir avstängt.** Modulen ska INTE kasta på att antalet
-etikettelement skiljer sig från antalet par. Sidan bär det glappet av legitima
-skäl, nämligen värden vars span öppnar ett element.
-
-**Ankaret jämför hela URL:en**, alltså domän och sökväg, inte sista segmentet.
-Två ankare ska KASTA i stället för att lösas tyst med första träffen: lager 3 ska
-bete sig som lager 2 gör i samma läge.
-
-**Rimlighetskontroll införs mot lucka 5.** Ett värde utanför rimligt intervall är
-en felläsning och inte ett fordon. Gränserna sätts ur fixturen och ur vad som är
-fysiskt möjligt, och deras ursprung skrivs ut: §7.2 tillåter avlästa tal och
-utelämnade tal, inget däremellan.
-
-**Fall 4 avgörs i båda halvorna.** Ett tal med hårt blanksteg som tusenavskiljare
-SKA läsas, eftersom det är källans eget format. Kravet gäller att två tal
-hopklistrade aldrig får bli ett.
-
-**Persondatakontrollens falska positiv avgörs mot undantag.** Två konstruerade
-registreringsnummer i `docs/` fällde kontrollen. Numren utgår ur dokumentet.
-Ingen `TILLATNA`-post, eftersom ett undantag gäller exakt strängen och därmed
-hade släppt igenom ett framtida riktigt nummer med samma tecken. Samma
-avvägning som för postnummer i skiva 7.
-
 ## #31 — Datakällan för fordonsuppslaget: den öppna fordonssidan, och villkoren är olästa
 
 **Datum:** 2026-09-02 · **Berör:** `docs/roadmap.md` fas 4.5, `docs/sparrar.md`
@@ -2021,7 +1970,77 @@ beslutet ovan och inte av koden.
 
 ---
 
+## #32 — Skiva 21 stängs inte, och avläsningen byggs om till en parser
+
+**Datum:** 2026-09-03 · **Berör:** `src/biluppgifter.py`,
+`tests/test_biluppgifter.py`, `docs/sparrar.md` `fordonsfakta-ur-sida`,
+`docs/incidentlogg.md` I8, CLAUDE.md §6 och §7, #31
+
+**Beslut av Lars.** Skiva 21 gick in i sitt tredje och sista granskningsvarv och
+underkändes. §7 säger då stoppa och rapportera öppet, vilket gjordes. **Lars
+beslut är att skivan inte stängs utan fortsätter som skiva 22**, och att det som
+finns committas först, med statusen utskriven.
+
+**Grunden för beslutet.** Skiva 21 prövade vad som händer när SIDAN ändras i
+stället för när koden gör det. Prövningen hittade fem sändvägsdefekter av samma
+klass: ett regexmönster skrivet för sidans nuvarande markup TYSTNAR i stället för
+att kasta när markupen ser annorlunda ut, och släpper då ut ett värde. Tre
+stängdes under skivan, två står öppna.
+
+**De elva mutationsfällningarna mot koden hittade ingen av de fem**, eftersom
+koden var självkonsistent i samtliga fall. Det är skillnaden mellan att pröva
+koden och att pröva källan, och den är nu uppmätt och inte antagen.
+
+**Beslutet om metoden: sidan ska PARSAS, inte matchas som text.** Grundfelet
+bakom båda de öppna defekterna är att modulen läser HTML som en sträng. En
+HTML-kommentar och ett `<template>`-element är inte noder i ett parsat träd, och
+en etikett räknas som en nod i stället för som en strängmatchning. `html.parser`
+ur stdlib används om den räcker; krävs ett beroende ska det namnges och motiveras
+före det läggs till.
+
+**Ett larm som alltid går blir avstängt.** Modulen ska INTE kasta på att antalet
+etikettelement skiljer sig från antalet par. Sidan bär det glappet av legitima
+skäl, nämligen värden vars span öppnar ett element.
+
+**Ankaret jämför hela URL:en**, alltså domän och sökväg, inte sista segmentet.
+Två ankare ska KASTA i stället för att lösas tyst med första träffen: lager 3 ska
+bete sig som lager 2 gör i samma läge.
+
+**Rimlighetskontroll införs mot lucka 5.** Ett värde utanför rimligt intervall är
+en felläsning och inte ett fordon. Gränserna sätts ur fixturen och ur vad som är
+fysiskt möjligt, och deras ursprung skrivs ut: §7.2 tillåter avlästa tal och
+utelämnade tal, inget däremellan.
+
+**Fall 4 avgörs i båda halvorna.** Ett tal med hårt blanksteg som tusenavskiljare
+SKA läsas, eftersom det är källans eget format. Kravet gäller att två tal
+hopklistrade aldrig får bli ett.
+
+**Persondatakontrollens falska positiv avgörs mot undantag.** Två konstruerade
+registreringsnummer i `docs/` fällde kontrollen. Numren utgår ur dokumentet.
+Ingen `TILLATNA`-post, eftersom ett undantag gäller exakt strängen och därmed
+hade släppt igenom ett framtida riktigt nummer med samma tecken. Samma
+avvägning som för postnummer i skiva 7.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.27.2 — 2026-09-03
+
+**#32 LÅG FYSISKT FÖRE #31, OCH LIGGER NU EFTER.** Påpekat av Lars i skiva 22.
+Loggen är sekventiell, alltså ska den fysiska ordningen följa numren. Posten
+skrevs in ovanför #31 när den skapades, och `grep -n "^## #"` visade därför #32
+på ett lägre radnummer än #31.
+
+**Ingen posttext är ändrad, och det är hela poängen med att redovisa det här.**
+Blocket är flyttat oförändrat, vilket syns i diffen: de borttagna och de tillagda
+raderna är samma text. Skarven fick dessutom det `---` som saknades mellan #32
+och #31. `grep -c "^---$"` ger 32 i den committade filen och 33 efter flytten.
+
+**Färskhetskontrollen i CLAUDE.md §12 påverkas inte.** Den läser högsta numret
+och inte radordningen, och det är fortfarande #32.
+
+Flyttad post, ingen ändrad text ⇒ PATCH.
 
 ### 0.27.1 — 2026-09-02
 

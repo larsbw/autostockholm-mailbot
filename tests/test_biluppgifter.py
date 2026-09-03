@@ -3,30 +3,37 @@
 Spärren `fordonsfakta-ur-sida` ligger i FYRA lager, och varje lager har egna
 test här:
 
-1. **Exakt etikettmatchning** i `MONSTER` och `_las_falt`. `Släpvagnsvikt` är ett
-   prefix till `Släpvagnsvikt obromsad`, och de två raderna ligger intill
-   varandra på sidan. Lagret vaktar att rätt rad läses.
+1. **Exakt etikettmatchning** i `_las_falt`. `Släpvagnsvikt` är ett prefix till
+   `Släpvagnsvikt obromsad`, och de två raderna ligger intill varandra på
+   sidan. Lagret vaktar att rätt rad läses.
 2. **Tvetydighetskontrollen** i `_las_falt`. En etikett som förekommer flera
    gånger kastar i stället för att den första träffen tas.
 3. **Canonical-ankaret** i `_galler_fordonet`. Sidan svarar 200 med SÖKSIDAN på
    ett okänt nummer, så statuskoden kan inte avgöra om fordonet finns.
-4. **De strikta värdeparsningarna** i `_tal` och `_ja_nej`. Ett värde som inte är
-   en ren vikt eller ett rent ja/nej utelämnas i stället för att tolkas.
+4. **De strikta värdeparsningarna** i `_tal` och `_ja_nej`, sedan skiva 22 också
+   `_krav_pa_rimlighet`. Ett värde som inte är en ren vikt eller ett rent ja/nej
+   utelämnas, och ett värde utanför rimligt intervall kastar.
 
-**LAGER 1 OCH 2 BÄR VARANDRAS FÖRSVAR, och det ändrar hur lager 1 ska prövas.**
-Görs etikettmatchningen till ett prefix får `re.findall` TVÅ träffar på
-`Släpvagnsvikt`, och då kastar lager 2. En §7.1-prövning som bara fäller lager 1
-ser alltså rött ut av fel skäl: undantaget kommer från det andra lagret.
+**SIDAN PARSAS SEDAN SKIVA 22**, se `docs/beslutslogg.md` #32. Lagren ligger kvar
+men vilar på `_Faltlasare` i stället för på tre regexuttryck. Det som stod här om
+`MONSTER` och `ETIKETTSPAN` beskrev kod som inte finns längre.
+
+**LAGER 1 OCH 2 BÄR INTE LÄNGRE VARANDRAS FÖRSVAR.** Med regexen tände lager 2
+när lager 1:s exakthet föll, eftersom en prefixmatchning gav två träffar. Lager 2
+räknar nu etikettNODER, och en fällning av likhetsjämförelsen i lager 1 rör inte
+räkningen. Talen står i `docs/sparrar.md`.
 
 **ATT ASSERA PÅ VÄRDET RÄCKTE INTE, och det är prövat och inte antaget.**
 `test_slapvagnsvikt_ar_den_bromsade` asserar på 2 400 och inte på att något
-kastades. Det gjorde det ändå inte fällbart för sig: fälls BÅDA lagren samtidigt
-tas första träffen, och den råkar vara den bromsade vikten eftersom den raden
-står först på sidan i dag. Testet förblev alltså GRÖNT vid dubbelfällningen.
+kastades. Det gjorde det ändå inte fällbart för sig under den gamla koden: fälldes
+BÅDA lagren samtidigt togs första träffen, och den råkar vara den bromsade vikten
+eftersom den raden står först på sidan i dag. Testet förblev alltså GRÖNT vid
+dubbelfällningen.
 
 Det som löste det är `test_slapvagnsvikt_ar_den_bromsade_aven_i_omvand_radordning`
-nedan, vars fixtur lägger den obromsade raden först. Redundansen och prövningens
-tal står i `docs/sparrar.md`.
+nedan, vars fixtur lägger den obromsade raden först. Det testet behövs fortfarande:
+det vaktar att utfallet inte beror på källans radordning, vilket är ett krav på
+avläsningen och inte på hur den är implementerad.
 
 **INGET TEST HÄR RÖR NÄTET.** `biluppgifter_hamtning` tar `oppna`, och alla test
 injicerar den. Ett test som slår mot biluppgifter.se hade gjort svitens utfall
@@ -55,6 +62,7 @@ from src.biluppgifter import (
     _hamta_sidan,
     _ja_nej,
     _las_falt,
+    _lasaren,
     _tal,
     biluppgifter_hamtning,
 )
@@ -621,15 +629,28 @@ def test_omdopning_till_ett_prefix_faller_ocksa():
     ) == "svaret saknar slapvagnsvikt_kg"
 
 
-def test_entitetskodad_etikett_faller():
+def test_entitetskodad_etikett_LASES():
     """Källan börjar skriva `Sl&auml;pvagnsvikt` i stället för `Släpvagnsvikt`.
 
-    Etiketten avkodas ALDRIG före matchningen, bara värdet. En entitetskodad
-    etikett är därför en strukturändring som ger ett saknat fält.
+    **TESTET ÄR VÄNT I SKIVA 22, och det är en avsiktlig beteendeändring.**
+    Regexavläsningen jämförde byte för byte och lät därför en entitetskodning
+    se ut som en omdöpning. Parsern avkodar entiteter i texten, så noden bär
+    `Släpvagnsvikt` och läses som den etikett den är.
+
+    **Skälet är att en entitetskodning INTE är en omdöpning.** Briefens fall 1
+    handlar om att källan byter NAMN på fältet, och då ska uppslaget falla. Här
+    står samma namn skrivet på ett annat sätt i samma teckenuppsättning, vilket
+    är källans val av kodning och inte en semantisk ändring. Att falla på det
+    hade varit att falla på något ofarligt, och en spärr som fäller på det
+    ofarliga blir avstängd.
+
+    Riktningen är prövad: `test_omdopt_etikett_faller_till_utkast` bevakar att
+    en verklig omdöpning fortfarande faller.
     """
     sidan = sida_med(slapvagnsvikt=None, extra=rad("Sl&auml;pvagnsvikt", "2400 kg"))
 
-    assert utfallet_av(sidan) == "svaret saknar slapvagnsvikt_kg"
+    hamta = biluppgifter_hamtning(oppna=svarar(sidan))
+    assert fordonsuppslag.slag_upp(REGNR, hamta=hamta).slapvagnsvikt_kg == 2400
 
 
 # --- 4: värdet i annat format -----------------------------------------------
@@ -654,10 +675,15 @@ def test_entitetskodad_etikett_faller():
 def test_format_som_sidan_faktiskt_anvander_lases(varde, vantat):
     """FALL 4, den halva som ska LYCKAS.
 
-    `1 200 kg` är sidans egen form och måste läsas. Kravet att varje fall ska
-    falla kan inte gälla det format källan använder i dag: en modul som föll på
-    det hade inte kunnat slå upp något alls. Entiteten är med därför att sidan
-    skriver sitt hårda blanksteg så, och `html.unescape` körs före tolkningen.
+    **UPPDELNINGEN ÄR INTE LÄNGRE EN ÖPPEN PUNKT.** Skiva 21 avgjorde själv att
+    briefens krav inte kunde gälla källans eget format och lyfte frågan. Lars
+    besked i skiva 22 är att `1 200 kg` med hårt blanksteg SKA läsas, och att
+    kravet gäller att `750 2400 kg` aldrig blir 7502400. Docstringen bar
+    tidigare skivans egen tolkning; nu bär den beslutet.
+
+    En modul som föll på källans egen tusenavskiljare hade inte kunnat slå upp
+    något alls. Entiteten är med därför att sidan skriver sitt hårda blanksteg
+    så, och parsern avkodar entiteter i noden innan värdet tolkas.
     """
     uppslag = fordonsuppslag.slag_upp(
         REGNR,
@@ -860,8 +886,10 @@ def test_trunkerad_efter_ankaret_faller_till_utkast():
 def test_trunkerad_mitt_i_ett_varde_faller_till_utkast():
     """FALL 10, gränsvärdet. Snittet går INUTI det värde som ska läsas.
 
-    Värdespannen saknar sin avslutande tagg, så mönstret matchar inte och
-    fältet utelämnas. Ett halvt tal får aldrig bli ett helt.
+    Värdespannen saknar sin avslutande tagg, så noden stängs aldrig och inget
+    par bildas. Ett halvt tal får aldrig bli ett helt. *Här stod att mönstret
+    inte matchar; det beskrev regexen som togs bort i skiva 22, och utfallet är
+    detsamma av en annan anledning.*
     """
     hel = sida_med()
     trunkerad = hel[: hel.find("2400 kg") + len("2400")]
@@ -890,11 +918,6 @@ def test_trunkerad_mitt_i_en_etikett_faller_till_utkast():
             '<span class="value">2400 kg</span>\n',
         ),
         (
-            "klassnamnet byter namn",
-            '<span class="field-label">Släpvagnsvikt</span>\n'
-            '<span class="value">2400 kg</span>\n',
-        ),
-        (
             "klassen får ett ord till",
             '<span class="label bold">Släpvagnsvikt</span>\n'
             '<span class="value">2400 kg</span>\n',
@@ -914,16 +937,55 @@ def test_trunkerad_mitt_i_en_etikett_faller_till_utkast():
             '<span class="label">Släpvagnsvikt</span>\n<i class="ikon"></i>\n'
             '<span class="value">2400 kg</span>\n',
         ),
+        (
+            "etiketten står i ett annat element än span",
+            '<div class="label">Släpvagnsvikt</div>\n'
+            '<div class="value">2400 kg</div>\n',
+        ),
     ],
 )
-def test_markupandring_faller_till_utkast(beskrivning, block):
-    """Sex ändringar källan kan göra utan att röra en enda etikett.
+def test_markupandring_lases_av_parsern(beskrivning, block):
+    """Sex ändringar källan kan göra utan att röra fältets NAMN.
 
-    Ingen av dem finns i skivans lista, och alla sex är rimliga i en
-    omdesign. Kravet är detsamma: hellre ett saknat fält än ett gissat värde.
+    **TESTET ÄR VÄNT I SKIVA 22.** Fem av de sex fallen krävde tidigare att
+    fältet UTELÄMNAS, och det sjätte är nytt. Regexavläsningen beskrev sidans
+    markup, så varje avvikelse från beskrivningen gav ett saknat fält även när
+    ändringen var rent kosmetisk.
+
+    **Att utelämna på en kosmetisk ändring är inte försiktighet.** Det ser ut
+    som det, men följden är att uppslaget slutar fungera vid nästa omdesign hos
+    källan, och en spärr som fäller på allt blir avstängd. Parsern läser
+    NODERNA, så ett attribut, ett klassord till, nästlad markup i värdet eller
+    ett annat elementnamn ändrar ingenting: etiketten heter fortfarande
+    `Släpvagnsvikt` och värdet är fortfarande `2400 kg`.
+
+    Det farliga i de gamla utfallen var inte att de föll, utan att SAMMA
+    okänslighet för markup gjorde att en DUBBLERAD etikett inte upptäcktes. Det
+    var skiva 21:s sändvägsdefekt 1, och den stängs av samma ändring som vänder
+    de här fem.
+
     Beskrivningen bärs som parameter så att ett rött utfall namnger VILKEN
-    ändring som slutade falla.
+    ändring som slutade läsas.
     """
+    sidan = sida_med(slapvagnsvikt=None, extra=block)
+
+    hamta = biluppgifter_hamtning(oppna=svarar(sidan))
+    assert fordonsuppslag.slag_upp(REGNR, hamta=hamta).slapvagnsvikt_kg == 2400
+
+
+def test_markupandring_utan_etikettklassen_faller():
+    """Byter källan `class="label"` mot något annat är fältet borta.
+
+    Det är den enda av de sex markupändringarna som fortfarande faller, och
+    den ska göra det: klassnamnet är hur parsern VET att noden är en etikett.
+    Utan den finns inget fältblock att läsa, och att gissa utifrån position
+    vore att bygga tillbaka den sortens antagande skiva 22 tog bort.
+    """
+    block = (
+        '<span class="field-label">Släpvagnsvikt</span>\n'
+        '<span class="value">2400 kg</span>\n'
+    )
+
     assert utfallet_av(
         sida_med(slapvagnsvikt=None, extra=block)
     ) == "svaret saknar slapvagnsvikt_kg"
@@ -949,8 +1011,8 @@ def test_dubblett_dar_ett_varde_bar_markup_kastar_anda(
 ):
     """SÄNDVÄGSDEFEKT UR GRANSKNINGEN AV SKIVA 21, nu stängd.
 
-    Lager 2 räknade träffar på `MONSTER`, och `MONSTER`:s värdegrupp `([^<]*)`
-    matchar inte ett värde med nästlad markup. Låg etiketten två gånger och ETT
+    Lager 2 räknade träffar på HELA fältblocket, vars värdegrupp `([^<]*)` inte
+    matchade ett värde med nästlad markup. Låg etiketten två gånger och ETT
     värde var nästlat gav mönstret EN träff, tvetydigheten tände aldrig, och
     modulen svarade med det andra värdet som om det vore entydigt. Uppmätt före
     rättelsen: **750 kg i stället för `Hamtningsfel`**, alltså den obromsade
@@ -1034,8 +1096,10 @@ def test_bara_den_obromsade_raden_kvar_faller_till_utkast():
     finns en rad vars etikett BÖRJAR med den vi söker, och det är precis
     prefixfällans läge.
 
-    Lager 1 kräver `</span>` direkt efter etiketten, så träffen uteblir och
-    fältet utelämnas. Vore matchningen ett prefix hade 750 kg kommit in här.
+    Lager 1 jämför etikettnodens text med LIKHET, så `Släpvagnsvikt obromsad`
+    är en annan etikett och fältet utelämnas. Vore jämförelsen ett prefix hade
+    750 kg kommit in här. *Här stod att lager 1 kräver `</span>` direkt efter
+    etiketten; det beskrev regexen som togs bort i skiva 22.*
     """
     sidan = sida(
         rader=(
@@ -1048,21 +1112,35 @@ def test_bara_den_obromsade_raden_kvar_faller_till_utkast():
     assert utfallet_av(sidan) == "svaret saknar slapvagnsvikt_kg"
 
 
-def test_ankaret_provar_bara_sista_segmentet():
-    """KÄND LUCKA 6, prövad och inte hypotetisk.
+@pytest.mark.parametrize(
+    ("beskrivning", "url"),
+    [
+        ("annan sökväg på rätt domän", "https://biluppgifter.se/sok/abc12x/"),
+        ("rätt sökväg på annan domän", "https://exempel.invalid/fordon/abc12x/"),
+        ("relativt ankare utan domän", "/fordon/abc12x/"),
+        ("okrypterat schema", "http://biluppgifter.se/fordon/abc12x/"),
+        ("numret bara som suffix", "https://biluppgifter.se/fordon/xabc12x/"),
+    ],
+)
+def test_ankaret_provar_hela_urlen(beskrivning, url):
+    """LUCKA 6 ÄR STÄNGD i skiva 22, och testet är vänt.
 
-    `_galler_fordonet` jämför sista segmentet i `canonical` och inte hela
-    sökvägen. En sida vars ankare slutar på numret passerar därför lager 3 även
-    när sökvägen är en annan. Testet FÄSTER dagens beteende så att en framtida
-    skärpning blir ett medvetet val och inte en tyst ändring.
+    Här stod `test_ankaret_provar_bara_sista_segmentet`, som FÄSTE att
+    `_galler_fordonet` jämförde `rsplit("/", 1)[-1]` och därför godtog vilken
+    domän och vilken sökväg som helst så länge numret stod sist. Skiva 21:s
+    granskning mätte upp följden: ett ankare på en helt annan domän med rätt
+    nummer sist gav ett uppslag.
 
-    Ofarligt i dag: källans söksida svarar med `/fordon/` utan nummer, avläst
-    2026-09-02. Se luckan i `docs/sparrar.md`.
+    Lars beslut i #32 är att hela URL:en jämförs. Schema, värdnamn och sökväg
+    prövas, inte bara numret. **Det relativa ankaret faller med de andra**, och
+    det är avsiktligt: utan värdnamn går det inte att bekräfta vilken domän
+    svaret kom ifrån, och då gäller samma försiktiga förval som vid ett saknat
+    ankare.
+
+    Beskrivningen bärs som parameter så att ett rött utfall namnger VILKEN form
+    som slutade falla.
     """
-    assert _galler_fordonet(
-        '<link rel="canonical" href="https://biluppgifter.se/sok/abc12x/"/>',
-        REGNR,
-    ) is True
+    assert _galler_fordonet(f'<link rel="canonical" href="{url}"/>', REGNR) is False
 
 
 @pytest.mark.parametrize(
@@ -1078,15 +1156,16 @@ def test_dubblett_dar_ena_etiketten_bar_attribut_kastar_anda(
 ):
     """SÄNDVÄGSDEFEKT UR ANDRA GRANSKNINGSVARVET, nu stängd.
 
-    Första rättelsen lät lager 2 räkna `ETIKETTSPAN`, men den var lika sträng
-    som `MONSTER`. Bar den ENA av två etikettspannar ett attribut såg räknaren
-    en enda förekomst, `MONSTER` gav en enda träff, och det andra värdet gick ut
-    som om det vore entydigt. Samma klass, samma riktning och samma tysthet som
-    defekten den skulle stänga.
+    Den regexbaserade räknaren var lika sträng som läsaren. Bar den ENA av två
+    etikettspannar ett attribut såg räknaren en enda förekomst, läsaren en enda
+    träff, och det andra värdet gick ut som om det vore entydigt. Samma klass,
+    samma riktning och samma tysthet som defekten den skulle stänga.
 
-    **Räknaren är nu lösare än läsaren.** `ETIKETTSPAN` godtar attribut och
-    extra blanktecken i taggen; `MONSTER` gör det inte. Båda felar åt samma
-    håll: räknaren överskattar och KASTAR, läsaren underskattar och UTELÄMNAR.
+    **DEN DÅVARANDE RÄTTELSEN VAR ATT GÖRA RÄKNAREN LÖSARE ÄN LÄSAREN.** Den
+    höll för attributen här men inte för ett extra klassord eller nästlad
+    markup, vilket tredje granskningsvarvet fällde. Skiva 22 löste hela klassen
+    genom att parsa sidan, och testet står kvar oförändrat i sitt påstående:
+    varje form av dubblett ska kasta, oavsett hur avläsningen är byggd.
     """
     sidan = sida(
         rader=(
@@ -1152,3 +1231,573 @@ def test_en_etikettspan_utan_vardepar_kastar():
         )
 
     assert "Tjänstevikt" in str(fel.value)
+
+
+# --- skiva 22: parsern stänger de två öppna sändvägsdefekterna ---------------
+#
+# Båda fälldes av skiva 21:s TREDJE granskningsvarv, alltså efter att skivans
+# egna tio fall var gröna. Båda returnerade ett värde där spärren skulle ha
+# fällt. Testen nedan skrevs EFTER ombyggnaden och skulle ha fångat dem: fälls
+# parsern tillbaka mot en textmatchning blir de röda, se `docs/sparrar.md`.
+
+
+@pytest.mark.parametrize(
+    ("beskrivning", "forsta_etiketten"),
+    [
+        ("klassen bär ett ord till", '<span class="label bold">Släpvagnsvikt</span>'),
+        ("etiketten bär nästlad markup", '<span class="label"><b>Släpvagnsvikt</b></span>'),
+        ("etiketten står i en div", '<div class="label">Släpvagnsvikt</div>'),
+        ("etiketten står i en tabellcell", '<th class="label">Släpvagnsvikt</th>'),
+        ("etiketten bär ett attribut", '<span class="label" data-id="7">Släpvagnsvikt</span>'),
+    ],
+)
+def test_dubblett_dar_etiketten_bar_annan_markup_kastar(beskrivning, forsta_etiketten):
+    """ÖPPEN SÄNDVÄGSDEFEKT 1 ur skiva 21, stängd i skiva 22.
+
+    Sidan bär `Släpvagnsvikt` TVÅ gånger, 2400 kg först och 750 kg sedan. Bar
+    den ena förekomsten ett extra klassord, nästlad markup runt namnet, eller
+    ett annat element än `span`, såg den gamla räknaren en enda förekomst.
+    Tvetydigheten tände aldrig och **750 gick ut där 2400 var rätt**, alltså
+    den obromsade vikten UNDER tröskeln där den bromsade ligger över.
+
+    Uppmätt i skiva 21 hela vägen genom `slag_upp`, inte resonerat fram.
+
+    Parsern räknar etiketten som en NOD, så elementnamnet och de övriga
+    klassorden spelar ingen roll. Riktningen är prövad per form, och
+    beskrivningen bärs som parameter så att ett rött utfall namnger VILKEN.
+    """
+    sidan = sida(
+        rader=(
+            rad("Tjänstevikt", "2140 kg")
+            + rad("Draganordning", "Nej")
+            + forsta_etiketten
+            + '\n<span class="value">2400 kg</span>\n'
+            + rad("Släpvagnsvikt", "750 kg")
+        )
+    )
+
+    with pytest.raises(Hamtningsfel) as fel:
+        fordonsuppslag.slag_upp(
+            REGNR, hamta=biluppgifter_hamtning(oppna=svarar(sidan))
+        )
+
+    assert "förekommer 2 gånger" in str(fel.value)
+
+
+def test_dubblerad_draganordning_kastar_i_stallet_for_att_valja():
+    """Samma defekt på det fält som avgör dragkroksbeskedet.
+
+    En sida som säger både `Ja` och `Nej` om draganordning har inte sagt något
+    vi kan skicka. Den gamla koden valde tyst den ena, och vilken avgjordes av
+    vilken av etiketterna som råkade bära markup.
+    """
+    sidan = sida(
+        rader=(
+            rad("Tjänstevikt", "2140 kg")
+            + rad("Släpvagnsvikt", "2400 kg")
+            + '<span class="label"><b>Draganordning</b></span>\n'
+              '<span class="value">Ja</span>\n'
+            + rad("Draganordning", "Nej")
+        )
+    )
+
+    with pytest.raises(Hamtningsfel) as fel:
+        fordonsuppslag.slag_upp(
+            REGNR, hamta=biluppgifter_hamtning(oppna=svarar(sidan))
+        )
+
+    assert "Draganordning" in str(fel.value)
+
+
+@pytest.mark.parametrize(
+    ("beskrivning", "oppna_tagg", "stang_tagg"),
+    [
+        ("HTML-kommentar", "<!--", "-->"),
+        ("template-element", "<template>", "</template>"),
+        ("script-element", "<script>", "</script>"),
+        ("style-element", "<style>", "</style>"),
+    ],
+)
+def test_inaktivt_falt_lases_inte(beskrivning, oppna_tagg, stang_tagg):
+    """ÖPPEN SÄNDVÄGSDEFEKT 2 ur skiva 21, stängd i skiva 22.
+
+    Fältet är BORTTAGET ur sidan i briefens fall 5, men står kvar som text
+    inuti något som inte är sidans data. Den gamla koden läste HTML som en
+    sträng och svarade därför med det inaktiva värdet.
+
+    **En kommentar och ett `template` är inte noder i ett parsat träd.**
+    `HTMLParser` skickar kommentaren till `handle_comment` och aldrig till
+    `handle_data`, och `HOPPAS_OVER` hoppar över de tre elementen. Ingen av
+    dem kan alltså bidra med en etikett eller ett värde.
+
+    `script` och `style` är med av samma skäl: en etikett i en JSON-sträng
+    inuti ett `script` är text för maskinen och inte ett fält på sidan.
+    """
+    sidan = sida(
+        rader=(
+            rad("Tjänstevikt", "2140 kg")
+            + rad("Draganordning", "Nej")
+            + oppna_tagg
+            + "\n"
+            + rad("Släpvagnsvikt", "750 kg")
+            + stang_tagg
+            + "\n"
+        )
+    )
+
+    assert utfallet_av(sidan) == "svaret saknar slapvagnsvikt_kg"
+
+
+def test_etikett_och_varde_maste_vara_syskon():
+    """Parsningen fick INTE bli lösare än regexen på avståndet.
+
+    Den gamla regexen krävde att värdespannen följde direkt efter
+    etikettspannen. En parser som bara letar `nästa värdenod` hade släppt det
+    kravet helt, och då kunde en etikett utan värde paras ihop med ett värde
+    utan etikett längre ned i dokumentet.
+
+    Här ligger etiketten ensam i ett block som stängs, och värdet i ett annat.
+    Paret vore en gissning, och fältet ska därför utelämnas. Testet finns
+    eftersom risken infördes av ombyggnaden och inte av källan.
+    """
+    sidan = sida(
+        rader=(
+            rad("Tjänstevikt", "2140 kg")
+            + rad("Draganordning", "Nej")
+            + '<div><span class="label">Släpvagnsvikt</span></div>\n'
+            + '<div><span class="value">750 kg</span></div>\n'
+        )
+    )
+
+    assert utfallet_av(sidan) == "svaret saknar slapvagnsvikt_kg"
+
+
+def test_varde_pa_annan_niva_paras_inte_med_etiketten():
+    """Andra lagret i syskonvillkoret, och det behövde ett eget test.
+
+    Här stängs ingen förälder mellan etiketten och värdet: båda ligger under
+    `<body>`, men värdet ett steg djupare. Föräldrastängningen fångar det
+    därför inte, och utan nivåjämförelsen hade paret bildats.
+
+    **§7.1-prövningen fann att villkoret var OBUNDET.** Fällningen av
+    `self._niva == self._vantar_niva` gav GRÖN, eftersom
+    `test_etikett_och_varde_maste_vara_syskon` täcks av föräldrastängningen.
+    Ett villkor som inget test kan fälla ser ut som försiktighet utan att vara
+    det. Det här testet gör det äkta i stället för att villkoret tas bort:
+    risken det vaktar är verklig, nämligen en etikett och ett värde som ligger
+    långt isär under en gemensam förälder som aldrig stänger emellan.
+
+    Värdet på sidan är den obromsade 750 kg, alltså UNDER tröskeln där den
+    rätta ligger över. Riktningen är den farliga.
+    """
+    sidan = sida(
+        rader=(
+            rad("Tjänstevikt", "2140 kg")
+            + rad("Draganordning", "Nej")
+            + '<span class="label">Släpvagnsvikt</span>\n'
+            + '<div><span class="value">750 kg</span></div>\n'
+        )
+    )
+
+    assert utfallet_av(sidan) == "svaret saknar slapvagnsvikt_kg"
+
+
+def test_etikett_utan_varde_i_samma_block_lases_anda():
+    """Nollfallet till syskonvillkoret: något emellan får inte fälla.
+
+    Villkoret är att etikett och värde ligger på samma nivå under samma
+    förälder, INTE att de står omedelbart efter varandra. En ikon eller en rad
+    markup mellan dem är en rimlig omdesign och ska inte göra fältet borta.
+    """
+    sidan = sida_med(
+        slapvagnsvikt=None,
+        extra=(
+            '<span class="label">Släpvagnsvikt</span>\n'
+            '<i class="ikon"></i><span class="hjalp">?</span>\n'
+            '<span class="value">2400 kg</span>\n'
+        ),
+    )
+
+    hamta = biluppgifter_hamtning(oppna=svarar(sidan))
+    assert fordonsuppslag.slag_upp(REGNR, hamta=hamta).slapvagnsvikt_kg == 2400
+
+
+# --- skiva 22 DEL B: ankaret prövar hela URL:en och kastar på tvetydighet ----
+
+
+def test_tva_canonical_ankare_kastar():
+    """Lager 3 beter sig nu som lager 2 i samma läge.
+
+    Den gamla koden tog `re.search`, alltså FÖRSTA träffen. En sida med vårt
+    fordon först och ett annat sedan gav därför ett uppslag, uppmätt i
+    skiva 21. Tvetydigheten var reell och besvarades med en gissning.
+
+    Ordningen prövas i båda riktningar, eftersom det var just ordningsberoendet
+    som gjorde defekten osynlig: med det andra fordonet först föll den redan.
+    """
+    ankare = (
+        '<link rel="canonical" href="https://biluppgifter.se/fordon/abc12x/"/>'
+        '<link rel="canonical" href="https://biluppgifter.se/fordon/xyz99z/"/>'
+    )
+
+    with pytest.raises(Hamtningsfel) as fel:
+        _galler_fordonet(ankare, REGNR)
+
+    assert "2 canonical-ankare" in str(fel.value)
+
+
+def test_tva_ankare_kastar_aven_i_omvand_ordning():
+    """Samma sida, andra ordningen. Utfallet får inte bero på den."""
+    ankare = (
+        '<link rel="canonical" href="https://biluppgifter.se/fordon/xyz99z/"/>'
+        '<link rel="canonical" href="https://biluppgifter.se/fordon/abc12x/"/>'
+    )
+
+    with pytest.raises(Hamtningsfel):
+        _galler_fordonet(ankare, REGNR)
+
+
+def test_ankaret_i_kommentar_raknas_inte():
+    """Ett ankare som ligger i en kommentar är inte sidans ankare.
+
+    Nollfallet till tvetydighetskontrollen: utan det hade en bortkommenterad
+    rad kunnat göra varje sida tvetydig och stängt av uppslaget helt.
+    """
+    sidan = sida_med()
+    med_kommentar = sidan.replace(
+        "<body>",
+        '<body><!--<link rel="canonical" href="https://biluppgifter.se/fordon/xyz99z/"/>-->',
+    )
+
+    assert _galler_fordonet(med_kommentar, REGNR) is True
+
+
+def test_ratt_ankare_slar_fortfarande_igenom():
+    """Nollfallet till hela DEL B: den avlästa sidans ankare ska gälla."""
+    assert _galler_fordonet(SIDA_AVLAST, REGNR) is True
+
+
+# --- skiva 22 DEL C: rimlighetskontrollen, lucka 5 --------------------------
+
+
+@pytest.mark.parametrize(
+    ("varde", "tal"),
+    [
+        ("10000 kg", 10000),
+        ("99999 kg", 99999),
+        ("7502400 kg", 7502400),
+        ("0 kg", 0),
+    ],
+)
+def test_orimlig_vikt_kastar(varde, tal):
+    """Ett värde utanför intervallet är en FEL LÄSNING, inte ett fordon.
+
+    Beslut av Lars, `docs/beslutslogg.md` #32. Talet 7502400 är det defekten i
+    skiva 21 faktiskt producerade, ur `750 2400 kg`. `_tal` är skärpt så att
+    just den hopklistringen inte längre går, men kontrollen står oberoende av
+    mönstrets form: nästa avläsningsfel behöver inte se ut som det förra.
+
+    Gränserna och deras härkomst står i `_krav_pa_rimlighet`. Den övre är
+    SIFFERGRÄNSEN, fyra siffror, och inte en kalibrerad personbilsgräns.
+    """
+    with pytest.raises(Hamtningsfel) as fel:
+        fordonsuppslag.slag_upp(
+            REGNR,
+            hamta=biluppgifter_hamtning(
+                oppna=svarar(sida_med(slapvagnsvikt=varde))
+            ),
+        )
+
+    assert str(tal) in str(fel.value)
+
+
+@pytest.mark.parametrize("varde", ["1 kg", "9999 kg", "2400 kg"])
+def test_vikt_i_intervallet_lases(varde):
+    """Gränsvärdena. `1` och `9999` är intervallets ändpunkter och ska LÄSAS.
+
+    Utan det här testet hade kontrollen kunnat skärpas till att fälla sina egna
+    ändpunkter utan att någon rad blev röd.
+    """
+    hamta = biluppgifter_hamtning(oppna=svarar(sida_med(slapvagnsvikt=varde)))
+    assert fordonsuppslag.slag_upp(REGNR, hamta=hamta).slapvagnsvikt_kg == int(
+        varde.split()[0]
+    )
+
+
+def test_orimlig_tjanstevikt_kastar_ocksa():
+    """Kontrollen gäller BÅDA vikterna, inte bara den som bar defekten."""
+    with pytest.raises(Hamtningsfel) as fel:
+        fordonsuppslag.slag_upp(
+            REGNR,
+            hamta=biluppgifter_hamtning(
+                oppna=svarar(sida_med(tjanstevikt="12000 kg"))
+            ),
+        )
+
+    assert "tjanstevikt_kg" in str(fel.value)
+
+
+def test_fotnot_i_etiketten_ger_saknat_falt():
+    """KÄND LUCKA 7, prövad i sin realistiska form och inte hypotetisk.
+
+    Lägger källan en fotnot inuti etikettnoden blir nodens text
+    `Släpvagnsvikt1`, alltså en annan sträng. Fältet UTELÄMNAS då, vilket är
+    rätt riktning: en omdöpning ska falla.
+
+    **Det som INTE är stängt** är sidan som bär BÅDE den fotnotade och en
+    oförändrad `Släpvagnsvikt`. Då räknas bara den oförändrade, tvetydigheten
+    tänder inte, och dess värde går ut. Uppmätt i skiva 22.
+
+    Luckan är namngiven och inte stängd, och skälet är mätt: en räknare som
+    matchar på PREFIX hade fångat den, men samma räknare ger TVÅ träffar på den
+    avlästa sidan, eftersom `Släpvagnsvikt obromsad` också inleds med
+    `Släpvagnsvikt`. Den hade alltså kastat på varje verkligt svar, och ett
+    larm som alltid går blir avstängt. Se `docs/sparrar.md`.
+    """
+    sidan = sida_med(
+        slapvagnsvikt=None,
+        extra=(
+            '<span class="label">Släpvagnsvikt<sup>1</sup></span>\n'
+            '<span class="value">2400 kg</span>\n'
+        ),
+    )
+
+    assert utfallet_av(sidan) == "svaret saknar slapvagnsvikt_kg"
+
+
+def test_prefixraknare_hade_larmat_pa_den_avlasta_sidan():
+    """Belägget för att lucka 7 inte går att stänga med en prefixräknare.
+
+    Testet mäter påståendet i stället för att låta det stå som ett resonemang i
+    en docstring. Går det någon gång att stänga luckan ska DEN HÄR raden bli
+    röd först, och då är påståendet omprövat i stället för ärvt.
+    """
+    etiketter = _lasaren(SIDA_AVLAST).etiketter
+    inleds_med = [e for e in etiketter if e.startswith("Släpvagnsvikt")]
+
+    assert inleds_med == ["Släpvagnsvikt", "Släpvagnsvikt obromsad"]
+
+
+# --- de fyra sändvägsdefekter granskningen av skiva 22 hittade ---------------
+#
+# TRE AV FYRA INFÖRDES AV OMBYGGNADEN SJÄLV, och det ska stå här. Parsern
+# stängde de defekter regexen bar, och öppnade tre nya i sin tillståndshantering.
+# En omskrivning som byter metod byter också vilka fel som är möjliga, och den
+# nya uppsättningen är inte mindre farlig bara för att den är ny.
+
+
+@pytest.mark.parametrize("skrap", ["</br>", "</li>", "</img>", "</div></div>"])
+def test_ensam_sluttagg_avslutar_inte_overhoppningen(skrap):
+    """SÄNDVÄGSDEFEKT: `</br>` inuti `<template>` läckte resten av mallen.
+
+    Överhoppningen räknade ett TAL som minskade för varje sluttagg, medan
+    starttaggar för tomma element inte ökade det. En ensam sluttagg inuti
+    mallen tog talet till noll medan parsern fortfarande stod inne i den, och
+    resten lästes som sidans data. Uppmätt: 750 kg ut, alltså den obromsade
+    vikten under tröskeln där den bromsade ligger över.
+
+    **Det återöppnade skiva 21:s defekt 2 i ny form**, och det är skälet att
+    överhoppningen nu följer TAGGNAMNET i stället för ett tal.
+
+    `</li>` är inget kantfall: en mall som bär ett listobjekt ser ut precis så.
+    """
+    sidan = sida(
+        rader=(
+            rad("Tjänstevikt", "2140 kg")
+            + rad("Draganordning", "Nej")
+            + "<template>\n"
+            + skrap
+            + rad("Släpvagnsvikt", "750 kg")
+            + "</template>\n"
+        )
+    )
+
+    assert utfallet_av(sidan) == "svaret saknar slapvagnsvikt_kg"
+
+
+def test_faltet_i_noscript_lases_inte():
+    """SÄNDVÄGSDEFEKT: `noscript` stod inte i `HOPPAS_OVER`.
+
+    Innehållet visas bara för en läsare utan skript, alltså är det en
+    ALTERNATIV rendering och inte sidans data. Uppmätt före rättelsen: 750 kg
+    ut. Riktningen efter rättelsen är den säkra: ett fält som BARA står i ett
+    `noscript` ger utkast.
+    """
+    sidan = sida(
+        rader=(
+            rad("Tjänstevikt", "2140 kg")
+            + rad("Draganordning", "Nej")
+            + "<noscript>\n"
+            + rad("Släpvagnsvikt", "750 kg")
+            + "</noscript>\n"
+        )
+    )
+
+    assert utfallet_av(sidan) == "svaret saknar slapvagnsvikt_kg"
+
+
+@pytest.mark.parametrize("klass", ["Label", "LABEL", "lAbEl"])
+def test_dubblett_med_annat_skiftlage_i_klassvardet_kastar(klass):
+    """SÄNDVÄGSDEFEKT: klassVÄRDET normaliserades inte, bara attributNAMNET.
+
+    Låg etiketten två gånger och den ena bar `class="Label"` såg räknaren en
+    enda förekomst, tvetydigheten tände aldrig, och det andra parets 750 kg gick
+    ut där 2400 var rätt. Samma versalfälla som `docs/beslutslogg.md` #28
+    beskriver i en annan modul, i en fjärde form av defekt 1.
+    """
+    sidan = sida(
+        rader=(
+            rad("Tjänstevikt", "2140 kg")
+            + rad("Draganordning", "Nej")
+            + f'<span class="{klass}">Släpvagnsvikt</span>\n'
+              '<span class="value">2400 kg</span>\n'
+            + rad("Släpvagnsvikt", "750 kg")
+        )
+    )
+
+    with pytest.raises(Hamtningsfel) as fel:
+        fordonsuppslag.slag_upp(
+            REGNR, hamta=biluppgifter_hamtning(oppna=svarar(sidan))
+        )
+
+    assert "förekommer 2 gånger" in str(fel.value)
+
+
+@pytest.mark.parametrize("ostangd", ["i", "b", "span", "em", "li"])
+def test_ostangd_tagg_i_foraldern_paras_inte_med_senare_varde(ostangd):
+    """SÄNDVÄGSDEFEKT: föräldern jämfördes på NIVÅTAL och inte på identitet.
+
+    En ostängd inline-tagg inuti etikettens förälder blåste upp nivån, så
+    föräldrastängningen slog aldrig till, och etiketten parades med ett värde ur
+    ett SENARE block. Uppmätt för fem taggnamn, alla med 750 kg ut.
+
+    **Risken infördes av ombyggnaden**, inte av källan: den gamla regexen krävde
+    att värdet följde direkt efter etiketten. Villkoret som ersatte det kravet
+    måste därför tåla felformad HTML, och ett nivåtal gör inte det.
+    """
+    sidan = sida(
+        rader=(
+            rad("Tjänstevikt", "2140 kg")
+            + rad("Draganordning", "Nej")
+            + f'<div><span class="label">Släpvagnsvikt</span><{ostangd}></div>\n'
+            + '<span class="value">750 kg</span>\n'
+        )
+    )
+
+    assert utfallet_av(sidan) == "svaret saknar slapvagnsvikt_kg"
+
+
+def test_sluttagg_utan_starttagg_stanger_ingenting():
+    """Nollfallet till stackens namnsökning: en vilsen sluttagg får inte fälla.
+
+    Sidan är i övrigt oförändrad. Hittas ingen öppen tagg med samma namn ska
+    sluttaggen IGNORERAS, inte stänga det översta elementet på måfå. Utan det
+    hade en enda felformad rad kunnat göra hela sidan oläsbar, vilket är samma
+    sorts spärr-som-alltid-fäller som Lars förbjöd i briefen.
+    """
+    sidan = sida_med(extra="</section>\n</article>\n")
+
+    hamta = biluppgifter_hamtning(oppna=svarar(sidan))
+    assert fordonsuppslag.slag_upp(REGNR, hamta=hamta).slapvagnsvikt_kg == 2400
+
+
+def test_overhoppningen_talar_nastlade_element_av_samma_namn():
+    """Ett `<template>` inuti ett `<template>` får inte avsluta för tidigt.
+
+    Djupräkningen finns kvar men följer namnet. Utan den hade den inre mallens
+    sluttagg avslutat överhoppningen och den yttre mallens återstod lästs.
+    """
+    sidan = sida(
+        rader=(
+            rad("Tjänstevikt", "2140 kg")
+            + rad("Draganordning", "Nej")
+            + "<template>\n<template>\n</template>\n"
+            + rad("Släpvagnsvikt", "750 kg")
+            + "</template>\n"
+        )
+    )
+
+    assert utfallet_av(sidan) == "svaret saknar slapvagnsvikt_kg"
+
+
+@pytest.mark.parametrize("element", ["template", "noscript", "script", "style"])
+def test_overhoppningen_tar_slut_och_falten_efter_lases(element):
+    """NOLLFALLET TILL ÖVERHOPPNINGEN, och utan det är den halva otestad.
+
+    Varje test som prövar `HOPPAS_OVER` gömmer ett fält INUTI elementet och
+    kräver utkast. Alla sådana förblir gröna även om överhoppningen aldrig tar
+    slut och resten av dokumentet tappas, för utfallet är detsamma.
+
+    **§7.1-PRÖVNINGEN FÄLLDE PRECIS DET.** Två villkor i `handle_endtag` och
+    `handle_starttag`, de som får djupräkningen att följa taggnamnet, gick att
+    fälla utan att en enda rad blev röd. Här ligger fältet EFTER elementet, så
+    ett läge som skippar för mycket blir rött.
+    """
+    sidan = sida(
+        rader=(
+            rad("Tjänstevikt", "2140 kg")
+            + rad("Draganordning", "Nej")
+            + f"<{element}>\ntrams</{element}>\n"
+            + rad("Släpvagnsvikt", "2400 kg")
+        )
+    )
+
+    hamta = biluppgifter_hamtning(oppna=svarar(sidan))
+    assert fordonsuppslag.slag_upp(REGNR, hamta=hamta).slapvagnsvikt_kg == 2400
+
+
+@pytest.mark.parametrize(
+    "innehall",
+    [
+        "<div>trams</div>",
+        "<p>trams",
+        '<span class="label">Släpvagnsvikt</span>',
+        "<br>trams",
+    ],
+)
+def test_overhoppningen_tar_slut_aven_nar_elementet_bar_markup(innehall):
+    """Djupräknaren får bara räkna element med SAMMA namn som det överhoppade.
+
+    Räknar den varje starttagg inuti mallen tar överhoppningen aldrig slut,
+    eftersom bara mallens egen sluttagg räknar ned. Resten av dokumentet tappas
+    då, och fältet efter blir borta.
+
+    **§7.1-PRÖVNINGEN FÄLLDE DET SEPARAT.** Nollfallet med enbart text förblev
+    grönt vid fällningen, eftersom en mall utan markup inuti aldrig får djupet
+    att växa. Det är samma sorts hål som §7.1 kallar vakuöst: testet fanns, men
+    ingen av dess parametrar kunde bli röd.
+
+    Den tredje parametern är avsiktligt en ETIKETT: hade den räknats hade sidan
+    dessutom sett tvetydig ut, alltså fel utfall av ett andra skäl.
+    """
+    sidan = sida(
+        rader=(
+            rad("Tjänstevikt", "2140 kg")
+            + rad("Draganordning", "Nej")
+            + f"<template>\n{innehall}</template>\n"
+            + rad("Släpvagnsvikt", "2400 kg")
+        )
+    )
+
+    hamta = biluppgifter_hamtning(oppna=svarar(sidan))
+    assert fordonsuppslag.slag_upp(REGNR, hamta=hamta).slapvagnsvikt_kg == 2400
+
+
+def test_nastlad_overhoppning_tar_slut_pa_ratt_stalle():
+    """Samma nollfall för den nästlade formen.
+
+    Den inre mallens sluttagg får varken avsluta överhoppningen för tidigt,
+    vilket `test_overhoppningen_talar_nastlade_element_av_samma_namn` vaktar,
+    eller lämna den öppen för alltid, vilket det här testet vaktar.
+    """
+    sidan = sida(
+        rader=(
+            rad("Tjänstevikt", "2140 kg")
+            + rad("Draganordning", "Nej")
+            + "<template>\n<template>\ntrams</template>\n</template>\n"
+            + rad("Släpvagnsvikt", "2400 kg")
+        )
+    )
+
+    hamta = biluppgifter_hamtning(oppna=svarar(sidan))
+    assert fordonsuppslag.slag_upp(REGNR, hamta=hamta).slapvagnsvikt_kg == 2400

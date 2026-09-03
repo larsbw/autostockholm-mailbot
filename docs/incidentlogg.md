@@ -622,6 +622,14 @@ Det är samma mekanik som CLAUDE.md §7:s varning om att en appendixpost överst
 skjuter ner varje radnummer under sig, och den slår hårdast när avläsning och
 användning ligger nära i tiden, eftersom man då litar på minnet av numret.
 
+**DET HÄR HAR HÄNT FÖRE, OCH POSTEN SKA INTE LÅTSAS ATT DEN ÄR FÖRST.**
+`docs/sparrar.md` bär sedan tidigare stycket `EN FÄLLNING PÅ EN TOM RAD GER
+FALSKT GRÖNT`, om en prövning av lager 3:s förval som riktades en rad fel, mot
+den tomma raden efter en `return`. Fällningen blev död kod och skriptet svarade
+`GRÖN`. **Att felet återkom trots att det redan var utskrivet i spärrposten är
+skälet till att det får en egen incidentpost**: en anteckning inuti en spärrpost
+läses av den som slår upp den spärren, inte av den som ska göra nästa fällning.
+
 **Rutan överst i `docs/sparrar.md` varnade med rätta.** Den skrevs efter att en
 granskning körde ett dokumenterat kommando ordagrant, träffade fem
 docstringrader och fick GRÖN. Det här är samma fel i en andra form: där var
