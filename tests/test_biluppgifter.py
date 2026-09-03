@@ -1047,8 +1047,8 @@ def test_dubblett_dar_ett_varde_bar_markup_kastar_anda(
 @pytest.mark.parametrize(
     "varde", ["750 2400 kg", "1 2 0 0 kg", "24 00 kg", "2400 750 kg"]
 )
-def test_flera_tal_i_ett_varde_ger_none(varde):
-    """SÄNDVÄGSDEFEKT UR GRANSKNINGEN AV SKIVA 21, nu stängd.
+def test_flera_tal_i_ett_varde_kastar(varde):
+    """SÄNDVÄGSDEFEKT UR GRANSKNINGEN AV SKIVA 21, OCH SKIVA 23 BYTER UTFALLET.
 
     Mönstret var `([\\d\\s\\u00a0]+)kg`, som tillät blanktecken var som helst i
     gruppen medan `re.sub` sedan klistrade ihop allt som blev kvar. Ett värde
@@ -1057,8 +1057,91 @@ def test_flera_tal_i_ett_varde_ger_none(varde):
 
     Fallet är realistiskt: slår källan en dag ihop den bromsade och den
     obromsade vikten i en rad ser värdet ut precis så.
+
+    **HÄR STOD `assert _tal(varde) is None`, och testet hette
+    `test_flera_tal_i_ett_varde_ger_none`.** Skiva 22 stängde defekten genom att
+    utelämna fältet, vilket gav utkast. Lars beslut i skiva 23 är att det inte
+    räcker: ett fält som FANNS och lästes FEL får inte se ut som ett fält som
+    saknades. `None` betyder vi vet inte, och det är inte vad vi vet här.
     """
-    assert _tal(varde) is None
+    with pytest.raises(Hamtningsfel) as fel:
+        _tal(varde)
+
+    assert "felläsning" in str(fel.value)
+
+
+def test_hopklistrat_med_hart_blanksteg_kastar_ocksa():
+    """Samma sak när avskiljaren är hård, alltså i källans egen teckenform.
+
+    Numret byggs med `chr(160)` och inte med ett tecken i källtexten. Ett hårt
+    blanksteg går inte att skilja från ett vanligt när någon LÄSER filen, och
+    ett test vars indata inte går att läsa är ett test ingen kan underhålla.
+    Samma skäl som `docs/sparrar.md` anger för sina egna escaper.
+    """
+    with pytest.raises(Hamtningsfel):
+        _tal("750" + chr(160) + "2400 kg")
+
+
+def test_vardet_som_inte_ar_viktlikt_utelamnas_i_stallet_for_att_kasta():
+    """DEL A:S GRÄNS, och den viktigaste raden i skivan.
+
+    `Max 750 kg (Teoretisk)` bär siffror OCH enheten `kg` och ligger på sidans
+    `Släp totalvikt`-rader, alltså i verkligt bruk. Den är ändå inte en
+    felläsning utan ett fält vi inte kan tolka, och den ska därför ge `None`.
+
+    Utan den här raden hade kastgrenen kunnat vidgas till varje värde som
+    innehåller en siffra och bokstäverna `kg`, och då hade två av sidans egna
+    rader tagit hela uppslaget med sig.
+    """
+    assert _tal("Max 750 kg (Teoretisk)") is None
+    assert _tal("ca 1200 kg") is None
+    assert _tal("1200 lbs") is None
+
+
+def test_saknat_falt_ger_utkast_och_fellast_falt_kastar():
+    """DEL A:S NEGATIVKONTROLL, båda riktningarna mätta i samma test.
+
+    Poängen med skivan är SKILLNADEN mellan de två, och den syns bara när båda
+    körs hela vägen genom `slag_upp`. Ett test som bara mätte kastet hade varit
+    grönt även om allt annat också började kasta.
+    """
+    saknat = sida_med(slapvagnsvikt=None)
+    assert utfallet_av(saknat) == "svaret saknar slapvagnsvikt_kg"
+
+    fellast = sida_med(slapvagnsvikt="750 2400 kg")
+    with pytest.raises(Hamtningsfel) as fel:
+        fordonsuppslag.slag_upp(
+            REGNR, hamta=biluppgifter_hamtning(oppna=svarar(fellast))
+        )
+
+    assert "felläsning" in str(fel.value)
+    assert "750 2400 kg" in str(fel.value)
+
+
+def test_kand_lucka_hopklistring_under_gransen_ser_ut_som_tusengruppering():
+    """KÄND LUCKA 9, registrerad i `docs/sparrar.md` och inte stängd.
+
+    Två hopklistrade tal som landar under den övre rimlighetsgränsen går inte
+    att skilja från en tusengruppering: `1 200 kg` och `750 400 kg` har exakt
+    samma form. Mönstret läser båda som ETT tal, och det är riktigt för det
+    första.
+
+    **Skyddet ligger alltså i intervallet och inte i formen.** Det är en gräns
+    och inget bevis: hade produkten hamnat under 9999 hade den passerat. Testet
+    mäter påståendet i stället för att låta det stå som ett resonemang, och blir
+    rött den dag någon tror sig ha stängt luckan i `_tal`.
+    """
+    assert _tal("750 400 kg") == 750400
+
+    with pytest.raises(Hamtningsfel) as fel:
+        fordonsuppslag.slag_upp(
+            REGNR,
+            hamta=biluppgifter_hamtning(
+                oppna=svarar(sida_med(slapvagnsvikt="750 400 kg"))
+            ),
+        )
+
+    assert "utanför" in str(fel.value)
 
 
 @pytest.mark.parametrize(
@@ -1120,6 +1203,8 @@ def test_bara_den_obromsade_raden_kvar_faller_till_utkast():
         ("relativt ankare utan domän", "/fordon/abc12x/"),
         ("okrypterat schema", "http://biluppgifter.se/fordon/abc12x/"),
         ("numret bara som suffix", "https://biluppgifter.se/fordon/xabc12x/"),
+        ("www på en annan domän", "https://www.exempel.invalid/fordon/abc12x/"),
+        ("värdnamn som bara börjar likadant", "https://wwwbiluppgifter.se/fordon/abc12x/"),
     ],
 )
 def test_ankaret_provar_hela_urlen(beskrivning, url):
@@ -1141,6 +1226,28 @@ def test_ankaret_provar_hela_urlen(beskrivning, url):
     som slutade falla.
     """
     assert _galler_fordonet(f'<link rel="canonical" href="{url}"/>', REGNR) is False
+
+
+@pytest.mark.parametrize(
+    ("beskrivning", "url"),
+    [
+        ("www på rätt domän", "https://www.biluppgifter.se/fordon/abc12x/"),
+        ("versalt www", "https://WWW.BILUPPGIFTER.SE/fordon/ABC12X/"),
+    ],
+)
+def test_www_ar_samma_vard(beskrivning, url):
+    """DEL C I SKIVA 23: en strikthet vars fel inte gick att se.
+
+    Skiva 22 avvisade `www.biluppgifter.se`. Riktningen var säker, men följden
+    var att en dag då källan börjar skriva `www` i sin canonical faller VARJE
+    uppslag till utkast, utan larm och utan rött test. Boten slutar fungera och
+    ingen märker det.
+
+    Lars beslut är att `www` godtas som samma värd.
+    `test_ankaret_provar_hela_urlen` bär motsatsen och står kvar oförändrad i
+    sitt påstående: varje ANNAN domän avvisas fortfarande, `www` eller inte.
+    """
+    assert _galler_fordonet(f'<link rel="canonical" href="{url}"/>', REGNR) is True
 
 
 @pytest.mark.parametrize(
@@ -1380,7 +1487,7 @@ def test_varde_pa_annan_niva_paras_inte_med_etiketten():
     därför inte, och utan nivåjämförelsen hade paret bildats.
 
     **§7.1-prövningen fann att villkoret var OBUNDET.** Fällningen av
-    `self._niva == self._vantar_niva` gav GRÖN, eftersom
+    `foralder == self._vantar_foralder` gav GRÖN, eftersom
     `test_etikett_och_varde_maste_vara_syskon` täcks av föräldrastängningen.
     Ett villkor som inget test kan fälla ser ut som försiktighet utan att vara
     det. Det här testet gör det äkta i stället för att villkoret tas bort:
@@ -1537,32 +1644,188 @@ def test_orimlig_tjanstevikt_kastar_ocksa():
     assert "tjanstevikt_kg" in str(fel.value)
 
 
-def test_fotnot_i_etiketten_ger_saknat_falt():
-    """KÄND LUCKA 7, prövad i sin realistiska form och inte hypotetisk.
+@pytest.mark.parametrize("element", ["sup", "small"])
+def test_fotnot_i_etiketten_lases_som_samma_etikett(element):
+    """LUCKA 7 ÄR STÄNGD I SKIVA 23, och det här testet är VÄNT.
 
-    Lägger källan en fotnot inuti etikettnoden blir nodens text
-    `Släpvagnsvikt1`, alltså en annan sträng. Fältet UTELÄMNAS då, vilket är
-    rätt riktning: en omdöpning ska falla.
+    Här stod `test_fotnot_i_etiketten_ger_saknat_falt`, som fäste att en fotnot
+    gjorde nodens text `Släpvagnsvikt1` och därmed fältet borta. Det utfallet var
+    rätt riktning men fel egenskap: det var samma okänslighet som gjorde att en
+    sida med BÅDE den fotnotade och en oförändrad `Släpvagnsvikt` räknade en enda
+    förekomst, lät tvetydigheten tystna, och släppte ut det andra parets värde.
 
-    **Det som INTE är stängt** är sidan som bär BÅDE den fotnotade och en
-    oförändrad `Släpvagnsvikt`. Då räknas bara den oförändrade, tvetydigheten
-    tänder inte, och dess värde går ut. Uppmätt i skiva 22.
-
-    Luckan är namngiven och inte stängd, och skälet är mätt: en räknare som
-    matchar på PREFIX hade fångat den, men samma räknare ger TVÅ träffar på den
-    avlästa sidan, eftersom `Släpvagnsvikt obromsad` också inleds med
-    `Släpvagnsvikt`. Den hade alltså kastat på varje verkligt svar, och ett
-    larm som alltid går blir avstängt. Se `docs/sparrar.md`.
+    Lars beslut är att uteslutningen sker strukturellt, i `FOTNOTSELEMENT`.
+    Etiketten med fotnot är därmed SAMMA etikett som utan, och fältet läses.
     """
     sidan = sida_med(
         slapvagnsvikt=None,
         extra=(
-            '<span class="label">Släpvagnsvikt<sup>1</sup></span>\n'
+            f'<span class="label">Släpvagnsvikt<{element}>1</{element}></span>\n'
             '<span class="value">2400 kg</span>\n'
         ),
     )
 
+    hamta = biluppgifter_hamtning(oppna=svarar(sidan))
+    assert fordonsuppslag.slag_upp(REGNR, hamta=hamta).slapvagnsvikt_kg == 2400
+
+
+@pytest.mark.parametrize("element", ["sup", "small"])
+def test_dubblett_dar_ena_etiketten_bar_fotnot_kastar(element):
+    """DEN ELFTE FORMEN AV DEFEKT 1, och den enda som stod öppen efter skiva 22.
+
+    Sidan bär `Släpvagnsvikt` två gånger, 2400 kg i den fotnotade och 750 kg i
+    den rena. Räknades bara den rena gick **750 ut där 2400 var rätt**, alltså
+    den obromsade vikten UNDER tröskeln där den bromsade ligger över. Uppmätt i
+    skiva 22 hela vägen genom `slag_upp`.
+
+    Med fotnoten utesluten ur etikettens text är de två samma nod-text, och
+    lager 2 räknar två.
+    """
+    sidan = sida(
+        rader=(
+            rad("Tjänstevikt", "2140 kg")
+            + f'<li><span class="label">Släpvagnsvikt<{element}>1</{element}></span>\n'
+            '<span class="value">2400 kg</span></li>\n'
+            + rad("Släpvagnsvikt", "750 kg")
+            + rad("Draganordning", "Nej")
+        )
+    )
+
+    with pytest.raises(Hamtningsfel) as fel:
+        fordonsuppslag.slag_upp(
+            REGNR, hamta=biluppgifter_hamtning(oppna=svarar(sidan))
+        )
+
+    assert "tvetydigt" in str(fel.value)
+
+
+def test_fotnoten_gor_inte_obromsad_till_samma_etikett():
+    """GRÄNSEN FÖR DEL B, och skälet till att uteslutningen är säker.
+
+    Kravet på lösningen var att `Släpvagnsvikt` med fotnot blir samma etikett som
+    utan, MEDAN `Släpvagnsvikt obromsad` förblir en annan. Uteslutningen tar bort
+    fotnotens text, aldrig etikettens egen, så den andra raden är oförändrad.
+
+    Vore den inte det hade den obromsade vikten kunnat läsas som den bromsade,
+    vilket är precis den defekt `EXAKT_ETIKETT` finns för att stoppa.
+    """
+    sidan = sida(
+        rader=(
+            rad("Tjänstevikt", "2140 kg")
+            + '<li><span class="label">Släpvagnsvikt obromsad<sup>1</sup></span>\n'
+            '<span class="value">750 kg</span></li>\n'
+            + rad("Draganordning", "Nej")
+        )
+    )
+
     assert utfallet_av(sidan) == "svaret saknar slapvagnsvikt_kg"
+
+
+@pytest.mark.parametrize("element", ["sup", "small"])
+def test_ord_i_fotnotselementet_ar_en_del_av_namnet(element):
+    """SÄNDVÄGSDEFEKT UR GRANSKNINGEN AV SKIVA 23, nu stängd.
+
+    Den första uteslutningen tog bort ALLT innehåll i ett `sup` eller `small`.
+    Skriver källan `Släpvagnsvikt<small> obromsad</small>` blev nodens text då
+    `Släpvagnsvikt`, och modulen svarade med den OBROMSADE vikten som om den vore
+    den bromsade: **750 kg under tröskeln där 2400 kg är rätt.** Uppmätt hela
+    vägen genom `slag_upp`.
+
+    Markupen är inte konstruerad. Modulens egen kommentar säger att `small` bär
+    en upplysning i småstil, och `obromsad` ÄR en upplysning i småstil.
+
+    Ett fotnotselement som bär en BOKSTAV är ett ord, och ett ord i etikettnoden
+    hör till fältets namn. Texten behålls, etiketten blir en annan sträng, och
+    fältet faller till utkast.
+    """
+    sidan = sida(
+        rader=(
+            rad("Tjänstevikt", "2140 kg")
+            + f'<li><span class="label">Släpvagnsvikt<{element}> obromsad</{element}>'
+            '</span>\n<span class="value">750 kg</span></li>\n'
+            + rad("Draganordning", "Nej")
+        )
+    )
+
+    assert utfallet_av(sidan) == "svaret saknar slapvagnsvikt_kg"
+
+
+@pytest.mark.parametrize("element", ["sup", "small"])
+def test_hela_namnet_i_ett_fotnotselement_gor_inte_etiketten_osynlig(element):
+    """ANDRA SÄNDVÄGSDEFEKTEN UR GRANSKNINGEN AV SKIVA 23, nu stängd.
+
+    Står hela etikettnamnet inuti fotnotselementet blev nodens text TOM med den
+    första uteslutningen. Räknaren såg då en enda förekomst av `Släpvagnsvikt`,
+    tvetydigheten tände aldrig, och det andra parets 750 kg gick ut.
+
+    **Det är lucka 7 själv, återöppnad av sin egen rättelse**, och den fällde en
+    sida som skiva 22 kastade på.
+    """
+    sidan = sida(
+        rader=(
+            rad("Tjänstevikt", "2140 kg")
+            + f'<li><span class="label"><{element}>Släpvagnsvikt</{element}></span>\n'
+            '<span class="value">2400 kg</span></li>\n'
+            + rad("Släpvagnsvikt", "750 kg")
+            + rad("Draganordning", "Nej")
+        )
+    )
+
+    with pytest.raises(Hamtningsfel) as fel:
+        fordonsuppslag.slag_upp(
+            REGNR, hamta=biluppgifter_hamtning(oppna=svarar(sidan))
+        )
+
+    assert "tvetydigt" in str(fel.value)
+
+
+@pytest.mark.parametrize("markor", ["1", "*", "†", "2)"])
+def test_markorer_utan_bokstav_utesluts(markor):
+    """GRÄNSEN ÅT ANDRA HÅLLET: vad som FAKTISKT räknas som en markör.
+
+    Siffra, asterisk, kors och en siffra med parentes bär ingen bokstav och är
+    därför markörer. Utan den här raden hade villkoret kunnat skärpas till att
+    bara godta en ensam siffra utan att någon rad blev röd.
+    """
+    sidan = sida_med(
+        slapvagnsvikt=None,
+        extra=(
+            f'<span class="label">Släpvagnsvikt<sup>{markor}</sup></span>\n'
+            '<span class="value">2400 kg</span>\n'
+        ),
+    )
+
+    hamta = biluppgifter_hamtning(oppna=svarar(sidan))
+    assert fordonsuppslag.slag_upp(REGNR, hamta=hamta).slapvagnsvikt_kg == 2400
+
+
+def test_fotnotselement_i_ett_VARDE_ror_inte_talet():
+    """Uteslutningen gäller etiketten och ALDRIG värdet.
+
+    Ett värde är ett tal vi skickar vidare, och att tyst plocka bort tecken ur
+    det vore att ändra talet.
+
+    **MARKÖREN I VÄRDET SAKNAR BOKSTÄVER, OCH DET ÄR HELA POÄNGEN.** Här stod
+    `2400 <small>kg</small>`, alltså en `small` som bär bokstäver. Med den
+    fixturen var testet INKONKLUSIVT: fälls raden som skiljer värdevägen från
+    etikettvägen behåller `_behall` ändå texten, eftersom den bär bokstäver, och
+    sviten förblir grön. Uppmätt av granskningen av skiva 23.
+
+    Med `2<small>400</small> kg` fäller samma fällning testet, eftersom `400`
+    skulle uteslutas som markör om värdet läste etikettens regel. Talet blir då
+    2 i stället för 2400, och 2 passerar dessutom rimlighetskontrollen, alltså
+    är det precis ett tyst fel som når ett mail.
+    """
+    sidan = sida_med(
+        slapvagnsvikt=None,
+        extra=(
+            '<span class="label">Släpvagnsvikt</span>\n'
+            '<span class="value">2<small>400</small> kg</span>\n'
+        ),
+    )
+
+    hamta = biluppgifter_hamtning(oppna=svarar(sidan))
+    assert fordonsuppslag.slag_upp(REGNR, hamta=hamta).slapvagnsvikt_kg == 2400
 
 
 def test_prefixraknare_hade_larmat_pa_den_avlasta_sidan():

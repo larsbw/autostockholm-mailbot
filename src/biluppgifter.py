@@ -163,6 +163,31 @@ TOMMA_TAGGAR = frozenset(
     }
 )
 
+# FOTNOTSELEMENT UTESLUTS UR ETIKETTENS TEXT. Beslut av Lars, skiva 23, som
+# stänger lucka 7 strukturellt.
+#
+# **VAD LUCKAN VAR.** Skrev källan `<span class="label">Släpvagnsvikt<sup>1</sup>`
+# blev nodens text `Släpvagnsvikt1`, alltså en annan sträng. Bar sidan BÅDE den
+# fotnotade och en oförändrad `Släpvagnsvikt` räknades bara den senare,
+# tvetydigheten tände aldrig, och dess värde gick ut. Uppmätt i skiva 22.
+#
+# **VARFÖR INTE PREFIX.** En räknare som matchar på prefix hade fångat fallet och
+# samtidigt kastat på varje verkligt svar, eftersom `Släpvagnsvikt obromsad`
+# inleds likadant. `test_prefixraknare_hade_larmat_pa_den_avlasta_sidan` mäter
+# det. Ett larm som alltid går blir avstängt.
+#
+# **MÄNGDEN ÄR INTE AVLÄST UR KÄLLAN, och det ska sägas rakt ut.** Fixturens åtta
+# avlästa värden bär ingen fotnot alls, så sidan visar inte vilket element den
+# skulle använda. `sup` och `small` är de konventionella bärarna av en
+# fotnotsmarkör och en upplysning i småstil. Byter källan till ett tredje element
+# står luckan öppen igen för just det elementet.
+#
+# **BARA ETIKETTEN, ALDRIG VÄRDET.** Ett värde är ett tal vi skickar vidare, och
+# att tyst plocka bort tecken ur det vore att ändra talet. Etiketten är en nyckel
+# vi jämför, och där är uteslutningen precis vad som gör två skrivningar av samma
+# fält till samma nyckel.
+FOTNOTSELEMENT = frozenset({"small", "sup"})
+
 # Klassnamnen som bär fältblocket. Sidan skriver `<span class="label">` följd av
 # `<span class="value">`, avläst 2026-09-02.
 KLASS_ETIKETT = "label"
@@ -187,6 +212,17 @@ def _klasser(attribut: list[tuple[str, str | None]]) -> set[str]:
         if namn.lower() == "class":
             return {ord_ for ord_ in (varde or "").lower().split()}
     return set()
+
+
+def _behall(serie: int | None, text: str) -> str:
+    """Textbiten som ska ingå i etikettens namn, eller tom sträng.
+
+    Text utanför varje fotnotselement behålls alltid. Text INUTI ett behålls om
+    den bär minst en bokstav, se `_Faltlasare._etikettext` om varför.
+    """
+    if serie is None:
+        return text
+    return text if any(tecken.isalpha() for tecken in text) else ""
 
 
 class _Faltlasare(HTMLParser):
@@ -239,7 +275,9 @@ class _Faltlasare(HTMLParser):
         self._stack: list[tuple[str, int, str | None]] = []
         self._serie = 0
         self._aktiv: int | None = None
-        self._text: list[str] = []
+        # Varje textbit med löpnumret för det fotnotselement den står i, eller
+        # `None`. Se `_etikettext`.
+        self._text: list[tuple[str, int | None]] = []
         self._vantar: str | None = None
         self._vantar_foralder: int | None = None
 
@@ -257,9 +295,13 @@ class _Faltlasare(HTMLParser):
 
     def _stang_faltet(self) -> None:
         """Avslutar det aktiva etikett- eller värdeelementet."""
-        text = "".join(self._text).strip()
         sort = self._stack[self._aktiv][2]
         foralder = self._foralder(self._aktiv)
+
+        if sort == KLASS_ETIKETT:
+            text = self._etikettext()
+        else:
+            text = "".join(data for data, _ in self._text).strip()
 
         if sort == KLASS_ETIKETT:
             self.etiketter.append(text)
@@ -351,10 +393,69 @@ class _Faltlasare(HTMLParser):
         # som försiktighet utan att kunna göra något är precis det §7.1 kallar
         # vakuöst, och då är valet att binda det eller ta bort det.
 
+    def _fotnot_serie(self) -> int | None:
+        """Löpnumret för närmaste öppna FOTNOTSELEMENT inuti det aktiva fältet.
+
+        Stacken läses från elementet ovanför det aktiva, alltså räknas fältets
+        egen tagg aldrig med: en etikett som SJÄLV står i ett `<small>` är
+        fortfarande en etikett, och dess text är fältets namn och ingen fotnot.
+        """
+        for tagg, serie, _ in reversed(self._stack[self._aktiv + 1 :]):
+            if tagg in FOTNOTSELEMENT:
+                return serie
+        return None
+
+    def _etikettext(self) -> str:
+        """Etikettens text med fotnotsMARKÖRER borttagna, aldrig med ORD.
+
+        **VILLKORET ÄR ATT MARKÖREN SAKNAR BOKSTÄVER, och det är inte kosmetik.**
+        En uteslutning som tog bort ALLT innehåll i ett `sup` eller `small` gav två
+        sändvägsdefekter, båda uppmätta av granskningen av skiva 23 och båda i den
+        riktning som släpper ut ett värde:
+
+          `Släpvagnsvikt<small> obromsad</small>` blev `Släpvagnsvikt`, alltså den
+          OBROMSADE vikten levererad som den bromsade. 750 kg under tröskeln där
+          2400 kg var rätt.
+
+          `<span class="label"><small>Släpvagnsvikt</small></span>` blev en TOM
+          etikett, alltså osynlig för räknaren. Låg en oförändrad `Släpvagnsvikt`
+          på samma sida tände tvetydigheten aldrig och det andra parets 750 kg gick
+          ut. Det är lucka 7 själv, återöppnad av sin egen rättelse.
+
+        En fotnotsMARKÖR är en siffra, en asterisk eller ett kors. Bär elementet en
+        bokstav är innehållet ett ORD, och ett ord i etikettnoden är en del av
+        fältets namn tills motsatsen är visad. Texten behålls då, etiketten blir en
+        annan sträng, och fältet faller till utkast. Det är den säkra riktningen:
+        vi svarar inte, i stället för att svara fel.
+
+        Grupperingen sker per fotnotsELEMENT och inte per textbit, eftersom
+        `HTMLParser` delar texten vid varje entitet. `<sup>a&nbsp;1</sup>` ska
+        bedömas som en enhet, inte som bitarna `a` och `1` var för sig.
+        """
+        bitar: list[str] = []
+        grupp: list[str] = []
+        grupp_serie: int | None = None
+        oppnad = False
+
+        for data, serie in self._text:
+            if oppnad and serie == grupp_serie:
+                grupp.append(data)
+                continue
+            if oppnad:
+                bitar.append(_behall(grupp_serie, "".join(grupp)))
+            grupp = [data]
+            grupp_serie = serie
+            oppnad = True
+
+        if oppnad:
+            bitar.append(_behall(grupp_serie, "".join(grupp)))
+
+        return "".join(bitar).strip()
+
     def handle_data(self, data: str) -> None:
         if self._hoppa_tagg is not None or self._aktiv is None:
             return
-        self._text.append(data)
+        self._text.append((data, self._fotnot_serie()))
 
 
 def _lasaren(sida: str) -> _Faltlasare:
@@ -412,8 +513,43 @@ class Hamtningsfel(Exception):
     """
 
 
+# ETT VÄRDE SOM SER UT SOM EN VIKT MEN INTE ÄR ETT TAL. Se `_tal` om varför det
+# kastar i stället för att utelämnas, och om varför klassen inte skriver ut någon
+# escape för hårt blanksteg.
+#
+# Mönstret kräver MINST EN SIFFRA. Utan det ledet hade `' kg'` fällt grenen, och
+# ett tomt värde är ett saknat fält och inte en felläsning. Den skillnaden bärs av
+# `test_bara_blanktecken_fore_enheten_ger_none`.
+MISSLASNING = re.compile(r"[\d\s]*\d[\d\s]*kg", flags=re.IGNORECASE)
+
+
 def _tal(varde: str) -> int | None:
-    r"""Vikten i hela kilo, eller `None` när värdet inte är en ren vikt.
+    r"""Vikten i hela kilo, `None` när fältet inte är en vikt, KAST när det är
+    en felläsning.
+
+    **DE TVÅ UTFALLEN BETYDER OLIKA SAKER, OCH SKILLNADEN ÄR SKIVA 23:S BESLUT.**
+    Beslut av Lars. Ett utelämnat fält betyder VI VET INTE och ska falla till
+    utkast. Ett värde som bär siffror och enheten `kg` men inte går att läsa som
+    ETT tal betyder att avläsningen är FEL, och det ska kasta. `750 2400 kg` är
+    det andra fallet: fältet fanns, det lästes, och läsningen misslyckades.
+
+    Skillnaden är inte kosmetisk. Ett saknat fält och ett felläst fält gav förut
+    samma svar till anroparen, alltså `None`, och därmed samma skäl nedströms. En
+    källa som slår ihop den bromsade och den obromsade vikten i en rad hade då
+    sett ut precis som en källa som slutat skriva raden alls.
+
+    **KASTGRENEN KAN BARA NÅS AV SIFFROR OCH BLANKTECKEN.** Villkoret är
+    `MISSLASNING` nedan, och texten i undantaget är därmed begränsad till just
+    det: ett värde med bokstäver, andra tecken eller ett annat enhetsnamn når
+    aldrig grenen och ger `None` som förut.
+
+    **`MISSLASNING` SKRIVER INGEN ESCAPE FÖR HÅRT BLANKSTEG, och det är prövat
+    och inte antaget.** `\s` matchar U+00A0 för strängmönster i Python 3, avläst
+    med `chr(160)` i en körning. Teckenklassen `[\d\s]` täcker alltså det hårda
+    blanksteget utan att källkoden behöver bära ett tecken som inte går att
+    skilja från ett vanligt blanksteg när någon läser filen. Det gamla mönstret
+    på raden nedan skriver ut escapen, och den formen är oförändrad här: den
+    prövades i skiva 21 och 22 och rörs inte av den här skivan.
 
     STRIKT MED AVSIKT. Bara siffror, valfria tusenavskiljare och `kg`. Sidan bär
     värden som `Max 750 kg (Teoretisk)` på andra rader, och ett mönster som
@@ -468,6 +604,12 @@ def _tal(varde: str) -> int | None:
         flags=re.IGNORECASE,
     )
     if not traff:
+        rensat = varde.strip()
+        if MISSLASNING.fullmatch(rensat):
+            raise Hamtningsfel(
+                f"värdet {rensat!r} bär siffror och enheten kg men går inte att "
+                f"läsa som ett tal, alltså en felläsning och inte ett saknat fält"
+            )
         return None
 
     siffror = re.sub(r"[\s\u00a0]", "", traff.group(1))
@@ -507,9 +649,12 @@ def _krav_pa_rimlighet(nyckel: str, varde: int) -> None:
     **DETTA ÄR SIFFERGRÄNSEN OCH INTE EN KALIBRERAD PERSONBILSGRÄNS, och det
     ska stå utskrivet.** En snävare övre gräns hade fångat mer, men den hade
     krävt ett tal jag varken kan läsa ur repot eller ur en körning, och §7.2
-    säger att ett sådant tal ska utelämnas hur rimligt det än ser ut. **Frågan
-    är ställd till Lars och obesvarad:** ska gränsen sättas vid en verklig
-    viktgräns för personbil, och i så fall vilken och ur vilken källa?
+    säger att ett sådant tal ska utelämnas hur rimligt det än ser ut.
+
+    **LARS HAR SVARAT I SKIVA 23: GRÄNSEN STÅR, och inget snävare tal sätts.** Se
+    `docs/beslutslogg.md` #33 och lucka 8 i `docs/sparrar.md`. Den permissiva
+    riktningen består alltså som ett vägt val. *Här stod att frågan är ställd
+    till Lars och obesvarad; det gällde när det skrevs.*
 
     Kontrollen KASTAR i stället för att utelämna nyckeln. Det är avsiktligt och
     följer lager 2: ett fält som saknas betyder att vi inte vet, medan ett fält
@@ -542,6 +687,29 @@ def _ja_nej(varde: str) -> bool | None:
     return None
 
 
+def _vard(netloc: str) -> str:
+    """Värdnamnet i gemener, med ett inledande `www.` borttaget.
+
+    **`www` GODTAS SOM SAMMA VÄRD. Beslut av Lars, skiva 23.** Skälet är inte att
+    strikthet är fel, utan vilken sorts fel den producerar här. Börjar källan
+    skriva sin canonical med `www` faller VARJE uppslag till utkast, och det syns
+    inte: inget larm går, inget test blir rött, och flödet ser ut som en dag utan
+    a-traktorärenden. En bot som slutat fungera och en bot utan trafik är samma
+    bild för den som tittar.
+
+    **VARJE ANNAN DOMÄN AVVISAS FORTFARANDE.** Uteslutningen gäller exakt
+    prefixet `www.` och ingenting annat. `www.exempel.invalid` blir
+    `exempel.invalid`, som inte är `FORVANTAD_VARD`, och faller. Det som stängdes
+    i skiva 22, ett ankare på en annan domän med rätt nummer sist, är alltså
+    orört.
+
+    Prefixet kräver punkten. En värd som `wwwbiluppgifter.se` är ett annat
+    värdnamn och rörs inte.
+    """
+    vard = netloc.lower()
+    return vard[4:] if vard.startswith("www.") else vard
+
+
 def _galler_fordonet(sida: str, regnr: str) -> bool:
     """Sant bara när sidans `canonical` pekar på det begärda registreringsnumret.
 
@@ -565,6 +733,10 @@ def _galler_fordonet(sida: str, regnr: str) -> bool:
     Ett relativt ankare, `/fordon/<nummer>/`, har inget värdnamn och faller
     därför också: vi kan inte bekräfta vilken domän svaret kom ifrån, och det
     är samma försiktiga förval som vid ett saknat ankare.
+
+    **VÄRDNAMNET JÄMFÖRS UTAN `www`, se `_vard`.** Det är den enda uppmjukningen
+    i lager 3, den gäller exakt det prefixet, och skälet är att alternativet är
+    ett fel som inte syns.
     """
     ankare = _lasaren(sida).ankare
 
@@ -581,7 +753,7 @@ def _galler_fordonet(sida: str, regnr: str) -> bool:
     if delar.scheme.lower() != FORVANTAT_SCHEMA:
         return False
 
-    if delar.netloc.lower() != FORVANTAD_VARD:
+    if _vard(delar.netloc) != FORVANTAD_VARD:
         return False
 
     vag = delar.path.rstrip("/")

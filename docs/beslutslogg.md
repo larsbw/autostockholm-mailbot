@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.27.2 · **Uppdaterad:** 2026-09-03 · **Implementerar** CLAUDE.md §8
+**Version:** 0.28.0 · **Uppdaterad:** 2026-09-03 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -2023,7 +2023,98 @@ avvägning som för postnummer i skiva 7.
 
 ---
 
+## #33 — Felläst skiljs från saknat, lucka 7 stängs, och två luckor avgörs som luckor
+
+**Datum:** 2026-09-03 · **Berör:** `src/biluppgifter.py`,
+`tests/test_biluppgifter.py`, `docs/sparrar.md` `fordonsfakta-ur-sida`,
+CLAUDE.md §7.1, #32
+
+**Beslut av Lars i skiva 23.** Fem beslut, alla i sändvägen.
+
+**1. `_tal` KASTAR i stället för att returnera `None` när fältet lästes fel.** Ett
+utelämnat fält betyder VI VET INTE och ska falla till utkast. Ett värde som bär
+siffror och enheten `kg` men inte går att läsa som ett tal betyder att avläsningen
+är FEL. `750 2400 kg` är det andra. Ett fält som fanns men lästes fel får inte se
+ut som ett fält som saknades.
+
+Skiva 22 lät båda fallen ge `None`, alltså samma skäl nedströms. En källa som
+slår ihop den bromsade och den obromsade vikten i en rad hade då sett ut precis
+som en källa som slutat skriva raden alls.
+
+**Gränsen är den avgörande delen av beslutet.** Ett värde i ett okänt FORMAT,
+alltså `1200` utan enhet eller `ca 1200 kg`, ger fortfarande `None`. Kastgrenen
+nås bara av siffror och blanktecken följda av `kg`. Utan den gränsen hade sidans
+egna `Max 750 kg (Teoretisk)`-rader tagit hela uppslaget med sig.
+
+**2. Lucka 9 registreras, och den går inte att stänga.** Två hopklistrade tal som
+landar under 9999 kan inte skiljas från en tusengruppering: `1 200 kg` och
+`750 400 kg` har samma form. Skyddet ligger i rimlighetsintervallet och inte i
+formen, alltså i en gräns och inte i ett bevis.
+
+**3. Lucka 7 stängs STRUKTURELLT.** Fotnotselement utesluts ur etikettnodens
+textinnehåll innan jämförelsen. Då är `Släpvagnsvikt` med fotnot samma etikett som
+utan, medan `Släpvagnsvikt obromsad` förblir en annan. **Ingen prefixmatchning:**
+den mäter upp ett larm på varje verkligt svar, och ett larm som alltid går blir
+avstängt. Mängden är `sup` och `small`, och att den är konventionell och inte
+avläst står utskrivet i `docs/sparrar.md`.
+
+**Uteslutningen gäller MARKÖRER och inte ord, och det ledet är byggets, inte
+Lars.** En uteslutning av allt innehåll i elementet uppfyller instruktionens
+första mening men BRYTER dess andra: `Släpvagnsvikt<small> obromsad</small>` blir
+då `Släpvagnsvikt`, alltså den obromsade vikten levererad som den bromsade, och
+hela namnet inuti elementet blir en tom etikett som räknaren inte ser. Båda är
+uppmätta av granskningen av skiva 23, båda släpper ut 750 kg där 2400 är rätt.
+
+Villkoret är därför att markören saknar bokstäver. **Lars beslut styr utfallet,
+och utfallet han skrev ut är att den obromsade raden ska förbli en annan
+etikett**; den snävare formen är vägen dit och inte en egen ändring av beslutet.
+Att den ändå är ett tillägg står här, eftersom nästa läsare annars läser
+instruktionen som om den bar villkoret.
+
+**4. `www` godtas som samma värd.** Skiva 22:s strikthet var säker i riktningen
+men producerade ett fel som inte syns: börjar källan skriva sin canonical med
+`www` faller varje uppslag till utkast, utan larm och utan rött test. Boten slutar
+fungera och ingen märker det. Varje annan domän avvisas fortfarande.
+
+**5. Lucka 5 och 8 avgörs som luckor, inte som defekter.** Rimlighetsgränsen 1 till
+9999 står, och inget snävare tal sätts. Den semantiska omdöpningen lämnas öppen:
+den kräver en kontroll mot ett fjärde fält och är inte värd komplexiteten nu.
+Skälet skrivs in i posten så att nästa läsare ser att luckan är VÄGD och inte
+förbisedd.
+
+### Vad posten INTE avgör
+
+- **Vilket element källan faktiskt använder för en fotnot.** Fixturens avlästa
+  värden bär ingen, så mängden `FOTNOTSELEMENT` är konventionell. Ett tredje
+  element lämnar luckan öppen för just det.
+- **Om bokstavsvillkoret ska stå kvar i den formen.** Det är byggets tillägg för
+  att nå det utfall posten kräver, inte ett beslut av Lars. Villkoret bär två
+  restrisker, en åt vardera hållet, och båda står som luckor i `docs/sparrar.md`:
+  en markör som ÄR en bokstav, `<sup>a</sup>`, faller utanför och ger utkast,
+  medan ett SKILT etikettnamn vars särskiljande led saknar bokstäver
+  normaliseras in i vårt och släpper ut sitt tal. Den senare är lucka 10 och är
+  den farliga riktningen. Frågan är ställd.
+- **Vad som ska göras åt lucka 11.** Markup inuti ett VÄRDE konkateneras in i
+  talet, så `750<sup>1</sup> kg` blir 7501, vilket ligger över tröskeln. Luckan är
+  äldre än skivan och uppmätt identisk mot `8629223`. Att utesluta markörer ur
+  värden vore att tyst ändra ett tal, så den lämnas registrerad och obeslutad.
+- **Om `config/priser.json` finns.** #30:s led 2 står oförändrat.
+- **Var driften körs.** #20 står oförändrat.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.28.0 — 2026-09-03
+
+**#33 tillkommer:** felläst skiljs från saknat i `_tal`, lucka 7 stängs
+strukturellt, `www` godtas som samma värd, lucka 9 registreras, och lucka 5 och 8
+avgörs som luckor med skäl utskrivna. Fem beslut av Lars i skiva 23, samtliga i
+sändvägen.
+
+Posten ligger EFTER #32, alltså i nummerordning, enligt 0.27.2.
+
+Ny beslutspost ⇒ MINOR.
 
 ### 0.27.2 — 2026-09-03
 

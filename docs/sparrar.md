@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.21.0 · **Uppdaterad:** 2026-09-03 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.22.0 · **Uppdaterad:** 2026-09-03 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -677,8 +677,8 @@ ingen leverantör som garanterar svarets form.
   | --- | --- | --- |
   | 1 | `lasare.etiketter.count(etikett)`, alltså LIKHET mot etikettnodens text | Att en etikett läses som PREFIX till en annan |
   | 2 | `if forekomster > 1:` som kastar `Hamtningsfel` med texten `tvetydigt` | Att första träffen tas när samma etikett förekommer flera gånger |
-  | 3 | `if not _galler_fordonet(sida, regnr):` plus `_galler_fordonet` själv, som prövar schema, värdnamn och sökväg och kastar på två ankare | Att en sida som inte gäller numret läses som fordonets |
-  | 4 | `_tal` med `re.fullmatch` mot `kg`, `_ja_nej` med förvalet `None`, och `_krav_pa_rimlighet` | Att ett värde som inte är rent tolkas som ett tal eller ett ja, eller att ett felläst tal passerar som en vikt |
+  | 3 | `if not _galler_fordonet(sida, regnr):` plus `_galler_fordonet` själv, som prövar schema, värdnamn genom `_vard` och sökväg, och kastar på två ankare | Att en sida som inte gäller numret läses som fordonets |
+  | 4 | `_tal` med `re.fullmatch` mot `kg`, dess kastgren `MISSLASNING`, `_ja_nej` med förvalet `None`, och `_krav_pa_rimlighet` | Att ett värde som inte är rent tolkas som ett tal eller ett ja, att ett FELLÄST fält ser ut som ett saknat, eller att ett felläst tal passerar som en vikt |
 
   **AVLÄSNINGEN ÄR EN PARSER SEDAN SKIVA 22**, se `docs/beslutslogg.md` #32. Lagren
   är desamma men vilar på `_Faltlasare` i stället för på tre regexuttryck. Tabellen
@@ -696,13 +696,25 @@ ingen leverantör som garanterar svarets form.
   dem: att saknad `canonical` ger `False`, att TVÅ ankare kastar, att schema och
   värdnamn prövas, och att jämförelsen är skiftlägesokänslig.
 
-  **PARSERN BÄR TVÅ EGNA VILLKOR SOM INTE SYNS I TABELLEN.** `HOPPAS_OVER` gör att
-  innehåll i `script`, `style` och `template` aldrig blir data, och nivåvillkoret i
-  `handle_endtag` gör att en etikett bara paras med ett värde på SAMMA nivå under
-  samma förälder. Båda är fällbara var för sig och står i §7.1-tabellen nedan. Det
-  andra av dem infördes AV ombyggnaden: en parser som bara letar `nästa värdenod`
-  är lösare än den regex den ersatte, och utan villkoret kan en etikett utan värde
-  paras ihop med ett värde utan etikett längre ned i dokumentet.
+  **PARSERN BÄR TRE EGNA VILLKOR SOM INTE SYNS I LAGERTABELLEN.** `HOPPAS_OVER`
+  gör att innehåll i `template` och `noscript` aldrig blir data. Föräldervillkoret
+  i `_stang_faltet` gör att en etikett bara paras med ett värde under SAMMA
+  förälder, jämförd på identitet. `_behall` gör att en fotnotsMARKÖR inuti en
+  etikettnod inte bidrar till dess text. Alla tre är fällbara var för sig och står
+  i mutationstabellen nedan, som rad 14, 15, 19 och 21.
+
+  **`script` och `style` står i `HOPPAS_OVER` men bärs inte av den**, utan av
+  `HTMLParser`:s CDATA-läge. Modulens egen kommentar säger det, och fällning 14
+  mäter det: de röda testen är `template`- och `noscript`-fallen, inget
+  `script`- eller `style`-fall. Den som räknar de fyra som lager får ett falskt
+  bevisvärde. *Här stod att `HOPPAS_OVER` gör att innehåll i alla fyra aldrig blir
+  data. Samma fel som posten redan rättat en gång, se `src/biluppgifter.py`:s
+  kommentar vid `HOPPAS_OVER`.*
+
+  De två första infördes AV ombyggnaden i skiva 22: en parser som bara letar
+  `nästa värdenod` är lösare än den regex den ersatte, och utan villkoret kan en
+  etikett utan värde paras ihop med ett värde utan etikett längre ned i
+  dokumentet. Det tredje kom i skiva 23 och stänger lucka 7.
 
   **`re.escape` ÄR BORTA UR MODULEN.** Den stod på raden med `MONSTER.format` och
   försvann med regexen. Här stod tidigare att den inte är ett av lagren eftersom
@@ -716,9 +728,9 @@ ingen leverantör som garanterar svarets form.
   | --- | --- |
   | 1 | `'EXAKT_ETIKETT = \|etiketter.count'` |
   | 2 | `'forekomster > 1'` |
-  | 3 | `'FORVANTA\|def _galler_fordonet\|len(ankare)\|_galler_fordonet(sida'` |
+  | 3 | `'FORVANTA\|def _galler_fordonet\|len(ankare)\|_galler_fordonet(sida\|vard.startswith'` |
   | 4 | `'re\.fullmatch\|def _ja_nej\|def _krav_pa_rimlighet\|MIN_VIKT_KG'` |
-  | parsern | `'HOPPAS_OVER\|_vantar_niva\|class _Faltlasare'` |
+  | parsern | `'HOPPAS_OVER\|_vantar_foralder\|def _behall\|serie is None\|class _Faltlasare'` |
 
   **Ett enda kombinerat mönster duger inte, och den här posten har själv burit TVÅ
   som inte gjorde det.** Det första missade det försiktiga förvalet vid saknad
@@ -848,39 +860,71 @@ indentering som `raise`-raden, annars stannar körningen på insamlingsfel.
 Beskrivningarna i tabellen är därför skrivna om till att bära det uttryck som
 byts, så att var och en går att köra om utan att gissa.
 
-**TABELLEN ÄR OMMÄTT I SKIVA 22 MOT BASLINJEN 151.** Talen har stått vid
-baslinjerna 50, 112 och 119, och varje gång slutat gälla av skivans egna test.
-Den här gången bytte dessutom sju av fällningarna FORMULERING, eftersom
-ombyggnaden till en parser tog bort de uttryck de pekade på. Postens egen regel
-gäller den själv: *ett tal som mäts vid en baslinje slutar gälla när baslinjen
-rör sig, och det enda som duger är att mäta om.*
+**TABELLEN ÄR OMMÄTT I SKIVA 23 MOT BASLINJEN 196.** Postens egen regel gäller
+den själv: *ett tal som mäts vid en baslinje slutar gälla när baslinjen rör sig,
+och det enda som duger är att mäta om.* Baslinjen är `tests/test_biluppgifter.py`,
+alltså modulens egen fil, och samma urval som varje tidigare omgång:
+`-- tests/test_biluppgifter.py -q`. Hela sviten är ett annat tal och står i
+skivans rapport.
 
-Fällningarna 12 till 14 är NYA och prövar villkor som inte fanns före skiva 22.
+*Här räknades tidigare upp vilka baslinjer talen stått vid, med `151` som skiva
+22:s. Det talet går inte att belägga: `tests/test_biluppgifter.py` vid `8629223`,
+alltså den commit som bär skiva 22:s arbete, samlar `175 passed`. Uppräkningen är
+struken i stället för lagad, eftersom varje led i den mäter en filversion som
+ingen längre kan köra. Att baslinjen rör sig står kvar, det är påståendet som
+bär.*
+
+**Rad 18 till 22 prövar villkor som inte fanns före skiva 23.** Rad 9 bytte
+FORMULERING av skivans egen ändring: värdnamnet går nu genom `_vard`. Rad 15 bytte
+också formulering, men av ett annat skäl: VILLKORET är skiva 22:s och oförändrat,
+det var TABELLEN som bar ett namn, `_vantar_niva`, som aldrig funnits i den
+committade koden. Skillnaden mellan de två fallen ska stå utskriven, eftersom det
+ena är en ändring och det andra ett dokumentfel.
 
 | # | Fällning | Verdikt | Röda test |
 | --- | --- | --- | --- |
-| 1 | Lager 1, likheten görs till prefix: `if namn == etikett` blir `if namn.startswith(etikett)` | RÖD | 6 |
-| 2 | Lager 2, `if forekomster > 1:` blir `if False:` | RÖD | 18 |
-| 3 | **Lager 1 och 2 samtidigt** | **RÖD** | **24** |
+| 1 | Lager 1, likheten görs till prefix: `if namn == etikett` blir `if namn.startswith(etikett)` | RÖD | 8 |
+| 2 | Lager 2, `if forekomster > 1:` blir `if False:` | RÖD | 25 |
+| 3 | **Lager 1 och 2 samtidigt** | **RÖD** | **33** |
 | 4 | Lager 3, `if not _galler_fordonet(...)` blir `if False:` | RÖD | 9 |
 | 5 | Lager 3, saknat ankare godtas: `return False` blir `return True` | RÖD | 6 |
-| 6 | Lager 3, skiftläget i JÄMFÖRELSEN: `vag.upper() == f"...".upper()` blir jämförelse utan `upper()` | RÖD | 81 |
+| 6 | Lager 3, skiftläget i JÄMFÖRELSEN: `vag.upper() == f"...".upper()` blir jämförelse utan `upper()` | RÖD | 121 |
 | 7 | Lager 3, två ankare godtas: `if len(ankare) > 1:` blir `if False:` | RÖD | 2 |
 | 8 | Lager 3, schemat prövas inte: `if delar.scheme.lower() != FORVANTAT_SCHEMA:` blir `if False:` | RÖD | 1 |
-| 9 | Lager 3, värdnamnet prövas inte: `if delar.netloc.lower() != FORVANTAD_VARD:` blir `if False:` | RÖD | 1 |
-| 10 | Lager 4, `_tal` `fullmatch` blir `search` | RÖD | 9 |
+| 9 | Lager 3, värdnamnet prövas inte: `if _vard(delar.netloc) != FORVANTAD_VARD:` blir `if False:` | RÖD | 3 |
+| 10 | Lager 4, `_tal` `fullmatch` blir `search` | RÖD | 12 |
 | 11 | Lager 4, `_ja_nej` förval `None` blir `False` | RÖD | 10 |
 | 12 | Lager 4, `.strip()` före matchningen borttagen | RÖD | 3 |
-| 13 | Lager 4, rimligheten godtas alltid: `if MIN_VIKT_KG <= varde <= MAX_VIKT_KG:` blir `if True:` | RÖD | 5 |
-| 14 | Parsern, `if tagg in HOPPAS_OVER:` blir `if False:` | RÖD | 1 |
-| 15 | Parsern, nivåvillkoret stryks ur `elif self._vantar is not None and self._niva == self._vantar_niva:` | RÖD | 1 |
+| 13 | Lager 4, rimligheten godtas alltid: `if MIN_VIKT_KG <= varde <= MAX_VIKT_KG:` blir `if True:` | RÖD | 6 |
+| 14 | Parsern, `if tagg in HOPPAS_OVER:` blir `if False:` | RÖD | 8 |
+| 15 | Parsern, föräldervillkoret stryks ur `elif self._vantar is not None and foralder == self._vantar_foralder:` | RÖD | 7 |
 | 16 | Statusgrenen kastar inte: `raise Hamtningsfel(...)` blir `return None` | RÖD | 6 |
 | 17 | 404-grenen neutraliserad: `if status == 404:` blir `if False:` | RÖD | 1 |
+| 18 | **NY i skiva 23.** Lager 4, kastgrenen: `if MISSLASNING.fullmatch(rensat):` blir `if False:` | RÖD | 6 |
+| 19 | **NY i skiva 23.** Parsern, INGEN fotnot utesluts: `_behall`:s `if serie is None:` blir `if True:` | RÖD | 8 |
+| 20 | **NY i skiva 23.** Lager 3, `www` strippas inte: `return vard[4:] if vard.startswith("www.") else vard` blir `return vard` | RÖD | 2 |
+| 21 | **NY i skiva 23.** Parsern, VARJE fotnot utesluts: `_behall`:s `return text if any(tecken.isalpha() …) else ""` blir `return ""` | RÖD | 4 |
+| 22 | **NY i skiva 23.** Parsern, värdet läser ETIKETTENS regel: `text = "".join(data for data, _ in self._text).strip()` blir `text = self._etikettext()` | RÖD | 1 |
 
-**LAGER 1 OCH 2 ÄR INTE REDUNDANTA, och rad 3 visar det.** 6 + 18 är 24, alltså
+**LAGER 1 OCH 2 ÄR INTE REDUNDANTA, och rad 3 visar det.** 8 + 25 är 33, alltså
 exakt additivt: dubbelfällningen fäller precis unionen och inget maskeras. Förr
 var summan SUB-additiv, tre mot fem, därför att lager 2 räknade träffar på lager
 1:s eget regexuttryck och därmed tände när lager 1:s exakthet föll.
+
+**RAD 18 OCH 13 ÄR INTE VARANDRAS ERSÄTTNING, och skillnaden är hela DEL A.**
+Kastgrenen i rad 18 fäller ett värde som inte går att läsa som ett tal.
+Rimligheten i rad 13 fäller ett tal som ÄR läst men är omöjligt. Ett värde som
+`750 400 kg` går genom den första och fastnar i den andra, vilket är lucka 9
+nedan. De två har alltså ett överlapp, men varje lager fäller fall det andra inte
+når, och båda är röda var för sig.
+
+**RAD 19 OCH 21 FÄLLER SAMMA FUNKTION ÅT VARSITT HÅLL, och det är avsiktligt.**
+Rad 19 låter ingen fotnot uteslutas, alltså läget före DEL B: en fotnotad etikett
+blir en annan sträng och dubbletten upptäcks inte. Rad 21 utesluter varje
+fotnotselement oavsett innehåll, alltså DEL B:s FÖRSTA lydelse, som granskningen
+av skiva 23 mätte upp som två sändvägsdefekter. Ett villkor med ett riktigt
+intervall behöver en fällning i vardera riktningen; en ensam fällning hade lämnat
+halva villkoret obundet.
 
 **FÄLLNING 11 MÅSTE KÖRAS MOT RÄTT RAD, OCH DET ÄR INTE EN SJÄLVKLARHET.**
 `_ja_nej`:s förval är den AVSLUTANDE `return None`, inte den `return False` som
@@ -915,13 +959,15 @@ avläsning av utdatan.*
 Följden för lagerbeskrivningen längre upp i posten står där, under
 `LAGER 1 OCH 2 VAR DELVIS REDUNDANTA`, och upprepas inte här.
 
-**INGEN AV TABELLENS RADER ÄR OBEROENDE REPRODUCERAD I SKIVA 22.** Skiva 19:s
-tabell var självmätt, skiva 20 och dess granskare körde om den mot baslinjen 50,
-och skiva 21 mätte om den mot 119. **Ingen av de körningarna säger något om
-tabellen ovan**, som är omformulerad i sju rader och utökad med tre mot kod som
-inte fanns då. Tabellen är alltså **självmätt i skiva 22 tills en granskare kört
-om den**. Det som överlever från de tidigare körningarna är metoden och
-disciplinen kring den, inte ett enda mätvärde.
+**TABELLEN ÄR OBEROENDE REPRODUCERAD I SKIVA 23.** Granskningsvarv 2 körde om
+samtliga rader mot baslinjen 196 och fick tal för tal detsamma som står ovan,
+inklusive nedströmsradens `52 failed, 144 passed`. Rad 22 tillkom efter det varvet
+och är därför självmätt.
+
+Ett varv tidigare kördes tabellen om mot baslinjen 188, som sedan flyttades av
+rättelserna av de två sändvägsdefekterna. Den körningen säger alltså ingenting om
+talen ovan, och står här bara som det den är: ett tidigare varv mot en annan
+filversion.
 
 Ordvalet är avsiktligt: `oberoende` är i det här repot §7:s term, satt i motsats
 till `självmätt`. Det gäller granskarens körning. Skiva 20:s egen var bara ett
@@ -1056,6 +1102,13 @@ gäller ändå, eftersom inget värde kommer ut. Att undantaget sedan LEDER till
 utkast är en skyldighet på fas 5:s anropare och inte något den här modulen kan
 garantera; ingen kod konsumerar det ännu.
 
+**FALL 4 HAR SEDAN SKIVA 23 TVÅ UTFALL, och raden ovan bär det ena.** Ett värde i
+ett okänt FORMAT, alltså `1200` utan enhet, `1,2 ton` eller `ca 1200 kg`, ger
+fortfarande utkast: vi kunde inte tolka fältet. Ett värde som bär siffror och
+enheten `kg` men inte går att läsa som ett tal, alltså `750 2400 kg`, KASTAR i
+stället, eftersom fältet fanns och lästes fel. Skillnaden är DEL A i skiva 23 och
+står under `_tal`.
+
 **TABELLEN OVAN GÄLLER EFTER TVÅ RÄTTELSER, OCH SÅ SÅG DEN INTE UT FÖRST.**
 Skivans första lydelse skrev "INGET AV DE TIO RETURNERAR ETT VÄRDE". Den var
 falsk. §7-granskningen hittade **två sändvägsdefekter inom kategorierna 4 och
@@ -1124,6 +1177,13 @@ och att kravet gäller att `750 2400 kg` aldrig blir 7502400. Uppdelningen var
 skivans egen tolkning när den skrevs och är sedan #32 ett beslut. *Här stod att
 frågan är ställd och obesvarad; det gällde när det skrevs.*
 
+**SKIVA 23 SKÄRPER ANDRA HALVAN FRÅN UTELÄMNAT TILL KASTAT.** Att `750 2400 kg`
+inte blir 7502400 räckte inte: fältet utelämnades, och ett utelämnat fält betyder
+VI VET INTE. Här vet vi något annat, nämligen att fältet fanns och lästes fel.
+Lars beslut är att `_tal` KASTAR i det läget, se `MISSLASNING` och
+mutationsfällning 18. Fall 4:s första halva är oförändrad: källans eget format
+läses, med båda sorternas blanksteg.
+
 **Vilken form källan faktiskt använder är inte belagt i repot.** `_tal`:s
 docstring säger att tusenavskiljaren är blanksteg eller hårt blanksteg, medan
 fixturen `SIDA_AVLAST`, vars åtta värden är avlästa, skriver `2140 kg` och
@@ -1166,8 +1226,8 @@ tidigare en egen tabell med nio rader. Den dubblerade mutationstabellen i sju av
 dem, och de återstående två fällde uttryck som ombyggnaden i skiva 22 tog bort:
 `MONSTER`, `ETIKETTSPAN` och de rättelser som gjordes inuti dem.
 
-Mutationstabellens sjutton rader är körda mot baslinjen 151 och täcker samtliga
-fyra lager plus parserns två egna villkor. Att hålla två tabeller som mäter samma
+Mutationstabellens tjugotvå rader är körda mot baslinjen 196 och täcker samtliga
+fyra lager plus parserns egna villkor. Att hålla två tabeller som mäter samma
 fällningar mot samma baslinje är inte dubbel säkerhet: det är två tal att hålla i
 takt, och postens historik visar vad som händer när de glider isär.
 
@@ -1178,7 +1238,7 @@ på att något kastades, och skälet produceras av `_kontrollera`:
 
 | Fälld rad, citerad | Fällning | Utdata | Verdikt |
 | --- | --- | --- | --- |
-| `_kontrollera`:s TRE grenar i `src/fordonsuppslag.py`, `if not _bar_nyckel(svar, ...)` | `if False:` × 3 | `38 failed, 113 passed` | RÖD |
+| `_kontrollera`:s TRE grenar i `src/fordonsuppslag.py`, `if not _bar_nyckel(svar, ...)` | `if False:` × 3 | `52 failed, 144 passed` | RÖD |
 
 Utan den fällningen vore det oprövat om testen mäter avläsningen eller bara att
 `slag_upp` kastar något över huvud taget.
@@ -1239,8 +1299,13 @@ lager 3 fällt är det just den assertionen som fäller
    skulle upptäcka fallet**, så luckan är inte oupptäckbar utan obevakad; här
    stod först att den inte GÅR att upptäcka, vilket motsades av den här
    meningen. Kontrollen kopplar dock spärren till ett fjärde fält och faller
-   själv om källan tar bort det. Avvägningen är Lars, inte kodens, och frågan är
-   ställd och obesvarad.
+   själv om källan tar bort det. Avvägningen är Lars, inte kodens.
+
+   **LARS HAR SVARAT I SKIVA 23, OCH SVARET ÄR ATT LUCKAN LÄMNAS ÖPPEN.**
+   Kontrollen kräver ett fjärde fält och är inte värd komplexiteten nu. Det som
+   ändras här är alltså inte koden utan att luckan är VÄGD: nästa läsare ska se
+   ett avslag med skäl och inte ett förbiseende. *Här stod att frågan är ställd
+   och obesvarad; det gällde när det skrevs.*
 
    **VÄRDET KOMMER BARA UT NÄR BÅDA RADERNA ÄNDRAS.** Står den bromsade raden
    kvar bär sidan `Släpvagnsvikt` två gånger, och lager 2 kastar. Luckan kräver
@@ -1252,8 +1317,7 @@ lager 3 fällt är det just den assertionen som fäller
    ut att den bara är ett DELVIS sådant: 750 kg är en fullt rimlig vikt, så
    kontrollen släpper igenom exakt det värde luckan producerar. Den fångar den
    grövre klassen, ett tal som inte kan komma från en avläsning alls. Luckan
-   står alltså kvar och frågan om en koppling till ett fjärde fält är
-   fortfarande Lars.
+   står alltså kvar, nu som ett avgjort val enligt stycket ovan.
 6. **ANKARET PRÖVADE BARA SISTA SEGMENTET I SÖKVÄGEN. STÄNGD I SKIVA 22.**
    Uppmätt i skiva 21: `_galler_fordonet` gjorde `rsplit("/", 1)[-1]` och
    jämförde det med numret, så en canonical som
@@ -1269,24 +1333,69 @@ lager 3 fällt är det just den assertionen som fäller
    *Här stod att luckan är ofarlig i dag därför att källans söksida svarar med
    `/fordon/` utan nummer. Det ledet gällde söksidan och inte en annan domän,
    och det var därför en smalare grund än luckan behövde.*
-7. **EN FOTNOT I ETIKETTEN GÖR DEN OSYNLIG FÖR RÄKNAREN.** Uppmätt i skiva 22.
-   Skriver källan `<span class="label">Släpvagnsvikt<sup>1</sup></span>` blir
-   nodens text `Släpvagnsvikt1`, alltså en annan sträng. Det är rätt utfall i
-   sig: fältet utelämnas och ärendet faller till utkast, precis som vid en
-   omdöpning.
+7. **EN FOTNOT I ETIKETTEN GJORDE DEN OSYNLIG FÖR RÄKNAREN. STÄNGD I SKIVA 23.**
+   Uppmätt i skiva 22. Skrev källan
+   `<span class="label">Släpvagnsvikt<sup>1</sup></span>` blev nodens text
+   `Släpvagnsvikt1`, alltså en annan sträng. Bar sidan BÅDE den fotnotade och en
+   oförändrad `Släpvagnsvikt` räknades bara den senare, tvetydigheten tände
+   aldrig, och dess värde gick ut. Riktningen var den farliga: 750 kg under
+   tröskeln där 2400 kg var rätt.
 
-   **Det som INTE är stängt** är sidan som bär BÅDE den fotnotade och en
-   oförändrad `Släpvagnsvikt`. Då räknas bara den oförändrade, tvetydigheten
-   tänder aldrig, och dess värde går ut.
+   **STÄNGD STRUKTURELLT OCH INTE MED EN PREFIXRÄKNARE.** Beslut av Lars. En
+   fotnotsMARKÖR i ett `FOTNOTSELEMENT` utesluts ur etikettnodens text innan
+   jämförelsen, så `Släpvagnsvikt` med fotnot är samma etikett som utan, medan
+   `Släpvagnsvikt obromsad` förblir en annan. Fällning 19 och 21 binder villkoret
+   i var sin riktning.
 
-   **Skälet att luckan inte stängs är MÄTT, inte principiellt.** En räknare som
-   matchar på PREFIX hade fångat den. Samma räknare ger TVÅ träffar på den
-   avlästa sidan, eftersom `Släpvagnsvikt obromsad` också inleds med
-   `Släpvagnsvikt`, alltså hade den kastat på varje verkligt svar. Ett larm som
-   alltid går blir avstängt, och det är samma avvägning Lars gjorde i briefen
+   **UTESLUTNINGEN GÄLLER MARKÖRER, INTE ORD, och den skillnaden är själv en
+   rättelse av två sändvägsdefekter.** Skivans första lydelse tog bort ALLT
+   innehåll i ett `sup` eller `small`. Granskningen av skiva 23 mätte upp följden,
+   båda gångerna med 750 kg ut där 2400 kg var rätt:
+
+   - `Släpvagnsvikt<small> obromsad</small>` blev `Släpvagnsvikt`, alltså den
+     obromsade vikten levererad som den bromsade. Markupen är inte konstruerad:
+     `obromsad` ÄR en upplysning i småstil.
+   - `<span class="label"><small>Släpvagnsvikt</small></span>` blev en TOM
+     etikett, osynlig för räknaren, så en dubblett tände aldrig tvetydigheten.
+     **Det är lucka 7 själv, återöppnad av sin egen rättelse.**
+
+   Villkoret är därför att markören saknar BOKSTÄVER. Ett fotnotselement med en
+   bokstav bär ett ord, och ett ord i etikettnoden hör till fältets namn tills
+   motsatsen är visad: texten behålls, etiketten blir en annan sträng, och fältet
+   faller till utkast. Det är den säkra riktningen.
+
+   *Här stod att `test_fotnoten_gor_inte_obromsad_till_samma_etikett` binder
+   gränsen. Det gör det inte: fällning 19 lämnar det testet GRÖNT, eftersom det
+   binder lager 1:s exakthet och inte uteslutningens gräns. Gränsen bärs åt två
+   håll: `test_ord_i_fotnotselementet_ar_en_del_av_namnet` och
+   `test_hela_namnet_i_ett_fotnotselement_gor_inte_etiketten_osynlig` är röda
+   under fällning 21, och `test_markorer_utan_bokstav_utesluts` under fällning 19.*
+
+   **PREFIX VAR ALDRIG VÄGEN, och skälet är MÄTT och inte principiellt.** En
+   räknare som matchar på PREFIX hade fångat fallet. Samma räknare ger TVÅ
+   träffar på den avlästa sidan, eftersom `Släpvagnsvikt obromsad` också inleds
+   med `Släpvagnsvikt`, alltså hade den kastat på varje verkligt svar. Ett larm
+   som alltid går blir avstängt, och det är samma avvägning Lars gjorde i briefen
    till skiva 22 om att inte larma på glappet mellan etiketter och par.
    `test_prefixraknare_hade_larmat_pa_den_avlasta_sidan` mäter påståendet i
-   stället för att låta det stå som ett resonemang.
+   stället för att låta det stå som ett resonemang, och står kvar oförändrat:
+   det är beviset för att den stängning som valdes var den rätta.
+
+   **MÄNGDEN ÄR EN AV RESTRISKERNA.** `FOTNOTSELEMENT` bär `sup` och `small`.
+   Fixturens åtta avlästa värden bär ingen fotnot alls, så sidan visar inte vilket
+   element källan skulle använda, och mängden är därför konventionell och inte
+   avläst. Byter källan till ett tredje element står luckan öppen igen för just
+   det elementet.
+
+   *Här stod "DET SOM ÅTERSTÅR ÄR MÄNGDEN, inte metoden". Det var ett uttömmande
+   påstående och det är falskt: metoden bär lucka 10 nedan, i den riktning som
+   släpper ut ett värde. Fällt av granskningsvarv 2.*
+
+   **En markör som ÄR en bokstav faller också utanför.** Skriver källan
+   `<sup>a</sup>` bär elementet en bokstav, texten behålls, och etiketten blir
+   `Släpvagnsvikta`. Fältet utelämnas då och ärendet faller till utkast. Det är
+   den säkra riktningen och inte en stängning, och det står här hellre än att
+   räknas som löst.
 8. **RIMLIGHETSKONTROLLENS ÖVRE GRÄNS ÄR SIFFERGRÄNSEN, INTE EN
    PERSONBILSGRÄNS.** `_krav_pa_rimlighet` kastar utanför 1 till 9999 kg. Den
    fångar den defektklass som gav 7502400, men ett felläst tal som RÅKAR ligga
@@ -1295,9 +1404,101 @@ lager 3 fällt är det just den assertionen som fäller
 
    Gränsen är satt så därför att en snävare hade krävt ett tal som varken går
    att läsa ur repot eller ur en körning, och §7.2 säger att ett sådant tal ska
-   utelämnas hur rimligt det än ser ut. **Frågan är ställd till Lars och
-   obesvarad:** ska gränsen sättas vid en verklig viktgräns för personbil, och
-   i så fall vilken och ur vilken källa?
+   utelämnas hur rimligt det än ser ut.
+
+   **LARS HAR SVARAT I SKIVA 23: GRÄNSEN 1 TILL 9999 STÅR, och inget snävare tal
+   sätts.** Luckan är därmed avgjord som lucka, inte stängd som defekt: den
+   permissiva riktningen består och står kvar utskriven här. *Här stod att frågan
+   är ställd och obesvarad; det gällde när det skrevs.*
+
+9. **TVÅ HOPKLISTRADE TAL UNDER GRÄNSEN GÅR INTE ATT SKILJA FRÅN EN
+   TUSENGRUPPERING.** Registrerad i skiva 23 på Lars beslut, samtidigt som DEL A
+   byggdes, och den går inte att stänga i formen.
+
+   `1 200 kg` och `750 400 kg` har exakt samma form: en till tre siffror, en
+   avskiljare, tre siffror. Den första är källans eget sätt att skriva 1200 och
+   MÅSTE läsas. Den andra är två tal som klistrats ihop till 750400. Inget
+   mönster kan skilja dem åt, eftersom skillnaden inte finns i tecknen.
+
+   **Skyddet ligger i rimlighetsintervallet och inte i formen, och det är en
+   gräns och inget bevis.** 750400 fastnar i lucka 8:s intervall. Ett hopklistrat
+   par vars produkt hamnar UNDER 9999 gör det inte, och `1 200 kg` är exakt det
+   fallet. Att den läsningen är rätt just där är tur i formen, inte ett resultat
+   av en kontroll.
+
+   **Kastgrenen i `_tal` täcker den INTE.** Den fäller värden som inte går att
+   läsa som ett tal alls, alltså `750 2400 kg` där grupperingen är inkonsekvent.
+   Ett konsekvent grupperat värde är per definition läsbart, och där tar
+   intervallet vid. `test_kand_lucka_hopklistring_under_gransen_ser_ut_som_tusengruppering`
+   mäter båda leden och blir rött den dag någon tror sig ha stängt luckan i
+   mönstret.
+
+10. **ETT ICKE-ALFABETISKT LED I ETT FOTNOTSELEMENT NORMALISERAS IN I VÅR
+    ETIKETT.** Registrerad i skiva 23, fälld av granskningsvarv 2, och den är
+    metodens egen kostnad snarare än ett förbiseende.
+
+    Uteslutningen i `_behall` avgör att ett `sup` eller `small` bär en MARKÖR
+    genom att dess text saknar bokstäver. Den kan inte veta om ledet är en
+    fotnotsmarkör eller ett betydelsebärande suffix. Uppmätt hela vägen genom
+    `slag_upp`, med bara den fotnotade raden på sidan:
+
+    ```
+    Släpvagnsvikt<sup>2</sup>    med värdet 750 kg   ->  slapvagnsvikt_kg=750
+    Släpvagnsvikt<sup>*</sup>                        ->  slapvagnsvikt_kg=750
+    Släpvagnsvikt<sup>(2)</sup>                      ->  slapvagnsvikt_kg=750
+    ```
+
+    Skriver källan en dag en SKILD etikett vars särskiljande led är
+    icke-alfabetiskt och står i ett fotnotselement, blir den vår etikett och dess
+    tal vårt fält. Riktningen är den farliga: 750 kg ligger under
+    `TROSKEL_SLAPVAGNSVIKT_KG`, avläst till 1 000 i `src/fordonsuppslag.py`.
+
+    **Detta är inte lucka 5.** Där behåller källan namnet och byter betydelse.
+    Här har källan ett ANNAT namn, och modulen gör det till vårt.
+
+    **Motsatt riktning är prövad och säker.** Ligger både den fotnotade och den
+    rena etiketten på sidan kastar lager 2 med `tvetydigt`, uppmätt i samma
+    körning. Luckan kräver alltså att bara den fotnotade raden finns.
+
+    **Varför den inte stängs.** Ett suffix som saknar bokstäver går inte att
+    skilja från en markör utan att veta vad källan MENAR, och det är precis vad
+    en avläsare inte vet. Alternativet är att inte utesluta något, vilket är
+    lucka 7 tillbaka. Avvägningen är Lars, och frågan är ställd i
+    `docs/beslutslogg.md` #33.
+
+11. **MARKUP INUTI ETT VÄRDE KORRUMPERAR TALET, och det är ÄLDRE än skiva 23.**
+    Fälld av granskningsvarv 3, uppmätt av mig i samma körning mot både
+    arbetsträdet och `8629223`:
+
+    ```
+    värdet 750<sup>1</sup> kg   ->  8629223=7501   arbetsträdet=7501
+    värdet <sup>1</sup>750 kg   ->  8629223=1750   arbetsträdet=1750
+    värdet 7<sup>1</sup>50 kg   ->  8629223=7150   arbetsträdet=7150
+    ```
+
+    **Talen är identiska i båda versionerna**, alltså infördes luckan av parsern i
+    skiva 22 och inte av fotnotsuteslutningen i skiva 23. Den kom fram nu därför
+    att skiva 23 tittade på fotnotselement, inte därför att skivan skapade den.
+
+    Parsern konkatenerar textnoderna i ett värde, vilket är avsiktligt och
+    prövat: `test_markupandring_lases_av_parsern` kräver att `2400 <abbr>kg</abbr>`
+    läses som `2400 kg`. Samma konkatenering gör en fotnotsmarkör inuti talet till
+    en siffra i talet.
+
+    **Riktningen är farlig och sifferkontrollerna når den inte.** 7501, 1750 och
+    7150 ligger alla inom `MIN_VIKT_KG..MAX_VIKT_KG` och ÖVER
+    `TROSKEL_SLAPVAGNSVIKT_KG`, avläst till 1 000. Ett fordon vars verkliga
+    släpvagnsvikt är 750 kg får därmed ett jakande besked på ett tal ingen källa
+    har skrivit.
+
+    **En markör EFTER enheten faller säkert**, `750 kg<sup>1</sup>` ger utkast,
+    liksom en markör som bär en bokstav. Luckan kräver alltså att markören står
+    före enheten.
+
+    **Varför den inte stängs här.** Att utesluta markörer ur VÄRDET vore att tyst
+    ändra ett tal vi skickar vidare, och `_behall`:s bokstavsregel hade tagit bort
+    `400` ur `2<small>400</small> kg`. Mutationsrad 22 finns just för att hålla de
+    två vägarna isär. Avvägningen är Lars.
 
 ---
 
@@ -1673,6 +1874,125 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.22.0 — 2026-09-03
+
+**ETT FELLÄST FÄLT SER INTE LÄNGRE UT SOM ETT SAKNAT.** Beslut av Lars, skiva 23.
+`_tal` KASTAR när värdet bär siffror och enheten `kg` men inte går att läsa som
+ett tal, och ger `None` bara när fältet inte är en vikt alls. Skiva 22 lät båda
+fallen ge `None`, och en källa som slår ihop två vikter i en rad såg då ut precis
+som en källa som slutat skriva raden. Kastgrenen är fällning 18 i
+mutationstabellen, och `test_vardet_som_inte_ar_viktlikt_utelamnas_i_stallet_for_att_kasta`
+bevakar gränsen: `Max 750 kg (Teoretisk)`, som står på sidans egna rader, får
+aldrig nå den.
+
+**LUCKA 7 ÄR STÄNGD, STRUKTURELLT.** En fotnotsMARKÖR i ett `FOTNOTSELEMENT`
+utesluts ur etikettnodens text, så `Släpvagnsvikt` med fotnot är samma etikett som
+utan medan `Släpvagnsvikt obromsad` förblir en annan. Ingen prefixräknare: den
+hade kastat på varje verkligt svar, vilket posten mätte upp redan i skiva 22.
+
+**UTESLUTNINGENS FÖRSTA LYDELSE BAR TVÅ SÄNDVÄGSDEFEKTER, båda fällda av
+granskningen och båda i den riktning som släpper ut ett värde.** Den tog bort allt
+innehåll i ett `sup` eller `small`, och då blev `Släpvagnsvikt<small> obromsad</small>`
+till `Släpvagnsvikt`, medan hela namnet inuti elementet blev en TOM etikett som
+räknaren inte såg. Den andra är lucka 7 själv, återöppnad av sin egen rättelse.
+Villkoret är därför att markören saknar bokstäver, och rad 21 i mutationstabellen
+fäller precis den första lydelsen.
+
+**Varje prövad form av defekt 1 kastar, fotnotsformen inräknad.** Formerna är
+uppräknade per rad i `test_dubblett_dar_etiketten_bar_annan_markup_kastar`,
+`test_dubblett_dar_ena_etiketten_bar_attribut_kastar_anda`,
+`test_dubblett_med_annat_skiftlage_i_klassvardet_kastar`,
+`test_dubblerad_draganordning_kastar_i_stallet_for_att_valja`,
+`test_dubblett_dar_ena_etiketten_bar_fotnot_kastar` och
+`test_hela_namnet_i_ett_fotnotselement_gor_inte_etiketten_osynlig`.
+
+**Att ÖVERHOPPNINGEN inte är för bred bärs av två test, och de påstår olika
+saker.** `test_overhoppningen_tar_slut_och_falten_efter_lases` ger VÄRDE: ett fält
+som står efter ett överhoppat element läses. `test_inaktivt_falt_lases_inte` ger
+UTKAST: ett fält som bara står inuti ett inaktivt block läses inte. Det senare kan
+per konstruktion aldrig ge värde, eftersom `utfallet_av` kastar om ett uppslag
+kommer ut.
+
+**FOTNOTSUTESLUTNINGENS gräns bärs av andra test**, nämligen de som blir röda
+under fällning 21: `test_ord_i_fotnotselementet_ar_en_del_av_namnet` och
+`test_hela_namnet_i_ett_fotnotselement_gor_inte_etiketten_osynlig`. *Här stod
+`uteslutningen` om de två överhoppningstesten. Ordet är i den här posten reserverat
+för fotnotsuteslutningen, och meningen blev därför falsk om de test den namngav.
+Fällt av granskningsvarv 3.*
+
+*Här stod "Elva former av defekt 1 kastar nu, mot tio före skivan". Båda talen
+räknade instanser av ett mönster utan att någon lista i repot bar dem, vilket
+§7.2 förbjuder, och det ena var dessutom fel: fotnotsformen prövas mot både `sup`
+och `small`, alltså två parametrar och inte en.*
+
+*Rättelsen bar SJÄLV tre fel, fällda av granskningsvarv 2 i samma stycke som
+strök talen. Den skrev att "de tre negativkontrollerna ger fortfarande värde" och
+namngav `test_inaktivt_falt_lases_inte` som en av dem. Det testet ger UTKAST och
+inte värde; dess sida bär ingen dubblett utan ett enda inaktivt fält; och "de
+tre" var en ny instansräkning i den mening som stryker en instansräkning. Båda
+testen är nu beskrivna var för sig, med vad de faktiskt påstår.*
+
+**LUCKA 9 TILLKOMMER, och den går inte att stänga.** Två hopklistrade tal som
+landar under den övre rimlighetsgränsen har samma form som en tusengruppering.
+`1 200 kg` och `750 400 kg` går inte att skilja åt i tecknen. Skyddet ligger i
+intervallet och inte i formen, alltså i en gräns och inte i ett bevis.
+
+**LUCKA 10 TILLKOMMER OCKSÅ, och den är fotnotsuteslutningens egen kostnad.**
+Ett `sup` eller `small` vars text saknar bokstäver behandlas som markör, oavsett
+om källan menade en markör eller ett betydelsebärande suffix. En SKILD etikett
+med ett icke-alfabetiskt led normaliseras därmed in i vår, och dess tal blir
+vårt fält. Uppmätt genom `slag_upp` och registrerad i stället för stängd:
+alternativet är att inte utesluta något, vilket är lucka 7 tillbaka.
+Granskningsvarv 2 fällde skivans påstående att bara mängden återstod.
+
+**`www` GODTAS SOM SAMMA VÄRD.** Beslut av Lars. Skiva 22:s strikthet var säker i
+riktningen men producerade ett fel som inte syns: börjar källan skriva `www` i
+sin canonical faller varje uppslag till utkast, utan larm och utan rött test.
+Varje ANNAN domän avvisas fortfarande, `www` eller inte, och
+`test_ankaret_provar_hela_urlen` bär det med två nya former.
+
+**LUCKA 5 OCH 8 ÄR AVGJORDA SOM LUCKOR.** Lars beslut är att rimlighetsgränsen 1
+till 9999 står, och att den semantiska omdöpningen lämnas öppen därför att en
+kontroll mot ett fjärde fält inte är värd komplexiteten nu. Båda står kvar
+utskrivna, nu som vägda val i stället för öppna frågor.
+
+**MUTATIONSTABELLEN ÄR OMMÄTT MOT BASLINJEN 196 och utökad till tjugotvå rader.**
+Rad 9 bytte formulering av skivans egen ändring, rad 15 av att tabellen bar ett
+namn som aldrig funnits i koden. Rad 18 till 22 är nya. Nedströmsraden i
+`src/fordonsuppslag.py` gav `52 failed, 144 passed`. Samtliga rader är RÖD.
+
+**Granskningsvarv 2 körde om samtliga rader mot baslinjen 196 och fick tal för tal
+detsamma**, nedströmsraden inräknad. Rad 22 tillkom efter det varvet och är därför
+självmätt. Ett varv tidigare kördes tabellen mot baslinjen 188, som sedan
+flyttades av rättelserna, och den körningen säger ingenting om talen som står nu.
+
+*Här stod att tabellen bär tjugoen rader, att rad 18 till 21 är de nya, och att
+talen är självmätta igen efter att baslinjen flyttat. Alla tre leden var falska
+när varv 3 läste dem: tabellen bär tjugotvå rader, rad 22 är också ny, och varv 2
+körde om talen vid 196 och inte vid 188. Posten motsade dessutom sin egen brödtext
+på två ställen.*
+
+**ETT FÖRÅLDRAT NAMN ÄR RÄTTAT PÅ TVÅ STÄLLEN.** `_vantar_niva` finns inte i
+koden och har aldrig funnits i en committad version av modulen:
+`git log --all -S "_vantar_niva" -- src/biluppgifter.py` ger noll committar.
+Föräldern jämförs på identitet genom `_vantar_foralder`. Namnet stod i
+grep-tabellen för parsern och i mutationsrad 15, och den som följde tabellen
+hittade ingen rad att fälla.
+
+**GREP-TABELLEN NÅR NU `_behall` OCH `_vard`.** Parserraden bär `def _behall` och
+`serie is None`, lager 3:s rad bär `vard.startswith`, båda kontrollerade mot
+filen. *Här stod att tabellen pekar på VARJE rad som fälls. Det är fel: rad 21:s
+och 22:s villkor står inuti funktioner mönstren pekar på och måste läsas där,
+precis som lager 3:s och 4:s förval. Fällt av granskningsvarv 2.*
+
+**LUCKA 11 TILLKOMMER, och den är ÄLDRE än skivan.** Markup inuti ett värde
+konkateneras in i talet, så `750<sup>1</sup> kg` blir 7501. Uppmätt identiskt mot
+`8629223` och mot arbetsträdet, alltså infört av parsern i skiva 22 och bara
+funnet nu. Fälld av granskningsvarv 3.
+
+En ny kastgren, en stängd lucka, tre nya luckor varav en äldre än skivan, en
+uppmjukad värdjämförelse och en ommätt tabell ⇒ MINOR.
 
 ### 0.21.0 — 2026-09-03
 
