@@ -1,6 +1,6 @@
 # Incidentlogg
 
-**Version:** 0.7.1 · **Uppdaterad:** 2026-08-28 · **Implementerar** CLAUDE.md §0
+**Version:** 0.8.0 · **Uppdaterad:** 2026-09-03 · **Implementerar** CLAUDE.md §0
 
 Varje regel som bärs av en incident bor här. Dokumentet finns för att förlagornas
 styrka är att en härdad regel namnger det fel som skapade den. En regel utan
@@ -580,7 +580,97 @@ stället för att lita på eller misstro dem alla på en gång.
 
 ---
 
+## I8 — En fällning mot fel radnummer gav GRÖN, och verdiktet betydde ingenting
+
+**Uppmätt i:** skiva 21, av mig själv · **Berör:** `docs/sparrar.md`:s ruta om
+radnummer, CLAUDE.md §7.1
+
+**Vad som hände.** Ett påstående i `docs/sparrar.md` skulle mätas om: att en
+neutralisering av `re.escape` gör sviten GRÖN. Fällningen kördes mot rad 298.
+`re.escape` står på rad 293. Rad 298 fick alltså en ovidkommande tilldelning,
+sviten passerade, och `scripts/sparr-prova.sh` skrev
+`GRÖN: sviten passerade trots fällningen.`
+
+**Varför det är farligt och inte bara slarv.** GRÖN är §7.1:s verdikt för
+VAKUÖST, alltså för ett test som inte kan bli rött. Här betydde det bara att
+fällningen aldrig rörde något villkor. **De två utfallen är oskiljaktiga i
+verktygets utdata**, och den som läser verdiktet utan att kontrollera raden får
+veta att en spärr är otestad när den i själva verket är oprövad. Det är motsatt
+slutsats om samma kod.
+
+**Att det upptäcktes berodde på att jag läste `grep`-utdatan i samma andetag**
+och såg att numret inte stämde.
+
+**DET HÄNDE EN ANDRA GÅNG, I SAMMA PASS SOM SKREV DEN HÄR POSTEN.** Omkörningen
+riktades mot rad 293, som `grep` nyss hade visat. Mellan de två körningarna hade
+jag vidgat en kommentar i samma fil med ett antal rader, så `re.escape` låg inte
+längre där. Fällningen träffade en TOM rad och gav `GRÖN` igen. Att skriva upp
+incidenten skyddade alltså inte mot att göra om den, och avståndet mellan
+avläsningen av radnumret och användningen av det var mindre än en halvtimme.
+
+**Det som fångade den andra gången var NEUTRALISERAD-raden**, som skrev
+`NEUTRALISERAD rad 293: '' -> '        skydd = etikett'`. Ursprungsvärdet var
+tomt, alltså kunde fällningen omöjligen ha rört ett villkor. Körd mot rätt rad
+lyder samma rad
+`NEUTRALISERAD rad 309: '        skydd = re.escape(etikett)' -> ...` och
+verdiktet blir `GRÖN: 119 passed` av rätt skäl: ingen av de tre etiketterna i
+`EXAKT_ETIKETT` bär ett regex-metatecken, så escapad och oescapad etikett ger
+identiskt mönster.
+
+**En egen ändring i samma fil föråldrar radnumret lika säkert som en annans.**
+Det är samma mekanik som CLAUDE.md §7:s varning om att en appendixpost överst
+skjuter ner varje radnummer under sig, och den slår hårdast när avläsning och
+användning ligger nära i tiden, eftersom man då litar på minnet av numret.
+
+**Rutan överst i `docs/sparrar.md` varnade med rätta.** Den skrevs efter att en
+granskning körde ett dokumenterat kommando ordagrant, träffade fem
+docstringrader och fick GRÖN. Det här är samma fel i en andra form: där var
+radnumret föråldrat i dokumentet, här var det fel i mitt eget anrop. Varningen
+gäller alltså inte bara dokumenterade kommandon utan varje fällning.
+
+**Åtgärd.** Ingen kodändring, eftersom verktyget redan skriver ut det som
+behövs. `scripts/mutera.py` rapporterar ursprungsvärdet i sin
+`NEUTRALISERAD`-rad, och **den raden ska LÄSAS före verdiktet**: bär den inte
+det villkor fällningen skulle träffa är verdiktet ogiltigt oavsett vad det
+säger. **Ett GRÖN vars NEUTRALISERAD-rad visar fel villkor, eller en tom
+sträng, är inget fynd utan en misslyckad prövning**, och §7.1 säger att en
+prövning som inte kunde genomföras rapporteras som sådan i stället för att
+godkännas.
+
+Att verdiktet ensamt inte räcker är hela poängen. Verktyget kan inte veta vilket
+villkor en fällning VILLE träffa, bara vilken rad den fick. Kontrollen måste
+därför ligga hos den som läser, och den kostar en rads uppmärksamhet.
+
+*`docs/sparrar.md` 0.18.1 skriver att NEUTRALISERAD-raden i varje fällning
+visade ett ursprungsvärde som var det avsedda villkoret, "aldrig en tom
+sträng". Det var sant om skiva 20:s elva fällningar. Den här posten visar att
+en tom sträng är precis vad raden visar när numret är fel, alltså att den
+formuleringen beskrev ett utfall och inte en garanti.*
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.8.0 — 2026-09-03
+
+**I8 tillkommer:** en fällning mot fel radnummer gav `GRÖN`, och verdiktet
+betydde ingenting. Skriven på Lars beslut i skiva 22:s grindbesked.
+
+Posten bär TVÅ instanser ur samma pass. Den andra inträffade medan posten
+skrevs, och orsaken var att passets EGEN kommentarändring i samma fil hade
+flyttat raden. Det är den mekanik CLAUDE.md §7 varnar för när en appendixpost
+överst skjuter ner varje radnummer under sig, tillämpad på kod i stället för
+dokument.
+
+**Det avgörande är att `GRÖN` betyder två oförenliga saker** som inte går att
+skilja åt i verdiktet ensamt: att spärren är vakuös, eller att fällningen aldrig
+rörde ett villkor. Skillnaden avläses i `NEUTRALISERAD`-raden, och I8:s åtgärd
+är att den raden ska läsas FÖRE verdiktet.
+
+Posten noterar också att `docs/sparrar.md` 0.18.1:s formulering om att raden
+"aldrig" visar en tom sträng beskrev skiva 20:s utfall och inte en garanti.
+
+Ny post ⇒ MINOR.
 
 ### 0.7.1 — 2026-08-28
 

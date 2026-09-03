@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.18.1 · **Uppdaterad:** 2026-09-02 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.20.0 · **Uppdaterad:** 2026-09-03 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -676,7 +676,7 @@ ingen leverantör som garanterar svarets form.
   | Lager | Villkorets text | Vad det fäller |
   | --- | --- | --- |
   | 1 | `MONSTER`, alltså `<span class="label">\s*{etikett}\s*</span>`, där `\s*</span>` är det som gör etiketten exakt | Att en etikett läses som PREFIX till en annan |
-  | 2 | `if len(traffar) > 1:` som kastar `Hamtningsfel` med texten `tvetydigt` | Att första träffen tas när samma etikett förekommer flera gånger |
+  | 2 | `if forekomster > 1:` som kastar `Hamtningsfel` med texten `tvetydigt`. Räknar `ETIKETTSPAN`, inte `MONSTER` | Att första träffen tas när samma etikett förekommer flera gånger |
   | 3 | `if not _galler_fordonet(sida, regnr):` plus `_galler_fordonet` själv, som jämför `CANONICAL` mot numret | Att en sida som inte gäller numret läses som fordonets |
   | 4 | `_tal` med `re.fullmatch` mot `kg`, och `_ja_nej` med förvalet `None` | Att ett värde som inte är rent tolkas som ett tal eller ett ja |
 
@@ -687,7 +687,8 @@ ingen leverantör som garanterar svarets form.
 
   **`re.escape` ÄR INTE ETT AV LAGREN, FÖR DEN ÄR INTE FÄLLBAR.** Anropet står i
   koden på raden med `MONSTER.format` och ska stå kvar, men **neutraliseras det
-  blir sviten GRÖN**, `50 passed`. Skälet: ingen av de tre etiketterna i
+  blir sviten GRÖN**, `119 passed` i skiva 21, kvitterat mot en NEUTRALISERAD-rad
+  som visar `skydd = re.escape(etikett)` som ursprungsvärde. Skälet: ingen av de tre etiketterna i
   `EXAKT_ETIKETT` innehåller ett regex-metatecken, så escapad och oescapad etikett
   ger identiskt mönster. Den är alltså ett skydd mot en FRAMTIDA etikett, inte ett
   lager i den här spärren, och den ska inte räknas som prövad. Sidan bär
@@ -702,7 +703,7 @@ ingen leverantör som garanterar svarets form.
   | Lager | `grep -n` |
   | --- | --- |
   | 1 | `'EXAKT_ETIKETT = \|MONSTER = \|{etikett}'` |
-  | 2 | `'len(traffar) > 1'` |
+  | 2 | `'ETIKETTSPAN = \|forekomster > 1'` |
   | 3 | `'CANONICAL = \|def _galler_fordonet\|slutet\.upper()\|_galler_fordonet(sida'` |
   | 4 | `'re\.fullmatch\|def _ja_nej'` |
 
@@ -719,30 +720,28 @@ ingen leverantör som garanterar svarets form.
   som ett mått på antalet villkor, och kontrollera alltid att mönstret träffar
   KODRADEN och inte en docstring som nämner den.**
 
-  **LAGER 1 OCH 2 ÄR DELVIS REDUNDANTA, och det är avsiktligt.** Etikettmönstret
-  är exakt, så det ger normalt en träff, och tvetydighetskontrollen är då tystnad.
-  Faller mönstrets stränghet bort träffar det flera etiketter, och då är det
-  kontrollen i lager 2 som fäller. Prövningen: fälls lager 1 ensamt föll fem test,
-  fälls lager 2 ensamt föll ett, och fälls **båda samtidigt föll tre** — alltså
-  färre än vid lager 1 ensamt.
+  **LAGER 1 OCH 2 VAR DELVIS REDUNDANTA. SEDAN SKIVA 21 ÄR DE DET INTE.**
+  Redundansen kom av att lager 2 räknade träffar på `MONSTER`, alltså på lager 1:s
+  eget uttryck. Föll lager 1:s stränghet bort träffade mönstret flera etiketter,
+  och då tände lager 2 på lager 1:s fällning i stället för på sidans tvetydighet.
+  Lager 2 räknar nu `ETIKETTSPAN`, ett eget uttryck, och en fällning i `MONSTER`
+  rör det inte.
 
-  **Att dubbelfällningen ger FÄRRE röda är inte en räknefråga, och den första
-  förklaringen i den här posten var fel.** Fyra av lager 1:s fem föll på
-  `Hamtningsfel ... tvetydigt`, alltså på lager 2:s kast och inte på det de
-  själva asserar. Inget av dem kontrollerar tvetydigheten; det gör bara lager 2:s
-  eget test, och det passerar när lager 1 fälls ensamt. Neutraliseras lager 2
-  också tas första träffen i stället, och **tre av de fyra blir gröna** eftersom
-  första träffen råkar vara den rätta i deras fixturer. Den fjärde,
-  `test_slapvagnsvikt_ar_den_bromsade_aven_i_omvand_radordning`, förblir röd men
-  byter felskäl från undantag till assert, vilket är hela dess uppgift. Kvar blir
-  den, `test_etikett_med_annat_suffix_ger_inte_falt` som föll på assert redan vid
-  lager 1, och lager 2:s `test_dubblerad_etikett_kastar`: 5 − 3 + 1 = 3.
+  Det stycke som stod här beskrev den gamla kopplingen och föreskrev att lagren
+  alltid ska fällas tillsammans, eftersom en ensam fällning av lager 1 blev röd av
+  fel skäl. **Den föreskriften gäller inte längre för det här paret.** Fälls lager
+  1 ensamt är samtliga röda rena assertfel: `Hamtningsfel ... tvetydigt`
+  förekommer inte i utdatan. Talen och verdikten står i mutationstabellen längre
+  ned i den här posten, tillsammans med additiviteten som visar frikopplingen.
 
-  **Följden för hur den här spärren ska prövas i framtiden:** ett rött verdikt vid
-  fällning av lager 1 ensamt säger nästan ingenting, eftersom rödheten kommer från
-  lager 2. Fyra av lager 1:s test har alltså sitt bevisvärde först i
-  dubbelfällningen. **Fäll alltid lager 1 och 2 samtidigt**, och läs felskälet och
-  inte bara verdiktet.
+  §7.1:s regel om lagrat försvar gäller oförändrat för spärren i stort. Det som
+  ändrats är att just lager 1 och 2 inte längre maskerar varandra, inte att
+  redundansen mellan `tråden bär mänskligt svar` och de övriga lagren upphört.
+
+  **Priset är att exakthetsregeln nu står i TVÅ uttryck** som kan glida isär.
+  Det är avsiktligt: de har olika uppgift och ska ha olika stränghet, se
+  `ETIKETTSPAN`-kommentaren i modulen. En komposition hade tvingat dem lika
+  stränga och därmed återinfört den defekt skiva 21 stängde.
 
 - **Vad den skyddar mot.** Att ett utgående mail bär en vikt eller ett
   dragkroksbesked som är läst ur något annat än det efterfrågade fordonets sida.
@@ -758,8 +757,11 @@ ingen leverantör som garanterar svarets form.
   därefter 750 kg. Första träffen blir alltså den BROMSADE, det vill säga den RÄTTA.
   **Prefixdefekten gör ingen skada på det avlästa fordonet: den ger rätt tal, av
   ren radordning.** Verifierat genom att fälla lager 1 till prefix och lager 2
-  samtidigt, vilket ger `3 failed, 43 passed` med
-  `test_slapvagnsvikt_ar_den_bromsade` GRÖNT och värdet 2 400.
+  samtidigt, vilket i skiva 21 ger `17 failed, 102 passed` med
+  `test_slapvagnsvikt_ar_den_bromsade` GRÖNT och värdet 2 400. Ommätt, och
+  utfallet står kvar: det är `..._aven_i_omvand_radordning` som faller, inte det
+  test som läser den avlästa sidans egen ordning. Talet stod förut på
+  `3 failed, 43 passed`, mätt vid en baslinje som sedan rört sig två gånger.
 
   *Här stod tidigare att prefixmatchningen bara kan sätta in den OBROMSADE vikten.
   Det var fel, och det var en skärpning av ett tidigare fel: §7-granskningens varv 1
@@ -834,27 +836,61 @@ indentering som `raise`-raden, annars stannar körningen på insamlingsfel.
 Beskrivningarna i tabellen är därför skrivna om till att bära det uttryck som
 byts, så att var och en går att köra om utan att gissa.
 
+**TABELLEN ÄR OMMÄTT I SKIVA 21 MOT BASLINJEN 119.** Talen nedan gällde vid
+baslinjen 50 och sedan vid 112; båda slutade gälla när skivan lade till test och
+rättade två sändvägsdefekter. Postens egen regel gäller den själv: *ett tal som
+mäts vid en baslinje slutar gälla när baslinjen rör sig, och det enda som duger
+är att mäta om.*
+
 | Fällning | Verdikt | Röda test |
 | --- | --- | --- |
 | Lager 1, exakt etikett görs till prefix: `{etikett}\s*</span>` blir `{etikett}[^<]*</span>` | RÖD | 5 |
-| Lager 2, `if len(traffar) > 1:` blir `if False:` | RÖD | 1 |
-| **Lager 1 och 2 samtidigt** | **RÖD** | **3** |
-| Lager 3, `if not _galler_fordonet(...)` blir `if False:` | RÖD | 1 |
-| Lager 3, saknad `canonical` godtas: `return False` blir `return True` | RÖD | 1 |
-| Lager 3, skiftläget i JÄMFÖRELSEN: `slutet.upper() == regnr.upper()` blir `slutet == regnr` | RÖD | 7 |
-| Lager 4, `_tal` `fullmatch` blir `search` | RÖD | 2 |
-| Lager 4, `_ja_nej` förval `None` blir `False` | RÖD | 5 |
-| Lager 4, `.strip()` före matchningen borttagen | RÖD | 4 |
+| Lager 2, `if forekomster > 1:` blir `if False:` | RÖD | 12 |
+| **Lager 1 och 2 samtidigt** | **RÖD** | **17** |
+| Lager 3, `if not _galler_fordonet(...)` blir `if False:` | RÖD | 9 |
+| Lager 3, saknad `canonical` godtas: `return False` blir `return True` | RÖD | 6 |
+| Lager 3, skiftläget i JÄMFÖRELSEN: `slutet.upper() == regnr.upper()` blir `slutet == regnr` | RÖD | 57 |
+| Lager 4, `_tal` `fullmatch` blir `search` | RÖD | 9 |
+| Lager 4, `_ja_nej` förval `None` blir `False` | RÖD | 10 |
+| Lager 4, `.strip()` före matchningen borttagen | RÖD | 3 |
 | Statusgrenen kastar inte: `raise Hamtningsfel(...)` blir `return None` | RÖD | 6 |
 | 404-grenen neutraliserad: `if status == 404:` blir `if False:` | RÖD | 1 |
 
-**SAMTLIGA ELVA RADER ÄR REPRODUCERADE I SKIVA 20, OCH AV DESS GRANSKARE.**
-Tabellen ovan var självmätt när den skrevs, se statusrubriken i 0.18.0-posten.
-Den är nu körd om två gånger av andra pass än det som skrev den: först av skiva
-20 och sedan av skiva 20:s **oberoende granskare** i §7:s mening. Båda körde
+**LAGER 1 OCH 2 ÄR INTE LÄNGRE REDUNDANTA, och raden ovan visar det.** 5 + 12 är
+17, alltså exakt additivt: dubbelfällningen fäller precis unionen och inget
+maskeras. Förr var summan SUB-additiv, tre mot fem, därför att lager 2 räknade
+träffar på `MONSTER` och därmed tände när lager 1:s exakthet föll.
+
+Sedan skiva 21 räknar lager 2 `ETIKETTSPAN`, ett eget uttryck, så en
+prefixfällning i `MONSTER` rör det inte. **Fälls lager 1 ensamt är samtliga fem
+röda rena assertfel, inte `tvetydigt`.** Uppmätt genom att köra samma fällning
+med `--tb=line` och LÄSA utdatan. Den bär `assert 750 == 2400`,
+`assert 'slapvagnsvikt_kg' not in {...}` och tre av formen
+`AssertionError: sidändringen gav ett uppslag i stället för att falla`.
+Inget `Hamtningsfel ... tvetydigt` förekommer.
+
+*Belägget stod först som en rörledning till `grep -c`, vilket §9 förbjuder för
+verifiering. Att slutsatsen råkade vara riktig gör inte metoden tillåten, och en
+förbjuden metod ska inte stå som förebild i ett styrdokument. Utbytt mot en
+avläsning av utdatan.*
+
+Följden för lagerbeskrivningen längre upp i posten står där, under
+`LAGER 1 OCH 2 VAR DELVIS REDUNDANTA`, och upprepas inte här.
+
+**REPRODUKTIONEN I SKIVA 20 GÄLLDE DEN TABELL SOM STOD HÄR DÅ, INTE DEN OVAN.**
+Tabellen var självmätt när den skrevs i skiva 19, se statusrubriken i
+0.18.0-posten, och kördes sedan om två gånger av andra pass: först av skiva 20
+och sedan av skiva 20:s **oberoende granskare** i §7:s mening. Båda körde
 `scripts/sparr-prova.sh` med `-- tests/test_biluppgifter.py -q` mot baslinjen 50
-gröna. **Verdikt och antal röda test stämmer i varje rad i båda körningarna**, och
+gröna. Verdikt och antal röda test stämde i varje rad i båda körningarna, och
 skriptet kvitterade sha256 identisk med utgångsläget varje gång.
+
+**Den reproduktionen certifierar inte talen ovan.** Skiva 21 bytte ut lager 2:s
+uttryck och skärpte `_tal`, alltså just den kod fällningarna angriper, och lade
+till test. Elva verdikt står kvar som RÖD, men antalen är andra. **Tabellen ovan
+är därför självmätt i skiva 21 tills en granskare kört om den**, precis som
+0.18.0:s var det innan skiva 20 körde den. Det som överlever är metoden och
+fällningarnas formuleringar, inte mätvärdena.
 
 Ordvalet är avsiktligt: `oberoende` är i det här repot §7:s term, satt i motsats
 till `självmätt`. Det gäller granskarens körning. Skiva 20:s egen var bara ett
@@ -863,8 +899,13 @@ annat pass.
 **De fyra som tidigare inte gick att rekonstruera går det nu.** Beskrivningarna
 bär det uttryck som byts, och `NEUTRALISERAD`-raden visade i varje fällning ett
 ursprungsvärde som var det avsedda villkoret, aldrig en tom sträng. Grep-tabellen
-per lager slår upp rätt rader. Också det kontraintuitiva ledet reproducerar:
-dubbelfällningen av lager 1 och 2 ger färre röda än lager 1 ensamt.
+per lager slår upp rätt rader. Också det kontraintuitiva ledet reproducerade:
+dubbelfällningen av lager 1 och 2 gav färre röda än lager 1 ensamt.
+
+**Det ledet gäller inte längre.** Frikopplingen i skiva 21 gjorde summan additiv,
+och det som var postens mest kontraintuitiva iakttagelse är nu bara aritmetik.
+Meningen står kvar i imperfekt därför att den beskriver vad skiva 20 mätte, inte
+vad koden gör i dag.
 
 **EN REPRODUKTIONSDETALJ I FÄLLNING 7 OCH 9.** Bägge byter ut raden med
 `re.fullmatch`, vars teckenklass bär en escape för hårt blanksteg, skriven med
@@ -905,8 +946,11 @@ skiva 20 varnade för dem, och de gäller inte här. Avläst på Lars maskin
   handlar om det.
 - **Sviten är hel.** Varningen sade att ett test i
   `tests/test_kategorier_yaml.py` är rött därför att det kräver den gitignorerade
-  `data/taxonomi.json`. På den här maskinen finns filen, och hela sviten ger 488
-  gröna.
+  `data/taxonomi.json`. På den här maskinen finns filen, och hela sviten är hel.
+  Talet stod som `488 gröna`, mätt i skiva 20. **Skiva 21 lade till test och
+  gjorde det föråldrat**; avläst i skiva 21 ger `.venv/bin/python -m pytest -q`
+  i stället `557 passed`. Påståendet som bär noteringen är att sviten är HEL,
+  och det håller vid båda talen.
 
 **Skälet att skriva ut det:** utan den här noteringen drar nästa läsare slutsatsen
 att sviten är beroende av filer utanför repot. Det är den inte. Den är beroende av
@@ -938,6 +982,152 @@ villkor som skulle fällas, aldrig bara verdiktet. Detta är samma feltyp som ru
 överst varnar för, med den skillnaden att radnumret var felräknat och inte
 föråldrat. Effekten är identisk.
 
+### Sidändringsprövningen, utförd i skiva 21
+
+**MUTATIONERNA PRÖVAR KODEN, INTE KÄLLAN.** De elva fällningarna ovan visar att
+lagren biter när koden ändras. De säger ingenting om vad som händer när SIDAN
+ändras, och det är det som faktiskt kommer att inträffa: biluppgifter.se ändrar
+sin markup utan att fråga oss.
+
+Skiva 21 konstruerade ändrade sidor ur samma fixtur och prövade tio fall.
+**Kravet är ensidigt: ett fall får aldrig returnera ett värde som ser giltigt ut.**
+
+| Fall | Utfall | Skäl eller undantag |
+| --- | --- | --- |
+| 1 `Släpvagnsvikt` omdöpt | utkast | `svaret saknar slapvagnsvikt_kg` |
+| 2 `Draganordning` omdöpt | utkast | `svaret saknar draganordning` |
+| 3 `Tjänstevikt` omdöpt | utkast | `svaret saknar tjanstevikt_kg` |
+| 4 värdet i okänt format | utkast | `svaret saknar slapvagnsvikt_kg` |
+| 5 fältet borttaget | utkast | fältets eget skäl |
+| 6 två träffar på etiketten | **`Hamtningsfel`** | `... förekommer 2 gånger, tvetydigt` |
+| 7 ankaret pekar på annat fordon | utkast | `hämtningen gav inget svar` |
+| 8 ankaret saknas | utkast | `hämtningen gav inget svar` |
+| 9 felsida med status 200 | utkast | `hämtningen gav inget svar` eller saknat fält |
+| 10 tom eller trunkerad sida | utkast | `hämtningen gav inget svar` eller saknat fält |
+
+Fall 6 skiljer ut sig genom att kasta i stället för att falla till utkast, och
+det är avsiktligt: `slag_upp` fångar inte hämtningens egna undantag. Kravet
+gäller ändå, eftersom inget värde kommer ut. Att undantaget sedan LEDER till
+utkast är en skyldighet på fas 5:s anropare och inte något den här modulen kan
+garantera; ingen kod konsumerar det ännu.
+
+**TABELLEN OVAN GÄLLER EFTER TVÅ RÄTTELSER, OCH SÅ SÅG DEN INTE UT FÖRST.**
+Skivans första lydelse skrev "INGET AV DE TIO RETURNERAR ETT VÄRDE". Den var
+falsk. §7-granskningen hittade **två sändvägsdefekter inom kategorierna 4 och
+6**, båda i den farliga riktningen, alltså ett tal under tröskeln 1 000 där det
+rätta ligger över:
+
+1. **Fall 6, dubbletten som inte kastade.** Lager 2 räknade träffar på
+   `MONSTER`, vars värdegrupp `([^<]*)` inte matchar ett värde med nästlad
+   markup. Låg etiketten två gånger och ETT värde var nästlat gav mönstret EN
+   träff, tvetydigheten tände aldrig, och modulen svarade **750 kg** som om det
+   vore entydigt. **Premissen finns på den skarpa sidan**: fixturkommentaren
+   mäter 62 label-span mot 54 par, och ett av glappen är avläst: `Chassinr /
+   VIN`, vars value-span öppnar ett element. Att hela glappet har den orsaken
+   är en subtraktion, inte en avläsning.
+   Rättat: lager 2 räknar nu förekomster av ETIKETTEN, via `ETIKETTSPAN`.
+2. **Fall 4, värdet med två tal.** `_tal`:s mönster tillät blanktecken var som
+   helst i siffergruppen medan `re.sub` klistrade ihop det som blev kvar.
+   `750 2400 kg` gav **7502400**, ett välformat heltal långt över tröskeln.
+   Rättat: avskiljare godtas bara som tusenavskiljare och måste vara
+   KONSEKVENTA vid varje gräns. Den andra halvan behövdes: ett mönster med
+   valfri avskiljare läste `2400 750 kg` som 2 400 750.
+
+Båda är bundna av test som blir röda när rättelsen fälls, se prövningen nedan.
+**Den rättade tabellen är alltså inte en självmätning av att allt var bra från
+början**, utan resultatet efter att två fel hittats och stängts.
+
+**FALL 4 DELADES I TVÅ HALVOR, OCH DET ÄR EN INSKRÄNKNING AV BRIEFEN.** Briefen
+säger "För VART OCH ETT: uppslaget ska MISSLYCKAS". `1 200 kg` är sidans egen
+form, och en modul som föll på den hade inte kunnat slå upp något alls, så
+kravet lästes som att det gäller de format källan INTE använder: `1200` utan
+enhet, `1,2 ton`, `1200 lbs`, `ca 1200 kg`, `1200 kg (Teoretisk)` och
+`-1200 kg`. `1200` är det farligaste, eftersom talet är rätt och bara enheten
+saknas.
+
+**Läsningen är skivans egen och inte Lars.** Den står här utskriven i stället
+för att tillämpas tyst, och **frågan är ställd och obesvarad**: menade briefen
+att även källans eget format ska falla är det modulen som ska ändras, inte
+testet. Jämför lucka 5, där samma sorts avvägning uttryckligen lämnas till Lars.
+
+**Vilken form källan faktiskt använder är inte belagt i repot.** `_tal`:s
+docstring säger att tusenavskiljaren är blanksteg eller hårt blanksteg, medan
+fixturen `SIDA_AVLAST`, vars åtta värden är avlästa, skriver `2140 kg` och
+`2400 kg` UTAN avskiljare. Alla tal i den är fyrsiffriga eller mindre, så de två
+källorna motsäger inte varandra, men ingen av dem visar en avskiljare i bruk.
+Mönstret tål båda formerna, och det är det som gör frågan ofarlig i dag.
+
+**SEX MARKUPÄNDRINGAR UTANFÖR LISTAN PRÖVADES OCKSÅ**, alla rimliga i en
+omdesign och ingen av dem i briefen: ett attribut på etikettspannen, ett bytt
+klassnamn, ett extra ord i klassen, nästlad markup i värdet, värdet helt inuti
+ett element, och något inskjutet mellan etikett och värde. **Alla sex faller
+till utkast.**
+
+**TESTERNA LIGGER I REPOT, INTE I `/tmp`.** Sidorna byggs ur `sida()` och
+`rad()` i `tests/test_biluppgifter.py`, alltså ur samma fixtur som resten av
+filen. Skiva 19:s överlämning bar fixturer i `/tmp`, och en fixtur utanför repot
+gör testet obeständigt.
+
+**Nollfallet bär avsnittet.** `test_baslinjen_ger_ett_uppslag` prövar att den
+oförändrade sidan fortfarande GER ett uppslag. Utan den vore varje test ovan
+värdelöst: slutade fixturen bygga en läsbar sida hade allt fallit till utkast av
+fel skäl, och samtliga test blivit gröna utan att pröva något.
+
+**§7.1-PRÖVNING AV DE NYA TESTEN.** Samtliga NEUTRALISERADE, aldrig raderade,
+mot `-- tests/test_biluppgifter.py -q` med **119 gröna** som baslinje. Raderna
+citeras och numreras inte, av skälet i rutan överst.
+
+**Ingressen sade först 112, och tabellen under var körd vid 119.** Baslinjen
+flyttades av de test varv 2:s rättelse lade till, och ingressen etiketterade
+alltså sin egen tabell med en föråldrad baslinje. Samma stycke sade dessutom
+"körda sist i skivan", vilket var osant om den körning som gav talen. Båda leden
+är rättade, och tabellens rader är körda om vid 119 av granskningsvarv 3.
+
+| Fälld rad, citerad | Fällning | Utdata | Verdikt |
+| --- | --- | --- | --- |
+| `if not _galler_fordonet(sida, regnr):` | `if False:` | `9 failed, 110 passed` | RÖD |
+| `if forekomster > 1:` | `if False:` | `12 failed, 107 passed` | RÖD |
+| `_ja_nej`:s avslutande `return None` | `return False` | `10 failed, 109 passed` | RÖD |
+| `traff = re.fullmatch(` i `_tal` | `re.search(` | `9 failed, 110 passed` | RÖD |
+| `{etikett}\s*</span>` i `MONSTER` | `{etikett}[^<]*</span>` | `5 failed, 114 passed` | RÖD |
+| **rättelse 1:** `re.findall(ETIKETTSPAN...)` | tillbaka till `MONSTER` | `7 failed, 112 passed` | RÖD |
+| **rättelse 2:** det strikta talmönstret | tillbaka till `([\d\s]+)kg` | `4 failed, 115 passed` | RÖD |
+| **rättelse 3:** `ETIKETTSPAN` med `[^>]*` | tillbaka till `MONSTER`:s stränghet | `3 failed, 116 passed` | RÖD |
+| `_kontrollera`:s TRE grenar i `src/fordonsuppslag.py` | `if False:` × 3 | `37 failed, 82 passed` | RÖD |
+
+De tre raderna märkta **rättelse** fäller tillbaka till den defekta koden och är
+det som binder sändvägsdefekterna. Utan dem vore rättelserna oprövade.
+
+**Tabellen är körd om vid baslinjen 119 gröna.** Den stod tidigare vid 112, och
+varv 2:s rättelse lade till test. Radnumren i `src/fordonsuppslag.py` hade
+samtidigt rört sig: `_kontrollera`:s tre grenar ligger på 272, 275 och 278, inte
+där den tidigare körningen sökte dem. Fällningen mot de gamla numren gav
+`pytest exit 2`, alltså `FEL` och inte `GRÖN`. Det är skriptets avsedda beteende
+och skälet till att felet syntes i stället för att passera som ett verdikt: en
+fällning som inte går att köra får aldrig läsas som att spärren höll.
+
+**Rättelse 2:s fällning skrivs `([\d\s]+)kg` utan escape för hårt blanksteg.**
+Det är ingen förenkling. `re.fullmatch(r'\s', chr(0xa0))` är sann i Python, alltså
+täcker `\s` redan tecknet, och formen undviker den escape som enligt posten längre
+ned inte når oförändrad fram till `--ersatt`. Uppmätt i skiva 21, inte antaget.
+
+Den sista fällningen ligger i en ANNAN modul med avsikt: fall 1, 2, 3 och 5
+faller inte på något i den här filen, utan på att nyckeln utelämnas och att
+spärren nedströms fäller. Testen asserar därför på SKÄLET och inte bara på att
+något kastades.
+
+**ALLA TRE GRENARNA FÄLLS, INTE BARA EN.** Skivans första prövning fällde bara
+`slapvagnsvikt_kg`-grenen, och lämnade därmed de test som rör tjänstevikt och
+draganordning OPRÖVADE: de var gröna i den körningen. §7.1:s klausul om lagrat
+försvar gäller här i sin egen form, eftersom de tre grenarna är oberoende och
+varje test bara binder sin egen.
+
+**Hjälparen `utfallet_av` är själv en spärr.** Den kastar `AssertionError` om
+ett uppslag kommer ut i stället för ett skäl, så ett fall som en dag börjar
+svara med fakta blir rött i stället för tyst grönt. Att den biter är prövat: med
+lager 3 fällt är det just den assertionen som fäller
+`test_canonical_for_annat_fordon_faller_till_utkast`.
+
 ### Kända luckor
 
 1. **Källan filtrerar på klient och kan börja neka.** Att svaret alls går att hämta
@@ -954,6 +1144,43 @@ föråldrat. Effekten är identisk.
 4. **Spärren gäller svaret, inte anroparens fantasi.** `Uppslag` går att
    konstruera förbi den här modulen helt, precis som lucka 2 under
    `fordonsfakta-ur-uppslag` beskriver.
+5. **EN SEMANTISK OMDÖPNING UPPTÄCKS INTE AV NÅGON BYGGD KONTROLL, och den ger
+   ett värde.**
+   Uppmätt i skiva 21. Lucka 2 ovan gäller när en etikett byter NAMN. Det
+   omvända fallet är farligare: källan behåller namnet `Släpvagnsvikt` men låter
+   det beteckna ett annat tal. Konkret, och prövat: tas den bromsade raden bort
+   och den obromsade döps om till `Släpvagnsvikt`, så bär sidan exakt EN rad med
+   den etiketten och ett välformat värde. **Samtliga fyra lager passerar och
+   modulen svarar 750 kg**, alltså den obromsade vikten presenterad som den
+   bromsade.
+
+   Talet ligger UNDER tröskeln 1 000 medan det rätta ligger över, så felet kan
+   byta ärendets utfall och gör det tyst. Det är samma riktning som prefixfällan
+   i lager 1, men utan att någon kod är fel: modulens kontrakt är att läsa fältet
+   med ett givet namn, och källan har ändrat vad namnet betyder.
+
+   **Ingen kontroll är byggd, och det är inte ett förbiseende.** En rimlig sådan
+   vore att kräva att `Släpvagnsvikt obromsad` också finns och är mindre. **Den
+   skulle upptäcka fallet**, så luckan är inte oupptäckbar utan obevakad; här
+   stod först att den inte GÅR att upptäcka, vilket motsades av den här
+   meningen. Kontrollen kopplar dock spärren till ett fjärde fält och faller
+   själv om källan tar bort det. Avvägningen är Lars, inte kodens, och frågan är
+   ställd och obesvarad.
+
+   **VÄRDET KOMMER BARA UT NÄR BÅDA RADERNA ÄNDRAS.** Står den bromsade raden
+   kvar bär sidan `Släpvagnsvikt` två gånger, och lager 2 kastar. Luckan kräver
+   alltså att källan BÅDE tar bort den bromsade raden OCH döper om den
+   obromsade, vilket är briefens fall 5 och fall 1 i kombination.
+6. **ANKARET PRÖVAR BARA SISTA SEGMENTET I SÖKVÄGEN.** Uppmätt i skiva 21:
+   `_galler_fordonet` gör `rsplit("/", 1)[-1]` och jämför det med numret, så en
+   canonical som `https://biluppgifter.se/sok/<numret>/` passerar lager 3. En
+   felsida eller söksida vars ankare slutar på numret skulle alltså läsas som
+   fordonssidan.
+
+   Ofarligt i dag: källans söksida svarar med `/fordon/` utan nummer, avläst
+   2026-09-02, och `CANONICAL`-kommentaren i modulen beskriver just det. Men
+   samma kommentar säger också att den avläsningen är av i dag och inte en
+   garanti, och då gäller det här ledet också. `test_ankaret_provar_bara_sista_segmentet` fäster dagens beteende så att en skärpning blir ett medvetet val.
 
 ---
 
@@ -1330,6 +1557,212 @@ post och inte en spärr som saknar egenskapen.
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.20.0 — 2026-09-03
+
+Skiva 21 stängdes inte. Lars grindbeslut är att den fortsätter som skiva 22, och
+att det som finns committas med statusen utskriven. Den här posten är den
+committen; skiva 22:s eget arbete kommer efter den.
+
+**0.19.0-POSTEN FÅR SIN STATUSRUBRIK.** Den redovisade skivan som avslutad medan
+tre granskningsvarv var förbrukade och det sista underkände. Rubriken skriver ut
+kriterienumren, och skiljer på det som är stängt och det som inte är det: varv 1
+och 2:s fynd är rättade i koden, medan **två sändvägsdefekter står ÖPPNA** i fall
+5 och fall 6 och är kända, verifierade och committade som sådana.
+
+**§6-STYCKET SKREV SJÄLVT IN TVÅ REGISTRERINGSNUMMER I `docs/`.** Stycket fanns
+för att redovisa att ingen persondata följde med fixturen in i repot, och blev
+det enda i skivan som fällde repots egen kontroll: `granska()` gav två fynd av
+sorten `registreringsnummer`. Numren är påhittade, alltså en falsk positiv, men
+**Lars beslut är att de ska UT ur `docs/`, inte undantas.** Ett undantag i
+`TILLATNA` gäller exakt strängen och hade släppt igenom ett framtida riktigt
+nummer med samma tecken. Samma avvägning som för postnummer i skiva 7.
+
+**SEX PÅSTÅENDEN SOM SKIVANS EGNA ÄNDRINGAR GJORDE FALSKA ÄR RÄTTADE**, var och
+en mot en mätning i skiva 21 och inte mot minnet av vad som stod där:
+
+| Vad som stod | Vad som gäller |
+| --- | --- |
+| postens första mening namngav `biluppgifter-fordonsfakta` | spärren heter `fordonsfakta-ur-sida` |
+| "Tre av dem returnerade ett värde när skivan började" | tre defekter på TVÅ av fallen, och den tredje uppstod i skivans egen första rättelse |
+| §7.1-tabellens ingress sade baslinjen 112 | tabellen under är körd vid 119 |
+| `re.escape` neutraliserad ger `50 passed` | `119 passed` |
+| dubbelfällningen ger `3 failed, 43 passed` | `17 failed, 102 passed` |
+| hela sviten ger `488 gröna` | `557 passed` |
+
+De tre sista är tal jag lämnade orörda därför att jag inte skrev om just de
+meningarna. **§7.2:s omskrivningskrav utlöses också när talets UNDERLAG ändras**,
+och underlaget var här baslinjen.
+
+**ETT BELÄGG VAR EN RÖRLEDNING TILL `grep -c`**, vilket §9 förbjuder för
+verifiering. Att slutsatsen råkade vara riktig gör inte metoden tillåten, och en
+förbjuden metod ska inte stå som förebild i ett styrdokument. Utbytt mot en
+avläsning av `--tb=line`-utdatan, som namnger felskälen i klartext.
+
+**`ETIKETTSPAN`-KOMMENTAREN PÅSTOD ATT BÅDA UTTRYCKEN FALLER STÄNGT.** Sant om
+räknarens ÖVERskattning, falskt om dess UNDERskattning, och det är den senare som
+släpper ut ett värde. Kommentaren skriver nu ut i vilken dimension räknaren är
+lösare, i vilka den inte är det, och att defekten är öppen till skiva 22.
+
+**`docs/incidentlogg.md` I8 tillkommer:** en fällning mot fel radnummer gav
+`GRÖN`, ett verdikt som inte går att skilja från ett äkta vakuöst utfall. Den
+inträffade två gånger i samma pass, och andra gången var orsaken passets egen
+kommentarändring i samma fil.
+
+Statusrubrik, en struken lydelse och sex rättade påståenden ⇒ MINOR.
+
+### 0.19.0 — 2026-09-03
+
+**GRINDEN ÄR FÖRBRUKAD, OCH DET SKA SYNAS.** §7 ger max tre granskningsvarv.
+Skiva 21 förbrukade alla tre och **varv 3 underkände**, på kriterierna 1, 2, 6,
+7, 8 och 11. Varv 1 och varv 2 underkände också, och deras fynd är stängda i
+koden. **Varv 3:s fynd är däremot INTE alla stängda:**
+
+- **Två sändvägsdefekter står ÖPPNA**, i fall 5 och fall 6. De är verifierade av
+  skivan själv i egen körning och beskrivna nedan. Lars grindbeslut är att skivan
+  inte stängs utan fortsätter som skiva 22, som bygger om avläsningen till en
+  parser. Defekterna committas alltså KÄNDA och utskrivna, inte dolda.
+- **Dokumentfynden är rättade, men de rättelserna är självmätta och inte
+  oberoende granskade**: spärrens namn i postens första mening, satsen om hur
+  många av de tio fallen som bar defekter, §7.1-tabellens ingress som etiketterade
+  sin egen tabell med en föråldrad baslinje, tre tal som skivans egna test gjorde
+  falska, `ETIKETTSPAN`-kommentarens påstående att båda uttrycken faller stängt,
+  och ett belägg som var en rörledning till `grep -c`.
+
+Rättelserna gjordes därför att §7 förbjuder att skeppa ett känt falskt påstående
+även när varvsgränsen är uttömd. Gränsen begränsar antalet granskningar, inte
+kravet på sanning.
+
+**`fordonsfakta-ur-sida` får en SIDÄNDRINGSPRÖVNING.** De elva
+mutationsfällningarna prövar koden; den här prövar källan. Tio fall konstruerade
+ur samma fixtur. **TVÅ av de tio fallen bar sändvägsdefekter**, nummer 4 och
+nummer 6, och de bar TRE stycken: två fanns när skivan började och en uppstod i
+skivans egen första rättelse. Alla tre är stängda och utskrivna nedan.
+Sex markupändringar utanför briefens lista prövades också, och även de faller
+till utkast.
+
+**TVÅ DEFEKTER STÅR ÖPPNA I FALL 5 OCH FALL 6**, fällda av granskningsvarv 3 och
+verifierade av skivan själv. De är inte stängda i skiva 21. Se statusrubriken
+nedan och avsnittet om vad varv 3 fann.
+
+Prövningen bär sitt eget nollfall: den oförändrade sidan ska fortfarande ge ett
+uppslag, annars vore de tio testen gröna utan att pröva något.
+
+**De ändrade sidorna ligger i repot som en BYGGARE, inte som filer.** `sida_med`
+i `tests/test_biluppgifter.py` sätter ihop den avlästa sidan med ett led utbytt,
+och varje fall namnger sitt byte. Kravet att ingenting får ligga i `/tmp` är
+uppfyllt: det finns ingen fixtur utanför repot, och sviten kör utan filer vid
+sidan av. Formen valdes framför tio HTML-filer därför att skillnaden mellan
+fallen då syns i testet i stället för i en diff mellan två nästan identiska
+filer, och därför att en byggare inte kan glida ifrån baslinjefixturen.
+
+**Fall 4 har två halvor**, och posten skriver ut varför kravet inte kan gälla
+båda: `1 200 kg` är sidans egen form och måste läsas.
+
+**En ny lucka, nummer 5: den semantiska omdöpningen.** Behåller källan namnet
+`Släpvagnsvikt` men låter det beteckna den obromsade vikten passerar samtliga
+fyra lager och modulen svarar 750 kg. Den är **obevakad, inte oupptäckbar**:
+modulen läser fältet med det namn den fått, och källan har ändrat vad namnet
+betyder, men en rimlighetskontroll mot ett fjärde fält skulle kunna fånga den.
+Ingen sådan är byggd, och avvägningen är Lars. **Frågan är ställd och obesvarad.**
+
+Lucka 5 ligger utanför briefens tio fall: där är etiketten omdöpt, här står den
+kvar oförändrad. Den är alltså inte en av de tre defekterna ovan.
+
+**§7.1-prövningen av de nya testen står utskriven per fällning**, med citerade
+rader och hela svitens utdata, körd sist i skivan. En av fällningarna ligger i
+`src/fordonsuppslag.py` med avsikt, eftersom fall 1, 2, 3 och 5 vilar på spärren
+nedströms och inte på något i hämtningsmodulen.
+
+**§7-GRANSKNINGEN HITTADE TRE SÄNDVÄGSDEFEKTER, och de är rättade i koden.**
+Alla tre låg INOM briefens tio kategorier och alla tre returnerade ett värde där
+spärren skulle ha fällt. Två fälldes i varv 1 och en i varv 2:
+
+- **Fall 6, varv 1.** Lager 2 räknade träffar på `MONSTER` i stället för
+  förekomster av etiketten. Ett värde med nästlad markup syns inte i `MONSTER`,
+  så en dubblerad etikett där ett värde var nästlat gav 750 kg i stället för
+  `Hamtningsfel`. `ETIKETTSPAN` tillkommer och lager 2 räknar nu etiketten.
+- **Fall 4, varv 1.** `_tal` tillät blanktecken var som helst i siffergruppen, så
+  `750 2400 kg` blev 7502400. Mönstret kräver nu konsekventa tusenavskiljare.
+- **Fall 6 igen, varv 2.** `ETIKETTSPAN` skrevs lika strängt som `MONSTER`, så en
+  dubblett där ena etikettspannen bar ett attribut, `data-id="7"`, extra blanksteg
+  i taggen eller enkla citattecken, räknades som en enda förekomst och släppte
+  ut ett värde. Räknaren är nu lösare än läsaren, och modulkommentaren skriver ut
+  varför den asymmetrin är hela konstruktionen: räknaren överräknar och kastar,
+  läsaren underträffar och utelämnar, båda faller stängt.
+
+**Den första rättelsen av `_tal` räckte inte, och det står här därför att
+mönstret annars ser färdigt ut.** Den gjorde avskiljaren VALFRI mellan grupperna
+och lät gruppen upprepas noll gånger. Följden var att grupperingen fick blandas
+inom ett och samma tal, så `2400 750 kg` lästes fortfarande som 2400750, alltså
+samma defektklass en runda senare.
+
+Den levererade formen, `traff = re.fullmatch(` i `_tal`, kräver i stället
+antingen bara siffror eller en till tre siffror följda av grupper om exakt tre
+med en avskiljare vid VARJE gräns. De två alternativen är åtskilda, och det är
+åtskillnaden som stänger den blandade grupperingen. **Raden citeras här och
+numreras inte**, av skälet i rutan överst.
+
+**Skivans egen text påstod att inget av de tio returnerar ett värde.** Det var
+falskt och står nu rättat med defekterna utskrivna, eftersom en post som säger
+att allt höll från början döljer att tre fel hittades och stängdes.
+
+**Att alla tre är samma defektklass är postens viktigaste fynd.** Var och en
+uppstod därför att ett mönster skrivet för sidans NUVARANDE markup tystnade i
+stället för att kasta när markupen såg annorlunda ut. Det är precis den risk
+briefen namngav: `biluppgifter.se ändrar sin markup utan att fråga oss`. Elva
+mutationsfällningar mot koden hade inte hittat någon av dem, eftersom koden var
+självkonsistent i alla tre fallen.
+
+Lucka 5:s rubrik sade att den semantiska omdöpningen inte GÅR att upptäcka,
+vilket motsades av postens eget nästa stycke. Den säger nu att den är obevakad.
+**Lucka 6 tillkommer:** ankaret prövar bara sista segmentet i sökvägen.
+
+**Fall 4:s uppdelning är namngiven som en öppen punkt**, inte som en
+nödvändighet. Skivan avgjorde själv att briefens krav inte kan gälla källans
+eget format, och det är Lars fråga.
+
+**§6-GENOMGÅNGEN AV FIXTUREN ÄR GJORD FÖR HAND, och den behövdes.**
+`scripts/persondatakontroll.py` bevakar `docs/`, `mallar/`, `config/`, `scripts/`
+och `CLAUDE.md`, alltså varken `src/` eller `tests/`, och en körning av den säger
+därför ingenting om testfilen. Vad som prövades och vad utfallet blev:
+
+- **Etiketterna och de åtta avlästa värdena i `SIDA_AVLAST` är vikter**, alltså
+  fordonsdata utan bärare. Ingen ägaruppgift följde med.
+- `Chassinr / VIN` förekommer som ETIKETTNAMN i en kommentar, inte som värde.
+  Det står där för att förklara glappet mellan 62 label-span och 54 par.
+- **Registreringsnumren i testfilen är konstruerade**, och det nummer källans
+  sida faktiskt lästes för står inte i repot. §6 räknar registreringsnummer som
+  persondata, så skillnaden är inte kosmetisk. **Numren skrivs inte ut här**, av
+  skälet i nästa stycke.
+
+**DEN FÖRSTA LYDELSEN SKREV UT DE TVÅ KONSTRUERADE NUMREN, och fälldes av
+repots egen kontroll.** `granska()` på det här dokumentet gav två fynd av sorten
+`registreringsnummer`, båda på den raden. Kontrollen hade en falsk positiv,
+eftersom numren är påhittade, men lydelsen är ändå struken: **Lars beslut är att
+numren ska ut ur `docs/`, inte att de ska undantas.**
+
+Skälet är att ett undantag i `TILLATNA` gäller exakt strängen och därmed hade
+släppt igenom ett framtida RIKTIGT nummer med samma tecken. Det är samma
+avvägning som gjordes för postnummer i skiva 7, och den finns redan utskriven i
+det här dokumentet på två ställen. Ett stycke som redovisar att ingen persondata
+läckte in ska inte självt vara det som för in mönstret.
+- Sökningar efter personnummer, telefonnummer och VIN-liknande sekvenser i
+  `tests/test_biluppgifter.py`, `src/biluppgifter.py` och det här dokumentet gav
+  en enda träff, ett Gmail-etikett-ID i en äldre post, som inte är persondata.
+
+**Mutationstabellen och §7.1-tabellen är ommätta mot baslinjen 119.** Båda stod
+vid tidigare baslinjer, 50 respektive 112, och skivans egna test flyttade dem.
+Postens egen regel om att ett tal slutar gälla när baslinjen rör sig gäller
+posten själv. Elva plus nio verdikt står kvar som RÖD; talen är andra.
+
+**Redundansstycket om lager 1 och 2 är omskrivet.** Lagren var kopplade därför
+att lager 2 räknade lager 1:s uttryck. Efter `ETIKETTSPAN` är de frikopplade, och
+dubbelfällningen ger nu 17 röda mot 5 plus 12, alltså exakt additivt. Den gamla
+föreskriften att alltid fälla dem tillsammans gällde den gamla kopplingen och
+gäller inte den levererade koden.
+
+Tre rättelser i sändvägen, ett nytt avsnitt och två nya luckor ⇒ MINOR.
+
 ### 0.18.1 — 2026-09-02
 
 **0.18.0-posten fick en statusrubrik som saknades.** Skiva 19 förbrukade §7:s tre
@@ -1352,8 +1785,13 @@ utskriven: escapen för hårt blanksteg når inte oförändrad genom skalet i f�
 
 **Tre fällor ur överlämningen var sandboxens och inte repots**, och det står nu
 utskrivet som en avläsning på Lars maskin: repots eget `scripts/sparr-prova.sh`
-fungerar, testerna är självbärande, och hela sviten ger 488 gröna. Utan noteringen
+fungerar, testerna är självbärande, och hela sviten är hel. Utan noteringen
 drar nästa läsare slutsatsen att sviten beror på filer utanför repot.
+
+*Rättelse i 0.20.0: här stod `488 gröna`. Talet var avläst när posten skrevs och
+gjordes föråldrat av skiva 21:s nya test. Avläst i skiva 21: `557 passed`. Bara
+talet är struket; noteringens påstående, att sviten är hel utan filer utanför
+repot, står kvar.*
 
 **Granskningsomgången fällde två falska påståenden i den här skivans egen text.**
 Det första: att skivorna 15 till 18 alla bar en statusrubrik. Sant om

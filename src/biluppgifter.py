@@ -104,6 +104,58 @@ MONSTER = (
     r'<span class="value">([^<]*)</span>'
 )
 
+# ETIKETTEN ENSAM, utan sitt värde. Lager 2 räknar FÖREKOMSTER AV ETIKETTEN och
+# inte träffar på `MONSTER`, och skillnaden var en sändvägsdefekt.
+#
+# `MONSTER`:s värdegrupp är `([^<]*)` och matchar därför inte ett värde som bär
+# nästlad markup. Låg etiketten två gånger på sidan och ETT av värdena var
+# nästlat gav `MONSTER` en enda träff, tvetydighetskontrollen tände aldrig, och
+# modulen svarade med det andra värdet som om det vore entydigt. Uppmätt i
+# skiva 21: en sida med `Släpvagnsvikt` två gånger, det första värdet i ett
+# `<b>`, gav 750 kg i stället för `Hamtningsfel`.
+#
+# **PREMISSEN FINNS PÅ DEN SKARPA SIDAN.** Fixturkommentaren i
+# `tests/test_biluppgifter.py` mäter 62 label-span mot 54 par, och namnger
+# orsaken för ett av glappen: `Chassinr / VIN`, vars value-span öppnar ett
+# element. Att just `Släpvagnsvikt` inte är ett av dem i dag är en avläsning av
+# i dag.
+#
+# **RÄKNAREN ÄR LÖSARE ÄN LÄSAREN, MEN BARA I TAGGEN.** `ETIKETTSPAN` godtar
+# attribut och extra blanktecken i taggen; `MONSTER` gör det inte. I den
+# dimensionen felar de åt SAMMA håll, som är det säkra:
+#
+#   räknaren överskattar  -> en dubblett som inte var en dubblett KASTAR
+#   läsaren underskattar  -> en etikett i ändrad form UTELÄMNAS
+#
+# **I KLASSVÄRDET OCH I ETIKETTENS INNEHÅLL ÄR RÄKNAREN LIKA STRÄNG, OCH DÄR
+# HÅLLER KONSTRUKTIONEN INTE.** Bär den ena av två förekomster `class="label
+# bold"`, nästlad markup runt etikettnamnet, eller ett annat element än `span`,
+# ser VARKEN räknaren eller läsaren den. `forekomster` blir 1, tvetydigheten
+# tänder aldrig, och det ANDRA parets värde går ut som om sidan vore entydig.
+#
+# **DET ÄR EN ÖPPEN SÄNDVÄGSDEFEKT**, fälld av skiva 21:s tredje granskningsvarv
+# och verifierad i egen körning: en sida med `Släpvagnsvikt` två gånger, 2400 kg
+# och 750 kg, svarar 750 när den första etiketten bär ett extra klassord. Den
+# obromsade vikten under tröskeln alltså, där den bromsade ligger över. Samma
+# sak på `Draganordning` löser ett Ja mot ett Nej tyst.
+#
+# Defekten stängs i skiva 22 genom att sidan PARSAS i stället för att matchas
+# som text, se `docs/beslutslogg.md`. Kommentaren står kvar tills dess, eftersom
+# en känd defekt som inte står utskriven är värre än en som gör det.
+#
+# En räknare lika sträng som läsaren var en sändvägsdefekt: låg etiketten två
+# gånger och den ENA spannen bar ett attribut såg räknaren en enda, och det
+# andra värdet gick ut som om det vore entydigt. Uppmätt i skiva 21:s andra
+# granskningsvarv, med `data-id="7"` på den ena och ett extra blanksteg i taggen
+# på den andra.
+#
+# **FÖLJDEN, som ska stå utskriven:** en `class="label"`-span som bär en av våra
+# tre etiketter men INGET värdepar räknas också. En sida med en rubrik i den
+# formen ger därför `Hamtningsfel` i stället för att läsas. Riktningen är säker,
+# inget värde kommer ut, men felskälet säger `förekommer 2 gånger` om något som
+# är ett fält och en rubrik.
+ETIKETTSPAN = r'<span[^>]*class=["\']label["\'][^>]*>\s*{etikett}\s*</span>'
+
 # ANKARET SOM AVGÖR ATT SVARET GÄLLER RÄTT FORDON.
 #
 # **SIDAN SVARAR INTE 404 PÅ ETT OKÄNT NUMMER.** Avläst 2026-09-02: ett nummer
@@ -151,35 +203,47 @@ def _tal(varde: str) -> int | None:
     därför inte bli 15.
 
     INGEN TOMKONTROLL EFTER `re.sub`, OCH DET ÄR BEVISAT OCH INTE ANTAGET. Här
-    stod `if not siffror: return None`. Den grenen var ONÅBAR: `§7`-granskningen
-    fällde raden till `if False:` och sviten förblev GRÖN, `46 passed`. Det
-    mätvärdet togs när testfilen bar 46 test, och raden finns inte längre att
-    fälla.
+    stod `if not siffror: return None`. Den grenen var ONÅBAR redan mot det
+    gamla mönstret, och är det med ännu bredare marginal mot det nya: grupp 1
+    kan inte matcha annat än siffror, eftersom både alternativen inleds med
+    `\d`. Ett blanktecken kan bara stå MELLAN siffergrupper.
 
-    ONÅBARHETEN VILAR PÅ TVÅ LED SOM MÅSTE HÅLLA SAMTIDIGT:
+    **HÄR STOD EN ANALYS AV DET GAMLA MÖNSTRET, och den beskriver inte längre
+    koden.** Den sa att onåbarheten vilar på TVÅ led, `.strip()` och
+    kvantifikatorn `+`, och att `' kg'` utan `.strip()` ger `ValueError`. Med
+    `(\d{1,3}(?:[\s\u00a0]\d{3})+|\d+)` kan grupp 1 aldrig bära enbart
+    blanktecken, så `' kg'` ger `None` med eller utan `.strip()`. Uppmätt i
+    skiva 21:s andra granskningsvarv, som också visade att `.strip()`-fällningen
+    därmed blivit GRÖN och testet som skulle vakta den vakuöst.
 
-    1. `.strip()` körs på argumentet FÖRE matchningen, så grupp 1:s första
-       tecken kan aldrig vara blanktecken.
-    2. Kvantifikatorn `+` kräver minst ett tecken i grupp 1.
+    **`.strip()` BÄR FORTFARANDE NÅGOT, men något annat.** Ett värde med
+    omgivande blanktecken i sin value-span, `'  2400 kg  '`, ger 2400 med
+    `.strip()` och `None` utan. Det är den egenskapen
+    `test_varde_med_omgivande_blanktecken_lases` vaktar, och den fällningen är
+    RÖD. Sidans HTML är indenterad, så fallet är källans normalform och inte ett
+    kantfall.
 
-    Att led 1 håller är bevisat genom en svepning över hela Unicode-rymden, alla
-    1 114 112 kodpunkter: **noll** tecken finns där regexens `\s` matchar men
-    `str.strip()` inte tar bort tecknet. Alltså bär grupp 1 alltid minst en
-    siffra, och `int(siffror)` kan inte kastas på en tom sträng.
-
-    **TOMKONTROLLEN MÅSTE TILLBAKA OM NÅGOT AV LEDEN FALLER**, och då med ett
-    test som NÅR den. Båda leden är fällbara i dag. Uppmätt utfall av `_tal`:
-
-        värde   orört   utan `.strip()`   `+` bytt mot `*`
-        'kg'    None    None              ValueError
-        ' kg'   None    ValueError        ValueError
-
-    `test_varde_som_inte_ar_ren_vikt_ger_none` bär `'kg'` och vaktar därför led 2
-    men INTE led 1. `test_bara_blanktecken_fore_enheten_ger_none` bär `' kg'` och
-    vaktar BÅDA; den fällningen är RÖD. En gren som inget test kan fälla ser ut
-    som försiktighet utan att vara det, och §7.1 kallar det vakuöst.
+    **En gren som inget test kan fälla ser ut som försiktighet utan att vara
+    det**, och §7.1 kallar det vakuöst. Det är precis vad som hände här: testet
+    som skrevs för `.strip()` slutade binda den när mönstret skärptes, utan att
+    någon rad blev röd.
     """
-    traff = re.fullmatch(r"([\d\s\u00a0]+)kg", varde.strip(), flags=re.IGNORECASE)
+    # BLANKTECKEN GODTAS BARA SOM TUSENAVSKILJARE, aldrig var som helst.
+    # Det gamla mönstret var `([\d\s\u00a0]+)kg`, som tillät blanktecken
+    # fritt inuti gruppen medan `re.sub` sedan klistrade ihop allt som blev
+    # kvar. Ett värde med TVÅ tal blev därför ETT: uppmätt i skiva 21 gav
+    # `750 2400 kg` talet 7502400, ett välformat heltal långt över tröskeln.
+    # Docstringens "bara siffror, valfria tusenavskiljare" beskrev inte det
+    # uttrycket. Grupperingen är nu strukturell OCH KONSEKVENT: antingen bara
+    # siffror, eller en till tre siffror följda av grupper om exakt tre med
+    # en avskiljare vid VARJE gräns. Den andra halvan behövs: ett mönster
+    # med valfri avskiljare läste `2400 750 kg` som 2 400 750, alltså två
+    # tal hopklistrade igen, fast med blandad gruppering.
+    traff = re.fullmatch(
+        r"(\d{1,3}(?:[\s\u00a0]\d{3})+|\d+)[\s\u00a0]*kg",
+        varde.strip(),
+        flags=re.IGNORECASE,
+    )
     if not traff:
         return None
 
@@ -242,14 +306,19 @@ def _las_falt(sida: str) -> dict:
     ut: dict = {}
 
     for nyckel, etikett in EXAKT_ETIKETT.items():
-        traffar = re.findall(
-            MONSTER.format(etikett=re.escape(etikett)), sida
-        )
+        skydd = re.escape(etikett)
 
-        if len(traffar) > 1:
+        # LAGER 2 RÄKNAR ETIKETTEN, inte värdeparen. Se `ETIKETTSPAN`: ett par
+        # vars värde bär nästlad markup syns inte i `MONSTER`, och en räkning
+        # på `traffar` missade därför dubbletten och svarade med det andra
+        # värdet.
+        forekomster = len(re.findall(ETIKETTSPAN.format(etikett=skydd), sida))
+        if forekomster > 1:
             raise Hamtningsfel(
-                f"etiketten {etikett!r} förekommer {len(traffar)} gånger, tvetydigt"
+                f"etiketten {etikett!r} förekommer {forekomster} gånger, tvetydigt"
             )
+
+        traffar = re.findall(MONSTER.format(etikett=skydd), sida)
 
         if not traffar:
             continue
