@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.9.3 · **Uppdaterad:** 2026-09-03 · **Speglar:** beslutslogg #33
+**Version:** 0.9.4 · **Uppdaterad:** 2026-09-03 · **Speglar:** beslutslogg #34
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -455,6 +455,24 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.9.4 — 2026-09-03
+
+**`Speglar` följer med till beslutslogg #34**, som godkänner skiva 23 trots varv
+3:s underkännande, stänger lucka 11 genom kast, och registrerar lucka 10 som
+öppen sändvägslucka. Lucka 11 blev DELVIS stängd: granskningen av skiva 24 mätte
+upp en väg till, som står som lucka 12 i `docs/sparrar.md` och var öppen när
+skivan stannade. Avläst ur `grep -n "^## #" docs/beslutslogg.md` efter att
+posten lagts till.
+
+**§7:s tre granskningsvarv är OFÖRÄNDRADE.** #34:s godkännande gäller en enskild
+skiva och är inte en ändring av regeln. Posten skriver ut det själv, och den här
+raden finns för att en läsare av CLAUDE.md inte ska härleda ett undantag ur
+beslutsloggen.
+
+**§0:s styrdokumentlista är oförändrad.** Skiva 24 skapade ingen ny fil.
+
+Ren synk ⇒ PATCH.
 
 ### 0.9.3 — 2026-09-03
 

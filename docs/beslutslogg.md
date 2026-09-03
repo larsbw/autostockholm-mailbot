@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.28.0 · **Uppdaterad:** 2026-09-03 · **Implementerar** CLAUDE.md §8
+**Version:** 0.29.0 · **Uppdaterad:** 2026-09-03 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -2103,7 +2103,108 @@ förbisedd.
 
 ---
 
+## #34 — Skiva 23 godkänns trots varv 3, lucka 11 stängs genom kast, lucka 10 registreras öppen
+
+**Datum:** 2026-09-03 · **Berör:** `src/biluppgifter.py`,
+`tests/test_biluppgifter.py`, `docs/sparrar.md` `fordonsfakta-ur-sida`,
+`docs/incidentlogg.md` I9, CLAUDE.md §7, #33
+
+**1. SKIVA 23 ÄR GODKÄND, trots att §7:s tredje och sista granskningsvarv
+underkände.** Beslut av Lars.
+
+**Skälet är vad fynden var, inte hur många de var.** **Varv 3:s fynd var
+påståenden i `docs/sparrar.md`, utom ett: en lucka som visade sig vara ÄLDRE än
+skivan och alltså inte något skiva 23 införde.** Den luckan låg i koden, i den
+parser skiva 22 byggde, och stängs av skiva 24. *Här stod "inget av varv 3:s fynd
+låg i koden", vilket motsades av samma stycke två rader ned och av att skiva 24
+skriver kod för att stänga just den luckan. Fällt av granskningen av skiva 24.*
+
+Granskaren skrev själv ut att sändvägen var i det skick posten beskrev:
+samtliga mutationsrader röda och reproducerbara, varje nytt test bundet, hela
+sviten grön. Luckan är registrerad som lucka 11 i `docs/sparrar.md`.
+
+*Här räknades varv 3:s fynd. Räkningarna gick inte att läsa ur repot, eftersom
+granskningsrapporterna ligger i gitignorerad `scratchpad/`, och §7.2 namnger den
+formen som förbjuden. Fällt av granskningen av skiva 24, som i sitt andra varv
+fällde en räkning till, `de tre textfynden`, i det stycke som skulle ha strukit
+den första. Det som bär beslutet är VAD fynden var, och det står kvar.*
+
+**Textfynden rättades efter grinden och är därmed självmätta, inte oberoende
+granskade.** Att de rättades trots att varven var slut följer av §7:s
+egen ordning: undantaget begränsar antalet omgångar, aldrig kravet på sanning, och
+ett känt falskt påstående får inte skeppas. Att rätta ett känt fel är inte att
+sänka kraven.
+
+**Det här är ett beslut om EN skiva och inte en ny regel.** §7:s tre varv står
+oförändrade, och nästa skiva som underkänns i varv 3 ska stoppas och rapporteras
+öppet precis som skiva 23 gjorde. Skillnaden här är att grinden hade gjort sitt
+arbete: varje varv fällde något som en ensam byggare inte såg.
+
+*Här räknades fynden per varv, och stycket sade dessutom att samtliga fynd var
+stängda eller registrerade. Räkningen var förbjuden form enligt §7.2. Den
+universella utsagan ströks först till `varje fynd`, vilket är samma utsaga med ett
+annat ord och lika obelagt, och granskningsvarv 2 fällde den igen. Den är nu
+BORTA i stället för omskriven: vad som är stängt och vad som står öppet framgår av
+`docs/sparrar.md`:s luckor, och den här posten sammanfattar dem inte.*
+
+**2. LUCKA 11 STÄNGS GENOM KAST, INTE GENOM SANERING.** *Beslutet står; UTFALLET
+blev DELVIS. Granskningens tredje varv mätte upp en väg till, registrerad som
+lucka 12 i `docs/sparrar.md` och öppen när skivan stannade.* Ett värde som innehåller
+ett element är inte ett tal och ska KASTA.
+
+Invändningen mot att stänga luckan var att varje väg innebär att tecken plockas
+bort ur ett tal vi skickar vidare. **Invändningen var riktig, slutsatsen fel.**
+Ingenting plockas bort. En sida som skriver 750 med en fotnot inuti säger något vi
+inte kan tolka, och rätt svar är att avläsningen är fel.
+
+Samma regel som `750 2400 kg` fick i #33: ett fält som fanns men lästes fel ser
+inte ut som ett fält som saknades.
+
+**Kostnaden är att en fotnot i ett värde ger ett kast, och den är SYNLIG.** 7501
+var det inte, och det är hela skillnaden.
+
+**Luckan var öppen i två committade versioner**, `8629223` och `52d0a97`. Den
+infördes av parsern i skiva 22 och kom fram först när skiva 23 tittade på
+fotnotselement i ETIKETTER. Att den hittades av en tillfällighet och inte av en
+prövning är skälet att det står utskrivet.
+
+*Här stod `0863a8e` i stället för `52d0a97`. Fällt av granskningen av skiva 24:
+`0863a8e` är skiva 21 och läser värden med regex, `git grep -n "class
+_Faltlasare" 0863a8e -- src/biluppgifter.py` ger noll träffar. De två versioner
+som bar parsern och därmed luckan är `8629223` och `52d0a97`, alltså mellanläget
+och skiva 23:s commit.*
+
+**3. LUCKA 10 REGISTRERAS SOM ÖPPEN SÄNDVÄGSLUCKA.** Bokstavsvillkoret i `_behall`
+står; det var rätt läsning av instruktionen i #33. Men luckan är den FARLIGA
+riktningen, alltså den som släpper ut ett värde, och den ska stå som en öppen
+sändvägslucka och inte som ett kantfall.
+
+**Formen är uppmätt i fixturen.** `Släp totalvikt (B)` och `Släp totalvikt (B+)`
+skiljer sig bara på `+`, som inte är en bokstav. Ingen av dem är ett fält vi
+läser, så formen FINNS på sidan utan att BITA i dag. Skillnaden mellan de två
+leden är skälet att luckan står öppen i stället för stängd.
+
+### Vad posten INTE avgör
+
+- **Om lucka 10 ska stängas, och hur.** Den står registrerad med riktningen
+  utskriven, inte avgjord.
+- **Om `config/priser.json` finns.** #30:s led 2 står oförändrat.
+- **Var driften körs.** #20 står oförändrat.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.29.0 — 2026-09-03
+
+**#34 tillkommer:** skiva 23 godkänns trots varv 3:s underkännande, lucka 11
+stängs genom kast, och lucka 10 registreras som öppen sändvägslucka med
+riktningen utskriven. Tre beslut av Lars i skiva 24.
+
+Godkännandet är ett beslut om EN skiva. §7:s tre varv står oförändrade, och
+posten skriver ut det.
+
+Ny beslutspost ⇒ MINOR.
 
 ### 0.28.0 — 2026-09-03
 

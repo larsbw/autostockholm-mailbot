@@ -45,10 +45,16 @@ beskrivning som inte längre stämmer tystnar i stället för att kasta. Se
 `_Faltlasare` om vad ombyggnaden stänger och vad den avsiktligt inte gör.
 
 En följd som ska sägas rakt ut: **modulen faller inte längre på kosmetiska
-markupändringar.** Ett attribut, ett klassord till, nästlad markup i värdet
-eller ett annat elementnamn läses nu i stället för att ge ett saknat fält. Det
-ser ut som en uppmjukning och är motsatsen: det var samma okänslighet för
-markup som gjorde att en DUBBLERAD etikett inte upptäcktes.
+markupändringar i ETIKETTEN.** Ett attribut, ett klassord till eller ett annat
+elementnamn läses nu i stället för att ge ett saknat fält. Det ser ut som en
+uppmjukning och är motsatsen: det var samma okänslighet för markup som gjorde att
+en DUBBLERAD etikett inte upptäcktes.
+
+**FÖR VÄRDET GÄLLER MOTSATSEN SEDAN SKIVA 24.** Nästlad markup i ett värde KASTAR,
+se lucka 11 i `docs/sparrar.md`: samma konkatenering som gjorde
+`2400 <abbr>kg</abbr>` läsbar gjorde `750<sup>1</sup> kg` till 7501. *Här stod att
+även nästlad markup i värdet läses, vilket blev falskt av skiva 24 och stod kvar
+oförändrat tills granskningens tredje varv fällde det.*
 
 INGET NYTT BEROENDE. `urllib`, `re` och `html.parser` ur standardbiblioteket.
 Frågan om ett beroende ställdes i briefen till skiva 22, och svaret är att
@@ -265,7 +271,9 @@ class _Faltlasare(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.etiketter: list[str] = []
-        self.par: list[tuple[str, str]] = []
+        # `(etikett, värdetext, värdet bar ett element)`. Tredje ledet är lucka
+        # 11:s spärr, se `_las_falt`.
+        self.par: list[tuple[str, str, bool]] = []
         self.ankare: list[str] = []
         # Överhoppningen följer TAGGNAMNET och inte ett tal, se klassens
         # docstring om `</br>` inuti `<template>`.
@@ -280,6 +288,9 @@ class _Faltlasare(HTMLParser):
         self._text: list[tuple[str, int | None]] = []
         self._vantar: str | None = None
         self._vantar_foralder: int | None = None
+        # Sant så snart en STARTTAGG öppnats inuti det aktiva värdeelementet.
+        # Se `_las_falt` om varför det kastar i stället för att saneras.
+        self._varde_bar_element = False
 
     def _oppna(self, tagg: str, attribut: list[tuple[str, str | None]]) -> None:
         """Det som gäller både `<x>` och `<x/>`, alltså utom stacken."""
@@ -292,6 +303,45 @@ class _Faltlasare(HTMLParser):
     def _foralder(self, index: int) -> int | None:
         """Löpnumret för elementet UNDER `index` i stacken."""
         return self._stack[index - 1][1] if index > 0 else None
+
+    def _i_varde(self) -> bool:
+        """Sant när det aktiva fältet är ett VÄRDE och inte en etikett."""
+        return self._aktiv is not None and self._stack[self._aktiv][2] == KLASS_VARDE
+
+    def _markera_markup(self) -> None:
+        """Noterar att det aktiva VÄRDET bär något som inte är text.
+
+        **SPÄRREN ÄR DELVIS. Se lucka 12 i `docs/sparrar.md`.** Metoden anropas
+        från varje NODTYP som avdelar en textnod, men `handle_endtag`:s TRÄFFGREN
+        anropar den inte, och den grenen kan klippa värdets text mitt itu. Den
+        vägen är uppmätt, öppen och registrerad.
+
+        **KALLAS FRÅN VARJE NODTYP SOM AVDELAR EN TEXTNOD, inte bara från
+        starttaggar.** Den första lydelsen satte flaggan i `handle_starttag` och
+        `handle_startendtag` och ingen annanstans, och granskningen av skiva 24
+        mätte upp att FYRA andra nodtyper gav exakt samma korrumperade tal:
+
+            750<!--x-->1 kg      en HTML-kommentar
+            750<?x?>1 kg         en processing instruction
+            750<!doctype y>1 kg  en declaration
+            750</b>1 kg          en ENSAM sluttagg utan starttagg
+
+        Alla fyra gav `7501`, alltså bit för bit samma text som
+        `750<sup>1</sup> kg` gav, och alla fyra vände dragfordonsbeskedet från
+        NEJ till JA på ett fordon vars verkliga släpvagnsvikt är 750 kg.
+
+        **Den ensamma sluttaggen är den farligaste**, eftersom klassen på annan
+        plats skriver ut som en EGENSKAP att en sluttagg utan motsvarande
+        starttagg ignoreras helt. Den egenskapen är riktig för stacken och var
+        fel för värdet.
+
+        Skälet att det gick fel är mekaniskt: spärren beskrev en HÄNDELSE,
+        `en tagg öppnas`, i stället för det den skulle vakta, `värdets text är
+        avdelad av något som inte är text`. Det är samma form som defekterna i
+        skiva 21, där mönstren beskrev sidans markup i stället för att läsa den.
+        """
+        if self._i_varde():
+            self._varde_bar_element = True
 
     def _stang_faltet(self) -> None:
         """Avslutar det aktiva etikett- eller värdeelementet."""
@@ -308,11 +358,12 @@ class _Faltlasare(HTMLParser):
             self._vantar = text
             self._vantar_foralder = foralder
         elif self._vantar is not None and foralder == self._vantar_foralder:
-            self.par.append((self._vantar, text))
+            self.par.append((self._vantar, text, self._varde_bar_element))
             self._vantar = None
 
         self._aktiv = None
         self._text = []
+        self._varde_bar_element = False
 
     def handle_starttag(self, tagg: str, attribut) -> None:
         if self._hoppa_tagg is not None:
@@ -322,6 +373,12 @@ class _Faltlasare(HTMLParser):
             if tagg == self._hoppa_tagg:
                 self._hoppa_djup += 1
             return
+
+        # LUCKA 11:S SPÄRR, och den sätts FÖRE varje annan gren i metoden.
+        # Ett element som öppnas inuti ett värdeelement gör värdet otolkbart, och
+        # det gäller lika mycket ett `<template>` som ett `<br>` som ett `<sup>`.
+        # Sätts flaggan senare missar den de två grenarna som returnerar tidigt.
+        self._markera_markup()
 
         if tagg in HOPPAS_OVER:
             self._hoppa_tagg = tagg
@@ -347,6 +404,7 @@ class _Faltlasare(HTMLParser):
         if sort is not None:
             self._aktiv = len(self._stack) - 1
             self._text = []
+            self._varde_bar_element = False
 
     def handle_startendtag(self, tagg: str, attribut) -> None:
         # `<x/>` öppnar och stänger i samma tagg och rör därför inte stacken.
@@ -354,6 +412,7 @@ class _Faltlasare(HTMLParser):
         # ett element på stacken som ingen sluttagg tar bort.
         if self._hoppa_tagg is not None:
             return
+        self._markera_markup()
         self._oppna(tagg, attribut)
 
     def handle_endtag(self, tagg: str) -> None:
@@ -365,15 +424,22 @@ class _Faltlasare(HTMLParser):
             return
 
         if tagg in TOMMA_TAGGAR:
+            # `</br>` och dess likar stänger inget, eftersom elementet aldrig
+            # öppnades. STACKEN rörs alltså inte, men VÄRDET är ändå avdelat av
+            # något som inte är text. Flaggan sätts FÖRE returen, av precis det
+            # skäl som står vid `handle_starttag`: en gren som returnerar tidigt
+            # missar allt som ligger efter den.
+            self._markera_markup()
             return
 
         for index in range(len(self._stack) - 1, -1, -1):
             if self._stack[index][0] == tagg:
                 break
         else:
-            # Sluttagg utan öppen motsvarighet. Sidan är felformad, och att
-            # gissa vad den stänger vore att låta felformningen styra vad vi
-            # läser.
+            # Sluttagg utan öppen motsvarighet. Samma sak som ovan, och samma
+            # skäl: sidan är felformad, och att gissa vad den stänger vore att
+            # låta felformningen styra vad vi läser.
+            self._markera_markup()
             return
 
         if self._aktiv is not None and self._aktiv >= index:
@@ -456,6 +522,22 @@ class _Faltlasare(HTMLParser):
         if self._hoppa_tagg is not None or self._aktiv is None:
             return
         self._text.append((data, self._fotnot_serie()))
+
+    # NODTYPER SOM AVDELAR TEXT UTAN ATT VARA EN TAGG. Basklassen skickar dem
+    # till egna metoder som vi annars inte definierar, och det var precis därför
+    # de slank förbi spärrens första lydelse. `unknown_decl` tar emot
+    # `<![CDATA[…]]>` och är mätt nåbar. Se `_markera_markup`.
+    def handle_comment(self, data: str) -> None:
+        self._markera_markup()
+
+    def handle_pi(self, data: str) -> None:
+        self._markera_markup()
+
+    def handle_decl(self, decl: str) -> None:
+        self._markera_markup()
+
+    def unknown_decl(self, data: str) -> None:
+        self._markera_markup()
 
 
 def _lasaren(sida: str) -> _Faltlasare:
@@ -797,12 +879,29 @@ def _las_falt(sida: str) -> dict:
                 f"etiketten {etikett!r} förekommer {forekomster} gånger, tvetydigt"
             )
 
-        varden = [varde for namn, varde in lasare.par if namn == etikett]
+        varden = [
+            (varde, bar_element)
+            for namn, varde, bar_element in lasare.par
+            if namn == etikett
+        ]
 
         if not varden:
             continue
 
-        ratt = varden[0]
+        ratt, bar_element = varden[0]
+
+        # LUCKA 11:S SPÄRR. Ett värde vars text är avdelad av något som inte är
+        # text går inte att tolka. Skälet står i `_markera_markup`.
+        #
+        # MEDDELANDET SÄGER INTE `tal`, och det är avsiktligt: spärren gäller
+        # alla tre fälten, och `draganordning` är ett ja eller ett nej.
+        # Granskningen av skiva 24 fällde en tidigare lydelse som sade `tal` om
+        # ett ja/nej-fält.
+        if bar_element:
+            raise Hamtningsfel(
+                f"värdet för {etikett!r} bär markup och går därför inte att "
+                f"tolka, alltså en felläsning och inte ett saknat fält"
+            )
 
         if nyckel == "draganordning":
             varde = _ja_nej(ratt)

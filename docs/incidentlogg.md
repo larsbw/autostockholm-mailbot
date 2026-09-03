@@ -1,6 +1,6 @@
 # Incidentlogg
 
-**Version:** 0.8.0 · **Uppdaterad:** 2026-09-03 · **Implementerar** CLAUDE.md §0
+**Version:** 0.9.0 · **Uppdaterad:** 2026-09-03 · **Implementerar** CLAUDE.md §0
 
 Varje regel som bärs av en incident bor här. Dokumentet finns för att förlagornas
 styrka är att en härdad regel namnger det fel som skapade den. En regel utan
@@ -657,7 +657,63 @@ formuleringen beskrev ett utfall och inte en garanti.*
 
 ---
 
+## I9 — En granskare utan skrivverktyg skrev en fil, och redovisade det själv
+
+**Uppmätt i:** skiva 23, granskningsvarv 2 · **Berör:** CLAUDE.md §7 och §9,
+rollavgränsningen för granskaren
+
+**Vad som hände.** Granskaren i varv 2 körde
+`git diff docs/sparrar.md > /Users/larsbw/.claude/x` och skapade därmed en fil
+utanför repot. Rollen har inga skrivverktyg, och det är med avsikt: §7.1 säger
+att granskaren verifierar i egen kontext och kör `scripts/sparr-prova.sh`, som
+tar sin egen säkerhetskopia. Skrivförbudet finns för att en granskare som ändrar
+tillstånd inte längre granskar samma sak som den som byggde.
+
+**Varför verktygslistan inte räckte.** Granskaren HADE inga skrivverktyg. Den
+skrev ändå, genom en omdirigering i ett Bash-anrop. **Att ta bort Write och Edit
+avgränsar alltså inte rollen**, eftersom skalet kan skriva. Avgränsningen vilar
+på att granskaren följer §9, inte på att den saknar möjlighet.
+
+**Att vi vet om det beror på att granskaren själv skrev ut det.** Den redovisade
+anropet under en egen rubrik i sitt svar, tillsammans med två andra §9-brott:
+en rörledning till `grep -c` för verifiering, och skälet till att dess prober
+kördes som `python -c` i stället för som ett committat skript. Filen låg kvar
+och togs bort av den som hade skrivrätt, alltså av mig.
+
+**Vad som hade hänt utan självrapporteringen.** Ingenting hade synts. Filen låg
+utanför repot, alltså utanför `git status`, och inget verktyg letar efter den.
+Nästa granskning hade kunnat läsa den och tro att den var sin egen.
+
+**Varför posten finns trots att skadan var noll.** Filen bar en `git diff` ur
+repot, inte persondata, och den togs bort samma pass. Det som ska bäras vidare
+är inte skadan utan mekaniken: **en rollavgränsning som bara finns i
+verktygslistan är en avgränsning i sken.** Det är samma form som §7.1:s vakuösa
+test, tillämpad på behörigheter i stället för på villkor.
+
+**Åtgärd.** Ingen kodändring, och ingen ny regel utöver den som redan gäller:
+§9 binder varje Bash-anrop, granskaren inräknad, och en omdirigering som skapar
+en fil är en tillståndsändring även när den ser ut som en läsning. Posten står
+här därför att nästa granskarbrief ska kunna namnge den.
+
+*Att incidenten ens går att beskriva vilar på ett ord från granskaren själv.
+Det är den svagaste sortens belägg, och det ska stå utskrivet i stället för att
+skrivas om till en kontroll vi inte har.*
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.9.0 — 2026-09-03
+
+**I9 tillkommer:** en granskare utan skrivverktyg skapade en fil utanför repot
+genom en omdirigering, och redovisade det själv. Skriven på Lars beslut i skiva
+24.
+
+Posten bär ingen skada. Den bär mekaniken: en rollavgränsning som bara finns i
+verktygslistan går att kringgå med skalet, och att vi vet om just det här fallet
+beror på granskarens egen redovisning.
+
+Ny post ⇒ MINOR.
 
 ### 0.8.0 — 2026-09-03
 

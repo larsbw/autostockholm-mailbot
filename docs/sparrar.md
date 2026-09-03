@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.22.0 · **Uppdaterad:** 2026-09-03 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.23.0 · **Uppdaterad:** 2026-09-03 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -678,7 +678,7 @@ ingen leverantör som garanterar svarets form.
   | 1 | `lasare.etiketter.count(etikett)`, alltså LIKHET mot etikettnodens text | Att en etikett läses som PREFIX till en annan |
   | 2 | `if forekomster > 1:` som kastar `Hamtningsfel` med texten `tvetydigt` | Att första träffen tas när samma etikett förekommer flera gånger |
   | 3 | `if not _galler_fordonet(sida, regnr):` plus `_galler_fordonet` själv, som prövar schema, värdnamn genom `_vard` och sökväg, och kastar på två ankare | Att en sida som inte gäller numret läses som fordonets |
-  | 4 | `_tal` med `re.fullmatch` mot `kg`, dess kastgren `MISSLASNING`, `_ja_nej` med förvalet `None`, och `_krav_pa_rimlighet` | Att ett värde som inte är rent tolkas som ett tal eller ett ja, att ett FELLÄST fält ser ut som ett saknat, eller att ett felläst tal passerar som en vikt |
+  | 4 | `_tal` med `re.fullmatch` mot `kg`, dess kastgren `MISSLASNING`, `_ja_nej` med förvalet `None`, `_krav_pa_rimlighet`, och `if bar_element:` i `_las_falt` | Att ett värde som inte är rent tolkas som ett tal eller ett ja, att ett FELLÄST fält ser ut som ett saknat, att ett felläst tal passerar som en vikt, eller att MARKUP inuti värdet konkatenereras in i talet |
 
   **AVLÄSNINGEN ÄR EN PARSER SEDAN SKIVA 22**, se `docs/beslutslogg.md` #32. Lagren
   är desamma men vilar på `_Faltlasare` i stället för på tre regexuttryck. Tabellen
@@ -696,12 +696,18 @@ ingen leverantör som garanterar svarets form.
   dem: att saknad `canonical` ger `False`, att TVÅ ankare kastar, att schema och
   värdnamn prövas, och att jämförelsen är skiftlägesokänslig.
 
-  **PARSERN BÄR TRE EGNA VILLKOR SOM INTE SYNS I LAGERTABELLEN.** `HOPPAS_OVER`
+  **PARSERN BÄR FYRA EGNA VILLKOR SOM INTE SYNS I LAGERTABELLEN.** `HOPPAS_OVER`
   gör att innehåll i `template` och `noscript` aldrig blir data. Föräldervillkoret
   i `_stang_faltet` gör att en etikett bara paras med ett värde under SAMMA
   förälder, jämförd på identitet. `_behall` gör att en fotnotsMARKÖR inuti en
-  etikettnod inte bidrar till dess text. Alla tre är fällbara var för sig och står
-  i mutationstabellen nedan, som rad 14, 15, 19 och 21.
+  etikettnod inte bidrar till dess text. `_markera_markup` flaggar ett värde vars
+  text avdelas av en NODTYP som inte är text, med undantag för `handle_endtag`:s
+  träffgren, som är lucka 12. Alla fyra är fällbara var för sig och står i
+  mutationstabellen nedan, som rad 14, 15, 19, 21 och 23.
+
+  *Här stod TRE, skrivet innan skiva 24 lade till det fjärde. Fällt av
+  granskningsvarv 2, som också fällde att uppslagningsmönstret för parsern inte
+  nådde det nya villkoret.*
 
   **`script` och `style` står i `HOPPAS_OVER` men bärs inte av den**, utan av
   `HTMLParser`:s CDATA-läge. Modulens egen kommentar säger det, och fällning 14
@@ -729,8 +735,8 @@ ingen leverantör som garanterar svarets form.
   | 1 | `'EXAKT_ETIKETT = \|etiketter.count'` |
   | 2 | `'forekomster > 1'` |
   | 3 | `'FORVANTA\|def _galler_fordonet\|len(ankare)\|_galler_fordonet(sida\|vard.startswith'` |
-  | 4 | `'re\.fullmatch\|def _ja_nej\|def _krav_pa_rimlighet\|MIN_VIKT_KG'` |
-  | parsern | `'HOPPAS_OVER\|_vantar_foralder\|def _behall\|serie is None\|class _Faltlasare'` |
+  | 4 | `'re\.fullmatch\|def _ja_nej\|def _krav_pa_rimlighet\|MIN_VIKT_KG\|if bar_element'` |
+  | parsern | `'HOPPAS_OVER\|_vantar_foralder\|def _behall\|serie is None\|_markera_markup\|class _Faltlasare'` |
 
   **Ett enda kombinerat mönster duger inte, och den här posten har själv burit TVÅ
   som inte gjorde det.** Det första missade det försiktiga förvalet vid saknad
@@ -860,7 +866,7 @@ indentering som `raise`-raden, annars stannar körningen på insamlingsfel.
 Beskrivningarna i tabellen är därför skrivna om till att bära det uttryck som
 byts, så att var och en går att köra om utan att gissa.
 
-**TABELLEN ÄR OMMÄTT I SKIVA 23 MOT BASLINJEN 196.** Postens egen regel gäller
+**TABELLEN ÄR OMMÄTT I SKIVA 24 MOT BASLINJEN 210.** Postens egen regel gäller
 den själv: *ett tal som mäts vid en baslinje slutar gälla när baslinjen rör sig,
 och det enda som duger är att mäta om.* Baslinjen är `tests/test_biluppgifter.py`,
 alltså modulens egen fil, och samma urval som varje tidigare omgång:
@@ -874,12 +880,17 @@ struken i stället för lagad, eftersom varje led i den mäter en filversion som
 ingen längre kan köra. Att baslinjen rör sig står kvar, det är påståendet som
 bär.*
 
-**Rad 18 till 22 prövar villkor som inte fanns före skiva 23.** Rad 9 bytte
-FORMULERING av skivans egen ändring: värdnamnet går nu genom `_vard`. Rad 15 bytte
-också formulering, men av ett annat skäl: VILLKORET är skiva 22:s och oförändrat,
-det var TABELLEN som bar ett namn, `_vantar_niva`, som aldrig funnits i den
-committade koden. Skillnaden mellan de två fallen ska stå utskriven, eftersom det
-ena är en ändring och det andra ett dokumentfel.
+**Rad 18 till 21 prövar villkor som kom i skiva 23, rad 22 och 23 sådana som kom
+i skiva 24.** De två sista fäller lucka 11:s spärr på var sitt led: rad 22 tar
+bort KASTET i `_las_falt`, rad 23 tar bort FLAGGNINGEN i `_markera_markup`. Båda
+ger samma fjorton röda, och det är väntat: leden sitter i serie, så var och en
+ensam räcker för att släppa igenom värdet. Rad 9 bytte FORMULERING i skiva 23 av skivans egen ändring: värdnamnet går
+genom `_vard`. Rad 15 bytte också formulering, men av ett annat skäl: VILLKORET är
+skiva 22:s och oförändrat, det var TABELLEN som bar ett namn, `_vantar_niva`, som
+aldrig funnits i den committade koden. Skillnaden mellan de två fallen ska stå
+utskriven, eftersom det ena är en ändring och det andra ett dokumentfel.
+
+**Rad 22:s plats var ledig, och varför står under tabellen.**
 
 | # | Fällning | Verdikt | Röda test |
 | --- | --- | --- | --- |
@@ -888,7 +899,7 @@ ena är en ändring och det andra ett dokumentfel.
 | 3 | **Lager 1 och 2 samtidigt** | **RÖD** | **33** |
 | 4 | Lager 3, `if not _galler_fordonet(...)` blir `if False:` | RÖD | 9 |
 | 5 | Lager 3, saknat ankare godtas: `return False` blir `return True` | RÖD | 6 |
-| 6 | Lager 3, skiftläget i JÄMFÖRELSEN: `vag.upper() == f"...".upper()` blir jämförelse utan `upper()` | RÖD | 121 |
+| 6 | Lager 3, skiftläget i JÄMFÖRELSEN: `vag.upper() == f"...".upper()` blir jämförelse utan `upper()` | RÖD | 134 |
 | 7 | Lager 3, två ankare godtas: `if len(ankare) > 1:` blir `if False:` | RÖD | 2 |
 | 8 | Lager 3, schemat prövas inte: `if delar.scheme.lower() != FORVANTAT_SCHEMA:` blir `if False:` | RÖD | 1 |
 | 9 | Lager 3, värdnamnet prövas inte: `if _vard(delar.netloc) != FORVANTAD_VARD:` blir `if False:` | RÖD | 3 |
@@ -900,11 +911,12 @@ ena är en ändring och det andra ett dokumentfel.
 | 15 | Parsern, föräldervillkoret stryks ur `elif self._vantar is not None and foralder == self._vantar_foralder:` | RÖD | 7 |
 | 16 | Statusgrenen kastar inte: `raise Hamtningsfel(...)` blir `return None` | RÖD | 6 |
 | 17 | 404-grenen neutraliserad: `if status == 404:` blir `if False:` | RÖD | 1 |
-| 18 | **NY i skiva 23.** Lager 4, kastgrenen: `if MISSLASNING.fullmatch(rensat):` blir `if False:` | RÖD | 6 |
-| 19 | **NY i skiva 23.** Parsern, INGEN fotnot utesluts: `_behall`:s `if serie is None:` blir `if True:` | RÖD | 8 |
-| 20 | **NY i skiva 23.** Lager 3, `www` strippas inte: `return vard[4:] if vard.startswith("www.") else vard` blir `return vard` | RÖD | 2 |
-| 21 | **NY i skiva 23.** Parsern, VARJE fotnot utesluts: `_behall`:s `return text if any(tecken.isalpha() …) else ""` blir `return ""` | RÖD | 4 |
-| 22 | **NY i skiva 23.** Parsern, värdet läser ETIKETTENS regel: `text = "".join(data for data, _ in self._text).strip()` blir `text = self._etikettext()` | RÖD | 1 |
+| 18 | Lager 4, kastgrenen: `if MISSLASNING.fullmatch(rensat):` blir `if False:` | RÖD | 6 |
+| 19 | Parsern, INGEN fotnot utesluts: `_behall`:s `if serie is None:` blir `if True:` | RÖD | 9 |
+| 20 | Lager 3, `www` strippas inte: `return vard[4:] if vard.startswith("www.") else vard` blir `return vard` | RÖD | 2 |
+| 21 | Parsern, VARJE fotnot utesluts: `_behall`:s `return text if any(tecken.isalpha() …) else ""` blir `return ""` | RÖD | 4 |
+| 22 | **NY i skiva 24.** Lager 4, lucka 11:s spärr: `if bar_element:` i `_las_falt` blir `if False:` | RÖD | 14 |
+| 23 | **NY i skiva 24.** Parsern, flaggan sätts aldrig: `if self._i_varde():` i `_markera_markup` blir `if False:` | RÖD | 14 |
 
 **LAGER 1 OCH 2 ÄR INTE REDUNDANTA, och rad 3 visar det.** 8 + 25 är 33, alltså
 exakt additivt: dubbelfällningen fäller precis unionen och inget maskeras. Förr
@@ -917,6 +929,22 @@ Rimligheten i rad 13 fäller ett tal som ÄR läst men är omöjligt. Ett värde
 `750 400 kg` går genom den första och fastnar i den andra, vilket är lucka 9
 nedan. De två har alltså ett överlapp, men varje lager fäller fall det andra inte
 når, och båda är röda var för sig.
+
+**SKIVA 24:S RAD 22 ERSATTE EN RAD SOM BLEV OFÄLLBAR, och det ska stå utskrivet.**
+Skiva 23:s rad 22 fällde värdevägen i `_stang_faltet`, alltså
+`text = "".join(...)` bytt mot `text = self._etikettext()`. Efter att lucka 11:s
+spärr kom in ger den fällningen **GRÖN, 210 passed**. I DUBBELFÄLLNING tillsammans
+med rad 22 ger den `14 failed`, vilket är exakt rad 22:s egna röda: värdevägen
+bidrar alltså med noll också då. Skälet är att ett värde som bär markup numera
+kastar innan dess text spelar roll, och ett värde UTAN markup ger identisk text i
+båda vägarna.
+
+**Villkoret är alltså inte struket ur koden, men det är inte längre ett lager.**
+Det står kvar därför att en framtida uppmjukning av lucka 11:s spärr annars
+tyst hade gett värden etikettens fotnotsregel, alltså ett tal med tecken
+borttagna. §7.1 kräver att ett obundet villkor namnges, och det är vad den här
+noten gör: raden är prövad, GRÖN ensam och utan bidrag i dubbelfällning, och
+behållen med skäl.
 
 **RAD 19 OCH 21 FÄLLER SAMMA FUNKTION ÅT VARSITT HÅLL, och det är avsiktligt.**
 Rad 19 låter ingen fotnot uteslutas, alltså läget före DEL B: en fotnotad etikett
@@ -959,15 +987,19 @@ avläsning av utdatan.*
 Följden för lagerbeskrivningen längre upp i posten står där, under
 `LAGER 1 OCH 2 VAR DELVIS REDUNDANTA`, och upprepas inte här.
 
-**TABELLEN ÄR OBEROENDE REPRODUCERAD I SKIVA 23.** Granskningsvarv 2 körde om
-samtliga rader mot baslinjen 196 och fick tal för tal detsamma som står ovan,
-inklusive nedströmsradens `52 failed, 144 passed`. Rad 22 tillkom efter det varvet
-och är därför självmätt.
+**TABELLEN ÄR SJÄLVMÄTT I SKIVA 24 tills en granskare kört om den.** Skiva 23:s
+granskningsvarv 2 reproducerade den oberoende vid baslinjen 196. Skiva 24 flyttade
+baslinjen till 210, bytte ut rad 22 och lade till rad 23, så den körningen säger
+ingenting om talen som står nu. Det som överlever är metoden, inte ett mätvärde.
 
-Ett varv tidigare kördes tabellen om mot baslinjen 188, som sedan flyttades av
-rättelserna av de två sändvägsdefekterna. Den körningen säger alltså ingenting om
-talen ovan, och står här bara som det den är: ett tidigare varv mot en annan
-filversion.
+*Här stod "granskningsvarv 2 och 3" om reproduktionen vid 196. Ledet om varv 3
+lades till av skiva 24 och går inte att belägga: granskningsrapporterna ligger i
+gitignorerad `scratchpad/`, så repot bär inget om vilka rader ett givet varv körde.
+Påståendet är smalnat till det som stod i dokumentet före skivan. Fällt av
+granskningen av skiva 24.*
+
+Nedströmsraden i `src/fordonsuppslag.py` gav `52 failed, 158 passed` vid
+baslinjen 210.
 
 Ordvalet är avsiktligt: `oberoende` är i det här repot §7:s term, satt i motsats
 till `självmätt`. Det gäller granskarens körning. Skiva 20:s egen var bara ett
@@ -1198,18 +1230,28 @@ något inskjutet mellan etikett och värde, och sedan skiva 22 också etiketten 
 ett annat element än `span`.
 
 **HÄR STOD ATT ALLA SEX FALLER TILL UTKAST, OCH DET ÄR INTE LÄNGRE SANT.** Efter
-ombyggnaden LÄSES sex av de sju. Bara det bytta klassnamnet faller, och det ska
-det: klassen är hur parsern vet att noden är en etikett.
+ombyggnaden i skiva 22 LÄSTES sex av de sju. Bara det bytta klassnamnet föll, och
+det ska det: klassen är hur parsern vet att noden är en etikett.
 
 **Ändringen ser ut som en uppmjukning och är motsatsen.** Att utelämna fältet på
 en kosmetisk markupändring är inte försiktighet, det är en spärr som fäller på
 det ofarliga och därför blir avstängd vid nästa omdesign hos källan. Och det var
 SAMMA okänslighet för markup som gjorde att en dubblerad etikett inte upptäcktes,
-alltså defekt 1 och 3 ovan. De två egenskaperna var en och samma, och de stängs
-av samma ändring.
+alltså defekt 1 och 3 ovan.
 
-`test_markupandring_lases_av_parsern` bär de sex, och
-`test_markupandring_utan_etikettklassen_faller` den sjunde.
+**SKIVA 24 TOG TILLBAKA UPPMJUKNINGEN FÖR DE TVÅ FALL SOM RÖR VÄRDET.** `nästlad
+markup i värdet` och `värdet helt inuti ett element` KASTAR nu, se lucka 11.
+Skälet är att just den okänsligheten hade en andra följd som ingen såg när den
+infördes: samma konkatenering som gjorde `2400 <abbr>kg</abbr>` läsbar gjorde
+`750<sup>1</sup> kg` till 7501.
+
+**Uppmjukningen står kvar där den är ofarlig.** Ett attribut, ett extra klassord,
+något inskjutet mellan etikett och värde, eller ett annat elementnamn kan inte
+ändra ett TAL. Ett element inuti värdet kan.
+
+`test_markupandring_lases_av_parsern` bär de fyra som fortfarande läses,
+`test_markupandring_utan_etikettklassen_faller` det som faller till utkast, och
+`test_varde_med_element_kastar` de två som numera kastar.
 
 **TESTERNA LIGGER I REPOT, INTE I `/tmp`.** Sidorna byggs ur `sida()` och
 `rad()` i `tests/test_biluppgifter.py`, alltså ur samma fixtur som resten av
@@ -1226,7 +1268,7 @@ tidigare en egen tabell med nio rader. Den dubblerade mutationstabellen i sju av
 dem, och de återstående två fällde uttryck som ombyggnaden i skiva 22 tog bort:
 `MONSTER`, `ETIKETTSPAN` och de rättelser som gjordes inuti dem.
 
-Mutationstabellens tjugotvå rader är körda mot baslinjen 196 och täcker samtliga
+Mutationstabellens tjugotre rader är körda mot baslinjen 210 och täcker samtliga
 fyra lager plus parserns egna villkor. Att hålla två tabeller som mäter samma
 fällningar mot samma baslinje är inte dubbel säkerhet: det är två tal att hålla i
 takt, och postens historik visar vad som händer när de glider isär.
@@ -1238,7 +1280,7 @@ på att något kastades, och skälet produceras av `_kontrollera`:
 
 | Fälld rad, citerad | Fällning | Utdata | Verdikt |
 | --- | --- | --- | --- |
-| `_kontrollera`:s TRE grenar i `src/fordonsuppslag.py`, `if not _bar_nyckel(svar, ...)` | `if False:` × 3 | `52 failed, 144 passed` | RÖD |
+| `_kontrollera`:s TRE grenar i `src/fordonsuppslag.py`, `if not _bar_nyckel(svar, ...)` | `if False:` × 3 | `52 failed, 158 passed` | RÖD |
 
 Utan den fällningen vore det oprövat om testen mäter avläsningen eller bara att
 `slag_upp` kastar något över huvud taget.
@@ -1466,9 +1508,35 @@ lager 3 fällt är det just den assertionen som fäller
     lucka 7 tillbaka. Avvägningen är Lars, och frågan är ställd i
     `docs/beslutslogg.md` #33.
 
-11. **MARKUP INUTI ETT VÄRDE KORRUMPERAR TALET, och det är ÄLDRE än skiva 23.**
-    Fälld av granskningsvarv 3, uppmätt av mig i samma körning mot både
-    arbetsträdet och `8629223`:
+    **ÖPPEN SÄNDVÄGSLUCKA, och riktningen ska stå utskriven.** Beslut av Lars i
+    skiva 24: bokstavsvillkoret STÅR, men luckan registreras som öppen och inte
+    som ett kantfall. Riktningen är den farliga, alltså den som SLÄPPER UT ett
+    värde: en skild etikett normaliseras in i vår, dess tal blir vårt fält, och
+    ingenting syns i loggen. Motsatsen, att vår etikett blir en annan sträng och
+    fältet utelämnas, ger utkast och är ofarlig.
+
+    **FORMEN FINNS I FIXTUREN, och det är mätt och inte antaget.** Av de åtta
+    avlästa etiketterna bildar `Släp totalvikt (B)` och `Släp totalvikt (B+)` ett
+    par som skiljer sig bara på `+`, som inte är en bokstav. Sätter källan
+    plustecknet i ett `sup`, vilket är typografiskt naturligt, blir de två
+    etiketterna SAMMA sträng. Uppmätt:
+
+    ```
+    Släp totalvikt (B)  och  Släp totalvikt (B<sup>+</sup>)
+      ->  ['Släp totalvikt (B)', 'Släp totalvikt (B)']
+    ```
+
+    **Ingen av de två är ett fält vi läser.** Paret ligger utanför
+    `EXAKT_ETIKETT`, så formen finns på sidan men BITER inte i dag. Skillnaden
+    mellan att finnas och att bita är hela skälet att luckan står som öppen och
+    inte som stängd. `test_lucka_10_formen_finns_bland_de_avlasta_etiketterna`
+    mäter båda leden och blir rött den dag fixturen slutar bära paret.
+
+11. **MARKUP INUTI ETT VÄRDE KORRUMPERADE TALET. DELVIS STÄNGD I SKIVA 24.**
+    Den återstående vägen är lucka 12 nedan. *Här stod STÄNGD, fällt av
+    granskningens tredje varv.*
+    Fälld av granskningsvarv 3 i skiva 23, uppmätt då mot både arbetsträdet och
+    `8629223`:
 
     ```
     värdet 750<sup>1</sup> kg   ->  8629223=7501   arbetsträdet=7501
@@ -1480,10 +1548,12 @@ lager 3 fällt är det just den assertionen som fäller
     skiva 22 och inte av fotnotsuteslutningen i skiva 23. Den kom fram nu därför
     att skiva 23 tittade på fotnotselement, inte därför att skivan skapade den.
 
-    Parsern konkatenerar textnoderna i ett värde, vilket är avsiktligt och
-    prövat: `test_markupandring_lases_av_parsern` kräver att `2400 <abbr>kg</abbr>`
-    läses som `2400 kg`. Samma konkatenering gör en fotnotsmarkör inuti talet till
-    en siffra i talet.
+    Parsern konkatenerar textnoderna i ett värde, och det var avsiktligt: fram
+    till skiva 24 krävde `test_markupandring_lases_av_parsern` att
+    `2400 <abbr>kg</abbr>` lästes som `2400 kg`. Samma konkatenering gjorde en
+    fotnotsmarkör inuti talet till en siffra i talet. *Här stod kravet i presens
+    efter att skiva 24 flyttat fallet till `test_varde_med_element_kastar`. Fällt
+    av granskningen av skiva 24.*
 
     **Riktningen är farlig och sifferkontrollerna når den inte.** 7501, 1750 och
     7150 ligger alla inom `MIN_VIKT_KG..MAX_VIKT_KG` och ÖVER
@@ -1491,14 +1561,123 @@ lager 3 fällt är det just den assertionen som fäller
     släpvagnsvikt är 750 kg får därmed ett jakande besked på ett tal ingen källa
     har skrivit.
 
-    **En markör EFTER enheten faller säkert**, `750 kg<sup>1</sup>` ger utkast,
-    liksom en markör som bär en bokstav. Luckan kräver alltså att markören står
-    före enheten.
+    **STÄNGD GENOM KAST, INTE GENOM SANERING.** Beslut av Lars i skiva 24. Ett
+    värde vars text är avdelad av något som inte är text går inte att tolka, och
+    då är avläsningen fel. `if bar_element:` i `_las_falt` kastar, och
+    mutationsrad 22 och 23 fäller de två leden.
 
-    **Varför den inte stängs här.** Att utesluta markörer ur VÄRDET vore att tyst
-    ändra ett tal vi skickar vidare, och `_behall`:s bokstavsregel hade tagit bort
-    `400` ur `2<small>400</small> kg`. Mutationsrad 22 finns just för att hålla de
-    två vägarna isär. Avvägningen är Lars.
+    **SPÄRRENS FÖRSTA LYDELSE VAR FÖR SMAL, och det ska stå här.** Den satte
+    flaggan bara i `handle_starttag` och `handle_startendtag`. Granskningen av
+    skiva 24 mätte upp att FYRA andra nodtyper ger exakt samma korrumperade tal:
+
+    ```
+    750<!--x-->1 kg       HTML-kommentar          ->  7501
+    750<?x?>1 kg          processing instruction  ->  7501
+    750<!doctype y>1 kg   declaration             ->  7501
+    750</b>1 kg           ENSAM sluttagg          ->  7501
+    ```
+
+    Samtliga vände dragfordonsbeskedet från NEJ till JA på ett fordon vars
+    verkliga släpvagnsvikt är 750 kg. **Den ensamma sluttaggen är den farligaste**,
+    eftersom `_Faltlasare` på annan plats skriver ut som en EGENSKAP att en
+    sluttagg utan motsvarande starttagg ignoreras helt. Den egenskapen är riktig
+    för stacken och var fel för värdet.
+
+    **Skälet att lydelsen var för smal är mekaniskt:** den beskrev en HÄNDELSE,
+    *en tagg öppnas*, i stället för det den skulle vakta, *värdets text är
+    avdelad av något som inte är text*. Det är samma form som defekterna i skiva
+    21, där mönstren beskrev sidans markup i stället för att läsa den.
+
+    **RÄTTELSEN GJORDE OM SAMMA FEL, och granskningsvarv 2 fällde den.** Den lade
+    flaggan i `handle_endtag`:s gren för en sluttagg utan öppen motsvarighet, men
+    `handle_endtag` returnerar för `TOMMA_TAGGAR` FÖRE den grenen:
+
+    ```
+    750</br>1 kg    ->  7501
+    750</hr>1 kg    ->  7501
+    750</img>1 kg   ->  7501
+    ```
+
+    Det är samma tidiga return som `handle_starttag`:s egen kommentar varnar för,
+    och rättelsen hade tillämpat insikten på den ena metoden och inte på den
+    andra. **`</br>` är inte ett hittepåfall:** ett ensamt `</br>` inuti ett
+    `<template>` bärs som en uppmätt sändvägsdefekt sedan skiva 22 i
+    `_Faltlasare`:s egen docstring i `src/biluppgifter.py`. *Här stod att den
+    står i den här posten. Fällt av granskningens tredje varv: dokumentet bär den
+    inte, koden gör det.*
+
+    **Att fällningen kom av att rättelsen följde en UPPRÄKNING i stället för
+    egenskapen är postens lärdom.** Varv 1 räknade upp fyra nodtyper, rättelsen
+    stängde de fyra, och den femte fanns bakom en gren ingen hade räknat.
+    `test_varde_avdelat_av_nagot_som_inte_ar_text_kastar` bär samtliga sex.
+
+    **DET HÄNDE EN TREDJE GÅNG, och därför är luckan bara DELVIS stängd.** Varv 3
+    fällde att `handle_endtag`:s TRÄFFGREN, alltså den där en matchande starttagg
+    hittas på stacken, inte heller anropar `_markera_markup`. Den vägen är lucka
+    12 nedan. Tre rättelser i rad har följt varvets uppräkning i stället för
+    egenskapen, och det är skälet att den fjärde inte skrevs: §7:s tre varv var
+    slut, och en självmätt spärrändring efter grinden hade varit den fjärde
+    gissningen i rad utan någon som prövar den.
+
+12. **EN SLUTTAGG SOM STÄNGER ETT ELEMENT UNDER VÄRDET KLIPPER VÄRDETS TEXT,
+    OFLAGGAT.** Uppmätt av granskningens tredje varv i skiva 24, reproducerad av
+    mig i egen körning. **ÖPPEN.**
+
+    `handle_endtag` letar upp närmaste öppna element med samma namn. Ligger det
+    UNDER det aktiva värdet på stacken anropas `_stang_faltet`, som lägger paret
+    med den text som hunnit samlas, medan `_varde_bar_element` fortfarande är
+    `False`. Resten av värdet släpps.
+
+    ```
+    <li><b><span class="label">Släpvagnsvikt</span>
+           <span class="value">1500 kg</b> enligt registrering, verklig 750 kg</span></b></li>
+
+      utan </b>  ->  ('Släpvagnsvikt', '1500 kg enligt registrering, verklig 750 kg', False)
+      med  </b>  ->  ('Släpvagnsvikt', '1500 kg', False)
+    ```
+
+    Utan sluttaggen faller fältet till utkast, eftersom texten inte är en ren
+    vikt. Med den blir svaret `1500 kg`, alltså **en välformad vikt som sidan
+    aldrig påstått om släpvagnen**, och den ligger över tröskeln.
+
+    **Riktningen är den farliga**, och luckan är av samma klass som lucka 11:
+    markup inuti ett värde ändrar det avlästa talet utan att flaggan sätts.
+
+    **VARFÖR DEN INTE STÄNGDES DIREKT.** Rättelsen är känd och liten: flagga i
+    träffgrenen när det stängda elementet ligger UNDER det aktiva fältet. Men
+    §7:s tre granskningsvarv var förbrukade när den hittades, och de två
+    föregående rättelserna av samma spärr var båda fel på samma sätt. En tredje
+    självmätt spärrändring efter grinden hade ingen prövat. Luckan står därför
+    registrerad och mätt, och åtgärden är Lars beslut.
+
+    **Etikettsidan är inte drabbad.** Föräldrajämförelsen på löpnummer fäller
+    paret där, eftersom numret ändras när elementet tas av stacken. Det är värdet
+    som saknar motsvarande skydd.
+
+    Invändningen mot att stänga luckan var att varje väg innebär att tecken
+    plockas bort ur ett tal vi skickar vidare. **Den invändningen var riktig och
+    slutsatsen fel:** ingenting plockas bort. En sida som skriver 750 med en
+    fotnot inuti säger något vi inte kan tolka.
+
+    **Kostnaden är att en fotnot i ett värde ger ett kast, och den är SYNLIG.**
+    7501 var det inte. Samma regel som `750 2400 kg` fick i skiva 23: ett fält som
+    fanns men lästes fel ser inte ut som ett fält som saknades.
+
+    **Spärren sitter i `_las_falt` och inte i parsern**, alltså gäller den bara de
+    tre fält `EXAKT_ETIKETT` namnger. Den skarpa sidan bär värden med nästlad
+    markup i fält vi aldrig läser, `Chassinr / VIN` är det avlästa exemplet, och
+    en spärr i parsern hade kastat på varje verkligt svar.
+    `test_element_i_ett_falt_vi_inte_laser_ror_ingenting` mäter det.
+
+    **`750 kg<sup>1</sup>` gav förut utkast och kastar nu.** Utfallet är
+    fortfarande att inget värde kommer ut, men skälet är ett annat, och det är en
+    avsiktlig följd av regeln.
+
+    **TVÅ KOMMITTADE VERSIONER BAR LUCKAN ÖPPEN**, `8629223` och `52d0a97`. Den
+    infördes av parsern i skiva 22 och kom fram först när skiva 23 tittade på
+    fotnotselement i ETIKETTER, alltså av en tillfällighet. Det är postens
+    tydligaste belägg för att en prövning som bara följer skivans egen ändring
+    inte räcker.
 
 ---
 
@@ -1874,6 +2053,72 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.23.0 — 2026-09-03
+
+**LUCKA 11 ÄR DELVIS STÄNGD GENOM KAST.** Beslut av Lars, `docs/beslutslogg.md`
+#34. Ett värde vars text är avdelad av något som inte är text går inte att tolka,
+och `if bar_element:` i `_las_falt` kastar. **Den återstående vägen är lucka 12**,
+uppmätt av granskningens tredje varv och registrerad öppen. Ingenting saneras: att plocka bort tecken
+ur ett värde vore att ändra ett tal vi skickar vidare.
+
+**SPÄRRENS FÖRSTA LYDELSE FÖLJDE BARA STARTTAGGAR, och granskningen fällde den.**
+En HTML-kommentar, en processing instruction, en declaration och en ENSAM sluttagg
+gav alla `7501` på en sida vars verkliga släpvagnsvikt är 750 kg, alltså samma
+defekt genom fyra andra dörrar, och alla fyra vände dragfordonsbeskedet.
+
+**RÄTTELSEN GJORDE OM SAMMA FEL och fälldes i varv 2.** Den följde varv 1:s
+uppräkning i stället för egenskapen, och missade att `handle_endtag` returnerar
+för `TOMMA_TAGGAR` före den gren rättelsen la in: `750</br>1 kg` gav fortfarande
+7501. Flaggan sätts nu från varje nodtyp som avdelar en textnod, se
+`_markera_markup`.
+
+**Luckan var öppen i två committade versioner**, `8629223` och `52d0a97`. Den
+infördes av parsern i skiva 22 och kom fram först när skiva 23 tittade på
+fotnotselement i etiketter. Det är postens tydligaste belägg för att en prövning
+som bara följer skivans egen ändring inte räcker.
+
+*Här stod `0863a8e` i stället för `52d0a97`, alltså fel commit i just det led
+posten kallar sitt tydligaste belägg. `0863a8e` är skiva 21 och läser värden med
+regex, och `git grep -n "class _Faltlasare" 0863a8e -- src/biluppgifter.py` ger
+noll träffar. Fällt av granskningen av skiva 24.*
+
+**SPÄRREN SITTER I `_las_falt` OCH INTE I PARSERN.** Den skarpa sidan bär värden
+med nästlad markup i fält vi aldrig läser, `Chassinr / VIN` är det avlästa
+exemplet, och en spärr i parsern hade kastat på varje verkligt svar.
+
+**SKIVA 22:S UPPMJUKNING ÄR DELVIS ÅTERTAGEN, och det ska sägas rakt ut.** Två av
+de sex markupändringar som skiva 22 gjorde läsbara rör VÄRDET och kastar nu.
+`test_markupandring_lases_av_parsern` bär fyra fall i stället för sex. De fyra som
+står kvar kan inte ändra ett tal; de två som togs bort kunde.
+
+**`750 kg<sup>1</sup>` gav förut utkast och kastar nu.** Utfallet är fortfarande
+att inget värde kommer ut, men skälet är ett annat.
+
+**LUCKA 10 ÄR REGISTRERAD SOM ÖPPEN SÄNDVÄGSLUCKA, inte som kantfall.** Beslut av
+Lars. Riktningen står utskriven: den som släpper ut ett värde. **Formen är uppmätt
+i fixturen**, `Släp totalvikt (B)` och `Släp totalvikt (B+)` skiljer sig bara på
+`+`, men ingen av dem är ett fält vi läser, så formen finns utan att bita i dag.
+
+**MUTATIONSTABELLEN ÄR OMMÄTT MOT BASLINJEN 210.** Rad 22 och 23 är nya och fäller
+lucka 11:s spärr på var sitt led, kastet respektive flaggningen. Skiva 23:s rad 22,
+som fällde värdevägen i `_stang_faltet`, ger nu GRÖN både ensam och i
+dubbelfällning: spärren kastar innan värdets text spelar roll. Villkoret står kvar
+i koden men är inte längre ett lager, och det står utskrivet under tabellen. Rad 6
+och 19 ändrade tal av skivans egna test.
+
+**LUCKA 12 TILLKOMMER OCH ÄR ÖPPEN.** Granskningens tredje varv mätte upp att
+`handle_endtag`:s träffgren klipper värdets text utan att flagga. Skivan stannade
+där: §7:s tre varv var slut, och de två föregående rättelserna av samma spärr var
+båda fel på samma sätt, så en tredje självmätt spärrändring skrevs inte.
+
+**SPÄRRENS TRE MISSAR HAR SAMMA FORM, och det är postens lärdom.** Varje lydelse
+beskrev en HÄNDELSE i stället för egenskapen den skulle vakta: *ett element
+öppnas*, sedan *en av fyra namngivna nodtyper*, sedan *en nodtyp som inte är en
+tagg*. Egenskapen är hela tiden densamma: *värdets text är inte sammanhängande*.
+
+En delvis stängd lucka, två luckor registrerade som öppna, en delvis återtagen
+uppmjukning och en ommätt tabell ⇒ MINOR.
 
 ### 0.22.0 — 2026-09-03
 

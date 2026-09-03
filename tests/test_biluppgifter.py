@@ -57,6 +57,7 @@ import pytest
 
 from src import fordonsuppslag
 from src.biluppgifter import (
+    EXAKT_ETIKETT,
     Hamtningsfel,
     _galler_fordonet,
     _hamta_sidan,
@@ -923,16 +924,6 @@ def test_trunkerad_mitt_i_en_etikett_faller_till_utkast():
             '<span class="value">2400 kg</span>\n',
         ),
         (
-            "värdet får nästlad markup",
-            '<span class="label">Släpvagnsvikt</span>\n'
-            '<span class="value">2400 <abbr>kg</abbr></span>\n',
-        ),
-        (
-            "värdet ligger helt i ett element",
-            '<span class="label">Släpvagnsvikt</span>\n'
-            '<span class="value"><b>2400 kg</b></span>\n',
-        ),
-        (
             "något skjuts in mellan etikett och värde",
             '<span class="label">Släpvagnsvikt</span>\n<i class="ikon"></i>\n'
             '<span class="value">2400 kg</span>\n',
@@ -945,24 +936,26 @@ def test_trunkerad_mitt_i_en_etikett_faller_till_utkast():
     ],
 )
 def test_markupandring_lases_av_parsern(beskrivning, block):
-    """Sex ändringar källan kan göra utan att röra fältets NAMN.
+    """Ändringar källan kan göra utan att röra fältets NAMN eller VÄRDE.
 
-    **TESTET ÄR VÄNT I SKIVA 22.** Fem av de sex fallen krävde tidigare att
-    fältet UTELÄMNAS, och det sjätte är nytt. Regexavläsningen beskrev sidans
-    markup, så varje avvikelse från beskrivningen gav ett saknat fält även när
-    ändringen var rent kosmetisk.
+    **TESTET VÄNDES I SKIVA 22 och SMALNADES I SKIVA 24.** Regexavläsningen
+    beskrev sidans markup, så varje avvikelse gav ett saknat fält även när
+    ändringen var rent kosmetisk. Parsern läser NODERNA, så ett attribut, ett
+    klassord till eller ett annat elementnamn ändrar ingenting.
 
-    **Att utelämna på en kosmetisk ändring är inte försiktighet.** Det ser ut
-    som det, men följden är att uppslaget slutar fungera vid nästa omdesign hos
-    källan, och en spärr som fäller på allt blir avstängd. Parsern läser
-    NODERNA, så ett attribut, ett klassord till, nästlad markup i värdet eller
-    ett annat elementnamn ändrar ingenting: etiketten heter fortfarande
-    `Släpvagnsvikt` och värdet är fortfarande `2400 kg`.
+    **De två fall som gällde markup INUTI VÄRDET är flyttade härifrån.** Lars
+    beslut i skiva 24 är att ett värde som bär ett element inte är ett tal och
+    ska KASTA, se `test_varde_med_element_kastar`. Det är en avsiktlig
+    inskränkning av skiva 22:s uppmjukning, och skälet är lucka 11: samma
+    konkatenering som gjorde `2400 <abbr>kg</abbr>` läsbar gjorde
+    `750<sup>1</sup> kg` till 7501.
+
+    **Uppmjukningen står kvar där den är ofarlig.** Ett attribut eller ett annat
+    elementnamn kan inte ändra ett TAL. Ett element inuti värdet kan.
 
     Det farliga i de gamla utfallen var inte att de föll, utan att SAMMA
     okänslighet för markup gjorde att en DUBBLERAD etikett inte upptäcktes. Det
-    var skiva 21:s sändvägsdefekt 1, och den stängs av samma ändring som vänder
-    de här fem.
+    var skiva 21:s sändvägsdefekt 1.
 
     Beskrivningen bärs som parameter så att ett rött utfall namnger VILKEN
     ändring som slutade läsas.
@@ -976,8 +969,10 @@ def test_markupandring_lases_av_parsern(beskrivning, block):
 def test_markupandring_utan_etikettklassen_faller():
     """Byter källan `class="label"` mot något annat är fältet borta.
 
-    Det är den enda av de sex markupändringarna som fortfarande faller, och
-    den ska göra det: klassnamnet är hur parsern VET att noden är en etikett.
+    Det är den enda markupändringen som faller till UTKAST, och den ska göra det:
+    klassnamnet är hur parsern VET att noden är en etikett. *Här stod "den enda av
+    de sex", vilket blev falskt av skiva 24: uppsättningen är nu fyra som läses,
+    två som kastar och den här som faller.*
     Utan den finns inget fältblock att läsa, och att gissa utifrån position
     vore att bygga tillbaka den sortens antagande skiva 22 tog bort.
     """
@@ -1799,33 +1794,197 @@ def test_markorer_utan_bokstav_utesluts(markor):
     assert fordonsuppslag.slag_upp(REGNR, hamta=hamta).slapvagnsvikt_kg == 2400
 
 
-def test_fotnotselement_i_ett_VARDE_ror_inte_talet():
-    """Uteslutningen gäller etiketten och ALDRIG värdet.
+@pytest.mark.parametrize(
+    ("beskrivning", "varde"),
+    [
+        ("markör efter talet", "750<sup>1</sup> kg"),
+        ("markör före talet", "<sup>1</sup>750 kg"),
+        ("markör mitt i talet", "7<sup>1</sup>50 kg"),
+        ("markör efter enheten", "750 kg<sup>1</sup>"),
+        ("small i stället för sup", "750<small>2</small> kg"),
+        ("enheten i ett element", "2400 <abbr>kg</abbr>"),
+        ("hela värdet i ett element", "<b>2400 kg</b>"),
+        ("tomt element i värdet", "2400 kg<br>"),
+    ],
+)
+def test_varde_med_element_kastar(beskrivning, varde):
+    """LUCKA 11 ÄR DELVIS STÄNGD I SKIVA 24. Beslut av Lars: kasta, sanera inte.
 
-    Ett värde är ett tal vi skickar vidare, och att tyst plocka bort tecken ur
-    det vore att ändra talet.
+    **Den återstående vägen är lucka 12**, se `docs/sparrar.md`: en sluttagg som
+    stänger ett element UNDER värdet klipper värdets text utan att flaggan sätts.
+    Det här testet bär inte den vägen.
 
-    **MARKÖREN I VÄRDET SAKNAR BOKSTÄVER, OCH DET ÄR HELA POÄNGEN.** Här stod
-    `2400 <small>kg</small>`, alltså en `small` som bär bokstäver. Med den
-    fixturen var testet INKONKLUSIVT: fälls raden som skiljer värdevägen från
-    etikettvägen behåller `_behall` ändå texten, eftersom den bär bokstäver, och
-    sviten förblir grön. Uppmätt av granskningen av skiva 23.
+    **VAD LUCKAN VAR.** Parsern konkatenerar textnoderna i ett värde, så en
+    markör inuti talet blev en siffra I talet. Uppmätt hela vägen genom
+    `slag_upp`: `750<sup>1</sup> kg` gav **7501**, `<sup>1</sup>750 kg` gav
+    **1750**, och `7<sup>1</sup>50 kg` gav **7150**. Alla tre ligger inom
+    rimlighetsintervallet och ÖVER `TROSKEL_SLAPVAGNSVIKT_KG`, så ett fordon med
+    verkliga 750 kg fick ett jakande besked på ett tal ingen källa skrivit.
 
-    Med `2<small>400</small> kg` fäller samma fällning testet, eftersom `400`
-    skulle uteslutas som markör om värdet läste etikettens regel. Talet blir då
-    2 i stället för 2400, och 2 passerar dessutom rimlighetskontrollen, alltså
-    är det precis ett tyst fel som når ett mail.
+    **LUCKAN INFÖRDES AV PARSERN I SKIVA 22 och var öppen i två committade
+    versioner**, `8629223` och `52d0a97`. Den kom fram först när skiva 23 tittade
+    på fotnotselement i ETIKETTER, alltså av en tillfällighet och inte av att
+    någon letade.
+
+    **VARFÖR KAST OCH INTE SANERING.** Att plocka bort tecken ur ett värde vore
+    att ändra ett tal vi skickar vidare. En sida som skriver 750 med en fotnot
+    inuti säger något vi inte kan tolka, och då är avläsningen fel. Samma regel
+    som `750 2400 kg` fick i skiva 23: ett fält som fanns men lästes fel ser inte
+    ut som ett fält som saknades.
+
+    **KOSTNADEN ÄR SYNLIG, och det är hela poängen.** En fotnot i ett värde ger
+    nu ett kast i stället för ett tal. Det märks. 7501 märktes inte.
+
+    `markör efter enheten` stod tidigare för utkast och kastar nu. Utfallet är
+    fortfarande att inget värde kommer ut, men skälet är ett annat och det ska
+    synas.
+    """
+    with pytest.raises(Hamtningsfel) as fel:
+        fordonsuppslag.slag_upp(
+            REGNR,
+            hamta=biluppgifter_hamtning(oppna=svarar(sida_med(slapvagnsvikt=varde))),
+        )
+
+    assert "bär markup" in str(fel.value)
+
+
+@pytest.mark.parametrize(
+    ("beskrivning", "varde"),
+    [
+        ("HTML-kommentar", "750<!--x-->1 kg"),
+        ("processing instruction", "750<?x?>1 kg"),
+        ("declaration", "750<!doctype y>1 kg"),
+        ("ensam sluttagg utan starttagg", "750</b>1 kg"),
+        ("sluttagg för ett tomt element", "750</br>1 kg"),
+        ("sluttagg för img", "750</img>1 kg"),
+    ],
+)
+def test_varde_avdelat_av_nagot_som_inte_ar_text_kastar(beskrivning, varde):
+    """SÄNDVÄGSDEFEKT UR GRANSKNINGEN AV SKIVA 24, nu stängd.
+
+    **Spärrens första lydelse följde bara STARTTAGGAR.** De fyra formerna här
+    avdelar textnoden utan att vara en tagg, och alla fyra gav `7501` på en sida
+    vars verkliga släpvagnsvikt är 750 kg. Uppmätt hela vägen genom `slag_upp`,
+    med tjänstevikten under tröskeln så att släpvagnsvikten avgör: **beskedet
+    vändes från NEJ till JA**.
+
+    Texten blev bit för bit densamma som `750<sup>1</sup> kg` gav, alltså samma
+    defekt genom en annan dörr.
+
+    **Den ensamma sluttaggen är den farligaste.** `_Faltlasare`:s docstring
+    skriver ut som en EGENSKAP att en sluttagg utan motsvarande starttagg
+    ignoreras helt. Den egenskapen är riktig för stacken och var fel för värdet,
+    och det är just den sortens halvsanning som blir en spärr med hål.
+
+    Skälet att lydelsen var för smal är mekaniskt: den beskrev en HÄNDELSE, `en
+    tagg öppnas`, i stället för det den skulle vakta, `värdets text är avdelad av
+    något som inte är text`.
+
+    **DE TVÅ SISTA FALLEN KOM AV ATT RÄTTELSEN GJORDE OM SAMMA FEL.** Den första
+    rättelsen lade flaggan i `handle_endtag`:s gren för en sluttagg utan öppen
+    motsvarighet, men `handle_endtag` returnerar för `TOMMA_TAGGAR` FÖRE den
+    grenen. `750</br>1 kg` gav därför fortfarande 7501, uppmätt av
+    granskningsvarv 2. Det är samma tidiga return som `handle_starttag`:s egen
+    kommentar varnar för, och rättelsen hade tillämpat insikten på den ena
+    metoden och inte på den andra.
+
+    `</br>` är inte ett hittepåfall: `_Faltlasare`:s docstring i
+    `src/biluppgifter.py` bär ett ensamt `</br>` inuti ett `<template>` som en
+    uppmätt sändvägsdefekt sedan skiva 22. *Här stod `docs/sparrar.md`, vilket är
+    fel fil; fällt av granskningens tredje varv.*
+    """
+    with pytest.raises(Hamtningsfel) as fel:
+        fordonsuppslag.slag_upp(
+            REGNR,
+            hamta=biluppgifter_hamtning(oppna=svarar(sida_med(slapvagnsvikt=varde))),
+        )
+
+    assert "bär markup" in str(fel.value)
+
+
+def test_rent_varde_ger_fortfarande_uppslag():
+    """DEL A:S NEGATIVKONTROLL. En spärr som fäller på allt är inte en spärr.
+
+    Utan den här raden hade kastet i `_las_falt` kunnat skärpas till att fälla
+    varje värde utan att någon rad blev röd, och hela uppslaget hade slutat
+    fungera på en helt vanlig sida.
+    """
+    hamta = biluppgifter_hamtning(oppna=svarar(SIDA_AVLAST))
+    uppslag = fordonsuppslag.slag_upp(REGNR, hamta=hamta)
+
+    assert uppslag.slapvagnsvikt_kg == 2400
+    assert uppslag.tjanstevikt_kg == 2140
+    assert uppslag.draganordning is False
+
+
+def test_element_i_ett_falt_vi_inte_laser_ror_ingenting():
+    """GRÄNSEN FÖR DEL A, och den är inte kosmetisk.
+
+    Den skarpa sidan bär värden med nästlad markup i fält vi ALDRIG läser:
+    fixturkommentaren vid `SIDA_AVLAST` namnger `Chassinr / VIN`, vars
+    value-span öppnar ett `<a hx-get=...>`. Kastade spärren på varje sådant
+    värde hade den fällt varje verkligt svar, och ett larm som alltid går blir
+    avstängt.
+
+    Spärren sitter därför i `_las_falt` och gäller bara de tre fält
+    `EXAKT_ETIKETT` namnger.
     """
     sidan = sida_med(
-        slapvagnsvikt=None,
         extra=(
-            '<span class="label">Släpvagnsvikt</span>\n'
-            '<span class="value">2<small>400</small> kg</span>\n'
-        ),
+            '<li>\n  <span class="label">Chassinr / VIN</span>\n'
+            '  <span class="value"><a hx-get="/x">visa</a></span>\n</li>\n'
+        )
     )
 
     hamta = biluppgifter_hamtning(oppna=svarar(sidan))
     assert fordonsuppslag.slag_upp(REGNR, hamta=hamta).slapvagnsvikt_kg == 2400
+
+
+def test_lucka_10_formen_finns_bland_de_avlasta_etiketterna():
+    """LUCKA 10 ÄR INTE HYPOTETISK, och det här testet mäter det.
+
+    Lucka 10: en SKILD etikett vars särskiljande led saknar bokstäver
+    normaliseras in i en annan, eftersom `_behall` inte kan veta om ett
+    icke-alfabetiskt led i ett `sup` eller `small` är en fotnotsmarkör eller en
+    del av namnet.
+
+    **Formen förekommer bland fixturens åtta avlästa etiketter.**
+    `Släp totalvikt (B)` och `Släp totalvikt (B+)` skiljer sig bara på `+`, som
+    inte är en bokstav. Skulle källan sätta plustecknet i ett `sup`, vilket är
+    typografiskt naturligt, blir de två etiketterna SAMMA sträng.
+
+    **Ingen av de två är ett fält vi läser**, så luckan når inte `EXAKT_ETIKETT`
+    på dagens sida. Det är skillnaden mellan att formen finns och att den biter,
+    och båda leden ska stå mätta i stället för resonerade.
+
+    Testet blir rött den dag fixturen slutar bära paret, och då ska påståendet i
+    `docs/sparrar.md` lucka 10 mätas om i stället för att ärvas.
+    """
+    etiketter = _lasaren(SIDA_AVLAST).etiketter
+
+    def bara_bokstaver(text):
+        return "".join(t for t in text if t.isalpha())
+
+    par = [
+        (a, b)
+        for i, a in enumerate(etiketter)
+        for b in etiketter[i + 1 :]
+        if a != b and bara_bokstaver(a) == bara_bokstaver(b)
+    ]
+
+    assert par == [("Släp totalvikt (B)", "Släp totalvikt (B+)")]
+
+    med_fotnot = sida(
+        rader=(
+            rad("Släp totalvikt (B)", "Max 750 kg (Teoretisk)")
+            + rad("Släp totalvikt (B<sup>+</sup>)", "Max 1500 kg (Teoretisk)")
+        )
+    )
+
+    lasta = _lasaren(med_fotnot).etiketter
+    assert lasta == ["Släp totalvikt (B)", "Släp totalvikt (B)"]
+
+    assert not set(lasta) & set(EXAKT_ETIKETT.values())
 
 
 def test_prefixraknare_hade_larmat_pa_den_avlasta_sidan():
