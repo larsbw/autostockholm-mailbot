@@ -2486,10 +2486,20 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
 - **Lucka 21. Tal ett till tre är alltid tillåtna.** `ALLTID_TILLATNA_TAL` finns
   för ordningstal, och släpper därmed igenom ledtider: *"på 2 veckor"* och *"i 3
   dagar"* fälls inte. Talen är obelagda påståenden om vår leveranstid.
-- **Lucka 22 är STÄNGD i skiva 31, varv 2.** Den gällde att `TAL_I_TEXT` slog
-  ihop tal över komma: *"Vikterna är 1400, 1500 kg"* fälldes som `talet
-  14001500`. Avskiljaren är nu blanksteg eller punkt följt av EXAKT tre siffror,
-  alltså tusengruppering och ingenting annat.
+- **Lucka 22 är DELVIS stängd i skiva 31, varv 2.** Den gällde att `TAL_I_TEXT`
+  slog ihop tal över komma: *"Vikterna är 1400, 1500 kg"* fälldes som `talet
+  14001500`. Med KOMMA är den stängd, mätt: `['1400', '1500']`.
+
+  **Med BLANKSTEG är den kvar.** `_tal_i("Vikterna är 1400 1500 kg")` ger
+  `['0', '1400150']`: mönstret tar `" 150"` ur `1500` som vore det en
+  tusengrupp. *Här stod att avskiljaren nu är "tusengruppering och ingenting
+  annat". Fällt av §7-granskningen av skiva 31, varv 3.*
+
+- **Lucka 24. TAL SKRIVET I ORD fälls inte av någonting.** *"Vi tar
+  tjugofemtusen för det"* och *"Det tar fjorton dagar"* passerar alla tre
+  spärrarna, mätt. Lucka 20 gäller omskrivna prisord, lucka 21 talen ett till
+  tre; ingen av dem täcker talet i ord. Kommentaren vid `PRISORD` påstod att
+  `tjugofemtusen` fångas; det gör den inte, och påståendet är struket.
 
 **ETT HÅL SOM VARV 2 FANN OCH SOM VAR VÄRRE ÄN NÅGON REGISTRERAD LUCKA:** ett tal
 skrivet ihop med sin enhet var OSYNLIGT för spärren. `_tal_i("25000kr")` gav en
@@ -2504,7 +2514,11 @@ efter sista siffran.
 **BYGGD I SKIVA 31.** Kopplar `fordonsfakta-ur-uppslag` nedströms.
 
 - **Spärr.** `src/generera.py::krav_pa_fordonsfakta_ur_uppslag` kastar när svaret
-  nämner tjänstevikt, släpvagnsvikt, draganordning, dragkrok eller totalvikt och
+  nämner någon av `FORDONSORD`:s sexton termer, bland dem tjänstevikt,
+  släpvagnsvikt, draganordning, dragkrok, totalvikt, väger, vikten, krok, släp
+  och tung, och *här stod bara de fem första, vilket var en ofullständig
+  uppräkning efter varv 1:s utökning. Fällt av §7-granskningen av skiva 31,
+  varv 3.* Villkoret gäller när
   `forfragan.uppslag` är None. Beslutet fattas på raden
   `if traff and forfragan.uppslag is None:`.
 - **Vad den skyddar mot.** Att boten påstår något om kundens bil när ingen källa
@@ -2545,6 +2559,17 @@ varv 2.*
 - Det som bär i det fallet är SYSTEMPROMPTEN, som säger rakt ut att modellen
   inte vet något om bilen när uppslaget saknas. **Spärren är nätet under, inte
   det enda skyddet**, och den formuleringen är avsiktlig här.
+- **Lucka 25. SYSTEMPROMPTENS BÄRANDE REGLER ÄR OBUNDNA AV TEST.** Regel 6
+  ("ALDRIG ETT TAL") och regel 7 (om lagtext) går att RADERA med hela sviten
+  grön, mätt. Posterna pekar ut prompten som det som bär när lucka 20, 23, 24,
+  26 och 27 släpper igenom, och den texten kan alltså tas bort utan att något
+  blir rött. `test_systemprompten_bar_paragraf_elva` binder fyra strängar, ingen
+  av dem regel 6 eller 7.
+- **Lucka 28. `FORDONSORD` fäller önskade svar utan uppslag.** Mätt: *"Vikten av
+  att boka i tid är stor"* fälls på `vikten`, *"Vi återkommer om släp när vi
+  sett bilen"* på `släp`, *"Vi har en tung period"* på `tung`. Ingen
+  negativkontroll binder att ett VANLIGT svar utan uppslag passerar, och utan
+  uppslag är normalfallet: hämtningen är inte inkopplad.
 
 ---
 
@@ -2554,7 +2579,10 @@ varv 2.*
 
 - **Spärr.** `src/generera.py::krav_pa_att_troskeln_inte_ar_forfattningstext`
   kastar när svaret bär talet 1 000 TILLSAMMANS med ett författningsord: krav,
-  kräver, lag, regel, föreskrift, VVFS, paragraf, §, måste eller enligt.
+  kräver, lag, lagen, lagkrav, lagstiftning, regel, regeln, reglerna,
+  föreskrift, bestämmelse, VVFS, paragraf, §, måste, Trafikverket eller
+  Transportstyrelsen. *`enligt` togs bort i varv 2 som för svagt signalord och
+  stod kvar här. Fällt av §7-granskningen av skiva 31, varv 3.*
   Beslutet fattas på raden
   `if TROSKELTAL.search(svar) and FORFATTNINGSORD.search(svar):`.
 - **Vad den skyddar mot.** Att en OFULLSTÄNDIG föreskrift går ut som ett besked.
@@ -2579,6 +2607,47 @@ varv 2.*
 | --- | --- | --- |
 | `if TROSKELTAL.search(svar) and FORFATTNINGSORD.search(svar):` satt till `if False:` | RÖD, `9 failed, 66 passed` | neutraliserad |
 | anropet i `krav_pa_svaret` | RÖD, `1 failed, 74 passed` | raderad |
+
+> ### KÄNDA LUCKOR, OCH EN REGRESSION SOM STÅR KVAR
+>
+> **Registrerade av §7-granskningen av skiva 31, VARV 3, alltså efter att
+> grinden var förbrukad. De är MÄTTA och INTE åtgärdade**, av ett skäl som står
+> sist i rutan.
+>
+> - **Lucka 26. Tröskeln i ord med enheten utskriven fälls inte.** Mätt, samtliga
+>   passerar alla tre spärrarna med och utan uppslag: *"Kravet är tusen
+>   kilogram"*, *"ett tusen kilogram"*, *"tusen kilon"*, *"tusentalet kilo"*,
+>   *"tusentals kilo"*. Villkoret `\btusen\s*(kilo|kg)\b` kräver ordgräns efter
+>   `kilo` och stänger därmed ute `kilogram` och `kilon`.
+>
+> - **Lucka 27. EN REGRESSION: fyra former som varv 1:s mönster fångade slipper
+>   igenom nu.** Gäller GRÄNSBILEN, alltså när uppslaget ger talet 1 000 en
+>   källa så att talspärren inte fäller först. Mätt:
+>
+>   | Text | varv 1 | nu |
+>   | --- | --- | --- |
+>   | `Det finns regler om 1 000 kg släpvagnsvikt.` | fälld | **släpps** |
+>   | `Regleringen säger 1 000 kg.` | fälld | **släpps** |
+>   | `Trafikreglerna säger 1 000 kg.` | fälld | **släpps** |
+>   | `Det är ett myndighetskrav på 1 000 kg.` | fälld | **släpps** |
+>
+>   `\bregel\b|\bregeln\b|\breglerna\b` saknar den vanligaste formen av alla,
+>   **`regler`**, och `\bkrav\w*` fångar inte sammansättningar som
+>   `myndighetskrav`.
+>
+> **VARFÖR DE INTE ÄR ÅTGÄRDADE, och det är skivans egen lärdom.** Det här
+> mönsterparet har nu ändrats tre gånger i tre varv, och VARJE gång har
+> rättelsen infört ett nytt fel i motsatt riktning:
+>
+> | Varv | Vad som rättades | Vad rättelsen införde |
+> | --- | --- | --- |
+> | 1 | ordgräns i båda ändar missade `Kravet`, `Föreskriften` | ingen ordgräns alls |
+> | 2 | ingen ordgräns fällde `lager`, `underlag`, `uppslaget` | ordgräns till vänster tappade `regler`, `myndighetskrav` |
+> | 3 | — | **ingen fjärde ändring gjord** |
+>
+> En fjärde självmätt ändring efter förbrukad grind är precis vad skiva 27
+> gjorde, och den kostade tre skivor. **Mönstren hör till en egen skiva med egen
+> grind.**
 
 **ORDNINGEN AVGÖR VILKEN SPÄRR SOM RAPPORTERAS, och det är ett fynd.**
 `krav_pa_svaret` prövar talspärren först. Ett svar som skriver "lagen kräver

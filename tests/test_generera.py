@@ -168,7 +168,7 @@ def test_varje_fordonsord_faller_utan_uppslag(ord):
     sitt eget påstående. Sju av sexton termer prövades av ingenting.
 
     Fällt av §7-granskningen av skiva 31, varv 2. Listan här ska hållas i takt
-    med `FORDONSORD`, och `test_varje_term_i_mönstret_har_ett_testfall` binder
+    med `FORDONSORD`, och `test_varje_term_i_monstret_har_ett_testfall` binder
     att den gör det.
     """
     with pytest.raises(Sparrfalld):
@@ -373,8 +373,12 @@ def test_krav_pa_svaret_anropar_alla_tre(svar, sparr, fall):
 def test_exempel_med_forsta_person_singular_valjs_bort():
     """§11: ett exempel som bryter mot regeln lär modellen att bryta mot den.
 
-    Uppmätt med `scripts/par-matning.py`: 14 av 32 a-traktorsvar som ryms under
-    taket bär "jag", "mig", "min" eller "mitt". De får inte bli få-exempel.
+    Uppmätt med kodens eget mönster: 15 av 32 a-traktorsvar som ryms under taket
+    bär "jag", "mig", "min", "mitt" eller "man". De får inte bli få-exempel.
+
+    *Här stod 14, vilket är `scripts/par-matning.py`:s GROVA räkning, den som
+    kräver blanksteg på båda sidor och som skriptet självt deklarerar som en
+    underskattning. Fällt av §7-granskningen av skiva 31, varv 3.*
     """
     assert not generera._duger_som_exempel(
         {"inkommande_text": "Går det?", "utgaende_text": "Ja, jag fixar det."}

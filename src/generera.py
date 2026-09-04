@@ -124,10 +124,17 @@ TAL_I_TEXT = re.compile(r"\d+(?:[\s.]\d{3})*")
 # igenom bilen" fälldes som pris. En spärr som fäller på vanliga ord blir
 # avstängd, vilket §7.1 varnar för.
 #
-# **TILLAGT: prisord i ORD i stället för siffror.** "tjugofemtusen", "femton
-# hundra spänn", "en billig peng". Uppräkningen är INTE uttömmande och luckan är
-# registrerad i `docs/sparrar.md`: en modell kan omskriva ett pris utan något av
-# orden. Systemprompten är det som bär i det fallet.
+# **TILLAGT: `spänn`, `peng` och `tkr`.** De fångar "femton hundra spänn" och
+# "en billig peng".
+#
+# **ETT PRIS SKRIVET HELT I ORD FÅNGAS INTE.** "tjugofemtusen" har varken siffra
+# eller prisord och passerar alla tre spärrarna, mätt. Det är lucka 24 i
+# `docs/sparrar.md`. *Här stod att formen är tillagd; den är det inte, och
+# påståendet var falskt när det skrevs. Fällt av §7-granskningen av skiva 31,
+# varv 3.*
+#
+# Uppräkningen är INTE uttömmande. Systemprompten är det som bär i det fallet,
+# och den är själv obunden av test, se lucka 25.
 PRISORD = re.compile(
     r"\b(kr|kronor|sek|kostar|kostnad|kostnaden|pris|priset|priser|"
     r"offert|avgift|spänn|spann|peng|pengar|"

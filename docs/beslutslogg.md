@@ -2942,7 +2942,10 @@ varje fall.
 
 **#49 tillkommer:** generatorn är byggd, och DEL B:s mätning avslöjade att
 utkorgens röst inte följer §11. Av 32 a-traktorsvar som ryms som få-exempel bär
-14 första person singular. Posten bär en ÖPPEN PUNKT om huruvida §11:s
+18 mot §11, varav 15 på första person singular eller "man" och 9 på bindestreck
+som skiljetecken. *Här stod "14 första person singular", vilket var både fel tal
+och fel skäl: 14 är antalet som blir KVAR. Fällt av §7-granskningen av skiva 31,
+varv 3.* Posten bär en ÖPPEN PUNKT om huruvida §11:s
 pluralkrav ska stå kvar oförändrat.
 
 Ny post ⇒ MINOR.
