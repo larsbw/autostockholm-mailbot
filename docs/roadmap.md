@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.13.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §10
+**Version:** 0.13.1 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -684,9 +684,17 @@ utan Railway, så att den gick att se och rätta innan den exponeras. Hosting
 enligt #38 och inloggning enligt #37 är en EGEN SKIVA och är inte gjord.
 
 Vad skiva 27 byggde: `src/vy.py` med båda lägena, `scripts/kor-vy.py` som
-startar den, och spärren mot att vyn har någon sändväg alls. Referensläget är
-det som fungerar; granskningsläget renderar men har inget att visa, eftersom
-generatorn hör till fas 5.
+startar den, och spärren mot att vyn har någon sändväg alls.
+
+**Referensläget är det som fungerar. GRANSKNINGSLÄGET RENDERAR MEN ÄR INTE
+KOPPLAT**, alltså har `rendera_granskning` och `spara_omdome` ingen anropare i
+`src/` eller `scripts/`, och `do_GET` rutar varje begäran till referensläget.
+Att generatorn hör till fas 5 är skälet till att det inte GÖR något; att ingen
+rutt når funktionerna är skälet till att det inte KAN göra något, och det är det
+grundläggande av de två. Skivans brief sade att referensläget räcker.
+
+Fällt av §7-granskningen av skiva 27, varv 1, som fann att raden angav det
+svagare av de två skälen.
 
 **Grind:** Lars beslutar att omdömesvolymen räcker. Talet sätts inte i förväg,
 eftersom det beror på hur många kategorier som visar sig bära underlag, och
@@ -727,6 +735,18 @@ visat dagsvolymen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.13.1 — 2026-09-04
+
+Rättelse efter §7-granskningen av skiva 27, varv 1.
+
+**Raden om granskningsläget angav det svagare av två skäl.** Den sade att läget
+inte har något att visa eftersom generatorn hör till fas 5. Det stämmer, men det
+grundläggande är att `rendera_granskning` och `spara_omdome` inte har någon
+anropare alls: ingen rutt når dem. Båda skälen står nu, med skillnaden mellan
+dem utskriven.
+
+Rättat påstående ⇒ PATCH.
 
 ### 0.13.0 — 2026-09-04
 

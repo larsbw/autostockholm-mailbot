@@ -234,7 +234,12 @@ def krav_pa_skrivbar_sokvag(sokvag: Path, rot: Path | None = None) -> None:
     except ValueError:
         raise Skrivfel(f"{sokvag} ligger utanför repot") from None
 
-    if relativ.parts[0] not in ("data", "logg"):
+    # `relativ.parts` är TOM när sökvägen ÄR repoteten, och `parts[0]` kastade då
+    # `IndexError` i stället för `Skrivfel`. Ingen skrivväg öppnades, men en spärr
+    # ska fälla med sitt eget undantag: den som fångar `Skrivfel` runt en
+    # skrivning hade annars sluppit igenom ett fel den trodde sig täcka.
+    # Funnet av §7-granskningen av skiva 27, varv 1.
+    if relativ.parts[:1] != ("data",) and relativ.parts[:1] != ("logg",):
         raise Skrivfel(
             f"{relativ} ligger varken under data/ eller logg/. Vyn skriver rå "
             f"kundtext och får bara skriva till gitignorerade kataloger (§6)."
@@ -259,8 +264,19 @@ def _par_karta(parfil: Path) -> dict[str, dict]:
     """Kundtext till parpost, för att hämta hash och tidsstämpel.
 
     Nyckeln är `inkommande_text`, som är samma sträng som `ometiketterade.jsonl`
-    bär i sitt `text`-fält för raderna med svar. Uppmätt i skiva 27: samtliga
-    213 par går att koppla den vägen.
+    bär i sitt `text`-fält för raderna med svar.
+
+    Uppmätt med `scripts/par-koppling.py`: `data/par.jsonl` bär 222 poster med
+    213 UNIKA `inkommande_text`, och samtliga 213 rader med svar i
+    `ometiketterade.jsonl` kopplas den vägen.
+
+    *Här stod "samtliga 213 par". Talet var rätt men substantivet fel: 213 är
+    antalet unika nycklar och antalet rader med svar, inte antalet poster i
+    filen. Fällt av §7-granskningen av skiva 27, varv 1, som mätte 222.*
+
+    Att posterna är fler än nycklarna är förväntat och hanteras av
+    `setdefault`: samma kundtext kan ha besvarats mer än en gång, och kartan
+    behåller den första.
     """
     if not parfil.exists():
         return {}
@@ -285,12 +301,22 @@ def las_fall(
 
     **HASH OCH TIDSSTÄMPEL SAKNAS FÖR DE OBESVARADE, och de hittas inte på.**
     Raderna med svar kopplas till `data/par.jsonl` på kundtexten och får sina
-    riktiga värden. För de obesvarade finns ingen sådan koppling: uppmätt i
-    skiva 27 gick 1 av 9 a-traktorfall att koppla mot
-    `data/tradar_obesvarade.jsonl`, eftersom den etiketterade texten inte är
-    ordagrant `urval.brodtext` av något kundmeddelande. Fälten lämnas därför
-    TOMMA, och referenssvaret bär `kalla` som säger varför. Att skriva en
-    påhittad hash hade varit ett tal utan källa (§7.2).
+    riktiga värden. För de obesvarade finns ingen sådan koppling, och skälet är
+    STRUKTURELLT och inte en fråga om träffgrad: `data/tradar_obesvarade.jsonl`
+    bär RÅA Gmail-trådar, där brödtexten ligger base64-kodad i `payload`. Något
+    extraherat textfält finns inte, alltså finns ingen nyckel att koppla på utan
+    att köra extraktionen på nytt.
+
+    Uppmätt med `scripts/par-koppling.py`: 1604 trådar i filen, 0 med ett
+    extraherat `urval`-fält, 9 a-traktorrader utan svar.
+
+    Fälten lämnas därför TOMMA, och referenssvaret bär `kalla` som säger varför.
+    Att skriva en påhittad hash hade varit ett tal utan källa (§7.2).
+
+    *Här stod att 1 av 9 a-traktorfall gick att koppla. Det talet gick inte att
+    reproducera med något committat skript, och mätningen ovan visar att
+    kopplingen är obefintlig och inte gles. Fällt av §7-granskningen av skiva
+    27, varv 1, som OPRÖVAT.*
     """
     if not etikettfil.exists():
         return []

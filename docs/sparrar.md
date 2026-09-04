@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.25.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.25.1 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -1965,16 +1965,36 @@ aldrig kedjan vidare, och `from src import auth` hade sett ut som en import av
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| båda lagren, villkoren satta till `False` | RÖD, `4 failed, 27 passed` | neutraliserad |
-| enbart importlagret | RÖD, `3 failed, 28 passed` | neutraliserad |
-| enbart källtextlagret | RÖD, `1 failed, 30 passed` | neutraliserad |
-| kedjeledet `namn.update(f"{nod.module}.{alias.name}" ...)` | RÖD, `1 failed, 30 passed` | raderad |
-| `krav_pa_sandvagsfrihet()` i `starta` | RÖD, `1 failed, 30 passed` | raderad |
+| båda lagren, villkoren satta till `False` | RÖD, `4 failed, 29 passed` | neutraliserade |
+| enbart importlagret | RÖD, `3 failed, 30 passed` | neutraliserad |
+| enbart källtextlagret | RÖD, `1 failed, 32 passed` | neutraliserad |
+| kedjeledet `namn.update(f"{nod.module}.{alias.name}" ...)` | RÖD, `1 failed, 32 passed` | raderad |
+| `krav_pa_sandvagsfrihet()` i `starta` | RÖD, `1 failed, 32 passed` | raderad |
 
-Sviten var `tests/test_vy.py`, som bar 31 test vid mätningen. Kommandot är
+Sviten var `tests/test_vy.py`, som bar 33 test vid mätningen. Kommandot är
 `scripts/sparr-prova.sh --fil src/vy.py --ersatt "<rad>=..." -- tests/test_vy.py
 -q --tb=no -rN`. Radnumren skrivs inte ut, eftersom de flyttar av varje
 redigering i filen; villkorens TEXT står ovan.
+
+**KÄNDA LUCKOR. Posten säger "det finns ingen väg", och spärren MÄTER något
+smalare.** Registrerade av §7-granskningen av skiva 27, varv 1, och utskrivna
+här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina: en spärrpost som
+låter heltäckande är farligare än en som namnger sin räckvidd.
+
+- **Lucka 13. `FORBJUDNA_MODULER` och `FORBJUDET_MONSTER` är UPPRÄKNINGAR, inte
+  en egenskap.** De bär tre namn respektive tre anropsformer. `subprocess`,
+  `socket`, `urllib.request`, `http.client`, `requests` och `os.system` fälls av
+  ingetdera lagret. Ingen av dem finns i vyn i dag, mätt genom att läsa
+  `src/vy.py`:s importer, men spärren skulle inte fälla dem om de kom.
+  Riktningen är alltså densamma som lucka 12 hade före skiva 25: en händelselista
+  där en egenskap vore starkare.
+- **Lucka 14. Ingångspunkten granskas inte.** `krav_pa_sandvagsfrihet` startar
+  sin vandring på `src.vy`. `scripts/kor-vy.py`, som är det som FAKTISKT startar
+  vyn, ligger utanför grafen och prövas aldrig. Ett sändanrop där hade passerat.
+  Filen läses i dag av `test_repot_sjalvt_ar_rent` för osynliga tecken, alltså
+  finns den i sviten, men inte i den här spärren.
+
+Båda luckorna är öppna och ingen av dem är stängd av den här skivan.
 
 ---
 
@@ -2001,12 +2021,30 @@ redigering i filen; villkorens TEXT står ovan.
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if sparr:` satt till `if False:` | RÖD, `1 failed, 30 passed` | neutraliserad |
+| `if sparr:` satt till `if False:` | RÖD, `1 failed, 32 passed` | neutraliserad |
 
 **Behövs en referens för ett ärende vars förslag fälldes, tas en annan post av
 samma kategori.** Det står i #40 och i fas 5.5, och det är vad som gör spärren
 kostnadsfri: referenssvaret är underlag för rösten och inte ett svar på det
 enskilda ärendet.
+
+**KÄND LUCKA 15: #40 säger OAVSETT LÄGE, och spärren är verkställd i ETT läge.**
+Registrerad av §7-granskningen av skiva 27, varv 1.
+
+`rendera_granskning` tar en `sparr` och lyder. `rendera_referens` har ingen
+sådan parameter och visar alltid sitt textfält, och `do_GET` rutar varje
+begäran dit. En post som bär både ett fällt förslag och ett behov av
+referenssvar, alltså precis det fall #40 avgör, skulle i dag få sitt textfält
+genom referensläget.
+
+**Luckan är ofarlig i dag och blir farlig i fas 5.** Ingen post KAN vara
+spärrfälld nu, eftersom generatorn inte finns och ingen spärr har något förslag
+att fälla. Den dag den finns är det här den första platsen att stänga, och
+stängningen hör till den skiva som kopplar in generatorn: `rendera_referens`
+behöver samma `sparr`-argument, och urvalet behöver veta vilka poster som är
+fällda.
+
+Luckan är öppen och inte stängd av den här skivan.
 
 ---
 
@@ -2016,7 +2054,12 @@ enskilda ärendet.
 
 - **Spärr.** `src/vy.py::krav_pa_skrivbar_sokvag` kastar `Skrivfel` om en sökväg
   ligger utanför repot eller utanför `data/` och `logg/`. Beslutet fattas på
-  raden `if relativ.parts[0] not in ("data", "logg"):`. Kontrollen ligger i
+  raden `if relativ.parts[:1] != ("data",) and relativ.parts[:1] != ("logg",):`.
+  Formen är ett SNITT och inte en indexering, eftersom `parts` är TOM när
+  sökvägen är repoteten självt: `parts[0]` kastade då `IndexError` i stället för
+  `Skrivfel`, alltså fällde spärren med fel undantag. Funnet av
+  §7-granskningen av skiva 27, varv 1, och bundet av
+  `test_repotet_sjalvt_kastar_skrivfel_och_inte_indexerror`. Kontrollen ligger i
   SKRIVFUNKTIONERNA, `spara_referenssvar` och `spara_omdome`, och inte hos
   anroparen: en kontroll hos anroparen är en kontroll någon glömmer.
 - **Vad den skyddar mot.** §6. Vyn visar RÅ KUNDTEXT på skärmen, och den texten
@@ -2033,8 +2076,25 @@ enskilda ärendet.
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if relativ.parts[0] not in ("data", "logg"):` satt till `if False:` | RÖD, `2 failed, 29 passed` | neutraliserad |
-| båda anropen `krav_pa_skrivbar_sokvag(...)` | RÖD, `1 failed, 30 passed` | raderade |
+| `if relativ.parts[:1] != ("data",) and ... != ("logg",):` satt till `if False:` | RÖD, `4 failed, 29 passed` | neutraliserad |
+| `krav_pa_skrivbar_sokvag(parfil)` i `spara_referenssvar`, ENSAMT | RÖD, `1 failed, 32 passed` | raderad |
+| `krav_pa_skrivbar_sokvag(omdomesfil)` i `spara_omdome`, ENSAMT | RÖD, `1 failed, 32 passed` | raderad |
+
+Sviten var `tests/test_vy.py` med 33 test, samma som ovan.
+
+**DE TVÅ ANROPEN FÄLLS VAR FÖR SIG, ALDRIG TILLSAMMANS, och det är ett fynd och
+inte en formsak.** Skiva 27:s första prövning fällde båda i samma körning, fick
+RÖD, och skrev in det som ett belägg för att båda var vaktade. Det var falskt:
+`krav_pa_skrivbar_sokvag(omdomesfil)` gick att RADERA HELT med hela sviten grön,
+alltså var raden vakuös och §6 obevakad på vägen genom `spara_omdome`. Funnet av
+§7-granskningen av skiva 27, varv 1, och stängt med
+`test_omdome_kan_inte_loggas_utanfor_logg`.
+
+**Mekanismen är §7.1:s klausul om lagrat försvar, SPEGELVÄND.** Klausulen varnar
+för att en ofullständig fällning ger falskt VAKUÖST. Här gav en SAMMANSLAGEN
+fällning falskt ÄKTA: ett rött utfall bevisar bara att MINST EN av de fällda
+raderna är bärande, aldrig att alla är det. Fäll varje verkställighetspunkt
+ensam.
 
 **LÄS DETTA FÖRE NÄSTA PRÖVNING AV DEN HÄR SPÄRREN.** Testerna som påstår att
 skrivningen inte sker pekar på sökvägar under `tmp_path`, aldrig på riktiga
@@ -2235,6 +2295,31 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.25.1 — 2026-09-04
+
+Rättelser efter §7-granskningen av skiva 27, varv 1.
+
+**Ett spärrtest var vakuöst, och det var min sammanslagna fällning som dolde
+det.** `krav_pa_skrivbar_sokvag(omdomesfil)` i `spara_omdome` gick att radera
+helt med hela sviten grön. Posten
+`vyn-skriver-bara-till-data-och-logg` redovisade en fällning av BÅDA anropen som
+RÖD, vilket bara bevisade att minst ett av dem var bärande. Tabellen redovisar nu
+de två anropen var för sig, och stycket under den skriver ut mekanismen: §7.1:s
+klausul om lagrat försvar, spegelvänd.
+
+**Tre kända luckor registrerade, ingen stängd.** Lucka 13, spärrens två
+uppräkningar är inte en egenskap. Lucka 14, `scripts/kor-vy.py` ligger utanför
+den granskade grafen fastän det är den som startar vyn. Lucka 15, #40 säger
+OAVSETT LÄGE medan `rendera_referens` saknar `sparr`.
+
+**Skälet att registrera i stället för att stänga:** lucka 15 kan inte stängas
+meningsfullt innan generatorn finns, eftersom urvalet då behöver veta vilka
+poster som är fällda, och lucka 13 är samma riktning som lucka 12 hade före
+skiva 25. Att skriva ut dem är det §7.2 kräver av en post som annars låter
+heltäckande.
+
+Nya luckor och en rättad tabell ⇒ PATCH.
 
 ### 0.25.0 — 2026-09-04
 

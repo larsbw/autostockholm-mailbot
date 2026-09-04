@@ -1,6 +1,6 @@
 # Incidentlogg
 
-**Version:** 0.11.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §0
+**Version:** 0.11.1 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §0
 
 Varje regel som bärs av en incident bor här. Dokumentet finns för att förlagornas
 styrka är att en härdad regel namnger det fel som skapade den. En regel utan
@@ -801,15 +801,21 @@ och verdiktet betydde ingenting.
 
 **Prövningen enligt §7.1, körd i skiva 27.** Skriptet är ett granskningsverktyg
 och ingen spärr på sändvägen, alltså har det ingen post i `docs/sparrar.md`;
-mätningen står därför här. Sviten var `tests/test_osynliga_tecken.py`, som bar 12
-test vid mätningen:
+mätningen står därför här. Sviten var `tests/test_osynliga_tecken.py`, som bar 13
+test när tabellen skrevs:
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if ar_osynligt(tecken):` satt till `if False:` | RÖD, `6 failed, 6 passed` | neutraliserad |
-| `if tecken in TILLATNA:` satt till `if False:` | RÖD, `1 failed, 11 passed` | neutraliserad |
-| `return ord(tecken) in NAMNGIVNA or ...` avkortad till ledet före `or` | RÖD, `3 failed, 9 passed` | neutraliserad |
-| `rader.extend(_osparade_rader(rot))` satt till `rader.extend([])` | RÖD, `1 failed, 11 passed` | neutraliserad |
+| `if ar_osynligt(tecken):` satt till `if False:` | RÖD, `6 failed, 7 passed` | neutraliserad |
+| `if tecken in TILLATNA:` satt till `if False:` | RÖD, `1 failed, 12 passed` | neutraliserad |
+| `return ord(tecken) in NAMNGIVNA or ...` avkortad till ledet före `or` | RÖD, `3 failed, 10 passed` | neutraliserad |
+| `rader.extend(_osparade_rader(rot))` satt till `rader.extend([])` | RÖD, `1 failed, 12 passed` | neutraliserad |
+
+*Tabellen bar först utfallen mot en svit på 12 test. §7-granskningens varv 1 fann
+ett falskt påstående i skriptets docstring om att de femton namngivna
+kodpunkterna ligger utanför Cf och Cc, och rättelsen la till ett test som mäter
+fördelningen. Talen ovan är omkörda mot den svit som faktiskt finns, enligt
+§7.2:s regel att en omskrivning gör talet oläst.*
 
 **Den sista raden gick INTE att radera.** En radering lämnar `if not stagat:`
 utan kropp, och sviten slutar köra med ett insamlingsfel i stället för att bli
@@ -822,6 +828,21 @@ räkneraden läst: `0 fynd över 0 filer` är inget svar.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.11.1 — 2026-09-04
+
+Rättelse efter §7-granskningen av skiva 27, varv 1.
+
+**I11:s mutationstabell är omkörd mot den svit som faktiskt finns.** Granskningen
+fällde ett falskt påstående i `scripts/osynliga-tecken.py`:s docstring, att de
+femton namngivna kodpunkterna ligger utanför Cf och Cc. Åtta av dem ÄR Cf.
+Rättelsen la till `test_atta_av_de_namngivna_ar_cf`, vilket ändrade svitens
+storlek och därmed varje tal i tabellen. §7.2: en omskrivning gör talet oläst.
+
+**Verdikten är oförändrade, samtliga RÖD.** Det är bara de passerade talen som
+flyttat.
+
+Omkörda tal ⇒ PATCH.
 
 ### 0.11.0 — 2026-09-04
 

@@ -1,8 +1,12 @@
 """Utkastvyn, fas 5.5.
 
 TESTERNA BÄR TRE SPÄRRAR, och den viktigaste är att vyn inte har någon sändväg.
-Se `docs/sparrar.md` `vyn-har-ingen-sandvag`, `referenssvar-skickas-aldrig` och
-`sparrfalld-post-har-inget-textfalt`.
+Se `docs/sparrar.md`: `vyn-har-ingen-sandvag`, `spärrfälld-post-utan-textfalt`
+och `vyn-skriver-bara-till-data-och-logg`.
+
+*Här stod två namn som inte finns i något dokument, `referenssvar-skickas-aldrig`
+och `sparrfalld-post-har-inget-textfalt`. De var skrivna innan posterna fick sina
+lydelser och rättades aldrig. Fällt av §7-granskningen av skiva 27, varv 1.*
 
 **FIXTURERNA BÄR INGEN KUNDTEXT.** Testerna bygger sina egna poster. Att läsa
 `data/` i ett test hade gjort sviten beroende av en gitignorerad fil och satt
@@ -158,6 +162,21 @@ def test_skrivning_utanfor_data_och_logg_kastar(tmp_path):
         vy.krav_pa_skrivbar_sokvag(ROT / "docs" / "lackt.jsonl")
 
 
+def test_repotet_sjalvt_kastar_skrivfel_och_inte_indexerror(tmp_path, monkeypatch):
+    """GRÄNSVÄRDET: sökvägen ÄR repoteten, alltså är `relativ.parts` tom.
+
+    Villkoret indexerade `parts[0]` och kastade `IndexError` i stället för
+    `Skrivfel`. Ingen skrivväg öppnades, men en spärr ska fälla med sitt eget
+    undantag: den som fångar `Skrivfel` runt en skrivning hade annars sluppit
+    igenom ett fel den trodde sig täcka. §4 kräver nollfallet, och det här är
+    det. Funnet av §7-granskningen av skiva 27, varv 1.
+    """
+    monkeypatch.setattr(vy, "ROT", tmp_path)
+
+    with pytest.raises(vy.Skrivfel):
+        vy.krav_pa_skrivbar_sokvag(tmp_path)
+
+
 def test_skrivning_utanfor_repot_kastar():
     with pytest.raises(vy.Skrivfel):
         vy.krav_pa_skrivbar_sokvag(Path("/tmp/lackt.jsonl"))
@@ -188,6 +207,32 @@ def test_referenssvar_kan_inte_sparas_utanfor_data(tmp_path, monkeypatch):
     with pytest.raises(vy.Skrivfel):
         vy.spara_referenssvar(
             ett_fall(), "ett svar", parfil=tmp_path / "docs" / "x.jsonl"
+        )
+
+
+def test_omdome_kan_inte_loggas_utanfor_logg(tmp_path, monkeypatch):
+    """SPÄRRENS ANDRA VERKSTÄLLIGHETSPUNKT, och den var otestad.
+
+    §6 verkställs på TVÅ ställen: `spara_referenssvar` och `spara_omdome`. Bara
+    den första var vaktad. `krav_pa_skrivbar_sokvag(omdomesfil)` i
+    `spara_omdome` gick att RADERA HELT med hela sviten grön, alltså var raden
+    vakuös enligt §7.1 och spärren obevakad på den vägen.
+
+    **Fällningen som dolde det var min egen.** Prövningen i skiva 27 fällde de
+    två anropen TILLSAMMANS och fick RÖD, vilket bara bevisade att minst ett av
+    dem var bärande. Det är samma mekanism som §7.1:s klausul om lagrat försvar,
+    spegelvänd: där ger en ofullständig fällning falskt VAKUÖST, här gav en
+    sammanslagen fällning falskt ÄKTA. Fällningen ska göras per rad också, och
+    spärrposten redovisar nu båda.
+
+    Funnen av §7-granskningen av skiva 27, varv 1.
+    """
+    monkeypatch.setattr(vy, "ROT", tmp_path)
+    (tmp_path / "docs").mkdir()
+
+    with pytest.raises(vy.Skrivfel):
+        vy.spara_omdome(
+            ett_fall(), "godkann", omdomesfil=tmp_path / "docs" / "omdomen.jsonl"
         )
 
 
@@ -379,10 +424,13 @@ def test_urvalet_tar_bada_populationerna(tmp_path):
 def test_obesvarat_fall_far_tomma_falt_och_ingen_pahittad_hash(tmp_path):
     """HÅLET SKRIVS UT I STÄLLET FÖR ATT FYLLAS.
 
-    Uppmätt i skiva 27: 1 av 9 obesvarade a-traktorfall gick att koppla mot
-    `data/tradar_obesvarade.jsonl`, eftersom den etiketterade texten inte är
-    ordagrant `urval.brodtext` av något kundmeddelande. En påhittad hash hade
+    Uppmätt med `scripts/par-koppling.py`: `data/tradar_obesvarade.jsonl` bär
+    1604 råa Gmail-trådar och 0 med ett extraherat textfält, alltså finns ingen
+    nyckel att koppla de 9 obesvarade a-traktorfallen på. En påhittad hash hade
     varit ett tal utan källa (§7.2).
+
+    *Här stod att 1 av 9 gick att koppla. Talet gick inte att reproducera med
+    något committat skript. Fällt av §7-granskningen av skiva 27, varv 1.*
     """
     etikettfil = tmp_path / "ometiketterade.jsonl"
     etikettfil.write_text(

@@ -12,10 +12,17 @@ VAD SOM LETAS EFTER, tre grupper:
   Cf   formateringstecken. Bär ingen bredd och syns inte. Hit hör mjukt
        bindestreck, nollbreddstecken och riktningsmarkörer.
   Cc   styrtecken. TAB och radbrytning är undantagna, se `TILLATNA`.
-  De femton NAMNGIVNA kodpunkterna i `NAMNGIVNA`. De ligger utanför Cf och Cc
-       men är lika osynliga i en diff, och hårt blanksteg är den av dem som
-       faktiskt har uppstått i det här repot: skiva 23 skrev in ett U+00A0 i en
-       docstring genom att en escape blev ett literalt tecken.
+  De femton NAMNGIVNA kodpunkterna i `NAMNGIVNA`. Flera av dem är Cf och fälls
+       alltså redan av kategorigrenen; listan finns för de övriga, som är
+       blanksteg och radseparatorer i kategorierna Zs, Zl och Zp och lika
+       osynliga i en diff. Vilka som är vilket skrivs inte ut här: kör
+       `--lista`, och `test_atta_av_de_namngivna_ar_cf` mäter fördelningen.
+
+       Hårt blanksteg är den kodpunkt som faktiskt har uppstått i det här repot.
+       Committad källa: `docs/sparrar.md` i posten `fordonsfakta-ur-sida`, om
+       skiva 20:s fällning 7 och 9. En escape för hårt blanksteg når inte
+       oförändrad fram till `--ersatt`, utan blir ett blankstegstecken i den
+       ersatta raden, alltså osynligt i stället för utskrivet.
 
 **RADENS INNEHÅLL SKRIVS ALDRIG UT.** Bara fil, rad, kolumn, kodpunkt och namn.
 Skälet är §6: skriptet ska kunna riktas mot `data/`, där kundtext bor, utan att
@@ -184,9 +191,17 @@ def main(argv: list[str]) -> int:
         return 2
 
     if argv[0] == "--lista":
+        # KATEGORIN SKRIVS UT PER KODPUNKT. Utan den läses listan som om de
+        # femton låg utanför Cf och Cc, vilket bara gäller några av dem. Ett
+        # påstående om fördelningen hör hemma i utdatan och inte i löptext.
         for kodpunkt in sorted(NAMNGIVNA):
-            print(f"U+{kodpunkt:04X}  {namnge(chr(kodpunkt))}")
+            kategori = unicodedata.category(chr(kodpunkt))
+            print(f"U+{kodpunkt:04X}  {kategori}  {namnge(chr(kodpunkt))}")
+        cf = sum(
+            1 for k in NAMNGIVNA if unicodedata.category(chr(k)) in ("Cf", "Cc")
+        )
         print(f"namngivna kodpunkter: {len(NAMNGIVNA)}")
+        print(f"varav redan täckta av kategorigrenen Cf eller Cc: {cf}")
         print("plus varje tecken i kategorierna Cf och Cc utom TAB och radbrytning")
         return 0
 

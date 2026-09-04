@@ -9,14 +9,18 @@ FÄLLER, alltså den sort §7.1 kräver att man prövar genom att fälla raden.
 **VARJE OSYNLIGT TECKEN BYGGS MED `chr()`, ALDRIG SOM LITERAL.** Skrevs de
 literalt skulle den här filen själv bära osynliga tecken, och
 `test_repot_sjalvt_ar_rent` längst ned vore ett test som motsäger sin egen fil.
-Det är skiva 23:s lärdom åt andra hållet: där blev en escape ett literalt
-tecken utan att någon såg det, här hålls tecknet borta ur källan med flit.
+Det är lärdomen ur skiva 20:s fällning 7 och 9 åt andra hållet, som
+`docs/sparrar.md` redovisar i posten `fordonsfakta-ur-sida`: där blev en escape
+för hårt blanksteg ett literalt blankstegstecken utan att någon såg det, här
+hålls tecknet borta ur källan med flit.
 """
 
 from __future__ import annotations
 
 import importlib.util
 import subprocess
+import unicodedata
+from collections import Counter
 from pathlib import Path
 
 ROT = Path(__file__).resolve().parent.parent
@@ -38,6 +42,30 @@ def test_femton_namngivna_kodpunkter():
     assert len(osynliga.NAMNGIVNA) == 15
 
 
+def test_atta_av_de_namngivna_ar_cf():
+    """FÖRDELNINGEN MÄTS, den påstås inte.
+
+    Skriptets docstring sade först att de femton "ligger utanför Cf och Cc".
+    Det är falskt för åtta av dem: mjukt bindestreck, nollbreddstecknen,
+    riktningsmarkörerna, `WORD JOINER` och `ZERO WIDTH NO-BREAK SPACE` ÄR Cf och
+    fälls redan av kategorigrenen. Resten är blanksteg och radseparatorer i Zs,
+    Zl och Zp. Funnet av §7-granskningen av skiva 27, varv 1.
+
+    Talen här är avlästa ur `scripts/osynliga-tecken.py --lista`, och testet
+    finns för att nästa formulering av samma mening ska ha en källa att prövas
+    mot i stället för ett minne.
+    """
+    kategorier = Counter(
+        unicodedata.category(chr(k)) for k in osynliga.NAMNGIVNA
+    )
+
+    assert kategorier["Cf"] == 8
+    assert kategorier["Zs"] == 5
+    assert kategorier["Zl"] == 1
+    assert kategorier["Zp"] == 1
+    assert kategorier["Cc"] == 0
+
+
 def test_varje_namngiven_kodpunkt_falls():
     """NEGATIVKONTROLL per kodpunkt. Ingen av de femton får slinka igenom.
 
@@ -51,7 +79,7 @@ def test_varje_namngiven_kodpunkt_falls():
 
 
 def test_hart_blanksteg_hittas_med_rad_och_kolumn():
-    """Fallet som faktiskt uppstått i repot: U+00A0 i en docstring (skiva 23)."""
+    """Kodpunkten som faktiskt uppstått i repot: U+00A0, skiva 20."""
     fynd = osynliga.granska("rad ett\nett" + chr(0x00A0) + "hart", "src/x.py")
 
     assert fynd == [("src/x.py", 2, 4, "U+00A0", "NO-BREAK SPACE")]
@@ -192,6 +220,8 @@ def test_repot_sjalvt_ar_rent():
         "src/vy.py",
         "tests/test_vy.py",
         "scripts/osynliga-tecken.py",
+        "scripts/kor-vy.py",
+        "scripts/par-koppling.py",
         "tests/test_osynliga_tecken.py",
     ):
         text = (ROT / sokvag).read_text(encoding="utf-8", newline="")
