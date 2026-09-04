@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.25.1 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.25.2 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -1965,13 +1965,28 @@ aldrig kedjan vidare, och `from src import auth` hade sett ut som en import av
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| båda lagren, villkoren satta till `False` | RÖD, `4 failed, 29 passed` | neutraliserade |
-| enbart importlagret | RÖD, `3 failed, 30 passed` | neutraliserad |
-| enbart källtextlagret | RÖD, `1 failed, 32 passed` | neutraliserad |
-| kedjeledet `namn.update(f"{nod.module}.{alias.name}" ...)` | RÖD, `1 failed, 32 passed` | raderad |
-| `krav_pa_sandvagsfrihet()` i `starta` | RÖD, `1 failed, 32 passed` | raderad |
+| båda lagren, villkoren satta till `False` | RÖD, `5 failed, 32 passed` | neutraliserade |
+| enbart importlagret | RÖD, `4 failed, 33 passed` | neutraliserad |
+| enbart källtextlagret | RÖD, `1 failed, 36 passed` | neutraliserad |
+| kedjeledet `namn.update(f"{nod.module}.{alias.name}" ...)` | RÖD, `1 failed, 36 passed` | raderad |
+| kedjeledet `namn.add(nod.module)` | RÖD, `1 failed, 36 passed` | raderad |
+| `krav_pa_sandvagsfrihet()` i `starta` | RÖD, `1 failed, 36 passed` | raderad |
+| `HTTPServer(("127.0.0.1", port), ...)` satt till `"0.0.0.0"` | RÖD, `1 failed, 36 passed` | neutraliserad |
+| `def log_message` omdöpt, alltså övertäckningen borttagen | RÖD, `1 failed, 36 passed` | neutraliserad |
 
-Sviten var `tests/test_vy.py`, som bar 33 test vid mätningen. Kommandot är
+**DE TVÅ KEDJELEDEN FÄLLS VAR FÖR SIG, av samma skäl som de två anropen i
+`vyn-skriver-bara-till-data-och-logg`.** `namn.add(nod.module)` gick att radera
+med hela sviten grön: inget test använde formen `from paket.modul import namn`,
+där `nod.module` ensamt är den modul som dras in. Funnet av §7-granskningen av
+skiva 27, varv 2, och stängt med
+`test_importlagret_foljer_kedjan_aven_via_paketform`.
+
+**De två sista raderna vaktar §6 och inte sändvägen**, men de sitter i samma
+kod och prövas därför här. Bindningen till loopback är skivans centrala
+§6-påstående, eftersom vyn saknar inloggning: den som når porten når kundtexten.
+Båda var ovaktade fram till varv 2.
+
+Sviten var `tests/test_vy.py`, som bar 37 test vid mätningen. Kommandot är
 `scripts/sparr-prova.sh --fil src/vy.py --ersatt "<rad>=..." -- tests/test_vy.py
 -q --tb=no -rN`. Radnumren skrivs inte ut, eftersom de flyttar av varje
 redigering i filen; villkorens TEXT står ovan.
@@ -2021,7 +2036,14 @@ Båda luckorna är öppna och ingen av dem är stängd av den här skivan.
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if sparr:` satt till `if False:` | RÖD, `1 failed, 32 passed` | neutraliserad |
+| `if sparr:` satt till `if False:` | RÖD, `1 failed, 36 passed` | neutraliserad |
+| `html.escape(fall.text)` i `rendera_granskning` borttagen | RÖD, `1 failed, 36 passed` | neutraliserad |
+
+Den andra raden vaktar inte DEL 0 utan §6, och står här därför att den sitter i
+samma funktion. Kundtexten escapades i granskningsläget utan att något test
+mätte det, alltså gick `html.escape` att ta bort med hela sviten grön. Att läget
+saknar rutt i dag, se lucka 15 nedan, gör det ofarligt nu och inte i fas 5.
+Funnet av §7-granskningen av skiva 27, varv 2.
 
 **Behövs en referens för ett ärende vars förslag fälldes, tas en annan post av
 samma kategori.** Det står i #40 och i fas 5.5, och det är vad som gör spärren
@@ -2076,11 +2098,11 @@ Luckan är öppen och inte stängd av den här skivan.
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if relativ.parts[:1] != ("data",) and ... != ("logg",):` satt till `if False:` | RÖD, `4 failed, 29 passed` | neutraliserad |
-| `krav_pa_skrivbar_sokvag(parfil)` i `spara_referenssvar`, ENSAMT | RÖD, `1 failed, 32 passed` | raderad |
-| `krav_pa_skrivbar_sokvag(omdomesfil)` i `spara_omdome`, ENSAMT | RÖD, `1 failed, 32 passed` | raderad |
+| `if relativ.parts[:1] != ("data",) and ... != ("logg",):` satt till `if False:` | RÖD, `4 failed, 33 passed` | neutraliserad |
+| `krav_pa_skrivbar_sokvag(parfil)` i `spara_referenssvar`, ENSAMT | RÖD, `1 failed, 36 passed` | raderad |
+| `krav_pa_skrivbar_sokvag(omdomesfil)` i `spara_omdome`, ENSAMT | RÖD, `1 failed, 36 passed` | raderad |
 
-Sviten var `tests/test_vy.py` med 33 test, samma som ovan.
+Sviten var `tests/test_vy.py` med 37 test, samma som ovan.
 
 **DE TVÅ ANROPEN FÄLLS VAR FÖR SIG, ALDRIG TILLSAMMANS, och det är ett fynd och
 inte en formsak.** Skiva 27:s första prövning fällde båda i samma körning, fick
@@ -2295,6 +2317,32 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.25.2 — 2026-09-04
+
+Rättelser efter §7-granskningen av skiva 27, varv 2. **Varv 1:s rättelser bar
+själva två fynd**, vilket är precis vad `docs/incidentlogg.md` I10 säger att man
+ska räkna med.
+
+**ETT ANDRA VAKUÖST LED I SÄNDVÄGSSPÄRREN.** `namn.add(nod.module)` gick att
+radera med hela sviten grön, alltså följde vandringen inte kedjan för formen
+`from paket.modul import namn`. Det är samma defektklass som varv 1:s B1, i
+samma fil, och den hittades av samma systematiska sökning efter rader som går
+att fälla utan att något blir rött. Stängt.
+
+**Docstringen påstod att ledet var uppmätt av ett test som mätte den ANDRA
+halvan.** Rättat, med båda formerna och båda testen utskrivna.
+
+**TRE OVAKTADE §6-RADER, alla i vyns kod.** Bindningen till `127.0.0.1`,
+övertäckningen av `log_message`, och `html.escape` i `rendera_granskning`. Alla
+tre åberopas i kommentarer eller docstrings som skäl att lita på vyn, och ingen
+av dem hade ett test. Bindningen är den tyngsta: vyn saknar inloggning, så den
+som når porten når kundtexten.
+
+**Tabellerna bär nu fyra rader till, och varje tal är omkört** mot de 37 test
+`tests/test_vy.py` bär efter rättelserna.
+
+Nya rader i tabellerna och omkörda tal ⇒ PATCH.
 
 ### 0.25.1 — 2026-09-04
 

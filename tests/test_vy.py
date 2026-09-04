@@ -5,8 +5,9 @@ Se `docs/sparrar.md`: `vyn-har-ingen-sandvag`, `spärrfälld-post-utan-textfalt`
 och `vyn-skriver-bara-till-data-och-logg`.
 
 *Här stod två namn som inte finns i något dokument, `referenssvar-skickas-aldrig`
-och `sparrfalld-post-har-inget-textfalt`. De var skrivna innan posterna fick sina
-lydelser och rättades aldrig. Fällt av §7-granskningen av skiva 27, varv 1.*
+och `sparrfalld-post-har-inget-textfalt`. Fällt av §7-granskningen av skiva 27,
+varv 1. Varför de kom att stå här går inte att läsa ur repot, eftersom filen och
+spärrposterna skapades i samma commit, och skälet skrivs därför inte ut.*
 
 **FIXTURERNA BÄR INGEN KUNDTEXT.** Testerna bygger sina egna poster. Att läsa
 `data/` i ett test hade gjort sviten beroende av en gitignorerad fil och satt
@@ -85,6 +86,35 @@ def test_importlagret_foljer_kedjan_ett_steg_till(tmp_path):
     assert "src.auth" in str(fel.value)
 
 
+def test_importlagret_foljer_kedjan_aven_via_paketform(tmp_path):
+    """DEN ANDRA IMPORTFORMEN, och den var otestad.
+
+    `from src import mellan` och `from src.mellan import x` drar in samma modul
+    men ger olika AST. Den första behöver ledet `nod.module + "." + alias.name`,
+    den andra behöver `nod.module` självt: där ÄR `nod.module` redan
+    `src.mellan`, medan det sammansatta namnet blir `src.mellan.x`, som inte är
+    någon fil.
+
+    Testet ovan använder bara den första formen, alltså gick
+    `namn.add(nod.module)` att RADERA HELT med hela sviten grön. Vandringen
+    slutade då följa kedjan för varje import av paketform, och en modul med
+    sändväg hade kunnat gömmas ett steg bort. Funnen av §7-granskningen av
+    skiva 27, varv 2, som en vakuös rad i sändvägsspärren.
+    """
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "vy.py").write_text(
+        "from src.mellan import hjalp\n", encoding="utf-8"
+    )
+    (tmp_path / "src" / "mellan.py").write_text(
+        "import smtplib\n\n\ndef hjalp():\n    return smtplib\n", encoding="utf-8"
+    )
+
+    with pytest.raises(vy.Sandvagsfel) as fel:
+        vy.krav_pa_sandvagsfrihet(rot=tmp_path)
+
+    assert "smtplib" in str(fel.value)
+
+
 def test_kalltextlagret_faller_ett_anrop_utan_import(tmp_path):
     """NEGATIVKONTROLL för det andra lagret, och det är inte redundant.
 
@@ -151,6 +181,45 @@ def test_starta_provar_sparren_innan_servern_binds(monkeypatch):
         vy.starta(port=0, fall=[])
 
     assert anropad
+
+
+def test_servern_loggar_inte_vad_lars_laser():
+    """§6. Standardloggen skriver varje sökväg till stderr.
+
+    Sökvägen bär ett index och ingen kundtext, men servern ska inte skriva
+    något alls om vad Lars läser. Övertäckningen av `log_message` gick att
+    döpa om med hela sviten grön, alltså var kommentarens §6-åberopande
+    ovaktat. Funnen av §7-granskningen av skiva 27, varv 2.
+
+    Testet frågar om metoden är VYNS egen och inte den ärvda, vilket är det
+    som avgör om något skrivs.
+    """
+    hanterare = vy.bygg_hanterare([])
+
+    assert "log_message" in vars(hanterare)
+
+
+def test_servern_binder_bara_loopback():
+    """SKIVANS CENTRALA §6-PÅSTÅENDE, och det var ovaktat.
+
+    Vyn visar rå kundtext och har ingen inloggning: den byggs lokalt först,
+    och `docs/beslutslogg.md` #37 och #38 lägger hosting och auth i en egen
+    skiva. Då är bindningen till loopback det enda som hindrar att vem som
+    helst på nätet läser kundtexten.
+
+    `("127.0.0.1", port)` gick att byta mot `("0.0.0.0", port)` med hela sviten
+    grön. Både `starta`:s docstring och `scripts/kor-vy.py` påstår att servern
+    inte tar emot något från nätet, och inget test mätte det. Funnen av
+    §7-granskningen av skiva 27, varv 2.
+
+    Port 0 låter operativsystemet välja en ledig port, så testet kan inte
+    krocka med en körande vy.
+    """
+    server = vy.starta(port=0, fall=[])
+    try:
+        assert server.server_address[0] == "127.0.0.1"
+    finally:
+        server.server_close()
 
 
 # ---------------------------------------------------------------- §6
@@ -282,6 +351,23 @@ def test_referenslaget_visar_tomt_falt_och_ingen_skickaknapp():
     assert [k.strip() for k in re.findall(r"<button[^>]*>(.*?)</button>", sida)] == [
         "Spara som par"
     ]
+
+
+def test_kundtexten_escapas_aven_i_granskningslaget():
+    """BÅDA RENDERARNA, inte bara den som är kopplad.
+
+    `rendera_granskning` bygger sitt eget huvud och escapade kundtexten där
+    utan att något test mätte det: `html.escape` gick att ta bort med hela
+    sviten grön. Att läget saknar rutt i dag (lucka 15) gör det ofarligt nu och
+    inte i fas 5, och en ovaktad escape är precis den sortens rad som överlever
+    en omskrivning. Funnen av §7-granskningen av skiva 27, varv 2.
+    """
+    sida = vy.rendera_granskning(
+        ett_fall(text="<script>larm()</script>"), "ett förslag"
+    )
+
+    assert "<script>larm()</script>" not in sida
+    assert "&lt;script&gt;" in sida
 
 
 def test_kundtexten_escapas_i_sidan():
@@ -424,13 +510,14 @@ def test_urvalet_tar_bada_populationerna(tmp_path):
 def test_obesvarat_fall_far_tomma_falt_och_ingen_pahittad_hash(tmp_path):
     """HÅLET SKRIVS UT I STÄLLET FÖR ATT FYLLAS.
 
-    Uppmätt med `scripts/par-koppling.py`: `data/tradar_obesvarade.jsonl` bär
-    1604 råa Gmail-trådar och 0 med ett extraherat textfält, alltså finns ingen
-    nyckel att koppla de 9 obesvarade a-traktorfallen på. En påhittad hash hade
-    varit ett tal utan källa (§7.2).
+    Uppmätt med `scripts/par-koppling.py`: av de 9 obesvarade a-traktorfallen
+    kopplas 0 på exakt `snippet` och 1 på `snippet` som inledning, mot 1604
+    trådar. Gmails `snippet` finns på varje tråd men är TRUNKERAT, alltså är
+    det ingen nyckel. En påhittad hash hade varit ett tal utan källa (§7.2).
 
-    *Här stod att 1 av 9 gick att koppla. Talet gick inte att reproducera med
-    något committat skript. Fällt av §7-granskningen av skiva 27, varv 1.*
+    *Här stod först 1 av 9 utan reproducerbar källa, sedan att kopplingen är
+    obefintlig. Det andra var falskt och var skrivet för att rätta det första.
+    Fällt av §7-granskningen av skiva 27, varv 2.*
     """
     etikettfil = tmp_path / "ometiketterade.jsonl"
     etikettfil.write_text(

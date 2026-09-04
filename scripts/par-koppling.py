@@ -48,20 +48,37 @@ def las_jsonl(sokvag: Path) -> list[dict]:
     return poster
 
 
-def med_urval(tradar: list[dict]) -> int:
-    """Antalet obesvarade trådar som bär ett extraherat `urval`-fält.
+def snippets(tradar: list[dict]) -> list[str]:
+    """Varje icke-tomt `snippet` i de obesvarade trådarna.
 
-    **SVARET ÄR NOLL, och det är strukturellt.** `data/tradar_obesvarade.jsonl`
-    bär RÅA Gmail-trådar: `id`, `historyId` och `messages` med `payload`, där
-    brödtexten ligger base64-kodad i MIME-delarna. Något extraherat textfält
-    finns inte, alltså finns det ingen nyckel att koppla på utan att köra
-    extraktionen på nytt.
+    **`snippet` ÄR ETT EXTRAHERAT TEXTFÄLT, och det ledet är rättat.** Skiva 27
+    påstod först att `data/tradar_obesvarade.jsonl` saknar ett sådant fält och
+    att brödtexten bara finns base64-kodad i `payload`. Det är falskt: Gmail
+    lägger ett eget klartextutdrag i `snippet` på varje tråd. Fällt av
+    §7-granskningen av skiva 27, varv 2.
 
-    Det är skälet till att `src/vy.py::las_fall` lämnar hash och tidsstämpel
-    tomma för de obesvarade. Kopplingen är inte GLES, den är obefintlig i den
-    här filens form.
+    Fältet är däremot TRUNKERAT, alltså är det ingen nyckel för en exakt
+    jämförelse. Skillnaden mellan "det finns inget fält" och "fältet är
+    trunkerat" är hela skälet till att mätningen nedan görs i stället för
+    påstås.
     """
-    return sum(1 for trad in tradar if trad.get("urval"))
+    texter = []
+    for trad in tradar:
+        for meddelande in trad.get("messages") or []:
+            utdrag = (meddelande.get("snippet") or "").strip()
+            if utdrag:
+                texter.append(utdrag)
+    return texter
+
+
+def _normalisera(text: str) -> str:
+    """Slår ihop allt blanksteg till enkla mellanslag.
+
+    `snippet` normaliserar radbrytningar till mellanslag medan den etiketterade
+    texten behåller sina. Utan det här ledet mäter jämförelsen radbrytningar och
+    inte innehåll.
+    """
+    return " ".join(text.split())
 
 
 def main() -> int:
@@ -74,7 +91,7 @@ def main() -> int:
         return 1
 
     partexter = {post["inkommande_text"] for post in par}
-    tradar_med_urval = med_urval(obesvarade)
+    utdrag = [_normalisera(s) for s in snippets(obesvarade)]
 
     med_svar = [p for p in etiketterade if p.get("kalla") == "med svar"]
     kopplade = [p for p in med_svar if p["text"] in partexter]
@@ -91,16 +108,31 @@ def main() -> int:
         if p.get("kalla") == "utan svar" and p["etikett"] in A_TRAKTOR
     ]
 
+    # KOPPLINGEN GÖRS, den påstås inte. Två former, båda mot `snippet`:
+    # exakt likhet, och `snippet` som inledning på den etiketterade texten.
+    # Den andra formen finns därför att `snippet` är TRUNKERAT och en exakt
+    # jämförelse därför bara kan lyckas för de allra kortaste mailen.
+    exakt = 0
+    som_inledning = 0
+    for post in a_utan:
+        text = _normalisera(post["text"])
+        if text in utdrag:
+            exakt += 1
+        elif any(text.startswith(s) for s in utdrag if s):
+            som_inledning += 1
+
     print("")
     print("=== KOPPLING a-traktor utan svar -> tradar_obesvarade")
     print(f"trådar i tradar_obesvarade.jsonl:     {len(obesvarade)}")
-    print(f"varav med ett extraherat urval-fält:  {tradar_med_urval}")
+    print(f"icke-tomma snippet i dem:             {len(utdrag)}")
     print(f"a-traktorrader utan svar:             {len(a_utan)}")
+    print(f"varav kopplade på exakt snippet:      {exakt}")
+    print(f"varav kopplade på snippet som inledning: {som_inledning}")
     print("")
-    print("Bär ingen tråd ett extraherat textfält finns ingen nyckel att koppla")
-    print("på, och kopplingen är obefintlig snarare än gles. Det är skälet till")
-    print("att `las_fall` lämnar hash och tidsstämpel TOMMA för de obesvarade i")
-    print("stället för att hitta på dem (§7.2).")
+    print("`snippet` är Gmails eget klartextutdrag och finns på varje tråd, men")
+    print("det är TRUNKERAT. Talen ovan säger hur mycket det räcker till. Det är")
+    print("skälet till att `las_fall` lämnar hash och tidsstämpel TOMMA för de")
+    print("obesvarade i stället för att hitta på dem (§7.2).")
 
     return 0
 

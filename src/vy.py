@@ -99,11 +99,27 @@ FORBJUDET_MONSTER = re.compile(
 def _lokala_importer(kalla: str) -> set[str]:
     """Modulnamnen en källfil importerar.
 
-    **`from x import y` GER BÅDE `x` OCH `x.y`, och det ledet är inte kosmetiskt.**
-    `from src import auth` har `x` lika med `src` och `y` lika med `auth`, alltså
-    är modulen som dras in `src.auth`. Utan det ledet följde prövningen aldrig
-    kedjan vidare, och en enda indirektion hade räckt för att gömma en sändväg.
-    Uppmätt av testet `test_importlagret_foljer_kedjan_ett_steg_till`.
+    **`from x import y` GER BÅDE `x` OCH `x.y`, och BÅDA leden behövs.** Vilket
+    som bär beror på hur importen är skriven, och de två formerna ser likadana
+    ut i källan medan de ger olika AST:
+
+      `from src import auth`        `nod.module` är `src`, alltså är modulen som
+                                    dras in det SAMMANSATTA `src.auth`.
+                                    Uppmätt av
+                                    `test_importlagret_foljer_kedjan_ett_steg_till`.
+      `from src.auth import bygg`   `nod.module` är redan `src.auth`, medan det
+                                    sammansatta blir `src.auth.bygg`, som inte
+                                    är någon fil. Här bär `nod.module` ensamt.
+                                    Uppmätt av
+                                    `test_importlagret_foljer_kedjan_aven_via_paketform`.
+
+    Utan båda leden följer prövningen inte kedjan för den ena formen, och en
+    enda indirektion hade räckt för att gömma en sändväg.
+
+    *Här stod att ledet var uppmätt av det första testet. Det gällde bara det
+    sammansatta ledet: `namn.add(nod.module)` gick att radera med hela sviten
+    grön, eftersom inget test använde paketformen. Fällt av §7-granskningen av
+    skiva 27, varv 2.*
     """
     namn: set[str] = set()
     for nod in ast.walk(ast.parse(kalla)):
@@ -301,22 +317,24 @@ def las_fall(
 
     **HASH OCH TIDSSTÄMPEL SAKNAS FÖR DE OBESVARADE, och de hittas inte på.**
     Raderna med svar kopplas till `data/par.jsonl` på kundtexten och får sina
-    riktiga värden. För de obesvarade finns ingen sådan koppling, och skälet är
-    STRUKTURELLT och inte en fråga om träffgrad: `data/tradar_obesvarade.jsonl`
-    bär RÅA Gmail-trådar, där brödtexten ligger base64-kodad i `payload`. Något
-    extraherat textfält finns inte, alltså finns ingen nyckel att koppla på utan
-    att köra extraktionen på nytt.
+    riktiga värden. För de obesvarade räcker kopplingen inte till.
 
-    Uppmätt med `scripts/par-koppling.py`: 1604 trådar i filen, 0 med ett
-    extraherat `urval`-fält, 9 a-traktorrader utan svar.
+    Uppmätt med `scripts/par-koppling.py`: `data/tradar_obesvarade.jsonl` bär
+    1604 trådar med 1750 icke-tomma `snippet`. Av de 9 a-traktorraderna utan
+    svar kopplas 0 på exakt `snippet` och 1 på `snippet` som inledning.
+
+    Skälet är att `snippet` är Gmails eget klartextutdrag och TRUNKERAT. Fältet
+    finns alltså, men det är ingen nyckel.
 
     Fälten lämnas därför TOMMA, och referenssvaret bär `kalla` som säger varför.
     Att skriva en påhittad hash hade varit ett tal utan källa (§7.2).
 
-    *Här stod att 1 av 9 a-traktorfall gick att koppla. Det talet gick inte att
-    reproducera med något committat skript, och mätningen ovan visar att
-    kopplingen är obefintlig och inte gles. Fällt av §7-granskningen av skiva
-    27, varv 1, som OPRÖVAT.*
+    *Två tidigare lydelser stod här. Den första sade 1 av 9 utan att något
+    committat skript kunde räkna om det. Den andra, skriven för att rätta den
+    första, sade att ett extraherat textfält inte finns och att kopplingen är
+    OBEFINTLIG. Båda leden var falska: varje tråd bär ett `snippet`, och
+    mätningen ger 1 av 9. Rättelsen var alltså fel om mer än talet den
+    ersatte. Fällt av §7-granskningen av skiva 27, varv 2.*
     """
     if not etikettfil.exists():
         return []
