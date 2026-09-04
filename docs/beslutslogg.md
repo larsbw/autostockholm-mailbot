@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.35.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
+**Version:** 0.36.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -2846,7 +2846,94 @@ finns.
 
 ---
 
+## #49 — Generatorn byggd, och utkorgens röst följer inte §11
+
+**Datum:** 2026-09-04 · **Berör:** `src/generera.py`, `docs/sparrar.md`,
+CLAUDE.md §11, #11, #24
+
+**Skiva 31 byggde generatorn.** In: ett inkommande mail, dess kategori och ett
+fordonsuppslag. Ut: ett SVARSUTKAST, aldrig ett skickat mail. Modulen har ingen
+sändväg, prövat med `vyn-har-ingen-sandvag` mot `src.generera`.
+
+Tre spärrar på det genererade, var och en med negativkontroll och var och en
+fälld för sig: `genererat-tal-har-kalla`, `genererat-fordonsfaktum` och
+`troskeln-som-forfattningstext`.
+
+### DEL B:s mätning, och vad den avslöjade
+
+Uppdraget var att mäta hur många a-traktorpar som faktiskt går att använda som
+få-exempel. Avläst med `scripts/par-matning.py`:
+
+| Vad | Antal |
+| --- | --- |
+| a-traktorrader med svar | 43 |
+| varav kopplade till `par.jsonl` | 43 |
+| som ryms under taket 900 tecken | 32 |
+| som faller på längden | 11 |
+| som `generera._duger_som_exempel` släpper igenom | **14** |
+
+**DE 14 SOM FALLER BORT GÖR DET AV ETT SKÄL SOM ÄR VÄRT ETT EGET BESLUT: de bär
+första person SINGULAR.** "jag", "mig", "min" eller "mitt". Noll bär tankstreck,
+noll skriver "friverkstad".
+
+**Det är en spänning INUTI §11.** Paragrafen säger både att mallarna ska byggas
+ur `data/par.jsonl` därför att *"rösten finns redan i utkorgen"*, och att texten
+ska vara första person plural, *"aldrig jag, mig, min"*. Utkorgens faktiska röst
+följer alltså inte regeln som säger att rösten finns där.
+
+**Generatorn löser det genom att VÄLJA BORT dem, inte genom att skriva om dem.**
+Ett få-exempel som bryter mot §11 lär modellen att bryta mot den, och att
+redigera ett verkligt svar för att passa regeln vore att hitta på en röst som
+ingen har haft. Kvar blir 14, och prompten bär sex av de kortaste.
+
+*Här stod 18, och den siffran kom ur `scripts/par-matning.py`:s egna kriterier,
+som var LÖSARE än kodens. Skriptet mäter nu med `generera._duger_som_exempel`
+självt, alltså den population koden faktiskt väljer bland. De grova räkningarna
+står kvar i utdatan med en rad om att de underskattar. Fällt av §7-granskningen
+av skiva 31, varv 1.*
+
+**ETT ALLVARLIGARE FYND UR SAMMA GRANSKNING: koden filtrerade inte på kategori
+alls.** Prompten bar de sex KORTASTE svaren i hela utkorgen, alltså
+bokningsbekräftelser och en fråga om en mellanvägg, och noll a-traktorpar.
+Mätningen ovan räknade en population koden inte använde. `las_exempel` hämtar nu
+kategorin ur `ometiketterade.jsonl` och tar bara a-traktorpar.
+
+**ÖPPEN PUNKT för Lars:** om §11:s krav på plural ska stå kvar oförändrat när
+utkorgen visar att nästan halva materialet är singular. Frågan är ställd och inte
+avgjord, och generatorn följer regeln som den lyder.
+
+### En §11-regel som INGEN spärr täcker
+
+§11 kräver att varje mall bär en kommentarrad som namnger vilka par den vilar på
+och datum för senaste avläsning av talen. **Generatorn för ingen härkomst alls
+vidare**, varken i utkastet, i prompten eller i en logg. Ett utkast går alltså
+inte att spåra till de exempel som formade det.
+
+Regeln skrevs för MALLAR, och generatorn bygger inga: den använder paren som
+få-exempel, se `docs/roadmap.md` fas 5. Att kravet ändå inte är uppfyllt i någon
+form är utskrivet här i stället för att tigas ihjäl, och det hör till den skiva
+som kopplar generatorn till vyn, där utkastet får en läsare.
+
+Funnet av §7-granskningen av skiva 31, varv 1.
+
+### Vad som INTE byggdes
+
+Ingen sändning, ingen koppling till vyn, ingen koppling till hämtningen. Utfallen
+i provkörningen är KONSTRUERADE och inte avlästa, och det står i utdatan vid
+varje fall.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.36.0 — 2026-09-04
+
+**#49 tillkommer:** generatorn är byggd, och DEL B:s mätning avslöjade att
+utkorgens röst inte följer §11. Av 32 a-traktorsvar som ryms som få-exempel bär
+14 första person singular. Posten bär en ÖPPEN PUNKT om huruvida §11:s
+pluralkrav ska stå kvar oförändrat.
+
+Ny post ⇒ MINOR.
 
 ### 0.35.0 — 2026-09-04
 

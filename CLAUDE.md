@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.11.0 · **Uppdaterad:** 2026-09-04 · **Speglar:** beslutslogg #48
+**Version:** 0.11.1 · **Uppdaterad:** 2026-09-04 · **Speglar:** beslutslogg #49
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -518,6 +518,24 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.11.1 — 2026-09-04
+
+**`Speglar` följer med till beslutslogg #49.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 31:s post lagts till.
+
+**§11 ÄR OFÖRÄNDRAD, och det är ett val.** Skiva 31 mätte att 14 av 32
+användbara a-traktorsvar i utkorgen bär första person SINGULAR, vilket §11
+förbjuder samtidigt som samma paragraf säger att rösten finns i utkorgen.
+Spänningen är utskriven som en öppen punkt i `#49` i stället för att avgöras
+här: en ändring i §11 är Lars beslut. Generatorn följer regeln som den lyder och
+väljer bort de 14.
+
+**§0:s styrdokumentlista är oförändrad.** Skiva 31 skapade `src/generera.py`,
+`tests/test_generera.py`, `scripts/par-matning.py` och
+`scripts/generera-prov.py`, alltså kod och verktyg och inget styrdokument.
+
+Ren synk ⇒ PATCH.
 
 ### 0.11.0 — 2026-09-04
 

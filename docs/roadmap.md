@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.13.1 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §10
+**Version:** 0.14.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -708,6 +708,36 @@ alltså ur faktiska svar (§11).
 `docs/sparrar.md` med sin negativkontroll och sin redundans.
 `config/priser.json` och `config/fakta.json` upprättas.
 
+**GENERATORN ÄR BYGGD I SKIVA 31**, `src/generera.py`, se
+`docs/beslutslogg.md` #49. Den skriver ett SVARSUTKAST och har ingen sändväg.
+
+**Rösten kommer ur `data/par.jsonl` som FÅ-EXEMPEL, inte som mallar att fylla i.**
+Det är en avvikelse från fasens ordalydelse ovan och ett medvetet val: en mall
+med hål tvingar in varje svar i samma form, medan få-exempel bär tonen och låter
+svaret följa frågan. `config/sparrar.yaml` finns fortfarande inte.
+
+**Tre spärrar på det genererade är byggda och registrerade:**
+`genererat-tal-har-kalla`, `genererat-fordonsfaktum` och
+`troskeln-som-forfattningstext`.
+
+**Vad som ÅTERSTÅR i fasen:**
+
+- `config/priser.json` och `config/fakta.json`, båda §10-stopp och alltså Lars
+  att upprätta.
+- `config/sparrar.yaml`, som fasen kräver och som fortfarande inte finns.
+- Mallarna ur Lars referenssvar i vyn, se fas 5.5. Generatorn använder paren som
+  få-exempel och bygger inga mallar.
+- §11:s härkomstrad: ett utkast bär i dag ingen uppgift om vilka par det vilar
+  på, se `docs/beslutslogg.md` #49.
+
+Tills `priser.json` finns faller varje svar som nämner ett pris **i de former
+spärren känner igen**, och det är spärren som avsedd och inte ett provisorium.
+Kända luckor står i `docs/sparrar.md` under `genererat-tal-har-kalla`.
+
+*Här stod att bara `priser.json` och `fakta.json` återstår, och att VARJE svar
+som nämner ett pris faller. Båda leden var för snäva respektive för breda. Fällt
+av §7-granskningen av skiva 31, varv 1.*
+
 **Grind:** Lars godkänner varje mall ORDAGRANT, och varje ändring i
 `config/sparrar.yaml`, `config/priser.json` och `config/fakta.json` är ett
 §10-stopp. Hela fasen är sändväg och får full §7, ovillkorligt.
@@ -735,6 +765,18 @@ visat dagsvolymen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.14.0 — 2026-09-04
+
+**Fas 5 bär nu vad som ÄR byggt och vad som återstår.** Generatorn finns sedan
+skiva 31, med tre registrerade spärrar. `config/priser.json` och
+`config/fakta.json` återstår och är §10-stopp.
+
+**En avvikelse från fasens ordalydelse står utskriven:** rösten kommer ur
+`data/par.jsonl` som FÅ-EXEMPEL och inte som mallar att fylla i. Fasen sade
+"mallar"; generatorn bygger inga. Skälet står i fasen.
+
+Ändrad fas ⇒ MINOR.
 
 ### 0.13.1 — 2026-09-04
 

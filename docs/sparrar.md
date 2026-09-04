@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.27.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.28.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -112,6 +112,9 @@ verdikt som inte betyder vad det ser ut att betyda.
 | `vyn-har-ingen-sandvag` | Att ett referenssvar lämnar servern som mail | `test_en_ren_modul_slapps_igenom` | Ingen annan spärr. TVÅ LAGER, importlagret och källtextlagret, och de fångar olika fall. Se posten. |
 | `spärrfälld-post-utan-textfalt` | Att §9.1:s förbud mot att skriva om ett fällt mail blir ett klick | `test_osparrad_post_visar_textfalt` | Ingen annan spärr. Skyddar gränssnittet, inte texten. Se posten. |
 | `vyn-skriver-bara-till-data-och-logg` | Att rå kundtext skrivs till en fil som pushas | `test_de_tva_gitignorerade_katalogerna_slapps_igenom` | `persondatakontroll`, men bara delvis: den fäller vid commit, alltså efter skrivningen. Se posten. |
+| `genererat-tal-har-kalla` | Att boten skriver ett tal, särskilt ett pris, som inte är avläst | `test_uppslagets_egna_tal_slapps_igenom`, `test_ett_svar_utan_tal_slapps_igenom` | Ingen. ÖVERLAPPAR med `troskeln-som-forfattningstext` och prövas FÖRE den. Se posten. |
+| `genererat-fordonsfaktum` | Att boten påstår något om kundens bil utan ett lyckat uppslag | `test_fordonsfaktum_MED_uppslag_slapps_igenom` | `fordonsfakta-ur-uppslag` uppströms, men bara delvis: den fäller ett ofullständigt uppslag, aldrig ett svar utan uppslag. |
+| `troskeln-som-forfattningstext` | Att en ofullständig föreskrift går ut som ett besked | `test_troskeln_utan_forfattningsord_slapps_igenom`, `test_forfattningsord_utan_troskeln_slapps_igenom` | Ingen. Nås bara när talet 1 000 har en källa. Se posten. |
 
 **Tabellen räknar SPÄRRAR, alltså sådant som kod verkställer.** Dokumentet bär
 dessutom poster märkta LUCKA UTAN SPÄRR, som ingen kod implementerar och som
@@ -2430,6 +2433,149 @@ samma verdikt och utan filrest.
 
 ---
 
+## `genererat-tal-har-kalla`
+
+**BYGGD I SKIVA 31.** Generatorns första spärr.
+
+- **Spärr.** `src/generera.py::krav_pa_tal_med_kalla` kastar `Sparrfalld` när ett
+  genererat svar bär ett tal utan källa. TVÅ villkor: `if PRISORD.search(svar):`
+  fäller varje prisord, och `if tal not in tillatna:` fäller varje tal som varken
+  kommer ur uppslaget eller ur `config/`. Verkställs av `krav_pa_svaret`, som
+  anropas av `generera_utkast` innan texten returneras.
+- **Vad den skyddar mot.** §7.2 i utgående text: ett tal som ser trovärdigt ut
+  men inte är avläst. **Priser finns inte än:** `config/priser.json` existerar
+  inte, alltså bidrar den med noll tillåtna tal och varje svar som nämner ett
+  pris faller. Det är avsiktligt och inte ett provisorium.
+- **Negativkontroll.** `tests/test_generera.py::test_uppslagets_egna_tal_slapps_igenom`
+  visar att talen ur ett LYCKAT uppslag passerar, och
+  `test_ett_svar_utan_tal_slapps_igenom` att ett vanligt svar gör det. En spärr
+  som fäller på allt gör generatorn oanvändbar och blir avstängd.
+- **Redundant med.** Ingen annan spärr. **ÖVERLAPPAR däremot med
+  `troskeln-som-forfattningstext`:** ett svar som skriver "lagen kräver 1 000 kg"
+  faller HÄR först, eftersom talet saknar källa. Se den postens ordningsnot.
+
+| Fälld rad | Utfall | Form |
+| --- | --- | --- |
+| `if PRISORD.search(svar):` satt till `if False:` | RÖD, `2 failed, 31 passed` | neutraliserad |
+| `if tal not in tillatna:` satt till `if False:` | RÖD, `1 failed, 32 passed` | neutraliserad |
+| anropet i `krav_pa_svaret` | RÖD, `3 failed, 30 passed` | raderad |
+
+**PRISORDET FÄLLER UTAN SIFFRA.** "Vad det kostar återkommer vi om" bär inget tal
+och är ändå ett besked om pris. Spärren tar ordet och inte bara siffran, och
+`test_ordet_kostar_faller_aven_utan_belopp` binder det.
+
+**`prisuppgift` STÅR MED FLIT INTE I LISTAN, och den ordgränsen är lastbärande.**
+"En kollega återkommer med prisuppgift" är precis det svar spärren finns för att
+framtvinga. En lydelse som tog `pris` som stam fällde varje bra svar, alltså hade
+spärren gjort generatorn oanvändbar. `test_ordet_prisuppgift_slapps_igenom`
+binder det.
+
+**KÄNDA LUCKOR.** Registrerade av §7-granskningen av skiva 31, varv 1, och
+utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
+
+- **Lucka 20. `PRISORD` är en UPPRÄKNING, inte en egenskap.** Ett pris omskrivet
+  utan något av orden slinker igenom: *"Det ligger i nivå med en vanlig
+  service"* fälls inte. Uppräkningen är utökad med `spänn`, `peng` och `tkr`
+  efter granskningen, men den kan inte bli uttömmande. Det som bär i det fallet
+  är SYSTEMPROMPTEN, som förbjuder varje prisbesked.
+- **Lucka 21. Tal ett till tre är alltid tillåtna.** `ALLTID_TILLATNA_TAL` finns
+  för ordningstal, och släpper därmed igenom ledtider: *"på 2 veckor"* och *"i 3
+  dagar"* fälls inte. Talen är obelagda påståenden om vår leveranstid.
+- **Lucka 22. `TAL_I_TEXT` slår ihop tal över komma och blanksteg.** *"Vikterna
+  är 1400, 1500 kg"* fälls som `talet 14001500`, alltså en FALSK fällning trots
+  att båda talen är avlästa. Riktningen är säker, ett svar faller som inte borde,
+  men det är en spärr som fäller fel och sådana blir avstängda.
+
+---
+
+## `genererat-fordonsfaktum`
+
+**BYGGD I SKIVA 31.** Kopplar `fordonsfakta-ur-uppslag` nedströms.
+
+- **Spärr.** `src/generera.py::krav_pa_fordonsfakta_ur_uppslag` kastar när svaret
+  nämner tjänstevikt, släpvagnsvikt, draganordning, dragkrok eller totalvikt och
+  `forfragan.uppslag` är None. Beslutet fattas på raden
+  `if traff and forfragan.uppslag is None:`.
+- **Vad den skyddar mot.** Att boten påstår något om kundens bil när ingen källa
+  har svarat. `fordonsfakta-ur-uppslag` vaktar att ett uppslag är HELT; den här
+  vaktar att svaret inte påstår fakta när det inte finns något uppslag alls.
+  **De två är olika frågor och båda behövs.**
+- **Negativkontroll.**
+  `tests/test_generera.py::test_fordonsfaktum_MED_uppslag_slapps_igenom` visar
+  att fakta får nämnas när uppslaget finns.
+- **Redundant med.** `fordonsfakta-ur-uppslag`, men bara delvis och uppströms:
+  den fäller ett ofullständigt uppslag, aldrig ett svar som hittar på utan
+  uppslag.
+
+| Fälld rad | Utfall | Form |
+| --- | --- | --- |
+| `if traff and forfragan.uppslag is None:` satt till `if False:` | RÖD, `6 failed, 27 passed` | neutraliserad |
+| anropet i `krav_pa_svaret` | RÖD, `1 failed, 32 passed` | raderad |
+
+Orden är parametriserade i `test_varje_fordonsord_faller_utan_uppslag`, en per
+term, så att en ny term inte kan läggas till i mönstret utan att någon skriver en
+rad i testet.
+
+**KÄNDA LUCKOR.**
+
+- **Lucka 23. Uppräkningen kan inte bli uttömmande.** Första lydelsen tog fem
+  termer och missade varje omskrivning: *"bilen väger tillräckligt"*, *"din bil
+  klarar släp"*, *"det finns krok"*. Mönstret är utökat med `väger`, `vikten`,
+  `krok`, `släp`, `tung` och `tyngd` efter granskningen, och
+  `test_fordonsfakta_i_omskrivning_faller` binder de formerna. **Men en modell
+  kan alltid formulera ett faktum utan något av orden**, till exempel *"den där
+  bilen brukar klara det"*, och den vägen stängs inte av en ordlista.
+- Det som bär i det fallet är SYSTEMPROMPTEN, som säger rakt ut att modellen
+  inte vet något om bilen när uppslaget saknas. **Spärren är nätet under, inte
+  det enda skyddet**, och den formuleringen är avsiktlig här.
+
+---
+
+## `troskeln-som-forfattningstext`
+
+**BYGGD I SKIVA 31.**
+
+- **Spärr.** `src/generera.py::krav_pa_att_troskeln_inte_ar_forfattningstext`
+  kastar när svaret bär talet 1 000 TILLSAMMANS med ett författningsord: krav,
+  kräver, lag, regel, föreskrift, VVFS, paragraf, §, måste eller enligt.
+  Beslutet fattas på raden
+  `if TROSKELTAL.search(svar) and FORFATTNINGSORD.search(svar):`.
+- **Vad den skyddar mot.** Att en OFULLSTÄNDIG föreskrift går ut som ett besked.
+  VVFS 2003:19 4 kap 42 § har TVÅ kriterier förenade med ELLER, tjänstevikt minst
+  2 000 kg ELLER släpvagnsvikt minst 1 000 kg. Ett svar som skriver att lagen
+  kräver 1 000 kg säger alltså något som är fel för ett fordon med hög
+  tjänstevikt, och det är ett besked kunden kan handla på.
+
+  *Här stod att "koden prövar bara det senare, se #24". Falskt sedan skiva 12:
+  `ar_lamplig_som_dragfordon` prövar BÅDA kriterierna, på var sin rad, och #24
+  skriver själv ut att dess formulering är upphävd. Fällt av §7-granskningen av
+  skiva 31, varv 1.*
+- **Negativkontroll.** TVÅ, en per led:
+  `test_troskeln_utan_forfattningsord_slapps_igenom` visar att talet ensamt
+  passerar, eftersom ett uppslag lagligen kan nämna 1 000 kg som avläst värde.
+  `test_forfattningsord_utan_troskeln_slapps_igenom` visar att ordet ensamt gör
+  det.
+- **Redundant med.** Ingen. Men den NÅS BARA när talet 1 000 har en källa, se
+  ordningsnoten nedan.
+
+| Fälld rad | Utfall | Form |
+| --- | --- | --- |
+| `if TROSKELTAL.search(svar) and FORFATTNINGSORD.search(svar):` satt till `if False:` | RÖD, `2 failed, 31 passed` | neutraliserad |
+| anropet i `krav_pa_svaret` | RÖD, `1 failed, 32 passed` | raderad |
+
+**ORDNINGEN AVGÖR VILKEN SPÄRR SOM RAPPORTERAS, och det är ett fynd.**
+`krav_pa_svaret` prövar talspärren först. Ett svar som skriver "lagen kräver
+1 000 kg" utan ett uppslag där 1 000 är avläst faller därför på
+`genererat-tal-har-kalla`, inte här. Svaret faller i båda fallen, men den som
+skriver ett test kan pröva fel spärr och ändå få grönt.
+
+Uppmätt i skiva 31 vid första körningen: testfallet var skrivet utan uppslag och
+prövade talspärren i tron att det prövade den här.
+`test_krav_pa_svaret_anropar_alla_tre` bär nu ett uppslag med släpvagnsvikt
+1 000, så att talet HAR en källa och den här spärren är den som fäller.
+
+---
+
 ## LUCKA UTAN SPÄRR: `gmail-etikett-som-ensam-grund`
 
 > **DET HÄR ÄR INTE EN SPÄRR OCH GÅR INTE ATT FÄLLA ENLIGT §7.1.** Ingen kod
@@ -2614,6 +2760,33 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.28.0 — 2026-09-04
+
+**TRE NYA SPÄRRPOSTER, generatorns.** `genererat-tal-har-kalla`,
+`genererat-fordonsfaktum` och `troskeln-som-forfattningstext`. Byggda i skiva 31,
+`docs/beslutslogg.md` #49.
+
+**Var och en är fälld FÖR SIG och aldrig i par.** Skiva 27 mätte att en
+sammanslagen fällning ger RÖD och därmed falskt ÄKTA. Utfallen står per rad i
+posternas tabeller.
+
+*Här stod "Åtta fällningar, samtliga RÖD". Talet stämde inte mot posternas
+tabeller, som bär sju rader, och formen är dessutom den processräkning §7.2
+förbjuder. Fällt av §7-granskningen av skiva 31, varv 1.*
+
+**ETT FYND UR PRÖVNINGEN: spärrarna ÖVERLAPPAR, och ordningen avgör vilken som
+rapporteras.** Ett svar som skriver "lagen kräver 1 000 kg" utan ett uppslag där
+talet är avläst faller på talspärren, inte på tröskelspärren. Svaret faller i
+båda fallen, men ett testfall kan pröva fel spärr och ändå bli grönt. Det hände
+vid första körningen och står utskrivet i `troskeln-som-forfattningstext`.
+
+**Generatorn bär samma sändvägsspärr som vyn.** `vyn-har-ingen-sandvag` körs mot
+`src.generera` i `test_generatorn_har_ingen_sandvag`, med sin egen
+negativkontroll. Ingen ny spärr behövdes för det: den befintliga tar en
+startpunkt som argument.
+
+Tre nya spärrposter ⇒ MINOR.
 
 ### 0.27.0 — 2026-09-04
 
