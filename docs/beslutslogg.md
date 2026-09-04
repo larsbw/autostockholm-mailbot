@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.34.1 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
+**Version:** 0.35.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -2581,10 +2581,14 @@ Strängen var en webbläsares, och den var LASTBÄRANDE. Modulens kommentar sade
 avläst 2026-09-02, att sidan svarar 200 på en webbläsarklient och avvisade
 Perplexitys hämtare med klientfel, alltså att filtreringen sker på klienten.
 
-**Att byta kan därför göra att hämtningen slutar fungera, och det är OPRÖVAT.**
-Ingen körning mot biluppgifter.se har gjorts med den nya strängen. Sviten rör
-inte nätet, så frågan går inte att avgöra utan en körning mot tredje part, och
-den körningen är inte gjord i den här skivan.
+**Att byta kunde därför ha gjort att hämtningen slutade fungera. DET ÄR NU
+PRÖVAT, OCH DEN SLÄPPS IGENOM.** En enda begäran, ett registreringsnummer,
+godkänd av Lars i skiva 30: **statuskod 200**, canonical-ankaret matchade det
+efterfrågade fordonet, och sidan gick att parsa. Se #48.
+
+*Här stod att bytet var OPRÖVAT och att frågan inte gick att avgöra utan en
+körning mot tredje part. Det var sant när skiva 29 skrevs och är föråldrat av
+skiva 30:s körning.*
 
 Skälet att byta ändå är att en bot som utger sig för att vara en webbläsare inte
 går att höra av sig till. Den nya strängen bär adress och kontaktväg. Faller
@@ -2596,7 +2600,13 @@ dag bara ur `tests/`, alltså finns ingen produktionsväg som når hämtningen.
 Riskbeskrivningen ovan gäller från den dag fas 4.5 kopplas in nedströms, inte
 från den här committen.
 
-**OM `requests`.** Briefen sade `requests.get`. Hämtningen behåller `urllib`,
+**OM `requests`: URLLIB STÅR KVAR, OCH DET ÄR LARS BESLUT.** Fattat i skiva 30.
+Stdlib räcker, och `requirements.txt` rörs inte. Valet är därmed inte längre
+mitt och inte längre tyst.
+
+Skälet nedan skrevs i skiva 29 och står kvar som underlaget beslutet vilar på.
+
+Briefen sade `requests.get`. Hämtningen behåller `urllib`,
 eftersom modulens docstring sedan skiva 22 bär ett dokumenterat svar på just den
 frågan: stdlib räcker och `requirements.txt` rörs inte. `requests` finns i
 `.venv` transitivt via `requests-oauthlib` men står inte i `requirements.txt`,
@@ -2671,7 +2681,193 @@ sak som fäller.
 
 ---
 
+## #45 — Skiva 28 och 29 godkänns
+
+**Datum:** 2026-09-04 · **Berör:** `src/biluppgifter.py`, `src/vy.py`, #34, #36,
+#42
+
+**Beslut av Lars.** Båda skivorna är godkända, trots att §7:s tredje varv
+underkände i båda fallen. Samma grund som #34, #36 och #42.
+
+**Skiva 28** granskade skiva 27:s självmätta rättelser och fann att de inte höll.
+Att den uppgiften motiverade sig själv är skälet att godkänna den: den gjorde
+sitt jobb.
+
+**Skiva 29** kopplade in hämtningen. Varv 3:s kvarstående fynd var två falska
+påståenden i TEXT, inte i kod, och båda ströks innan committen gick iväg.
+
+**Ingen kod ändrades efter grinden i någon av dem.** Det var linjen skiva 28
+lade, och skiva 29 höll den.
+
+---
+
+## #46 — §7:s varv styrs av VAD som granskas, inte av hur stor skivan känns
+
+**Datum:** 2026-09-04 · **Berör:** CLAUDE.md §7, `docs/incidentlogg.md` I3, #23
+
+**Beslut av Lars i skiva 30.** Granskningsgrinden får tre nivåer i stället för en
+plus ett undantag.
+
+| Vad | Varv | Vid kvarstående fynd |
+| --- | --- | --- |
+| Sändväg | 3 | Stoppa och rapportera öppet |
+| Övrig kod | 1 | Rätta, skeppa med status utskriven |
+| Dokument och text om kod | 0 | Skeppa med status utskriven |
+
+**Sändvägen är oförändrad.** Ett känt falskt påstående rättas alltid, på alla tre
+nivåerna, också oförändrat.
+
+**SKÄLET, med Lars ord.** CLAUDE.md ärvdes från tradingbot-v2, där ett fel kostar
+kapital per sekund. Här skickas ett mail till en verkstadskund som annars ofta
+inte fått något svar alls. **Kapitalvägen mappades till sändvägen som om de vore
+likvärdiga.** Lars skriver att det var hans fel och att det rättas nu.
+
+### Vad mätningen visar, och vad den INTE kunde visa
+
+Uppdraget var att läsa ur rapporterna i `scratchpad/` hur många av de senaste tio
+skivornas blockerande fynd som låg i sändvägskod och hur många i text eller i kod
+utanför sändvägen.
+
+**FRÅGAN GÅR INTE ATT BESVARA UR RAPPORTERNA, och skälet är inte att de är
+slarviga.** Rapporterna skiljer genomgående KOD från TEXT. Ingen av dem skiljer
+sändvägskod från kod utanför sändvägen, eftersom **den uppdelningen inte fanns
+när de skrevs: den skapas av den här posten.** Att läsa in den i efterhand vore
+att klassificera om tio skivors fynd efter en regel de aldrig prövades mot.
+
+**DÄRFÖR SKRIVS INGET TAL.** Inte heller ett partiellt.
+
+*Här stod först en tabell som förklarade skiva 20, 21, 22, 27 och 28 oläsbara och
+som ur de återstående fem räknade fram "2 i sändvägskod och 16 i text".
+§7-granskningen av skiva 30 fällde varje led i den:*
+
+- *Skiva 20 ÄR avläsbar. Rapporten säger "Omgången fällde två falska påståenden i
+  skivans egen text" och "INGEN KOD RÖRD".*
+- *Skiva 21:s rapport bär en rubrik som ordagrant lyder "## BLOCKERANDE".*
+- *Skiva 27:s fynd ÄR placerade, och de summerar exakt: varv 1 "ett vakuöst
+  spärrtest, fem falska påståenden i ny text" är 1 plus 5, varv 2 "ett andra
+  vakuöst led, tre ovaktade §6-rader, en falsk rättelse" är 1 plus 3 plus 1, varv
+  3 ett hål. Varv 3:s hål gällde `from . import auth` mot `src/auth.py`, alltså
+  modulen som bygger credentials med `gmail.send`.*
+- *Skiva 28:s varv 1 namnger "sändvägsspärren" ordagrant.*
+
+***Uteslutningarna föll alltså på just de skivor där kodfynden låg, och talet
+2 mot 16 var därmed en halvering av kodsidan i den riktning beslutet önskade.
+Det är det dyraste felet den här posten kunde göra, och det gjordes.***
+
+**Ett fel som står kvar och som är värt att veta:** skiva 27:s rapport skriver
+"femton blockerande fynd" i löptext medan dess egen tabell tre rader ned ger 6, 5
+och 1, alltså tolv. Rapporterna ligger i gitignorerad `scratchpad/` och rättas
+inte i efterhand.
+
+**BESLUTET VILAR PÅ LARS BEDÖMNING AV KOSTNADEN, inte på en uppmätt proportion.**
+Det är det enda som går att skriva sant här.
+
+---
+
+## #47 — Fordonsuppslaget är FÄRDIGT, och sex luckor är medvetet öppna
+
+**Datum:** 2026-09-04 · **Berör:** `docs/sparrar.md` luckorna 10, 13, 14, 17, 18
+och 19, `src/vy.py`, `src/biluppgifter.py`, #38, #43
+
+**Beslut av Lars i skiva 30.** Fordonsuppslaget är klart. Luckorna 10, 13, 14,
+17, 18 och 19 stängs INTE, och de är inte glömda: de är REGISTRERADE SOM
+MEDVETET ÖPPNA.
+
+**Skälet för lucka 13, 14, 17, 18 och 19.** Vyn körs lokalt på `127.0.0.1`, utan
+inloggning och utan sändväg. Riskerna som luckorna beskriver är strukturella och
+framtida, inte aktuella.
+
+**LUCKA 10 HAR ETT ANNAT SKÄL, och det måste stå för sig.** Den ligger i
+`src/biluppgifter.py` och har ingenting med vyn att göra. `docs/sparrar.md`
+registrerar den som en ÖPPEN SÄNDVÄGSLUCKA. Den lämnas öppen därför att den är
+metodens egen kostnad: `_behall` kan inte veta om ett icke-alfabetiskt led i ett
+fotnotselement är en fotnotsmarkör eller ett betydelsebärande suffix, och den
+frågan går inte att avgöra ur sidans markup. **Det är inte samma slags beslut som
+för de fem andra**, och att den togs upp i samma mening som dem var ett fel.
+
+**Kostnaden att stänga de fem har visat sig vara högre än värdet.** Skiva 28 gick
+i sin HELHET åt till att granska skiva 27:s rättelser av dem, och varje varv
+öppnade eller avslöjade nästa lucka.
+
+*Här stod att "skiva 27, 28 och 29 gick i sin helhet åt till dem". Falskt om två
+av tre: skiva 27 byggde fem leverabler och REGISTRERADE luckorna på slutet, och
+skiva 29 rörde dem inte alls, utan handlade om hämtningen. Fällt av
+§7-granskningen av skiva 30.*
+
+**De tas upp igen först när vyn ska exponeras på Railway enligt #38, och då som
+EN skiva och inte som sex.**
+
+**Det här är inte en sänkning av §7.** Ingen spärr är svagare än den var, och
+inget känt falskt påstående står kvar. Det som ändras är prioriteringen: en lucka
+som är MÄTT och REGISTRERAD är synlig, och en synlig lucka som väntar är ett
+annat läge än en oredovisad.
+
+---
+
+## #48 — Den ärliga user agenten SLÄPPS IGENOM
+
+**Datum:** 2026-09-04 · **Berör:** `src/biluppgifter.py`, #44
+
+**Lars godkände EN begäran**, ett registreringsnummer, mot biluppgifter.se för
+att pröva om user agenten som namnger Auto Stockholm avvisas. Ingen loop, ingen
+andra begäran, inget skrapande.
+
+**Utfallet, avläst ur körningen:**
+
+| Vad | Utfall |
+| --- | --- |
+| statuskod | **200** |
+| canonical-ankare på sidan | ja |
+| gäller det efterfrågade fordonet | ja |
+| sidan gick att parsa | ja |
+| fält som lästes | 2 av 3 |
+
+**Registreringsnumret står inte här och skrivs inte i något som pushas** (§6). Det
+finns i `logg/uppslag.jsonl` om ett uppslag hade misslyckats, och den katalogen är
+gitignorerad.
+
+**#44:s största öppna risk är därmed stängd.** Den ersatta webbläsarsträngen var
+lastbärande enligt en avläsning 2026-09-02, och frågan om ett ärligt namn skulle
+avvisas gick inte att avgöra utan den här körningen. Det gick.
+
+**ETT FÄLT SAKNADES: `draganordning`.** De två som lästes är `tjanstevikt_kg` och
+`slapvagnsvikt_kg`. Om fältet saknas för just det fordonet eller om etiketten ser
+annorlunda ut går INTE att avgöra av en enda begäran, och en andra gjordes inte.
+
+**Det är rätt beteende och inte ett fel.** Ett saknat fält gör att
+`_kontrollera` fäller och att svaret faller till `utkast`, och hämtningen skriver
+`falt_saknas` i loggen. Att det syns i loggen i stället för att tyst bli ett
+utkast är hela skälet till att loggningen byggdes i skiva 29.
+
+**Vad som INTE är prövat:** om sidan går att hämta upprepat över tid, om
+filtreringen skärps, och om `draganordning` läses för ett fordon som har en
+draganordning. Det första kräver drift, det sista kräver ett nummer där fältet
+finns.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.35.0 — 2026-09-04
+
+**Fyra poster tillkommer, samtliga beslut av Lars i skiva 30.**
+
+- **#45** godkänner skiva 28 och 29.
+- **#46** ger §7 tre nivåer i stället för en plus ett undantag. **Ingen summa
+  skrivs**, eftersom rapporterna skiljer kod från text men aldrig sändvägskod
+  från övrig kod. Posten bär också att ett första försök räknade fram ett tal
+  som uteslöt just de skivor där kodfynden låg, och att granskningen fällde det.
+- **#47** förklarar fordonsuppslaget färdigt och registrerar sex luckor som
+  medvetet öppna.
+- **#48** redovisar den enda godkända begäran mot biluppgifter.se: **200**, sidan
+  parsades, 2 av 3 fält lästes.
+
+**#44 är ändrat på TVÅ ställen, och båda redovisas här.** `urllib`-valet står nu
+som Lars beslut i stället för som mitt tysta. Och postens rad om att UA-bytet är
+OPRÖVAT är föråldrad av #48:s körning; den gamla lydelsen står kvar i en kursiv
+not, eftersom den var sann när den skrevs.
+
+Fyra nya poster och en ändrad ⇒ MINOR.
 
 ### 0.34.1 — 2026-09-04
 

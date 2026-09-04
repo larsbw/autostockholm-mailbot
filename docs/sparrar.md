@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.26.3 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.27.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -1566,6 +1566,20 @@ lager 3 fällt är det just den assertionen som fäller
     ETIKETT.** Registrerad i skiva 23, fälld av granskningsvarv 2, och den är
     metodens egen kostnad snarare än ett förbiseende.
 
+    **MEDVETET ÖPPEN sedan skiva 30.** Beslut av Lars, `docs/beslutslogg.md`
+    #47: fordonsuppslaget är färdigt.
+
+    **SKÄLET ÄR ETT ANNAT ÄN FÖR LUCKA 13, 14, 17, 18 OCH 19**, som gäller vyn.
+    Den här ligger i `src/biluppgifter.py` och är registrerad som en ÖPPEN
+    SÄNDVÄGSLUCKA. Den lämnas öppen därför att den är metodens egen kostnad:
+    `_behall` kan inte veta om ett icke-alfabetiskt led är en fotnotsmarkör eller
+    ett betydelsebärande suffix, och det går inte att avgöra ur sidans markup.
+    Att stänga den kräver ett annat sätt att läsa etiketten, inte ett till varv.
+
+    *Här stod att den tas upp igen när vyn ska exponeras, tillsammans med de fem
+    andra. Den triggern hör till vyn och inte hit. Fällt av §7-granskningen av
+    skiva 30.*
+
     Uteslutningen i `_behall` avgör att ett `sup` eller `small` bär en MARKÖR
     genom att dess text saknar bokstäver. Den kan inte veta om ledet är en
     fotnotsmarkör eller ett betydelsebärande suffix. Uppmätt hela vägen genom
@@ -2125,6 +2139,34 @@ låter heltäckande är farligare än en som namnger sin räckvidd.
 Ingen av luckorna är stängd av den här skivan. **Lucka 17, 18 och 19 fanns
 kvar när §7:s tre varv var förbrukade**, se 0.26.1.
 
+> ### LUCKA 13, 14, 17, 18 OCH 19 ÄR MEDVETET ÖPPNA
+>
+> **Beslut av Lars i skiva 30, `docs/beslutslogg.md` #47.** Tillsammans med
+> lucka 10 i posten `fordonsfakta-ur-sida`. De är inte glömda, inte obemärkta och
+> inte på väg att stängas i nästa skiva.
+>
+> **Skälet.** Vyn körs lokalt på `127.0.0.1`, utan inloggning och utan sändväg.
+> Riskerna som luckorna beskriver är strukturella och framtida, inte aktuella.
+> **Kostnaden att stänga dem har visat sig vara högre än värdet:** skiva 28 gick
+> i sin HELHET åt till att granska skiva 27:s rättelser av dem, och varje varv
+> öppnade eller avslöjade nästa lucka.
+>
+> *Här stod att skiva 27, 28 och 29 gick i sin helhet åt till dem. Falskt om två
+> av tre: skiva 27 byggde fem leverabler och registrerade luckorna på slutet,
+> skiva 29 rörde dem inte alls. Fällt av §7-granskningen av skiva 30.*
+>
+> **LUCKA 10 STÅR INTE HÄR.** Den ligger i `fordonsfakta-ur-sida`, rör
+> `src/biluppgifter.py` och inte vyn, och är registrerad som en ÖPPEN
+> SÄNDVÄGSLUCKA. Dess skäl står vid den själv och är ett annat: den är metodens
+> egen kostnad och går inte att avgöra ur sidans markup.
+>
+> **De tas upp igen när vyn ska exponeras på Railway enligt #38**, och då som EN
+> skiva och inte som sex.
+>
+> **Vad det INTE betyder.** Ingen spärr är svagare än den var. Inget känt falskt
+> påstående står kvar. En lucka som är mätt och registrerad är synlig, och det är
+> skillnaden mot att inte ha letat.
+
 ### Lucka 16 i detalj — vad som är oprövat i HTTP-lagret
 
 **En lucka som är mätt är synlig. En som bara är namngiven är det inte.** Därför
@@ -2572,6 +2614,27 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.27.0 — 2026-09-04
+
+**SEX LUCKOR ÄR REGISTRERADE SOM MEDVETET ÖPPNA.** Lucka 10, 13, 14, 17, 18 och
+19. Beslut av Lars i skiva 30, `docs/beslutslogg.md` #47.
+
+Skälet står i posten och i rutan vid luckorna: vyn körs lokalt utan inloggning
+och utan sändväg, riskerna är strukturella och framtida, och kostnaden att stänga
+dem har visat sig högre än värdet. Skiva 27, 28 och 29 gick i sin helhet åt till
+dem.
+
+**Ingen spärr är svagare än den var**, och inget känt falskt påstående står kvar.
+Det som ändras är att luckorna nu bär ett BESLUT i stället för att vara öppna i
+väntan på nästa skiva.
+
+**Den ärliga user agenten är prövad och släpps igenom**, se `#48`: statuskod 200,
+sidan parsades. Det var den största kvarvarande driftrisken i `#44` och den är
+stängd. Ingen spärrpost ändras av det, eftersom hämtningens spärrar är
+oförändrade.
+
+Beslutad status på sex luckor ⇒ MINOR.
 
 ### 0.26.3 — 2026-09-04
 

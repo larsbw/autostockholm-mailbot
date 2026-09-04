@@ -109,7 +109,12 @@ URL_MALL = "https://biluppgifter.se/fordon/{regnr}/"
 # klienten. Att byta till ett ärligt namn kan därför göra att hämtningen slutar
 # fungera.
 #
-# **DET ÄR OPRÖVAT.** Ingen körning mot biluppgifter.se har gjorts med den här
+# **DET ÄR PRÖVAT OCH DEN SLÄPPS IGENOM.** En enda begäran, godkänd av Lars i
+# skiva 30, gav statuskod 200 med ett canonical-ankare som matchade fordonet, och
+# sidan gick att parsa. Se `docs/beslutslogg.md` #48. Raden nedan beskriver
+# läget innan den körningen och står kvar som det underlag bytet vilade på.
+#
+# **DET VAR OPRÖVAT.** Ingen körning mot biluppgifter.se hade gjorts med den här
 # strängen, och sviten rör inte nätet. Faller hämtningen syns det i
 # `logg/uppslag.jsonl` som `natverksfel` eller som en statuskod, vilket är hela
 # skälet till att loggningen byggs i samma skiva. PRO-API:t är vägen tillbaka.

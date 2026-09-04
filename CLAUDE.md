@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.10.3 · **Uppdaterad:** 2026-09-04 · **Speglar:** beslutslogg #44
+**Version:** 0.11.0 · **Uppdaterad:** 2026-09-04 · **Speglar:** beslutslogg #48
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -112,53 +112,114 @@ bevisa att sändningsfunktionen fungerar är fortfarande ett mail som en kund l�
 
 ## 7. Granskningsgrind
 
-Inget byggsteg eller dokumentsteg rapporteras klart förrän en oberoende granskare
-returnerat GODKÄND på samtliga framgångskriterier. Flöde: bygg → granskare → åtgärda
-→ granskare igen. Max 3 varv. Kvarstår underkännanden: stoppa och rapportera öppet i
-stället för att sänka kraven. Granskaren verifierar i egen kontext och kör egna
-kommandon. Obligatorisk för: all generativ output, all klassificeringslogik, all
-spärrlogik, alla mallar.
+**ANTALET VARV STYRS AV VAD SOM GRANSKAS, inte av hur stor skivan känns.** Beslut
+av Lars i skiva 30, `docs/beslutslogg.md` #46. Flöde när det finns varv: bygg →
+granskare → åtgärda → granskare igen. Granskaren verifierar i egen kontext och
+kör egna kommandon.
 
-**Sändvägen får full §7, ovillkorligt.** Sändvägen är allt som kan ändra **om**,
-**till vem**, eller **med vilket innehåll** ett mail lämnar servern. Hit hör spärrarna,
-kategorihinkarna, confidence-tröskeln, mottagarupplösning, mallarnas brödtext,
-prisinsättning, `--send`-flaggans styrning, och mutationers RÖD/GRÖN-verdikt.
-Hit hör också mallarnas ordalydelse, som ser ut som prosa: ett mail som lovar en tid
-vi inte kan hålla är en sändvägsdefekt även om koden är felfri.
+| Vad | Varv | Vid kvarstående fynd |
+| --- | --- | --- |
+| **Sändväg** | 3 | Stoppa och rapportera öppet. Sänk aldrig kraven. |
+| **Övrig kod** | 1 | Rätta fynden, skeppa med status utskriven. |
+| **Dokument och text om kod** | 0 | Skeppa med status utskriven. |
+
+**NOLL VARV BETYDER ATT INGEN GRANSKARE BEHÖVER LETA.** Det är hela innebörden,
+och den är avsiktlig. *Här stod att inget steg rapporteras klart förrän en
+granskare prövat det, vilket motsäger noll varv tre rader ned. Fällt av
+§7-granskningen av skiva 30.*
+
+**OBLIGATORISK SÄNDVÄGSGRANSKNING gäller oförändrat för: all generativ output,
+all klassificeringslogik, all spärrlogik och alla mallar.** Den raden stod i §7
+före skiva 30 och står kvar. Den avgör tvisten när tabellen och en uppräkning
+pekar åt olika håll: **klassificering är sändväg**, oavsett att `kategorisering`
+nämns bland exemplen på övrig kod nedan.
+
+**SÄNDVÄGEN ÄR OFÖRÄNDRAD OCH FÅR FULL §7, OVILLKORLIGT.** Sändvägen är allt som
+kan ändra **om**, **till vem**, eller **med vilket innehåll** ett mail lämnar
+servern. Hit hör spärrarna, kategorihinkarna, confidence-tröskeln,
+mottagarupplösning, mallarnas brödtext, prisinsättning, `--send`-flaggans
+styrning, och mutationers RÖD/GRÖN-verdikt. Hit hör också mallarnas ordalydelse,
+som ser ut som prosa: ett mail som lovar en tid vi inte kan hålla är en
+sändvägsdefekt även om koden är felfri.
 
 **Är du osäker på om något är sändvägen, SÅ ÄR DET.**
 
-**Undantag för dokumentdetaljer.** Prosaformuleringar i `docs/`, radnummer, appendix-
-och changelog-formuleringar, korsreferensform: EN granskningsomgång, därefter skeppat
-med status utskriven, *"självmätt, inte oberoende granskad"*. Undantaget måste åberopas
-aktivt, omfattar aldrig sändvägen, och rättfärdigar aldrig att skeppa ett känt falskt
-påstående. Noll omgångar är aldrig tillåtet.
+**ÖVRIG KOD** är kod som inte kan ändra om, till vem eller med vilket innehåll ett
+mail går ut. EN omgång. Fynden rättas, och skivan skeppas med *"rättelserna är
+självmätta, inte oberoende granskade"* utskrivet.
 
-**NÄR undantaget ska åberopas, inte bara att det får.** En skiva vars leverabler är
-enbart dokument åberopar undantaget som FÖRVAL. Undantaget åberopas per skiva, i
-briefen eller i första meddelandet, aldrig per fynd i efterhand. Att åberopa det efter
-ett underkännande vore att sänka kraven mitt i grinden, vilket §7 förbjuder.
+Exempel: mining, `scripts/`, mätverktyg, utkastvyns RENDERING och navigering.
 
-**UNDANTAGET GÄLLER PER DEFEKTKLASS, INTE PER SKIVA.** En skiva som bygger kod bär
-nästan alltid dokumentdetaljfynd också: en prosaformulering i `docs/`, ett radnummer,
-en kodkommentar, en docstring, ett commitmeddelande. Dessa omfattas av undantaget
-även när skivan i övrigt får full §7. **Skillnaden går INUTI ett dokument och inuti
-en fil, inte mellan filer.** En kodkommentar är text om kod och omfattas; villkoret
-kommentaren beskriver är kod och omfattas inte.
+**MEN INTE VYNS SPÄRRAR, och inte klassificeringen.** `vyn-har-ingen-sandvag`
+avgör om vyn kan skicka mail, alltså är den sändväg trots att den ligger i vyn.
+Klassificeringen avgör vilken hink en tråd hamnar i, alltså **om** ett mail går
+ut. Uppräkningen ovan är exempel och aldrig en gräns: gränsen är egenskapen i
+föregående stycke.
 
-Bär skivan både dokument och kod gäller förvalet bara dokumentdelen. Koden, och varje
-verifiering mot brevlådan, får full §7 som vanligt.
+*Här stod "utkastvyn, mining, kategorisering, skript och verktyg" utan förbehåll,
+vilket lade vyns spärr och klassificeringen i ett varv samtidigt som stycket
+ovan lägger dem i tre. Fällt av §7-granskningen av skiva 30. En uppräkning i
+riktning mot färre varv är samma form som lucka 12 och 13 handlar om, och den
+hör inte hemma i den här paragrafen.*
 
-Skälet är mätt, inte principiellt. Undantaget har funnits sedan repots första commit
-och åberopades sällan: före skiva 9 i `e9a6772` och `c8b1214`, och inte däremellan.
-**Talet skrivs inte ut här**, eftersom varje skiva som åberopar undantaget ändrar det,
-och en mening som räknar sin egen omgivning blir falsk av just den commit som skriver
-den. Kör `git log --all --oneline --grep="dokumentdetaljundantag"` för dagens läge.
+**ETT TEST SOM VAKTAR EN SÄNDVÄGSSPÄRR ÄR SÄNDVÄG.** Det följer inte av
+egenskapen ovan, eftersom ett test inte skickar något, och skrivs därför ut.
+Skälet är §7.1: ett vakuöst spärrtest är repots mest återkommande defekt, och
+§7.1:s verdikt förutsätter att det finns varv kvar att förbruka.
 
-Följden var att granskningsgrinden maldes på prosa i skiva efter skiva medan kravet på
-undantaget, att det ska åberopas per skiva och inte per fynd, gjorde det oanvändbart
-för en skiva som bygger kod. **En regel som gör systemet oanvändbart börjar ignoreras**,
-och det är samma skäl som ligger bakom 0.5.0. Se `docs/incidentlogg.md` I3.
+**DOKUMENT OCH TEXT OM KOD** är prosa i `docs/`, radnummer, appendix- och
+changelogformuleringar, korsreferenser, kodkommentarer, docstrings och
+commitmeddelanden. NOLL varv. **Skillnaden går INUTI en fil, inte mellan filer:**
+en kodkommentar är text om kod och får noll varv; villkoret kommentaren beskriver
+är kod och får sitt eget antal.
+
+**KONFIGURATION ÄR VARKEN KOD ELLER TEXT, och styrs av §10 och inte av tabellen.**
+`config/kategorier.yaml`, `config/sparrar.yaml`, `config/priser.json` och
+`config/fakta.json` ändras bara av Lars uttryckliga beslut. Där är frågan inte hur
+många varv utan om ändringen är tillåten alls.
+
+Övriga konfigurationsfiler, `pytest.ini`, `.gitignore` och `requirements.txt`, är
+ÖVRIG KOD. De kan inte ändra ett mails innehåll, men de kan tysta ett test eller
+flytta en fil ut ur en gitignorerad katalog, och båda har hänt.
+
+**ETT KÄNT FALSKT PÅSTÅENDE RÄTTAS ALLTID.** Det gäller på alla tre nivåerna och
+är oförändrat. Noll varv betyder att ingen granskare behöver leta, inte att en
+falskhet får stå kvar när den är känd.
+
+**SKÄLET.** Det här dokumentet ärvdes från tradingbot-v2, där ett fel kostar
+kapital per sekund och varje varv därför betalar sig. Kapitalvägen mappades till
+sändvägen som om de vore likvärdiga. Här skickas ett mail till en verkstadskund
+som annars ofta inte fått något svar alls, och kostnaden för ett fel är inte av
+samma slag.
+
+**SKÄLET ÄR EN BEDÖMNING AV KOSTNADEN, INTE EN UPPMÄTT PROPORTION.** Frågan hur
+många fynd som legat i sändvägskod mot annat gick INTE att besvara ur
+granskningsrapporterna: de skiljer kod från text, aldrig sändvägskod från övrig
+kod, eftersom den uppdelningen skapas här. `docs/beslutslogg.md` #46 skriver ut
+det, och skriver också ut att ett första försök att räkna fram ett tal föll på
+att det uteslöt just de skivor där kodfynden låg.
+
+*Här stod att skälet är "mätt och inte principiellt" och att sändvägens fynd var
+en minoritet enligt en mätning i #46. Ingen sådan mätning finns. Fällt av
+§7-granskningen av skiva 30.*
+
+**En regel som gör systemet oanvändbart börjar ignoreras**, och det är samma skäl
+som ligger bakom 0.5.0 och 0.7.0. Se `docs/incidentlogg.md` I3.
+
+*Här stod ett DOKUMENTDETALJUNDANTAG som gav EN omgång och som måste åberopas
+aktivt per skiva, i briefen och aldrig per fynd i efterhand. Det ersätts av
+tabellen ovan, som inte kräver något åberopande alls. Raden "Noll omgångar är
+aldrig tillåtet" är därmed också struken: noll är nu förvalet för text.
+
+Undantaget hade sedan 0.7.0 ett led om att det gäller PER DEFEKTKLASS, alltså att
+en skiva med både kod och dokument fick undantaget för dokumentdelen. Det ledet
+löste blandskivan, och det ska sägas i stället för att undantaget framställs som
+oanvändbart in i det sista. Det som återstod var kravet på ett aktivt åberopande,
+som är den friktion tabellen tar bort.
+
+Undantaget nämns fortfarande i appendixposter här och i `docs/incidentlogg.md`
+I3, `docs/beslutslogg.md`, `docs/sparrar.md` och `docs/roadmap.md`. De posterna
+är HISTORIK och beskriver regeln som den var när de skrevs. De skrivs inte om.*
 
 **RÄTTELSETEXT GRANSKAS SOM NY TEXT.** En mening skriven för att rätta ett fynd bär
 inte lägre bevisbörda än den den ersätter. **Granskaren prövar rättelsen mot källan,
@@ -457,6 +518,49 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.11.0 — 2026-09-04
+
+**§7 SKRIVS OM: VARVEN STYRS AV VAD SOM GRANSKAS.** Beslut av Lars i skiva 30,
+`docs/beslutslogg.md` #46. Sändväg tre varv, övrig kod ett, dokument och text om
+kod noll. Sändvägen är oförändrad, och att ett känt falskt påstående alltid
+rättas är oförändrat.
+
+**DOKUMENTDETALJUNDANTAGET ÄR STRUKET** och ersatt av tabellen. Det krävde ett
+aktivt åberopande per skiva, i briefen, och den friktionen är vad tabellen tar
+bort: noll varv är nu förvalet för text, utan åberopande.
+
+**Att undantaget var oanvändbart för en blandskiva gällde lydelsen I3 mätte upp i
+skiva 9, inte den som stryks nu.** 0.7.0 lade till ledet om att undantaget gäller
+PER DEFEKTKLASS, vilket löste just det fallet. Det ska stå, så att strykningen
+inte motiveras med ett problem som redan var åtgärdat.
+
+**DEN OBLIGATORISKA LISTAN STÅR KVAR.** Gamla §7 avslutade ingressen med
+"Obligatorisk för: all generativ output, all klassificeringslogik, all spärrlogik,
+alla mallar". Den raden är flyttad, inte struken, och den avgör tvisten när
+tabellen och en uppräkning pekar åt olika håll.
+
+**Skälet är Lars, och det står i posten:** dokumentet ärvdes från tradingbot-v2,
+där ett fel kostar kapital per sekund, och kapitalvägen mappades till sändvägen
+som om de vore likvärdiga. Här skickas ett mail till en verkstadskund som annars
+ofta inte fått något svar alls.
+
+**Ingen summa över de senaste tio skivorna skrevs in, och det är inte en
+formsak.** Rapporterna skiljer kod från text, aldrig sändvägskod från övrig kod,
+eftersom den uppdelningen skapas av den här skivan.
+
+**Ett första försök räknade ändå fram ett tal, och det höll inte.**
+§7-granskningen fällde att uteslutningarna föll på just de skivor där kodfynden
+låg: skiva 20 är avläsbar, skiva 21:s rapport bär en rubrik som lyder
+"BLOCKERANDE", och skiva 27:s fynd ÄR placerade och summerar exakt. Talet är
+struket, och #46 bär hela historien.
+
+**`Speglar` följer med till beslutslogg #48.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 30:s fyra poster lagts till.
+
+**§0:s styrdokumentlista är oförändrad.** Skiva 30 skapade ingen ny fil.
+
+Ändrad regel i §7 ⇒ MINOR.
 
 ### 0.10.3 — 2026-09-04
 
