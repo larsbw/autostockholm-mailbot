@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.31.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
+**Version:** 0.32.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -2429,7 +2429,89 @@ som det skrevs, utan efterbehandling.
 
 ---
 
+## #40 — En spärrfälld post visar aldrig ett textfält, oavsett läge
+
+**Datum:** 2026-09-04 · **Berör:** `docs/roadmap.md` fas 5.5, `src/vy.py`,
+`docs/sparrar.md`, CLAUDE.md §9.1, #39
+
+**Beslut av Lars.** Detta stänger den öppna punkt #39 lämnade efter sig, och som
+fas 5.5 bar utskriven: vad som gäller när en post har både ett spärrfällt förslag
+och ett behov av ett referenssvar.
+
+**EN SPÄRRFÄLLD POST VISAR ALDRIG ETT TEXTFÄLT, OAVSETT LÄGE.** §9.1 väger tyngre
+än bekvämligheten att kunna skriva ett referenssvar på just den posten.
+
+**Behövs en referens för ett ärende vars förslag fälldes, tas en annan post av
+samma kategori.** Det kostar ingenting: referenssvaret är underlag för rösten och
+inte ett svar på det enskilda ärendet.
+
+**Skälet, med Lars ord:** en textruta på en spärrfälld post gör förbudet till ett
+klick även när knappen heter spara och inte skicka. Vyn ska inte lära handen den
+rörelsen.
+
+**Det är en regel om GRÄNSSNITTET, inte om texten.** Ett referenssvar når aldrig
+en kund, alltså skulle ingen omskrivning på en fälld post faktiskt skicka något.
+Invändningen missar vad §9.1 skyddar mot. Förbudet gäller rörelsen att skriva om
+ett fällt mail tills det ser bra ut, och en vy som övar in den rörelsen på
+ofarliga poster har lärt ut den när posterna inte längre är ofarliga.
+
+**Byggt i skiva 27.** `rendera_granskning` i `src/vy.py` returnerar sidan utan
+`<textarea>` och utan `<button>` när ett spärrnamn är satt. Spärren är
+registrerad i `docs/sparrar.md` med sin negativkontroll.
+
+---
+
+## #41 — Vyns poster i par.jsonl bär `kalla` och `utfall`, och det är mitt tillägg
+
+**Datum:** 2026-09-04 · **Berör:** `data/par.jsonl`, `src/vy.py`, #11, #13, #39
+
+**Detta är INTE ett beslut av Lars.** Det är ett val jag gjorde när skiva 27
+byggde skrivvägen, och det står här för att det ändrar formen på en fil som andra
+läsare räknar poster ur. Lars kan riva det.
+
+**Vad som lades till.** En post som vyn skriver bär, utöver de fyra ursprungliga
+nycklarna, fälten `kalla` satt till `referenssvar`, `utfall`, `etikett` och
+`skrivet`.
+
+**Skälet till `kalla`.** Utan markören blandar `data/par.jsonl` ihop två olika
+saker: svar som FAKTISKT skickades till en kund, skrivna av Matte eller Lars i
+sin tid, och referenssvar som aldrig lämnat vyn. #11 säger att filen räknar
+svarsinstanser, och en senare läsare hade räknat referenssvaren som skickade
+svar. Det är den sortens tysta felräkning §7.2 finns för.
+
+**Skälet till `utfall`.** Fas 4.5:s fyra utfall grönt, gult, oklart och rött går
+inte alltid att avgöra utan ett fordonsuppslag. Fältet låter Lars ange utfallet
+för hand när han skriver svaret, och tomt är ett tillåtet värde.
+
+**#13 står orört.** De fyra ursprungliga nycklarna är oförändrade och texten
+skrivs RÅ. Varje befintlig läsare av filen fortsätter fungera, eftersom de nya
+fälten är tillägg och inte omtolkningar.
+
+**ÖPPEN PUNKT:** om mallbygget i fas 5 ska läsa referenssvaren tillsammans med de
+skickade svaren eller hålla dem isär. `kalla` gör båda möjliga; vilket som gäller
+är inte avgjort.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.32.0 — 2026-09-04
+
+**Två poster tillkommer, och bara den ena är ett beslut av Lars.**
+
+- **#40** stänger #39:s öppna punkt: en spärrfälld post visar aldrig ett
+  textfält, oavsett läge. Beslut av Lars i skiva 27, och byggt i samma skiva.
+- **#41** redovisar ett val JAG gjorde, alltså inte ett beslut av Lars: vyns
+  poster i `data/par.jsonl` bär fyra nya fält. Posten står i loggen därför att
+  den ändrar formen på en fil som andra läsare räknar ur, och den säger rakt ut
+  vem som bestämt vad.
+
+**Att en post som inte är Lars beslut ligger i beslutsloggen är en avvikelse och
+den är avsiktlig.** Alternativet var att lägga ändringen bara i en docstring, där
+ingen som räknar par i `data/par.jsonl` hade hittat den. Posten är märkt i sin
+första mening.
+
+Två nya poster ⇒ MINOR.
 
 ### 0.31.0 — 2026-09-04
 

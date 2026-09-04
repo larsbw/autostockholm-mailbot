@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.24.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.25.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -81,6 +81,9 @@ scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
 | `fordonsfakta-ur-sida` | Att ett tal eller ett dragkroksbesked läses ur en annan sida än det efterfrågade fordonets, eller ur en etikett som bara inleds likadant | `test_alla_tre_falten_lases_ur_ett_avlast_svar`, `test_avlast_fordon_ger_oklart`, `test_normaliserat_nummer_slar_igenom_till_canonical` | `fordonsfakta-ur-uppslag`, men bara DELVIS: den fångar saknade och otolkbara fält, aldrig ett välformat tal ur fel sida. Fyra lager, lager 3 ensamt om sitt fall. Se posten. |
 | `dragkrokbesked-har-harkomst` | Att ett besked om dragkrok sätts av en modell och flyttar kunden från en fråga till ett prispåslag | `test_bada_tillatna_kallorna_gar_igenom` | Ingen annan spärr. Se posten, särskilt vad den INTE kan hindra. |
 | `kanal-som-kontext-aldrig-grund` | Att kanalen ett mail kom in genom blir ensam grund för dess kategori | `test_kanalen_overstyr_aldrig_modellens_svar`, `test_samma_svar_ger_samma_etikett_med_och_utan_kanal`, `test_kanalen_gor_inte_ett_svar_utanfor_taxonomin_giltigt` | Ingen annan spärr. Vaktar FRÅNVARON av kod och fälls därför genom att skriva dit kopplingen. Se posten. |
+| `vyn-har-ingen-sandvag` | Att ett referenssvar lämnar servern som mail | `test_en_ren_modul_slapps_igenom` | Ingen annan spärr. TVÅ LAGER, importlagret och källtextlagret, och de fångar olika fall. Se posten. |
+| `spärrfälld-post-utan-textfalt` | Att §9.1:s förbud mot att skriva om ett fällt mail blir ett klick | `test_osparrad_post_visar_textfalt` | Ingen annan spärr. Skyddar gränssnittet, inte texten. Se posten. |
+| `vyn-skriver-bara-till-data-och-logg` | Att rå kundtext skrivs till en fil som pushas | `test_de_tva_gitignorerade_katalogerna_slapps_igenom` | `persondatakontroll`, men bara delvis: den fäller vid commit, alltså efter skrivningen. Se posten. |
 
 **Tabellen räknar SPÄRRAR, alltså sådant som kod verkställer.** Dokumentet bär
 dessutom poster märkta LUCKA UTAN SPÄRR, som ingen kod implementerar och som
@@ -1921,6 +1924,133 @@ ingenting.
 
 ---
 
+## `vyn-har-ingen-sandvag`
+
+**BYGGD I SKIVA 27.** Registrerad som byggd, inte som PLANERAD.
+
+- **Spärr.** `src/vy.py::krav_pa_sandvagsfrihet` kastar `Sandvagsfel` om någon
+  modul vyn drar in kan skicka mail. Beslutet fattas på TVÅ villkor:
+  `if importerad in FORBJUDNA_MODULER or rot_namn in FORBJUDNA_MODULER`
+  (importlagret) och `if traff` efter
+  `FORBJUDET_MONSTER.search(_kod_utan_prosa(kalla))` (källtextlagret).
+  Prövningen körs av `starta` på raden `krav_pa_sandvagsfrihet()`, alltså INNAN
+  servern binder porten.
+- **Vad den skyddar mot.** Att ett referenssvar lämnar servern som mail.
+  `docs/beslutslogg.md` #39 gör det bindande att ett referenssvar ALDRIG skickas,
+  och fältets text ser ut precis som ett svar. **Spärren är att det inte finns
+  någon väg, inte att vägen är stängd**: en knapp som inte syns, eller ett anrop
+  bakom ett villkor, är en väg som råkar vara oanvänd.
+- **Negativkontroll.** `tests/test_vy.py::test_en_ren_modul_slapps_igenom` visar
+  att spärren SLÄPPER IGENOM en modul som importerar `json` och en lokal modul.
+  Utan den raden vore en spärr som alltid fäller omöjlig att skilja från en som
+  fungerar, och en spärr som alltid fäller blir avstängd.
+- **Redundant med.** Ingen annan spärr. De två LAGREN är däremot redundanta med
+  varandra i vissa fall, se tabellen: fälls bara det ena förblir en del av
+  sviten grön.
+
+**De två lagren är INTE utbytbara, och det är mätt.** En modul kan nå en färdig
+Gmail-tjänst som ARGUMENT och anropa `messages().send` utan att importera något
+förbjudet; då ser importlagret ingenting.
+`test_kalltextlagret_faller_ett_anrop_utan_import` är det fallet.
+
+**Källtextlagret läser KOD, inte prosa om kod.** `_kod_utan_prosa` tar bort
+kommentarer och strängar före sökningen. Utan det ledet fälldes `src/vy.py` av
+sin egen kommentar, som namnger `messages().send` för att förklara vad som är
+förbjudet. Uppmätt vid skivans första körning av testet, och det är samma fälla
+som rutan överst i det här dokumentet varnar för.
+
+**`from x import y` ger både `x` och `x.y`.** Utan det ledet följde prövningen
+aldrig kedjan vidare, och `from src import auth` hade sett ut som en import av
+`src`. En enda indirektion hade räckt för att gömma en sändväg.
+
+| Fälld rad | Utfall | Form |
+| --- | --- | --- |
+| båda lagren, villkoren satta till `False` | RÖD, `4 failed, 27 passed` | neutraliserad |
+| enbart importlagret | RÖD, `3 failed, 28 passed` | neutraliserad |
+| enbart källtextlagret | RÖD, `1 failed, 30 passed` | neutraliserad |
+| kedjeledet `namn.update(f"{nod.module}.{alias.name}" ...)` | RÖD, `1 failed, 30 passed` | raderad |
+| `krav_pa_sandvagsfrihet()` i `starta` | RÖD, `1 failed, 30 passed` | raderad |
+
+Sviten var `tests/test_vy.py`, som bar 31 test vid mätningen. Kommandot är
+`scripts/sparr-prova.sh --fil src/vy.py --ersatt "<rad>=..." -- tests/test_vy.py
+-q --tb=no -rN`. Radnumren skrivs inte ut, eftersom de flyttar av varje
+redigering i filen; villkorens TEXT står ovan.
+
+---
+
+## `spärrfälld-post-utan-textfalt`
+
+**BYGGD I SKIVA 27**, på Lars beslut i `docs/beslutslogg.md` #40.
+
+- **Spärr.** `src/vy.py::rendera_granskning` returnerar sidan utan `<textarea>`
+  och utan `<button>` när argumentet `sparr` är satt. Beslutet fattas på raden
+  `if sparr:`, som returnerar tidigt med en förklaringsruta i stället för
+  formuläret.
+- **Vad den skyddar mot.** Att §9.1:s förbud mot att skriva om ett fällt mail
+  tills spärren släpper igenom det blir ett klick. **Regeln gäller
+  GRÄNSSNITTET, inte texten.** Ett referenssvar når aldrig en kund, alltså skulle
+  ingen omskrivning på en fälld post faktiskt skicka något. Det är inte
+  invändningen: en vy som övar in rörelsen på ofarliga poster har lärt ut den när
+  posterna inte längre är ofarliga.
+- **Negativkontroll.** `tests/test_vy.py::test_osparrad_post_visar_textfalt`
+  visar att en post UTAN spärr får sitt textfält och sina fyra omdömen. Utan den
+  raden hade `rendera_granskning` kunnat sluta visa formulär helt, och
+  granskningsläget varit oanvändbart utan att något blev rött.
+- **Redundant med.** Ingen annan spärr. `vyn-har-ingen-sandvag` skyddar mot en
+  annan sak: att texten lämnar servern. Den här skyddar mot att rörelsen övas in.
+
+| Fälld rad | Utfall | Form |
+| --- | --- | --- |
+| `if sparr:` satt till `if False:` | RÖD, `1 failed, 30 passed` | neutraliserad |
+
+**Behövs en referens för ett ärende vars förslag fälldes, tas en annan post av
+samma kategori.** Det står i #40 och i fas 5.5, och det är vad som gör spärren
+kostnadsfri: referenssvaret är underlag för rösten och inte ett svar på det
+enskilda ärendet.
+
+---
+
+## `vyn-skriver-bara-till-data-och-logg`
+
+**BYGGD I SKIVA 27.**
+
+- **Spärr.** `src/vy.py::krav_pa_skrivbar_sokvag` kastar `Skrivfel` om en sökväg
+  ligger utanför repot eller utanför `data/` och `logg/`. Beslutet fattas på
+  raden `if relativ.parts[0] not in ("data", "logg"):`. Kontrollen ligger i
+  SKRIVFUNKTIONERNA, `spara_referenssvar` och `spara_omdome`, och inte hos
+  anroparen: en kontroll hos anroparen är en kontroll någon glömmer.
+- **Vad den skyddar mot.** §6. Vyn visar RÅ KUNDTEXT på skärmen, och den texten
+  får inte hamna i `docs/`, i ett commitmeddelande, eller i en logg utanför de
+  två gitignorerade katalogerna. Utan spärren räcker ett felstavat argument för
+  att skriva kundtext till en fil som pushas.
+- **Negativkontroll.**
+  `tests/test_vy.py::test_de_tva_gitignorerade_katalogerna_slapps_igenom` visar
+  att båda de tillåtna katalogerna passerar. En spärr som fäller på allt hade
+  gjort vyn oskrivbar och därmed avstängd.
+- **Redundant med.** `persondatakontroll`, men bara delvis och för sent: den
+  fäller vid commit, alltså efter att texten redan skrivits till disk. Den här
+  fäller före skrivningen.
+
+| Fälld rad | Utfall | Form |
+| --- | --- | --- |
+| `if relativ.parts[0] not in ("data", "logg"):` satt till `if False:` | RÖD, `2 failed, 29 passed` | neutraliserad |
+| båda anropen `krav_pa_skrivbar_sokvag(...)` | RÖD, `1 failed, 30 passed` | raderade |
+
+**LÄS DETTA FÖRE NÄSTA PRÖVNING AV DEN HÄR SPÄRREN.** Testerna som påstår att
+skrivningen inte sker pekar på sökvägar under `tmp_path`, aldrig på riktiga
+sökvägar i repot. Skälet är att prövningen enligt §7.1 fäller spärren och kör
+sviten: med en riktig sökväg går skrivningen då igenom på riktigt, och prövningen
+av spärren blir själv det spärren finns för att förhindra.
+
+Det inträffade i skiva 27. Första fällningen av villkoret lämnade efter sig en
+`docs/x.jsonl` med två poster i arbetsträdet, som `git status` fångade inför
+committen. Filen bar fixturtext och ingen kundtext, alltså kostade det ingenting;
+med en post ur `data/par.jsonl` i fixturen hade det varit ett §6-brott begånget av
+granskningen själv. Testet skriver nu i `tmp_path`, och fällningen gjordes om med
+samma verdikt och utan filrest.
+
+---
+
 ## LUCKA UTAN SPÄRR: `gmail-etikett-som-ensam-grund`
 
 > **DET HÄR ÄR INTE EN SPÄRR OCH GÅR INTE ATT FÄLLA ENLIGT §7.1.** Ingen kod
@@ -2105,6 +2235,28 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.25.0 — 2026-09-04
+
+**TRE NYA SPÄRRPOSTER, alla BYGGDA i skiva 27 och ingen PLANERAD.**
+
+- **`vyn-har-ingen-sandvag`**, två lager, och prövningen fällde dem både var för
+  sig och tillsammans. Skälet att fälla båda står i §7.1: ett lagrat försvar ger
+  falskt vakuöst om bara det ena lagret fälls.
+- **`spärrfälld-post-utan-textfalt`**, Lars beslut i `docs/beslutslogg.md` #40.
+- **`vyn-skriver-bara-till-data-och-logg`**, §6 verkställd i skrivfunktionen.
+
+**Översiktstabellen bär de tre.** Den läses före varje prövning enligt §7.1, och
+en spärr som saknas där fälls inte av den som följer listan.
+
+**Ett fynd som spärren gjorde mot sig själv står utskrivet i posten.**
+Källtextlagret fällde `src/vy.py` på modulens EGEN KOMMENTAR, som namnger
+`messages().send` för att förklara vad som är förbjudet. Det är samma fälla som
+rutan överst i det här dokumentet varnar för, den här gången i kod i stället för
+i ett dokumenterat radnummer. Lagret läser nu källan med kommentarer och strängar
+borttagna.
+
+Tre nya spärrposter ⇒ MINOR.
 
 ### 0.24.0 — 2026-09-04
 

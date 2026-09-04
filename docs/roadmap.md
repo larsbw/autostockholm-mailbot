@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.12.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §10
+**Version:** 0.13.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -610,12 +610,23 @@ förväxla.** Fältet innehåller text som ser ut precis som ett svar och som ä
 aldrig får nå en kund. Raden längre ned om att vyn aldrig skickar mail gäller
 oförändrat och skärps av detta.
 
-**ÖPPEN PUNKT: vad som gäller för en SPÄRRFÄLLD post i det tomma fältets läge.**
-Raden längre ned säger att spärrfällda förslag visas UTAN textfält, av §9.1:s
-skäl. En post utan genererat förslag har ingen spärr som fällt något, så de två
-raderna krockar inte i dag. Men en post kan ha både ett fällt förslag och ett
-behov av ett referenssvar, och vad som gäller då är inte avgjort. **Punkten
-avgörs av Lars innan fasen byggs**, eftersom fasen är sändväg och får full §7.
+**BINDANDE: EN SPÄRRFÄLLD POST VISAR ALDRIG ETT TEXTFÄLT, OAVSETT LÄGE.** Lars
+beslut, beslutslogg #40. Detta stänger den öppna punkt fasen bar: en post kan ha
+både ett fällt förslag och ett behov av ett referenssvar, och då gäller
+textfältsförbudet.
+
+Behövs en referens för ett ärende vars förslag fälldes, **tas en annan post av
+samma kategori**. Referenssvaret är ett underlag för rösten och inte ett svar på
+just det ärendet, så vilken post texten skrivs mot spelar ingen roll för det
+kravet, medan det spelar all roll för §9.1.
+
+Skälet är att en textruta på en spärrfälld post gör förbudet till ett klick även
+när knappen heter spara och inte skicka. **Vyn ska inte lära handen den
+rörelsen.** Regeln är alltså inte att texten skulle nå en kund, utan att
+gränssnittet inte ska öva in rörelsen att skriva om ett fällt mail.
+
+Byggd i skiva 27, `src/vy.py` i `rendera_granskning`, och registrerad i
+`docs/sparrar.md`.
 
 **BINDANDE, DRIFT: `token.json` och `data/` ligger på ett PERSISTENT VOLUME,
 aldrig i containern.** Beslutslogg #38. Railway kör om containern vid varje
@@ -668,6 +679,15 @@ genom `respond.py`, och styrs av `--send` enligt §6 och §10. I fas 6 anropas
 dokumentet. Att lägga en skicka-knapp i vyn vore att flytta sändvägen till ett
 gränssnitt utan de stopp §10 föreskriver.
 
+**BYGGD LOKALT FÖRST, skiva 27.** Vyn kördes på `127.0.0.1` utan inloggning och
+utan Railway, så att den gick att se och rätta innan den exponeras. Hosting
+enligt #38 och inloggning enligt #37 är en EGEN SKIVA och är inte gjord.
+
+Vad skiva 27 byggde: `src/vy.py` med båda lägena, `scripts/kor-vy.py` som
+startar den, och spärren mot att vyn har någon sändväg alls. Referensläget är
+det som fungerar; granskningsläget renderar men har inget att visa, eftersom
+generatorn hör till fas 5.
+
 **Grind:** Lars beslutar att omdömesvolymen räcker. Talet sätts inte i förväg,
 eftersom det beror på hur många kategorier som visar sig bära underlag, och
 skiva 9 mätte att bara två kategorier når tio par med svar.
@@ -707,6 +727,26 @@ visat dagsvolymen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.13.0 — 2026-09-04
+
+**Fas 5.5:s öppna punkt om den spärrfällda posten är STÄNGD och ersatt av ett
+bindande krav.** Beslut av Lars, `docs/beslutslogg.md` #40: en spärrfälld post
+visar aldrig ett textfält, oavsett läge, och behövs en referens för den
+kategorin tas en annan post. Punkten stod utskriven i 0.12.0 som något som skulle
+avgöras innan fasen byggdes, och den avgjordes innan fasen byggdes.
+
+**Fas 5.5 bär nu ett stycke om vad som FAKTISKT är byggt**, alltså att skiva 27
+byggde vyn lokalt på `127.0.0.1`, utan inloggning och utan Railway, och att
+hosting enligt #38 och inloggning enligt #37 är en egen skiva som inte är gjord.
+Skälet att skriva in det är att fasen annars läses som byggd i sin helhet nästa
+gång någon slår upp den.
+
+**Granskningsläget renderar men har inget att visa**, eftersom generatorn hör
+till fas 5. Det står i fasen och inte bara i koden, så att nästa läsare inte tror
+att omdömesflödet är taget i drift.
+
+Öppen punkt stängd och nya rader i en fas ⇒ MINOR.
 
 ### 0.12.0 — 2026-09-04
 

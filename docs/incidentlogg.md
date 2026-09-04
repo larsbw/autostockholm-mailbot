@@ -1,6 +1,6 @@
 # Incidentlogg
 
-**Version:** 0.10.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §0
+**Version:** 0.11.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §0
 
 Varje regel som bärs av en incident bor här. Dokumentet finns för att förlagornas
 styrka är att en härdad regel namnger det fel som skapade den. En regel utan
@@ -761,7 +761,79 @@ skiva ska godkännas. Det avgörs av VAR de låg, vilket är skälet i
 
 ---
 
+## I11 — Ett granskningsverktyg rapporterade rent efter att ha granskat ingenting
+
+**Datum:** 2026-09-04 · **Uppmätt i:** skiva 27 · **Berör:**
+`scripts/osynliga-tecken.py`, `tests/test_osynliga_tecken.py`
+
+**Vad som hände.** Skriptet byggdes för att fylla hålet skiva 26:s granskare
+namngav: frånvaron av osynliga tecken gick inte att belägga, eftersom repot
+saknade ett committat skript och §9 inte tillåter en granskare att skriva ett.
+Första körningen av `--diff` mot skivans egna filer skrev:
+
+    osynliga tecken i adderade rader i --diff: 0
+
+**Noll fynd över noll filer.** Skivans fyra nya filer var OSPÅRADE, och
+`git diff HEAD` ser inte en fil som ännu inte är `git add`:ad. Verktyget hade
+alltså läst ingenting och rapporterat rent, på sin första körning, i det första
+ärende det byggdes för.
+
+**Vad det kostade.** Ingenting den här gången, eftersom utdatan såg fel ut nog
+för att kontrolleras mot `git status`. Det är tur och inte konstruktion: raden
+var i sig oskiljbar från ett äkta rent utfall.
+
+**Varför det är precis den defekt skriptet finns för att förhindra.** Ett
+granskningsverktyg som säger noll när det borde säga ett producerar ett falskt
+GRÖN som ingen ifrågasätter, till skillnad från ett rött utfall som alltid
+undersöks. Det är samma mekanism som rutan överst i `docs/sparrar.md` beskriver
+för ett föråldrat radnummer, och samma som I8: en fällning mot fel rad gav GRÖN
+och verdiktet betydde ingenting.
+
+**Åtgärd, två delar, och den andra är den viktigare.**
+
+1. `--diff` tar med ospårade filer, som i sin helhet är adderade. `--stagat` gör
+   det INTE, eftersom den frågan gäller vad committen bär.
+2. **ANTALET GRANSKADE FILER SKRIVS ALLTID UT bredvid antalet fynd.** Raden
+   säger nu `0 fynd över 4 filer`. Fix nummer 1 stänger den kända vägen till
+   noll granskade filer; fix nummer 2 gör varje ANNAN väg dit synlig i utdatan.
+   En tystnad som inte går att skilja från ett rent utfall är det som gör
+   defekten farlig, och det är den egenskapen som är åtgärdad.
+
+**Prövningen enligt §7.1, körd i skiva 27.** Skriptet är ett granskningsverktyg
+och ingen spärr på sändvägen, alltså har det ingen post i `docs/sparrar.md`;
+mätningen står därför här. Sviten var `tests/test_osynliga_tecken.py`, som bar 12
+test vid mätningen:
+
+| Fälld rad | Utfall | Form |
+| --- | --- | --- |
+| `if ar_osynligt(tecken):` satt till `if False:` | RÖD, `6 failed, 6 passed` | neutraliserad |
+| `if tecken in TILLATNA:` satt till `if False:` | RÖD, `1 failed, 11 passed` | neutraliserad |
+| `return ord(tecken) in NAMNGIVNA or ...` avkortad till ledet före `or` | RÖD, `3 failed, 9 passed` | neutraliserad |
+| `rader.extend(_osparade_rader(rot))` satt till `rader.extend([])` | RÖD, `1 failed, 11 passed` | neutraliserad |
+
+**Den sista raden gick INTE att radera.** En radering lämnar `if not stagat:`
+utan kropp, och sviten slutar köra med ett insamlingsfel i stället för att bli
+röd. §7.1 föreskriver neutralisering i just det läget, och formen redovisas
+därför per rad ovan.
+
+**Vad som INTE följer.** Att verktyget ska litas på mindre. Det ska köras med
+räkneraden läst: `0 fynd över 0 filer` är inget svar.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.11.0 — 2026-09-04
+
+**I11 tillkommer:** `scripts/osynliga-tecken.py` rapporterade noll fynd på sin
+första körning efter att ha granskat noll filer, eftersom skivans filer var
+ospårade och `git diff HEAD` inte ser dem.
+
+**Posten skrevs därför att defekten var verktygets egen klass av fel.** Skriptet
+byggdes för att göra en kontroll möjlig för en granskare, och dess första utdata
+var ett falskt rent besked.
+
+Ny post ⇒ MINOR.
 
 ### 0.10.0 — 2026-09-04
 
