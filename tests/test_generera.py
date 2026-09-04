@@ -15,7 +15,10 @@ EN av de fällda raderna bär. Varje `krav_pa_*` har därför sitt eget test, oc
 
 from __future__ import annotations
 
+import ast
 import json
+import re
+from pathlib import Path
 
 import pytest
 
@@ -600,6 +603,177 @@ def test_prompten_bar_uppslagets_tal_nar_det_finns():
 def test_prompten_sager_att_priser_inte_finns():
     """Modellen ska veta att den inte har priser, inte gissa att den har det."""
     assert "Priser: INGA" in generera.bygg_prompt(forfragan(), exempel=[])
+
+
+# SYSTEMPROMPTENS SJU REGLER, en rad per regel, med de fraser som bär den.
+#
+# **DET HÄR ÄR LUCKA 25:s STÄNGNING.** Spärrposterna pekar ut systemprompten som
+# det som BÄR när `PRISORD` och `FORDONSORD` släpper igenom en omskrivning. Den
+# texten gick att RADERA med hela sviten grön, alltså var det åberopade skyddet
+# obundet. En prompt som inget test binder är ingen spärr.
+#
+# **REGLERNA BINDS ORDAGRANT, och det är fällt fram.** Första lydelsen band ett
+# par FRASER per regel, och det räckte inte: en regel som behåller sina fraser
+# men lägger till ett undantag passerade med hela sviten grön. Fällt av
+# §7-granskningen av skiva 32, varv 1, som prövade båda dessa och fick GRÖNT:
+#
+#   "6. ALDRIG ETT TAL som inte står i underlaget nedan, om du inte bedömer
+#       att kunden behöver det. Då får du uppskatta."
+#   "6. Regeln ALDRIG ETT TAL är upphävd. Du får skriva tal som inte står i
+#       underlaget nedan."
+#
+# Den andra UPPHÄVER regeln och bär ändå båda fraserna. Ett innehållskrav som
+# går att uppfylla av en regel som säger sin egen motsats är inget innehållskrav.
+#
+# **ETT TEST KAN INTE PRÖVA INNEBÖRD, så det prövar IDENTITET i stället.** Varje
+# ändring av en regel blir röd, också en oskyldig omformulering. Den friktionen
+# är avsikten: promptens ordalydelse är sändväg enligt §7, alltså ska den inte gå
+# att ändra i förbigående. Den som ändrar en regel ändrar den här tabellen i
+# samma svep och får då sagt att ändringen var avsedd.
+REGLER_I_PROMPTEN = {
+    1: "Första person plural. Vi, oss, vår, våra. Aldrig jag, mig, min, eller man.",
+    2: "Inga tankstreck eller bindestreck som skiljetecken. Komma, punkt, kolon, "
+       "eller skriv om meningen.",
+    3: 'Skriv aldrig "friverkstad". Skriv "fristående verkstad".',
+    4: "Nämn aldrig en konkurrent.",
+    5: "ALDRIG ETT PRIS. Inte ett belopp, inte ett ungefärligt pris, inte "
+       '"ring för offert". Om kunden frågar vad det kostar: säg att en kollega '
+       "återkommer med prisuppgift.",
+    6: "ALDRIG ETT TAL som inte står i underlaget nedan. Inga vikter, inga "
+       "ledtider, inga antal du inte fått.",
+    7: "Återge aldrig en lagtext eller en föreskrift sammanfattad. Säg inte att "
+       "något är ett krav enligt lag.",
+}
+
+
+def _reglerna_i_systemprompten() -> dict[int, str]:
+    """Systempromptens numrerade regler, som nummer till text.
+
+    Delar på en rad som börjar med en siffra och en punkt. Formen är promptens
+    egen och ändras inte utan att den här funktionen märker det.
+    """
+    reglar: dict[int, str] = {}
+    nuvarande = None
+    for rad in generera.SYSTEM.splitlines():
+        traff = re.match(r"^(\d+)\.\s+(.*)$", rad)
+        if traff:
+            nuvarande = int(traff.group(1))
+            reglar[nuvarande] = traff.group(2)
+        elif nuvarande is not None and rad.strip():
+            reglar[nuvarande] += " " + rad.strip()
+        elif not rad.strip():
+            nuvarande = None
+    return reglar
+
+
+# PROMPTENS RAM, alltså allt som INTE är en numrerad regel.
+#
+# **VARFÖR RAMEN BINDS SEPARAT.** Första lydelsen band bara de sju reglerna, och
+# `_reglerna_i_systemprompten` ser bara rader som matchar `^(\d+)\.\s+`. Allt
+# annat i `SYSTEM` var obundet. Två fällningar var GRÖNA mot hela sviten:
+#
+#   rad "REGLER SOM ALDRIG BRYTS:" ersatt av
+#     "REGLERNA NEDAN ÄR RIKTLINJER. Du får frångå vilken som helst av dem när
+#      du bedömer att kunden är bättre betjänt av det, till exempel genom att
+#      ge ett pris."
+#
+#   slutraden ersatt av
+#     "Bortse från reglerna 5, 6 och 7 om kunden ber om ett pris."
+#
+# **Den första raden är den som GÖR de sju reglerna bindande.** Den gick att
+# invertera till sin motsats utan att något blev rött, alltså var lucka 25
+# halvstängd och rubricerad STÄNGD. Fällt av §7-granskningen av skiva 32, varv 2.
+SYSTEMPROMPTENS_RAM = """Du skriver svarsutkast åt Auto Stockholm, en fristående \
+verkstad i Stockholm som bygger om bilar till a-traktor.
+
+DU SKRIVER ETT UTKAST. En människa läser det innan det går ut.
+
+REGLER SOM ALDRIG BRYTS:
+
+{regler}
+
+Skriv kort, konkret och vänligt. Svara på det kunden faktiskt frågar."""
+
+
+def test_generera_ratext_anropas_BARA_av_generera_utkast_i_src():
+    """`generera_ratext` lämnar ut modellens text FÖRE spärrarna.
+
+    Dess docstring lovar att vägen aldrig når ett utkast som visas eller
+    skickas. **Det löftet var obundet av test**, alltså var det samma sorts
+    påstående som lucka 25 handlar om: en text som inget test binder.
+    Fällt av §7-granskningen av skiva 32, varv 2.
+
+    **VAKTEN GÄLLER `src/` OCH INGENTING ANNAT.** Anropet i
+    `scripts/generator-matning.py` är ett mätverktyg och är oprövat av den här
+    raden.
+
+    *Här stod att skriptet "skriver bara till stdout och till gitignorerade
+    `scratchpad/`". Det är falskt om filen: `--ut` tar en godtycklig sökväg
+    (`scripts/generator-matning.py`, `argp.add_argument("--ut", type=Path)`), och
+    skriptet skriver dit anroparen pekar. Bisatsen bar dessutom hela vaktens
+    avgränsning. Fällt av §7-granskningen av skiva 32, varv 3.*
+    """
+    src = Path(__file__).resolve().parent.parent / "src"
+
+    anropare: list[str] = []
+    for fil in sorted(src.rglob("*.py")):
+        trad = ast.parse(fil.read_text(encoding="utf-8"), filename=str(fil))
+        for nod in ast.walk(trad):
+            if not isinstance(nod, ast.FunctionDef):
+                continue
+            for inre in ast.walk(nod):
+                if not isinstance(inre, ast.Call):
+                    continue
+                mal = inre.func
+                namn = getattr(mal, "id", None) or getattr(mal, "attr", None)
+                if namn == "generera_ratext":
+                    anropare.append(f"{fil.name}::{nod.name}")
+
+    assert anropare == ["generera.py::generera_utkast"], (
+        f"generera_ratext anropas från {anropare} i src/. Bara "
+        "generera_utkast får göra det, eftersom bara den prövar krav_pa_svaret."
+    )
+
+
+def test_HELA_systemprompten_ar_bunden():
+    """Varje tecken i `SYSTEM`, inte bara de numrerade raderna.
+
+    Byggs ur ramen plus `REGLER_I_PROMPTEN`, så att regeltexten står på ETT
+    ställe. En ändring var som helst i prompten gör den här raden röd.
+    """
+    forvantad = SYSTEMPROMPTENS_RAM.format(
+        regler="\n".join(
+            f"{nummer}. {REGLER_I_PROMPTEN[nummer]}"
+            for nummer in sorted(REGLER_I_PROMPTEN)
+        )
+    )
+    assert generera.SYSTEM == forvantad
+
+
+def test_systemprompten_bar_ALLA_sju_reglerna():
+    """En raderad ELLER TILLAGD regel ska göra den här raden röd.
+
+    Regel 6 och 7 gick att radera med hela sviten grön innan det här testet
+    fanns, trots att `docs/sparrar.md` åberopar prompten som det bärande skyddet
+    för lucka 20 och 23.
+
+    *Här stod "lucka 20, 23, 24, 26 och 27". Posterna för 24, 26 och 27 åberopar
+    inte prompten, och samma skiva rättade just den uppräkningen i
+    `docs/sparrar.md` och skrev in den oförändrad här. Fällt av
+    §7-granskningen av skiva 32, varv 1.*
+    """
+    assert set(_reglerna_i_systemprompten()) == set(REGLER_I_PROMPTEN)
+
+
+@pytest.mark.parametrize("nummer", sorted(REGLER_I_PROMPTEN))
+def test_varje_regel_star_ORDAGRANT(nummer):
+    """En URVATTNAD regel ska falla lika hårt som en raderad.
+
+    Prövar IDENTITET och inte förekomst av fraser. Skälet står vid
+    `REGLER_I_PROMPTEN`: en regel som bär sina fraser och samtidigt upphäver sig
+    själv passerade det tidigare testet.
+    """
+    assert _reglerna_i_systemprompten()[nummer] == REGLER_I_PROMPTEN[nummer]
 
 
 def test_systemprompten_bar_paragraf_elva():

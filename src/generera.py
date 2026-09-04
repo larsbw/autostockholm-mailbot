@@ -114,7 +114,40 @@ ALLTID_TILLATNA_TAL = frozenset({"1", "2", "3"})
 # och den är nu stängd i stället för registrerad.
 #
 # Fällt av §7-granskningen av skiva 31, varv 2.
-TAL_I_TEXT = re.compile(r"\d+(?:[\s.]\d{3})*")
+TAL_I_TEXT = re.compile(r"\d+(?:[\s.]\d{3}(?!\d))*")
+
+# TAL SKRIVET HELT I ORD. Det var lucka 24: "tjugofemtusen" har varken siffra
+# eller prisord och passerade alla tre spärrarna, mätt i skiva 31 varv 3.
+#
+# **VAGA MÄNGDORD FÅNGAS INTE, och det är avsiktligt.** §7.2 tillåter dem
+# uttryckligen. "tusentals", "hundratals" och "sextiotalet" är inte tal utan
+# mängdord, och en spärr som fäller dem fäller vanlig prosa.
+#
+# Skillnaden är MULTIPLIKATORN, alltså en egenskap och inte en uppräkning av
+# priser: ett tal i ord bär ett räkneord FÖRE `tusen` eller `hundra`, ett
+# mängdord gör det inte. `femtusen` och `tjugofem tusen` fälls, `tusentals`
+# inte. Suffixdelen matchar aldrig över en BOKSTAV, eftersom `\s` inte matchar
+# bokstäver, alltså kan räkneordet och multiplikanden inte spänna över ett
+# mellanliggande ord.
+#
+# *Här stod "matchar aldrig över mer än ett blanksteg". Det var falskt:
+# `TAL_I_ORD.search("tjugofem   tusen kronor")` träffar, och över radbrytning
+# likaså, eftersom `\s*` tar hur många blanktecken som helst. Skälet som angavs
+# belade ett annat påstående än det som skrevs. Fällt av §7-granskningen av
+# skiva 32, varv 2.*
+#
+# **FÖRSIKTIG ÅT FÄLLNINGSHÅLLET.** "fjortonhundra kilo" fälls även om 1400 står
+# i uppslaget, eftersom talord inte slås upp mot källan. Utfallet blir `utkast`,
+# alltså det säkra hållet, och formen är sällsynt i utkorgen.
+RAKNEORD = (
+    r"en|ett|två|tva|tre|fyra|fem|sex|sju|åtta|atta|nio|tio|elva|tolv|"
+    r"tretton|fjorton|femton|sexton|sjutton|arton|nitton|tjugo|trettio|"
+    r"fyrtio|femtio|sextio|sjuttio|åttio|attio|nittio"
+)
+TAL_I_ORD = re.compile(
+    rf"\b(?:ettusen|(?:{RAKNEORD})[\wåäö]*\s*(?:tusen|hundra))\b",
+    flags=re.IGNORECASE,
+)
 
 # ORD SOM GÖR ETT SVAR TILL ETT PRISBESKED. Priser finns inte i config än,
 # alltså faller ett svar som nämner ett pris i någon av formerna nedan. Ordet
@@ -127,14 +160,26 @@ TAL_I_TEXT = re.compile(r"\d+(?:[\s.]\d{3})*")
 # **TILLAGT: `spänn`, `peng` och `tkr`.** De fångar "femton hundra spänn" och
 # "en billig peng".
 #
-# **ETT PRIS SKRIVET HELT I ORD FÅNGAS INTE.** "tjugofemtusen" har varken siffra
-# eller prisord och passerar alla tre spärrarna, mätt. Det är lucka 24 i
-# `docs/sparrar.md`. *Här stod att formen är tillagd; den är det inte, och
-# påståendet var falskt när det skrevs. Fällt av §7-granskningen av skiva 31,
+# **ETT PRIS SKRIVET HELT I ORD FÅNGAS INTE HÄR, men det fälls av `TAL_I_ORD`.**
+# "tjugofemtusen" har varken siffra eller prisord och passerade tidigare alla
+# tre spärrarna. Lucka 24 är DELVIS stängd i skiva 32: kvar är ett räkneord utan
+# multiplikand, som "fjorton dagar".
+#
+# *Här stod i presens att formen "passerar alla tre spärrarna, mätt". Det blev
+# falskt av `TAL_I_ORD`, som infördes 26 rader ovanför i SAMMA commit. Fällt av
+# §7-granskningen av skiva 32, varv 2. Och dessförinnan stod här att formen är
+# tillagd i `PRISORD`; det var den inte. Fällt av granskningen av skiva 31,
 # varv 3.*
 #
 # Uppräkningen är INTE uttömmande. Systemprompten är det som bär i det fallet,
-# och den är själv obunden av test, se lucka 25.
+# och HELA prompten är sedan skiva 32 bunden ordagrant av
+# `test_HELA_systemprompten_ar_bunden` i `tests/test_generera.py`.
+#
+# *Här stod först att prompten är "själv obunden av test, se lucka 25". Sedan
+# stod att den är bunden av `REGLER_I_PROMPTEN`, vilket band de sju numrerade
+# raderna men inte ramen omkring dem: raden "REGLER SOM ALDRIG BRYTS:" gick att
+# invertera med grön svit. Fällt av §7-granskningen av skiva 32, varv 1 och
+# varv 2.*
 PRISORD = re.compile(
     r"\b(kr|kronor|sek|kostar|kostnad|kostnaden|pris|priset|priser|"
     r"offert|avgift|spänn|spann|peng|pengar|"
@@ -173,34 +218,81 @@ FORDONSORD = re.compile(
 # Varv 1 stängde `1 000 kg` och lämnade `1000kg`, `ettusen kilo`, `tusen kg` och
 # `minst 1 ton` öppna. Två av dem gällde GRÄNSBILEN, där uppslaget ger talet en
 # källa så att talspärren inte fäller först. Fällt av §7-granskningen, varv 2.
+# **ENHETEN ÄR EN MASSENHET, inte varje ord som börjar på `kilo`.** Första
+# lydelsen tog `kilo\w*` och fällde därmed *"bilen har gått tusentals
+# kilometer"*, alltså ett önskat svar om körsträcka. Massenhetens böjningar är
+# `kilo`, `kilogram` och `kilon`; `kilometer` är en LÄNGDenhet och hör inte hit.
+# Fällt av §7-granskningen av skiva 32, varv 2.
 TROSKELTAL = re.compile(
-    r"1[\s.]?000|\bettusen\b|\btusen\s*(kilo|kg)\b|\b1\s*ton\b|\bett\s+ton\b",
+    r"1[\s.]?000|\bettusen\b|\btusen\w*\s*(kilo(?:gram|n)?|kg)\b|"
+    r"\b1\s*ton\b|\bett\s+ton\b",
     flags=re.IGNORECASE,
 )
 
-# ORDGRÄNS TILL VÄNSTER, FRI SUFFIX TILL HÖGER. Båda leden är fällda fram.
+# FÖRFATTNINGSORDEN, EN TERM PER RAD.
 #
-# Varv 1 krävde ordgräns i BÅDA ändar och släppte igenom "Kravet", "Lagkravet",
-# "Föreskriften" och "Paragrafen", alltså de former ett svar naturligt tar.
+# **UPPDELNINGEN I EN TUPEL ÄR INTE KOSMETIK.** Mönstret har rättats i fyra
+# granskningsvarv, och VARJE gång har rättelsen tappat eller fällt något den
+# inte skulle. Senast försvann `kräv` och `regeln` när hela regexen skrevs om i
+# ett svep, och regressionstabellen fångade det inte: varje rad som bar
+# "kräver" bar också "Lagen", som fälldes av ett annat led.
 #
-# Varv 1:s rättelse tog bort ordgränsen HELT, och bytte därmed en falsk negativ
-# mot en familj falska POSITIVA: `lag` matchade inuti `lager`, `lagt`,
-# `underlag` och `uppslaget`, så önskade svar som "vi har delarna på lager" och
-# "enligt uppslaget är bilen godkänd" fälldes. §7.1: en spärr som fäller
-# önskade svar blir avstängd.
+# Termerna står därför var för sig, och `test_varje_forfattningsterm_ar_ISOLERAD`
+# kräver en rad i regressionstabellen där VARJE term är den enda som matchar.
+# En term som tappas gör den raden röd, och en term som SNÄVAS likaså.
 #
-# **`enligt` STÅR INTE LÄNGRE MED.** Ordet är för svagt: "enligt uppslaget" är
-# ett svar som refererar VÅR källa, inte en föreskrift. "Enligt lagen" fälls
-# ändå, på `lagen`.
+# **VAKTEN GÄLLER TERMNIVÅN OCH INTE ALTERNATIV INUTI EN TERM.** En gren i
+# `regler(?:na|ing\w*|s)?\b` går att ta bort med hela sviten grön, mätt. Det är
+# lucka 34. *Här stod att vakten "gör klassen av fel omöjlig", vilket är sant på
+# termnivå och falskt en nivå längre in. Fällt av §7-granskningen av skiva 32,
+# varv 3.*
 #
-# Fällt av §7-granskningen av skiva 31, varv 1 och varv 2.
-FORFATTNINGSORD = re.compile(
-    r"\bkrav\w*|\bkräv\w*|\bkrav\w*|\blag\b|\blagen\b|\blagkrav\w*|"
-    r"\blagstiftning\w*|\bregel\b|\bregeln\b|\breglerna\b|\bföreskrift\w*|"
-    r"\bforeskrift\w*|\bbestämmels\w*|\bbestammels\w*|\bvvfs\b|\bparagraf\w*|"
-    r"§|\bmåste\b|\bmaste\b|\btrafikverket\b|\btransportstyrelsen\b",
-    flags=re.IGNORECASE,
+# Fällt av §7-granskningen av skiva 32, varv 2.
+#
+# **VÄNSTERORDGRÄNSEN FALLER FÖR DE ENTYDIGA STAMMARNA**, eftersom ordet kan vara
+# ANDRA ledet i en sammansättning: `myndighetskrav`, `Trafikföreskriften`,
+# `Lagparagrafen`, `Vägtrafiklagstiftningen`.
+#
+# **`enligt` STÅR INTE MED.** Ordet är för svagt: "enligt uppslaget" refererar
+# VÅR källa, inte en föreskrift. "Enligt lagen" fälls ändå, på `lagen`.
+FORFATTNINGSTERMER = (
+    r"krav\w*",
+    r"\bkräv\w*",
+    r"föreskrift\w*",
+    r"foreskrift\w*",
+    r"bestämmels\w*",
+    r"bestammels\w*",
+    r"paragraf\w*",
+    r"lagstiftning\w*",
+    r"reglement\w*",
+    # `regler` MED SINA EGNA BÖJNINGAR OCH INGA ANDRA. Substantivet `regler`
+    # delar sträng både med verbet `reglera` och med sammansättningar där
+    # `regler` är FÖRSTA ledet: termostaten REGLERAR, tomgången REGLERAS,
+    # dragkroken är REGLERBAR, och REGLERVENTILEN sitter på motorn. Alla fyra
+    # är verkstadsord. Substantivets egna former är `regler`, `reglerna`,
+    # `reglering(en)` och `reglers`, alltså räcker det att kräva att ordet SLUTAR
+    # där böjningen slutar.
+    r"regler(?:na|ing\w*|s)?\b",
+    # `regel` behåller sin HÖGERgräns, som `regelbundet` gjorde lastbärande.
+    r"regel\b",
+    r"regeln\b",
+    # `lag` ÄR GENUINT TVETYDIGT och behåller därför båda gränserna. `lager`,
+    # `underlag`, `uppslaget` och `lagt` fälldes av en gränslös lydelse. Värst av
+    # alla är `lagar`: en verkstad LAGAR bilar. Bara den bestämda pluralformen
+    # är säker.
+    r"\blag\b",
+    r"\blagen\b",
+    r"\blagarna\b",
+    r"\blagtext\w*",
+    r"\bvvfs\b",
+    r"§",
+    r"\bmåste\b",
+    r"\bmaste\b",
+    r"\btrafikverket\b",
+    r"\btransportstyrelsen\b",
 )
+
+FORFATTNINGSORD = re.compile("|".join(FORFATTNINGSTERMER), flags=re.IGNORECASE)
 
 
 def _tal_i(text: str) -> set[str]:
@@ -244,6 +336,14 @@ def krav_pa_tal_med_kalla(svar: str, forfragan: Forfragan) -> None:
         raise Sparrfalld(
             "genererat-tal-har-kalla",
             "svaret nämner ett pris, och config/priser.json finns inte",
+        )
+
+    traff_i_ord = TAL_I_ORD.search(svar)
+    if traff_i_ord:
+        raise Sparrfalld(
+            "genererat-tal-har-kalla",
+            f"svaret skriver talet {traff_i_ord.group(0).lower()!r} i ord, "
+            "och ett talord slås inte upp mot någon källa",
         )
 
     tillatna = _tillatna_tal(forfragan)
@@ -494,6 +594,24 @@ def generera_utkast(klient, forfragan: Forfragan, modell: str = MODELL,
     får då ett utkast eller ett skäl, aldrig något däremellan, och kan inte råka
     använda en text som inte höll.
     """
+    text = generera_ratext(klient, forfragan, modell, exempel)
+    krav_pa_svaret(text, forfragan)
+    return text
+
+
+def generera_ratext(klient, forfragan: Forfragan, modell: str = MODELL,
+                    exempel: list[dict] | None = None) -> str:
+    """Modellens text FÖRE spärrarna. Enbart för MÄTNING.
+
+    **DEN HÄR VÄGEN FÅR ALDRIG NÅ ETT UTKAST SOM VISAS ELLER SKICKAS.** Den
+    finns därför att en mätning av hur ofta en spärr fäller ett ÖNSKAT svar
+    måste kunna läsa texten spärren fällde, och `Sparrfalld` bär bara ett skäl.
+    `generera_utkast` är den enda väg som lämnar ut en text, och den prövar
+    alltid `krav_pa_svaret` först.
+
+    Kravet i skiva 32 DEL D är att lucka 28:s frekvens mäts INNAN `FORDONSORD`
+    ändras, och utan råtexten går den mätningen inte att göra.
+    """
     exempel = las_exempel() if exempel is None else exempel
 
     svar = klient.messages.create(
@@ -503,7 +621,4 @@ def generera_utkast(klient, forfragan: Forfragan, modell: str = MODELL,
         messages=[{"role": "user", "content": bygg_prompt(forfragan, exempel)}],
     )
 
-    text = "".join(b.text for b in svar.content if b.type == "text").strip()
-
-    krav_pa_svaret(text, forfragan)
-    return text
+    return "".join(b.text for b in svar.content if b.type == "text").strip()

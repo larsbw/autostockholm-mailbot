@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.28.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.29.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -118,9 +118,16 @@ verdikt som inte betyder vad det ser ut att betyda.
 
 **Tabellen räknar SPÄRRAR, alltså sådant som kod verkställer.** Dokumentet bär
 dessutom poster märkta LUCKA UTAN SPÄRR, som ingen kod implementerar och som
-därför inte kan bära någon av kolumnerna ovan: `gmail-etikett-som-ensam-grund`
-och `versalkansligt-monster-i-avlasare`. De står i egna sektioner före mallen.
+därför inte kan bära någon av kolumnerna ovan: `gmail-etikett-som-ensam-grund`,
+`versalkansligt-monster-i-avlasare` och `pahittat-pastaende-om-oss`. De står i
+egna sektioner före mallen, och listan går att kontrollera med
+`grep -n "LUCKA UTAN SPÄRR" docs/sparrar.md`.
 Den som läser den här listan före en prövning enligt §7.1 ska läsa dem också.
+
+*Här räknades två poster medan det fanns tre: skiva 32 skapade
+`pahittat-pastaende-om-oss` och uppdaterade inte den här raden. Raden är
+lastbärande för varje framtida spärrprövning, alltså pekade den förbi den nyaste
+luckan. Fällt av §7-granskningen av skiva 32, varv 1.*
 
 ---
 
@@ -2438,10 +2445,23 @@ samma verdikt och utan filrest.
 **BYGGD I SKIVA 31.** Generatorns första spärr.
 
 - **Spärr.** `src/generera.py::krav_pa_tal_med_kalla` kastar `Sparrfalld` när ett
-  genererat svar bär ett tal utan källa. TVÅ villkor: `if PRISORD.search(svar):`
-  fäller varje prisord, och `if tal not in tillatna:` fäller varje tal som varken
-  kommer ur uppslaget eller ur `config/`. Verkställs av `krav_pa_svaret`, som
-  anropas av `generera_utkast` innan texten returneras.
+  genererat svar bär ett tal utan källa. **TRE villkor**, och alla tre ska fällas
+  av den som prövar spärren enligt §7.1:
+
+  | Beslutsrad | Vad den fäller |
+  | --- | --- |
+  | `if PRISORD.search(svar):` | varje prisord |
+  | `if traff_i_ord:` | varje tal skrivet i ord, `TAL_I_ORD` |
+  | `if tal not in tillatna:` | varje siffertal utan källa i uppslaget eller `config/` |
+
+  Verkställs av `krav_pa_svaret`, som anropas av `generera_utkast` innan texten
+  returneras.
+
+  *Här stod "TVÅ villkor", och raden namngav bara det första och det sista.
+  Skiva 32 lade till `if traff_i_ord:` utan att röra det här fältet, alltså hade
+  en granskare som följde posten fällt två av tre lager och fått ett falskt
+  ÄKTA-utfall enligt §7.1:s klausul om lagrat försvar. Fällt av §7-granskningen
+  av skiva 32, varv 1.*
 - **Vad den skyddar mot.** §7.2 i utgående text: ett tal som ser trovärdigt ut
   men inte är avläst. **Priser finns inte än:** `config/priser.json` existerar
   inte, alltså bidrar den med noll tillåtna tal och varje svar som nämner ett
@@ -2450,20 +2470,54 @@ samma verdikt och utan filrest.
   visar att talen ur ett LYCKAT uppslag passerar, och
   `test_ett_svar_utan_tal_slapps_igenom` att ett vanligt svar gör det. En spärr
   som fäller på allt gör generatorn oanvändbar och blir avstängd.
-- **Redundant med.** Ingen annan spärr. **ÖVERLAPPAR däremot med
-  `troskeln-som-forfattningstext`:** ett svar som skriver "lagen kräver 1 000 kg"
-  faller HÄR först, eftersom talet saknar källa. Se den postens ordningsnot.
+- **Redundant med `troskeln-som-forfattningstext` åt BÅDA hållen, och fältet ska
+  läsas symmetriskt med den postens.** Ett svar som skriver "lagen kräver
+  1 000 kg" UTAN uppslag faller HÄR först, eftersom talet saknar källa. Och
+  tröskeln skriven med ett räkneord, `ettusen` eller `ett tusen`, faller HÄR även
+  när uppslaget ger 1 000 en källa, eftersom `TAL_I_ORD` inte slår upp talord.
+  `tusen kilo` utan räkneord faller däremot i den andra posten. Se dess
+  ordningsnot.
+
+  *Här stod "Ingen annan spärr" följt av en överlappning som bara beskrev det ena
+  hållet. Rättelsen av det symmetriska fältet i den andra posten gjordes i skiva
+  32 varv 1 utan att det här fältet rördes. Fällt av §7-granskningen av skiva 32,
+  varv 2.*
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if PRISORD.search(svar):` satt till `if False:` | RÖD, `4 failed, 71 passed` | neutraliserad |
-| `if tal not in tillatna:` satt till `if False:` | RÖD, `1 failed, 74 passed` | neutraliserad |
-| anropet i `krav_pa_svaret` | RÖD, `3 failed, 72 passed` | raderad |
+| `if PRISORD.search(svar):` satt till `if False:` | RÖD, `8 failed, 205 passed, 4 xfailed` | neutraliserad |
+| `if traff_i_ord:` satt till `if False:` | RÖD, `10 failed, 203 passed, 4 xfailed` | neutraliserad |
+| `if tal not in tillatna:` satt till `if False:` | RÖD, `6 failed, 207 passed, 4 xfailed` | neutraliserad |
+| anropet i `krav_pa_svaret` | RÖD, `27 failed, 186 passed, 4 xfailed` | raderad |
 
-Sviten är `tests/test_generera.py`, som bar 75 test vid mätningen. *Talen är
-omkörda i varv 2: tabellerna skrevs mot en svit på 33 test, och varv 1:s
-rättelser ändrade den i SAMMA commit. §7.2 gör talet oläst när underlaget
-ändras.*
+**SVITEN ÄR `tests/test_generera.py` PLUS `tests/test_generera_monster.py`.**
+Talen är omkörda i skiva 32 varv 1, eftersom skivan lade till både ett villkor
+och en hel testfil, alltså ändrades underlaget i samma commit och §7.2 gör talet
+oläst då.
+
+**TVÅ av `PRISORD`:s termer är prövade UTAN siffra intill: `tkr` och `spänn`.**
+`\btkr\b|\d\s*tkr` gick att radera med hela sviten grön så länge tabellens enda
+tkr-rad bar en siffra: `TAL_I_TEXT` fällde den, och prisordet var skuggat.
+Raderna *"Vi tar några tkr för jobbet"* och *"Vi tar några spänn för det"*
+isolerar de två lagren.
+
+**DE ÖVRIGA PRISORDEN ÄR FORTFARANDE SKUGGADE, och det är en ÖPPEN LUCKA.**
+`kr`, `kronor` och `sek` går att radera ur mönstret med hela sviten grön, mätt.
+De skuggas av `kostar` och av `TAL_I_TEXT`. Samma gäller `avgift`, `kostnad`,
+`priset`, `pengar` och momsleden. **`kr` är mönstrets centralaste term och är
+otestad.**
+
+*Här stod rubriken "`PRISORD`:s prisord är prövade UTAN siffra intill", som
+generaliserade två isolerande rader till hela mönstret. Fällt av
+§7-granskningen av skiva 32, varv 2.*
+
+**Åtgärden hör till samma skiva som ger `PRISORD` och `TROSKELTAL` den
+driftvakt `FORFATTNINGSORD` fick i skiva 32**, alltså en termtupel plus
+`test_varje_..._ar_ISOLERAD`. Den vakten är vad som gör klassen av fel omöjlig,
+och att bygga den för ett mönster i taget efter förbrukad grind vore precis det
+skiva 31 lärde att inte göra. Registrerad som **lucka 31**.
+
+*Talen kördes om även i skiva 31 varv 2, mot en svit på 33 test.*
 
 **PRISORDET FÄLLER UTAN SIFFRA.** "Vad det kostar återkommer vi om" bär inget tal
 och är ändå ett besked om pris. Spärren tar ordet och inte bara siffran, och
@@ -2486,20 +2540,101 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
 - **Lucka 21. Tal ett till tre är alltid tillåtna.** `ALLTID_TILLATNA_TAL` finns
   för ordningstal, och släpper därmed igenom ledtider: *"på 2 veckor"* och *"i 3
   dagar"* fälls inte. Talen är obelagda påståenden om vår leveranstid.
-- **Lucka 22 är DELVIS stängd i skiva 31, varv 2.** Den gällde att `TAL_I_TEXT`
-  slog ihop tal över komma: *"Vikterna är 1400, 1500 kg"* fälldes som `talet
-  14001500`. Med KOMMA är den stängd, mätt: `['1400', '1500']`.
+- **Lucka 22 är STÄNGD i skiva 32.** Den gällde att `TAL_I_TEXT` slog ihop två
+  avlästa vikter. Med KOMMA stängdes den i skiva 31 varv 2. Med BLANKSTEG stod
+  den kvar: `_tal_i("Vikterna är 1400 1500 kg")` gav `['0', '1400150']`,
+  eftersom mönstret tog `" 150"` ur `1500` som vore det en tusengrupp.
 
-  **Med BLANKSTEG är den kvar.** `_tal_i("Vikterna är 1400 1500 kg")` ger
-  `['0', '1400150']`: mönstret tar `" 150"` ur `1500` som vore det en
-  tusengrupp. *Här stod att avskiljaren nu är "tusengruppering och ingenting
-  annat". Fällt av §7-granskningen av skiva 31, varv 3.*
+  **Egenskapen som stängde den:** en tusengrupp är exakt tre siffror som INTE
+  följs av en fjärde, alltså `[\s.]\d{3}(?!\d)`. Raden står i
+  `tests/test_generera_monster.py` och mönstrets gamla lydelse gör den röd.
 
-- **Lucka 24. TAL SKRIVET I ORD fälls inte av någonting.** *"Vi tar
-  tjugofemtusen för det"* och *"Det tar fjorton dagar"* passerar alla tre
+  *Här stod att avskiljaren är "tusengruppering och ingenting annat", vilket var
+  falskt när det skrevs. Fällt av §7-granskningen av skiva 31, varv 3.*
+
+- **Lucka 24 är DELVIS STÄNGD i skiva 32.** Den gällde att ett tal skrivet HELT I ORD
+  fälldes av ingenting: *"Vi tar tjugofemtusen för det"* passerade alla tre
   spärrarna, mätt. Lucka 20 gäller omskrivna prisord, lucka 21 talen ett till
-  tre; ingen av dem täcker talet i ord. Kommentaren vid `PRISORD` påstod att
-  `tjugofemtusen` fångas; det gör den inte, och påståendet är struket.
+  tre; ingen av dem täckte talet i ord.
+
+  **Egenskapen som stängde den är MULTIPLIKATORN**, inte en lista över priser:
+  ett tal i ord bär ett räkneord före `tusen` eller `hundra`. `TAL_I_ORD` fäller
+  `tjugofemtusen`, `femhundra` och `tjugofem tusen`.
+
+  **VAGA MÄNGDORD FÄLLS INTE, och det är §7.2:s uttryckliga tillåtelse.**
+  `tusentals`, `hundratals` och `sextiotalet` saknar multiplikator och passerar.
+  Tre rader i regressionstabellen binder just den gränsen: en lydelse utan
+  multiplikatorkrav gör dem röda, prövat.
+
+  **KVAR ÅT ANDRA HÅLLET:** `fjortonhundra kilo` fälls även när 1400 står i
+  uppslaget, eftersom talord inte slås upp mot källan. Utfallet blir `utkast`,
+  alltså det säkra hållet.
+
+  **DÄRFÖR DELVIS OCH INTE STÄNGD:** ett räkneord UTAN multiplikand fälls inte.
+  *"Det tar fjorton dagar"* passerar, medan samma påstående med siffra fälls av
+  talspärren. Luckans egen rubrik lyder att ett tal skrivet i ord fälls av
+  ingenting, och `fjorton dagar` ÄR ett sådant tal. Raden står som
+  `xfail(strict=True)` i regressionstabellen, alltså mätt och inte bara namngiven.
+
+  *Här stod att luckan är STÄNGD, i samma post som registrerar den öppna formen.
+  Att stänga ett hål till hälften och skriva STÄNGD i en versal rubrik är vad som
+  gör nästa läsare blind, och lucka 22 bar av precis det skälet etiketten DELVIS
+  i skiva 31. Fällt av §7-granskningen av skiva 32, varv 1.*
+
+  *Kommentaren vid `PRISORD` påstod att `tjugofemtusen` fångas; det gjorde den
+  inte då, och påståendet ströks i skiva 31.*
+
+- **Lucka 35. AST-VAKTEN SER BARA `def`.**
+  `test_generera_ratext_anropas_BARA_av_generera_utkast_i_src` filtrerar på
+  `isinstance(nod, ast.FunctionDef)` och missar därför `ast.AsyncFunctionDef`
+  samt modulnivå, inklusive `lambda`. Mätt, båda gröna med `942 passed`:
+
+  - en modulglobal `ratext_utan_sparr = lambda klient, f: generera_ratext(...)`
+  - en `async def ratext_utan_sparr(...)` som returnerar `generera_ratext(...)`
+
+  Docstringens löfte att vägen aldrig når ett utkast är alltså bundet mot `def`
+  och inte mot varje anrop. En modulglobal alias i `src/` som lämnar ut
+  modellens text FÖRE `krav_pa_svaret` passerar vakten.
+
+  **Luckorna 32, 33 och 34 rör tröskelspärrens mönster och står i posten
+  `troskeln-som-forfattningstext`.**
+
+- **Lucka 31. `PRISORD`:s termer är i huvudsak OTESTADE, och `kr` är den
+  centralaste av dem.** `kr`, `kronor` och `sek` går att radera ur mönstret med
+  hela sviten grön, mätt i skiva 32 varv 2. De skuggas av `kostar` och av
+  `TAL_I_TEXT`, alltså av att varje prisrad i tabellen bär en siffra eller ett
+  annat prisord. Samma gäller `avgift`, `kostnad`, `priset`, `pengar` och
+  momsleden.
+
+  **Åtgärden är känd och medvetet uppskjuten:** `PRISORD` och `TROSKELTAL` ska
+  få samma driftvakt som `FORFATTNINGSORD` fick i skiva 32, alltså en termtupel
+  plus ett `test_varje_..._ar_ISOLERAD`. Att bygga den för ett mönster i taget
+  efter förbrukad grind är precis vad skiva 31 lärde att inte göra.
+
+- **Lucka 30. EN BILMODELL ÄR INTE ETT TAL, och inte ett maskerat regnr heller.**
+  Mätt i skiva 32 över 100 genererade svar, `docs/beslutslogg.md` #52: av elva
+  fällningar var **fem falska positiva** av den här formen.
+
+  | Vad som fälldes | Skäl spärren gav |
+  | --- | --- |
+  | `din A5` | `talet 5 kommer varken ur uppslaget eller ur config` |
+  | `din V50` | `talet 50 kommer varken ur uppslaget eller ur config` |
+  | ett registreringsnummer | `talet 156 kommer varken ur uppslaget eller ur config` |
+
+  **Bilmodellen kommer ur KUNDENS EGET MAIL.** Kunden skrev `V50`, och svaret som
+  upprepar det påstår ingenting; det bekräftar vad kunden själv sagt. Spärren
+  läser siffran ur modellbeteckningen som vore den en vikt eller ett pris.
+
+  **Egenskapen som skiljer, och som INGEN spärr prövar i dag:** ett tal som står
+  i förfrågans egen text är inte ett tal generatorn hittat på. `_tillatna_tal`
+  läser uppslaget och `config/`, aldrig `forfragan.text`.
+
+  **INTE ÅTGÄRDAD, och det är avsiktligt.** Utfallet är `utkast` i stället för
+  `auto`, alltså det säkra hållet: en falsk fällning kostar en manuell läsning,
+  en falsk passering kostar ett felaktigt mail. Men frekvensen är hög nog att
+  spärren riskerar att uppfattas som brusig, vilket är §7.1:s varning om att en
+  spärr som fäller önskade svar blir kringgången. Hör till samma skiva som lucka
+  29.
 
 **ETT HÅL SOM VARV 2 FANN OCH SOM VAR VÄRRE ÄN NÅGON REGISTRERAD LUCKA:** ett tal
 skrivet ihop med sin enhet var OSYNLIGT för spärren. `_tal_i("25000kr")` gav en
@@ -2534,8 +2669,20 @@ efter sista siffran.
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if traff and forfragan.uppslag is None:` satt till `if False:` | RÖD, `23 failed, 52 passed` | neutraliserad |
-| anropet i `krav_pa_svaret` | RÖD, `1 failed, 74 passed` | raderad |
+| `if traff and forfragan.uppslag is None:` satt till `if False:` | RÖD, `34 failed, 182 passed, 1 xfailed` | neutraliserad |
+| anropet i `krav_pa_svaret` | RÖD, `12 failed, 204 passed, 1 xfailed` | raderad |
+
+**Sviten är `tests/test_generera.py` plus `tests/test_generera_monster.py`,
+omkörd i skiva 32 varv 3, sist av allt.**
+
+*Talen skrevs först efter varv 1 och blev falska av de tolv isolerande rader
+varv 2 lade till i SAMMA ocommittade arbete. Det är exakt den defekt posten för
+`genererat-tal-har-kalla` fäller skiva 31 för: §7.2 gör talet oläst när
+underlaget ändras i en grannmening. Regeln formulerades korrekt och tillämpades
+bara på skiva 31:s tal. Fällt av §7-granskningen av skiva 32, varv 3.* Att `xfailed` går från 4 till 1 ÄR utfallet i sig:
+de tre lucka 28-raderna är `xfail(strict=True)`, så när spärren neutraliseras
+börjar de passera och märkningen fäller dem. Märkningen är alltså bevisat
+självupphävande och inte en tyst undantagslista.
 
 Orden är parametriserade i `test_varje_fordonsord_faller_utan_uppslag`, en per
 term, och `test_varje_term_i_monstret_har_ett_testfall` jämför parameterlistan
@@ -2559,17 +2706,79 @@ varv 2.*
 - Det som bär i det fallet är SYSTEMPROMPTEN, som säger rakt ut att modellen
   inte vet något om bilen när uppslaget saknas. **Spärren är nätet under, inte
   det enda skyddet**, och den formuleringen är avsiktlig här.
-- **Lucka 25. SYSTEMPROMPTENS BÄRANDE REGLER ÄR OBUNDNA AV TEST.** Regel 6
-  ("ALDRIG ETT TAL") och regel 7 (om lagtext) går att RADERA med hela sviten
-  grön, mätt. Posterna pekar ut prompten som det som bär när lucka 20, 23, 24,
-  26 och 27 släpper igenom, och den texten kan alltså tas bort utan att något
-  blir rött. `test_systemprompten_bar_paragraf_elva` binder fyra strängar, ingen
-  av dem regel 6 eller 7.
+- **Lucka 25 är STÄNGD i skiva 32.** Den gällde att systempromptens bärande
+  regler var OBUNDNA AV TEST: regel 6 ("ALDRIG ETT TAL") och regel 7 (om
+  lagtext) gick att RADERA med hela sviten grön, mätt. Posterna pekar ut
+  prompten som det som bär när lucka 20 och 23 släpper igenom, och den texten
+  kunde alltså tas bort utan att något blev rött.
+  `test_systemprompten_bar_paragraf_elva` band fyra strängar, ingen av dem
+  regel 6 eller 7.
+
+  **Lars ordning i skiva 32:** *"En prompt som inget test binder är ingen spärr.
+  Det är den enda av luckorna som gör de andra posterna falska."*
+
+  **HELA `SYSTEM` är bunden ordagrant** av
+  `test_HELA_systemprompten_ar_bunden`, som bygger den förväntade texten ur
+  `SYSTEMPROMPTENS_RAM` plus `REGLER_I_PROMPTEN`. Varje tecken i prompten är
+  alltså bundet, inte bara de numrerade raderna.
+  `test_systemprompten_bar_ALLA_sju_reglerna` binder dessutom att antalet är
+  sju, alltså faller en TILLAGD regel också in under kravet.
+
+  *Första rättelsen band bara de sju numrerade raderna, eftersom
+  `_reglerna_i_systemprompten` bara ser rader som matchar `^(\d+)\.\s+`. Ramen
+  omkring var obunden, och raden **"REGLER SOM ALDRIG BRYTS:"**, alltså den
+  mening som GÖR reglerna bindande, gick att invertera till en riktlinje med
+  hela sviten grön. Lucka 25 var därmed halvstängd och rubricerad STÄNGD, vilket
+  är exakt det lucka 24 straffades för i varv 1. Fällt av §7-granskningen av
+  skiva 32, varv 2.*
+
+  **FÖRSTA LYDELSEN BAND FRASER, OCH DET RÄCKTE INTE.** Två fällningar var GRÖNA:
+  en regel som behåller `ALDRIG ETT TAL` och `underlaget` men lägger till *"om du
+  inte bedömer att kunden behöver det"*, och en som lyder *"Regeln ALDRIG ETT TAL
+  är upphävd"* och därmed bär båda fraserna medan den säger sin egen motsats. Ett
+  innehållskrav som går att uppfylla av en regel som upphäver sig själv är inget
+  innehållskrav. Fällt av §7-granskningen av skiva 32, varv 1.
+
+  **ETT TEST KAN INTE PRÖVA INNEBÖRD, så det prövar IDENTITET.** Varje ändring av
+  en regel blir röd, också en oskyldig omformulering. Friktionen är avsikten:
+  promptens ordalydelse är sändväg enligt §7.
+
+  **Bunden i BÅDA riktningarna, prövat med `scripts/sparr-prova.sh`:**
+
+  | Fällning | Utfall |
+  | --- | --- |
+  | regel 6 raderad | RÖD, `3 failed, 82 passed` |
+  | regel 6 utvattnad till *"Var försiktig med tal."* | RÖD, `2 failed, 83 passed` |
+  | regel 6 med ett UNDANTAG tillagt, fraserna kvar | RÖD, `2 failed, 83 passed` |
+  | regel 6 UPPHÄVD av sig själv, fraserna kvar | RÖD, `2 failed, 83 passed` |
+  | `REGLER SOM ALDRIG BRYTS:` inverterad till en riktlinje | RÖD, `1 failed, 941 passed, 4 xfailed` |
+  | slutraden ersatt av *"Bortse från reglerna 5, 6 och 7"* | RÖD, `1 failed, 941 passed, 4 xfailed` |
+
+  De fyra första mot `tests/test_generera.py`, de två sista mot hela sviten.
+
+  *De fyra första talen stod tidigare som `4 failed, 79 passed` respektive
+  `3 failed, 80 passed`. Inget av dem reproducerade: de skrevs efter en
+  omkörning men mot fel radnummer, och texten intill påstod ändå att de var
+  omkörda. Fällt av §7-granskningen av skiva 32, varv 2.*
+
+  De tre sista raderna är de som bär: en regel går inte bara att ta bort, den går
+  att skriva om till verkningslöshet, och ett test som bara räknar rubriker
+  hade sagt grönt om den.
+
 - **Lucka 28. `FORDONSORD` fäller önskade svar utan uppslag.** Mätt: *"Vikten av
   att boka i tid är stor"* fälls på `vikten`, *"Vi återkommer om släp när vi
   sett bilen"* på `släp`, *"Vi har en tung period"* på `tung`. Ingen
   negativkontroll binder att ett VANLIGT svar utan uppslag passerar, och utan
   uppslag är normalfallet: hämtningen är inte inkopplad.
+
+  **De tre formerna står som `xfail(strict=True)` i
+  `tests/test_generera_monster.py`, alltså MÄTTA och inte bara namngivna.**
+  Märkningen är självupphävande: rättas mönstret blir raderna röda och tvingar
+  bort den.
+
+  **INTE ÅTGÄRDAD I SKIVA 32, på Lars uttryckliga order:** frekvensen mäts
+  först, *"rapportera talet innan något ändras"*. Talet står i
+  `docs/beslutslogg.md` #52.
 
 ---
 
@@ -2578,13 +2787,25 @@ varv 2.*
 **BYGGD I SKIVA 31.**
 
 - **Spärr.** `src/generera.py::krav_pa_att_troskeln_inte_ar_forfattningstext`
-  kastar när svaret bär talet 1 000 TILLSAMMANS med ett författningsord: krav,
-  kräver, lag, lagen, lagkrav, lagstiftning, regel, regeln, reglerna,
-  föreskrift, bestämmelse, VVFS, paragraf, §, måste, Trafikverket eller
-  Transportstyrelsen. *`enligt` togs bort i varv 2 som för svagt signalord och
-  stod kvar här. Fällt av §7-granskningen av skiva 31, varv 3.*
+  kastar när svaret bär talet 1 000 TILLSAMMANS med ett författningsord.
   Beslutet fattas på raden
   `if TROSKELTAL.search(svar) and FORFATTNINGSORD.search(svar):`.
+
+  **TERMERNA RÄKNAS INTE UPP HÄR, och det är en rättelse.** Listan står i
+  `src/generera.py::FORFATTNINGSTERMER`, en term per rad, och
+  `tests/test_generera_monster.py::test_varje_forfattningsterm_ar_ISOLERAD`
+  kräver att var och en har en rad i regressionstabellen där den är ENSAM om att
+  matcha. Den som prövar spärren läser tupeln, inte den här posten.
+
+  *Här stod en handskriven uppräkning av sjutton termer. Den blev falsk av
+  skiva 32:s omskrivning: `kräver` och `regeln` fanns kvar i uppräkningen men
+  hade FALLIT UR mönstret, medan `reglement`, `lagarna` och `lagtext` fanns i
+  mönstret men inte i uppräkningen. En uppräkning som skuggar en lista i koden
+  blir gammal av varje ändring, och just den här blev det starkaste beviset för
+  att termerna tappats. Fällt av §7-granskningen av skiva 32, varv 2.*
+
+  *`enligt` togs bort i varv 2 som för svagt signalord och stod kvar i den gamla
+  uppräkningen. Fällt av §7-granskningen av skiva 31, varv 3.*
 - **Vad den skyddar mot.** Att en OFULLSTÄNDIG föreskrift går ut som ett besked.
   VVFS 2003:19 4 kap 42 § har TVÅ kriterier förenade med ELLER, tjänstevikt minst
   2 000 kg ELLER släpvagnsvikt minst 1 000 kg. Ett svar som skriver att lagen
@@ -2600,44 +2821,216 @@ varv 2.*
   passerar, eftersom ett uppslag lagligen kan nämna 1 000 kg som avläst värde.
   `test_forfattningsord_utan_troskeln_slapps_igenom` visar att ordet ensamt gör
   det.
-- **Redundant med.** Ingen. Men den NÅS BARA när talet 1 000 har en källa, se
-  ordningsnoten nedan.
+- **Redundant med `genererat-tal-har-kalla` för EXAKT de former som bär ett
+  räkneord före `tusen`.** Det är `ettusen` och `ett tusen`, och bara de: de
+  fälls av `TAL_I_ORD` innan den här spärren nås, också när uppslaget ger 1 000
+  en källa, eftersom ett talord inte slås upp mot källan.
+
+  **`tusen kilo` och `tusentals kilo` är INTE redundanta.** De saknar räkneord,
+  passerar `TAL_I_ORD` och fälls här. Avläst:
+
+  | Text | Fälls av |
+  | --- | --- |
+  | `Kravet är ettusen kilo.` | `genererat-tal-har-kalla` |
+  | `Kravet är ett tusen kilo.` | `genererat-tal-har-kalla` |
+  | `Kravet är tusen kilo.` | `troskeln-som-forfattningstext` |
+  | `Kravet är tusen kg.` | `troskeln-som-forfattningstext` |
+
+  För tröskeln i SIFFROR finns ingen redundans, och då nås spärren bara när talet
+  1 000 har en källa, se ordningsnoten nedan.
+
+  *Här stod först "Redundant med. Ingen." Skiva 32 lade till `TAL_I_ORD` och
+  lämnade fältet orört. Rättelsen skrev sedan att också `tusen kilo` fälls av
+  `TAL_I_ORD`, vilket är FALSKT och dessutom motsades av samma posts egen text
+  trettio rader ned. §7.1 gör det här fältet obligatoriskt före varje prövning,
+  alltså var båda lydelserna en fälla för nästa granskare. Fällt av
+  §7-granskningen av skiva 32, varv 1 och varv 2.*
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if TROSKELTAL.search(svar) and FORFATTNINGSORD.search(svar):` satt till `if False:` | RÖD, `9 failed, 66 passed` | neutraliserad |
-| anropet i `krav_pa_svaret` | RÖD, `1 failed, 74 passed` | raderad |
+| `if TROSKELTAL.search(svar) and FORFATTNINGSORD.search(svar):` satt till `if False:` | RÖD, `51 failed, 162 passed, 4 xfailed` | neutraliserad |
+| anropet i `krav_pa_svaret` | RÖD, `43 failed, 170 passed, 4 xfailed` | raderad |
 
-> ### KÄNDA LUCKOR, OCH EN REGRESSION SOM STÅR KVAR
+**Sviten är `tests/test_generera.py` plus `tests/test_generera_monster.py`,
+omkörd i skiva 32 varv 3, sist av allt.**
+
+*Talen skrevs först efter varv 1 och blev falska av de tolv isolerande rader
+varv 2 lade till i SAMMA ocommittade arbete. Det är exakt den defekt posten för
+`genererat-tal-har-kalla` fäller skiva 31 för: §7.2 gör talet oläst när
+underlaget ändras i en grannmening. Regeln formulerades korrekt och tillämpades
+bara på skiva 31:s tal. Fällt av §7-granskningen av skiva 32, varv 3.*
+
+**FYRA TRÖSKELRADER I TABELLEN FÄLLS AV EN ANNAN SPÄRR, och tabellen säger det
+numera själv.** `Kravet är ettusen kilo`, `Lagen kräver ETTUSEN kilo`, `Kravet är
+ett tusen kilo` och `Lagen kräver ett tusen kilogram` bär ett RÄKNEORD före
+`tusen` och fälls därför av `TAL_I_ORD` innan den här spärren nås.
+
+`test_troskelformer_som_ska_falla` asserterar sedan skiva 32 varv 1 **vilken**
+spärr som fäller, mot mängden `FALLER_PA_TALSPARREN`. Utan det asserterade raden
+bara att NÅGON spärr fäller, alltså kunde en rad tyst byta vaktare och sluta
+vakta det den påstod. Det är samma fynd som ordningsnoten nedan beskriver,
+återinfört av skiva 32 och funnet av dess granskning, varv 1.
+
+**Uppdelningen är AVLÄST och inte gissad.** Första lydelsen av
+`FALLER_PA_TALSPARREN` gissade fel, och sviten fällde de felgissade raderna,
+eftersom `tusen kilo` och `tusentals kilo` saknar räkneord och därmed passerar
+`TAL_I_ORD`.
+
+> ### ÖPPNA LUCKOR I DEN HÄR SPÄRREN: 32, 33 OCH 34
 >
-> **Registrerade av §7-granskningen av skiva 31, VARV 3, alltså efter att
-> grinden var förbrukad. De är MÄTTA och INTE åtgärdade**, av ett skäl som står
-> sist i rutan.
+> **Mätta av §7-granskningen av skiva 32, VARV 3, alltså efter att grinden var
+> förbrukad. De är INTE åtgärdade**, och skälet står i `docs/beslutslogg.md`
+> #53: en fjärde självmätt ändring i samma mönsterpar efter förbrukad grind är
+> vad skiva 27 gjorde, och den kostade tre skivor.
 >
-> - **Lucka 26. Tröskeln i ord med enheten utskriven fälls inte.** Mätt, samtliga
->   passerar alla tre spärrarna med och utan uppslag: *"Kravet är tusen
->   kilogram"*, *"ett tusen kilogram"*, *"tusen kilon"*, *"tusentalet kilo"*,
->   *"tusentals kilo"*. Villkoret `\btusen\s*(kilo|kg)\b` kräver ordgräns efter
->   `kilo` och stänger därmed ute `kilogram` och `kilon`.
+> - **Lucka 32. HÖGERGRÄNSEN BÄR SAMMA KLASS SOM VÄNSTERGRÄNSEN, och den rördes
+>   aldrig.** Skiva 32 namngav egenskapen *"ett författningsord kan vara ANDRA
+>   ledet i en sammansättning"* och tillämpade den bara på VÄNSTERgränsen. Nio
+>   former som repots första lydelse (`927543d`) fångade fälls inte, och sju av
+>   dem passerar hela `krav_pa_svaret` med GRÄNSBILEN:
 >
-> - **Lucka 27. EN REGRESSION: fyra former som varv 1:s mönster fångade slipper
->   igenom nu.** Gäller GRÄNSBILEN, alltså när uppslaget ger talet 1 000 en
->   källa så att talspärren inte fäller först. Mätt:
+>   | Form | Passerar som |
+>   | --- | --- |
+>   | `Regelverket` | *"Regelverket säger 1 000 kg släpvagnsvikt."* |
+>   | `Transportstyrelsens` | *"Transportstyrelsens gräns är 1 000 kg."* |
+>   | `Trafikverkets` | *"Trafikverkets besked är 1 000 kg."* |
+>   | `lagens` | *"Enligt lagens ordalydelse gäller 1 000 kg."* |
+>   | `lagstadgat` | *"Det är lagstadgat med 1 000 kg."* |
+>   | `lagligt` | *"Det är inte lagligt under 1 000 kg."* |
+>   | `påkrävt` | *"Det är påkrävt med 1 000 kg."* |
 >
->   | Text | varv 1 | nu |
->   | --- | --- | --- |
->   | `Det finns regler om 1 000 kg släpvagnsvikt.` | fälld | **släpps** |
->   | `Regleringen säger 1 000 kg.` | fälld | **släpps** |
->   | `Trafikreglerna säger 1 000 kg.` | fälld | **släpps** |
->   | `Det är ett myndighetskrav på 1 000 kg.` | fälld | **släpps** |
+>   Ytterligare två fångades av `927543d` men når inte spärren end-to-end:
+>   `VVFS2003` och `reglernas`.
 >
->   `\bregel\b|\bregeln\b|\breglerna\b` saknar den vanligaste formen av alla,
->   **`regler`**, och `\bkrav\w*` fångar inte sammansättningar som
->   `myndighetskrav`.
+>   **`Regelverket` är den tyngsta.** *"Regelverket säger 1 000 kg"* är exakt den
+>   sammanfattade föreskrift spärren finns för, och `regel\b` stänger ute den på
+>   sin högergräns.
 >
-> **VARFÖR DE INTE ÄR ÅTGÄRDADE, och det är skivans egen lärdom.** Det här
-> mönsterparet har nu ändrats tre gånger i tre varv, och VARJE gång har
-> rättelsen infört ett nytt fel i motsatt riktning:
+>   **`\bkräv\w*` är det renaste beviset på att egenskapen inte är genomförd:**
+>   `krav\w*` på raden ovanför saknar vänstergräns, `\bkräv\w*` har den, alltså
+>   behandlas samma ord i två stavningar olika i samma tupel.
+>
+> - **Lucka 33. `kilo(?:gram|n)?` STÄNGDE UTE MASSENHETENS EGNA BÖJNINGAR.**
+>   Rättelsen skulle stänga ute en LÄNGDenhet, `kilometer`, och stängde på köpet
+>   ute `kilos`, `kilogrammen`, `kilogrammet`, `kilot` och `kilona`, som
+>   `kilo\w*` fångade. Mätt end-to-end: *"Kravet är tusen kilogrammen."* och
+>   *"Kravet är tusen kilos släpvagnsvikt."* passerar hela `krav_pa_svaret`.
+>
+>   Ingen rad i regressionstabellen binder någon av de fem, alltså syns tappet
+>   inte i sviten. Egenskapen är rätt namngiven och tillämpningen är en
+>   uppräkning av två suffix.
+>
+> - **Lucka 34. DRIFTVAKTEN GÄLLER TERMER, INTE ALTERNATIV INUTI EN TERM.**
+>   `test_varje_forfattningsterm_ar_ISOLERAD` kräver en isolerande rad per term i
+>   `FORFATTNINGSTERMER`, och den är ÄKTA på den nivån: en raderad term ger rött,
+>   och en term som SNÄVAS i stället för att raderas ger också rött, prövat. Men
+>   en gren inuti en term går att ta bort med grön svit:
+>
+>   `regler(?:na|ing\w*|s)?\b` → `regler(?:na|ing\w*)?\b` ger `942 passed`.
+>
+>   Kommentaren i `src/generera.py` påstår att vakten *"gör klassen av fel
+>   omöjlig"*. Det är sant på TERMNIVÅ och falskt en nivå längre in. Samma form
+>   som lucka 31, alltså skuggning, flyttad från mönster till delterm.
+>
+> ### LUCKA 26 OCH LUCKA 27 ÄR STÄNGDA I SKIVA 32
+>
+> **De registrerades av §7-granskningen av skiva 31, VARV 3, alltså efter att
+> grinden var förbrukad, och lämnades mätta men oåtgärdade.** Skiva 32 fick dem
+> som egen skiva med egen grind, vilket var precis vad skiva 31 föreslog.
+>
+> - **Lucka 26 STÄNGD. Tröskeln i ord med enheten utskriven.** Fem former
+>   passerade alla tre spärrarna: *"Kravet är tusen kilogram"*, *"ett tusen
+>   kilogram"*, *"tusen kilon"*, *"tusentalet kilo"*, *"tusentals kilo"*.
+>   Villkoret `\btusen\s*(kilo|kg)\b` krävde ordgräns efter `kilo` och stängde
+>   därmed ute `kilogram` och `kilon`.
+>
+>   **Egenskapen som rättade det:** enheten är en STAM med fri böjning, och
+>   räkneordet en STAM med fri böjning. **Enheten är det INTE i dagens lydelse:**
+>   `\btusen\w*\s*(kilo(?:gram|n)?|kg)\b` räknar upp två suffix.
+>
+>   *Här stod "enheten är en STAM med fri böjning" och regexen `(kilo\w*|kg)`.
+>   Båda leden blev falska av varv 2:s egen ändring, som snävade enheten för att
+>   inte fälla `kilometer` och därmed också stängde ute `kilos`, `kilogrammen`,
+>   `kilogrammet`, `kilot` och `kilona`. `src/generera.py` skriver i samma commit
+>   motsatsen med versaler. Se lucka 33. Fällt av §7-granskningen av skiva 32,
+>   varv 3.*
+>
+>   **`ettusen` LIGGER I TVÅ LAGER, och de bär OLIKA MYCKET.** Avläst i skiva 32
+>   varv 2, en fällning i taget mot `tests/test_generera.py` plus
+>   `tests/test_generera_monster.py`:
+>
+>   | Fällning | Utfall |
+>   | --- | --- |
+>   | `\bettusen\b` bort ur `TROSKELTAL` | GRÖN, `213 passed, 4 xfailed` |
+>   | `ettusen\|` bort ur `TAL_I_ORD` | RÖD, `2 failed, 211 passed, 4 xfailed` |
+>
+>   Formen fälls alltså av `TAL_I_ORD`, och `TROSKELTAL`:s led är i dag
+>   ÖVERFLÖDIGT för just `ettusen`. Det är inte ett lagrat försvar utan ett dött
+>   led, och den som prövar `TROSKELTAL` ska veta att grönt där betyder just det.
+>
+>   *Här stod att BÅDA leden går att radera grönt var för sig och att ett grönt
+>   utfall därför är INKONKLUSIVT enligt §7.1. Det var falskt: `TAL_I_ORD`:s led
+>   ger rött. Noten skrevs mot minnet av läget INNAN samma omgång lade till
+>   spärr-assertionen i `test_troskelformer_som_ska_falla`, som är det som fäller
+>   de två raderna. Den instruerade dessutom nästa granskare att godta ett grönt
+>   utfall som inkonklusivt där lagret är enskilt bärande. Fällt av
+>   §7-granskningen av skiva 32, varv 2.*
+>
+> - **Lucka 27 STÄNGD. Regressionen som varv 2 införde.** Fyra former som varv
+>   1:s mönster fångade slapp igenom. De gäller GRÄNSBILEN, alltså när uppslaget
+>   ger talet 1 000 en källa så att talspärren inte fäller först:
+>
+>   | Text | varv 1 | varv 2 | nu |
+>   | --- | --- | --- | --- |
+>   | `Det finns regler om 1 000 kg släpvagnsvikt.` | fälld | släpptes | fälld |
+>   | `Regleringen säger 1 000 kg.` | fälld | släpptes | fälld |
+>   | `Trafikreglerna säger 1 000 kg.` | fälld | släpptes | fälld |
+>   | `Det är ett myndighetskrav på 1 000 kg.` | fälld | släpptes | fälld |
+>
+>   **Egenskapen som rättade det:** ett författningsord kan vara ANDRA ledet i
+>   en sammansättning. Vänsterordgränsen faller därför för `krav`, `föreskrift`,
+>   `bestämmels`, `paragraf`, `lagstiftning`, `reglement` och `regler`.
+>
+>   **TIO AV TJUGOTVÅ TERMER BEHÅLLER SIN VÄNSTERGRÄNS.** Avläst ur
+>   `src/generera.py::FORFATTNINGSTERMER`: `\bkräv\w*`, `\blag\b`, `\blagen\b`,
+>   `\blagarna\b`, `\blagtext\w*`, `\bvvfs\b`, `\bmåste\b`, `\bmaste\b`,
+>   `\btrafikverket\b`, `\btransportstyrelsen\b`.
+>
+>   | Stam | Vad som tvingar gränsen |
+>   | --- | --- |
+>   | `lag` | `lager`, `underlag`, `uppslaget`, `lagt` fälldes av varv 1. Värst är **`lagar`**: en verkstad LAGAR bilar. Mönstret bär därför `\blag\b` och `\blagen\b` med BÅDA gränserna, plus de två sammansättningar som är entydiga, `\blagarna\b` och `\blagtext\w*`. |
+>   | `regel` | `regelbundet` innehåller `regel`. Högergränsen `regel\b` används. |
+>   | `kräv` | **INGEN GRUND. Gränsen kostar `påkrävt` och stammen är inte tvetydig. Se lucka 32.** |
+>
+>   **`regler` VITLISTAR SUBSTANTIVETS EGNA ÄNDELSER:**
+>   `regler(?:na|ing\w*|s)?\b`. Substantivet `regler` delar sträng både med
+>   verbet `reglera` och med sammansättningar där `regler` är FÖRSTA ledet, som
+>   `reglerventilen`. Alla är verkstadsord.
+>
+>   *Här stod att termen är `regler(?!a|bar)\w*` och att mekanismen är att verbet
+>   "skiljs ut av sina egna ändelser". BÅDA leden var falska om källan: mönstret
+>   byttes i varv 2, `grep -rn "regler(?!a|bar)" src/` ger noll träffar, och
+>   mekanismen är den OMVÄNDA, alltså en vitlistning av substantivet. Här stod
+>   också "TVÅ STAMMAR BEHÅLLER EN GRÄNS" medan tio gör det. Fällt av
+>   §7-granskningen av skiva 32, varv 3.*
+>
+>   *Här stod att `regler` och `krav` inte är tvetydiga, "prövat mot
+>   `regelbundet`". Påståendet var FALSKT: `regler\w*` fällde `reglerar`,
+>   `regleras`, `reglerade` och `reglerbar`, och matchade `reglering` inuti
+>   `Avregleringen`. Det önskade svaret "dragkroken är reglerbar" fälldes, mätt.
+>   Prövningen mot en enda instans är dessutom exakt det fel stycket nedan anför
+>   som skivans lärdom. Fällt av §7-granskningen av skiva 32, varv 1.*
+>
+>   **EGENSKAPEN TILLÄMPADES FÖRST PÅ TVÅ AV SJU LED, och det var samma fel en
+>   ordstam längre bort.** Sju former som varv 1:s committade lydelse fångade
+>   passerade: `Trafikföreskriften`, `Trafikbestämmelserna`, `Lagtexten`,
+>   `Lagarna`, `Reglementet`, `Lagparagrafen`, `Vägtrafiklagstiftningen`.
+>   Samtliga står nu i regressionstabellen. Fällt av samma granskning.
+>
+> **VARFÖR DE INTE ÅTGÄRDADES I SKIVA 31, och det blev regeln i #51.**
+> Mönsterparet hade då ändrats i TVÅ av skiva 31:s tre varv, som tabellens egen
+> tredje rad säger, och BÅDA gångerna hade rättelsen
+> infört ett nytt fel i motsatt riktning:
 >
 > | Varv | Vad som rättades | Vad rättelsen införde |
 > | --- | --- | --- |
@@ -2645,9 +3038,11 @@ varv 2.*
 > | 2 | ingen ordgräns fällde `lager`, `underlag`, `uppslaget` | ordgräns till vänster tappade `regler`, `myndighetskrav` |
 > | 3 | — | **ingen fjärde ändring gjord** |
 >
-> En fjärde självmätt ändring efter förbrukad grind är precis vad skiva 27
-> gjorde, och den kostade tre skivor. **Mönstren hör till en egen skiva med egen
-> grind.**
+> **Ingen av de tre ändringarna var fel i sig. Felet var att var och en prövades
+> mot det SENASTE fyndet i stället för mot alla tidigare.** Botemedlet är
+> `tests/test_generera_monster.py`, en HISTORISK tabell över varje form någon
+> lydelse någonsin fångat, körd i sin helhet efter varje ändring. Se
+> `docs/beslutslogg.md` #51.
 
 **ORDNINGEN AVGÖR VILKEN SPÄRR SOM RAPPORTERAS, och det är ett fynd.**
 `krav_pa_svaret` prövar talspärren först. Ett svar som skriver "lagen kräver
@@ -2824,6 +3219,68 @@ Registrerad i skiva 16 på Lars beslut, se `docs/beslutslogg.md` #28.
 
 ---
 
+## LUCKA UTAN SPÄRR: `pahittat-pastaende-om-oss`
+
+> **DET HÄR ÄR INTE EN SPÄRR OCH GÅR INTE ATT FÄLLA ENLIGT §7.1.** Ingen kod
+> implementerar den, **och det är ett uttryckligt beslut av Lars i skiva 32:
+> MÄT FÖRST, BYGG INGEN SPÄRR.** Skälet står under *Varför ingen spärr byggs*.
+>
+> **Mot mallens fyra fält:** *Spärr* är den inte, se rubriken. *Vad den skyddar
+> mot* står som **Vad den vaktar** nedan. **Negativkontroll: ingen finns**,
+> eftersom det inte finns någon kod att pröva. **Redundant med: ingen.**
+
+**ETT SVAR FÅR INTE PÅSTÅ NÅGOT OM AUTO STOCKHOLM SOM INTE KOMMER UR `config/`
+ELLER UR UPPSLAGET.** Det är lucka 29.
+
+Formen upptäcktes i skiva 31:s provkörning. Ett rött svar innehöll:
+
+> *"Titta gärna på vår hemsida för tips på hur du kontrollerar detta innan ni
+> köper bil"*
+
+**Det är ett påstående om vad vår egen hemsida innehåller, och det är påhittat.**
+
+- **Vad den vaktar.** Att generatorn beskriver verkstaden. Ett påhittat påstående
+  om OSS är farligare än ett påhittat påstående om bilen, av tre skäl:
+
+  1. **Kunden kan inte kontrollera det, men agerar på det.** Ett fel om bilens
+     vikt kan kunden slå upp. Ett fel om vad vi erbjuder litar hen på.
+  2. **Det låter aldrig som ett påstående.** Det står i en bisats i ett artigt
+     svar, alltså precis den form §7.2 finns för att stoppa.
+  3. **Det är ett löfte i företagets namn.** CLAUDE.md:s ingress säger att
+     avsändaren är ett företags rykte.
+
+- **VARFÖR DE TRE SPÄRRARNA INTE FÅNGAR DEN.** Formen är varken ett tal, ett
+  fordonsfaktum eller en föreskrift, alltså faller den mellan samtliga. Den är
+  inte en brist i något av mönstren utan en klass ingen av dem prövar.
+
+- **Vad som skulle göra den till en spärr.** Ingenting mindre än en lista över
+  vad vi FÅR påstå om oss, alltså `config/fakta.json` fylld och en spärr som
+  kräver att varje påstående om verkstaden har en post där. Det är samma form som
+  `genererat-tal-har-kalla`: källa eller utelämnande, ingen tredje kategori. Båda
+  filerna är §10-stopp och ändras bara av Lars.
+
+- **VARFÖR INGEN SPÄRR BYGGS I SKIVA 32.** Lars ordning, ordagrant:
+
+  > BYGG INGEN SPÄRR för den i den här skivan. Mät först. Ett mönster skrivet
+  > innan formen är mätt är precis vad luckorna 22 till 27 kom ur.
+
+  Det är samma lärdom som `docs/beslutslogg.md` #51 drar av mönsterparet: ett
+  mönster som skrivs mot en enda observerad instans fångar den instansen och
+  missar klassen, och rättas sedan i varv efter varv mot det senaste fyndet.
+
+- **MÄTNINGEN.** `scripts/generator-matning.py`, tjugo varv mot samma fem lägen.
+  Skriptet klassificerar INTE: om en text bär ett påstående om oss är en
+  läsarbedömning, och en regex som avgjorde det vore just det mönster ordern
+  förbjuder. Skriptet ger materialet maskerat och räknar bara vad spärrarna
+  gjorde. Talet står i `docs/beslutslogg.md` #52.
+
+- **Systemprompten säger i dag ingenting om påståenden om oss.** Regel 1 till 7
+  rör röst, skiljetecken, ordval, konkurrenter, pris, tal och lagtext. Ingen av
+  dem rör verkstadens eget utbud. Det är den billigaste åtgärden när formen är
+  mätt, och HELA prompten är sedan skiva 32 bunden ordagrant av test, se lucka 25.
+
+---
+
 ## Mall för en spärrpost
 
 Kopiera blocket nedan per spärr. Varje fält fylls i, tomma fält är en ofärdig
@@ -2846,6 +3303,57 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.29.0 — 2026-09-04
+
+**LUCKOR STÄNGDA, OCH NYA REGISTRERADE: 29 till 35.**
+Skiva 32, full §7 för sändvägen.
+
+**Stängda: 22, 25, 26 och 27. Lucka 24 är DELVIS stängd.** Var och en med sin
+EGENSKAP utskriven, inte med en utökad uppräkning:
+
+*Här stod rubriken "FYRA LUCKOR STÄNGDA" över en rad som räknade upp fem, och
+lucka 24 stod bland dem trots att samma post registrerar en öppen form av den.
+En mening som räknar sin egen omgivning är det §7.2 förbjuder. Fällt av
+§7-granskningen av skiva 32, varv 1.*
+
+| Lucka | Egenskapen |
+| --- | --- |
+| 22 | en tusengrupp är tre siffror som INTE följs av en fjärde |
+| 24 (delvis) | ett tal i ord bär en MULTIPLIKATOR före `tusen` eller `hundra` |
+| 25 | alla sju promptreglerna bundna ORDAGRANT |
+| 26 | enheten och räkneordet är STAMMAR med fri böjning |
+| 27 | ett författningsord kan vara ANDRA ledet i en sammansättning |
+
+**Rättade mot `tests/test_generera_monster.py`, en HISTORISK regressionstabell**
+över varje form någon lydelse någonsin fångat, körd i sin helhet efter varje
+enskild ändring. Skälet står i `docs/beslutslogg.md` #51.
+
+**Nya: lucka 29** (`pahittat-pastaende-om-oss`, egen post utan spärr) **och
+lucka 30** (bilmodeller och registreringsnummer lästa som tal). Båda MÄTTA över
+100 genererade svar, se #52.
+
+**Lucka 28 står kvar OFÖRÄNDRAD, och det är ett mätt beslut.** `FORDONSORD`
+fällde noll av 100. Talet lossar ingen spärr i sändvägen; det säger att formen
+inte uppstår i de fem prövade lägena, inte att den inte kan uppstå.
+
+**Luckorna 28 och 24:s kvarstående form bärs nu av `xfail(strict=True)`** i
+stället för av prosa. En lucka som är mätt är synlig; märkningen upphäver sig
+själv den dag mönstret rättas.
+
+**DRIFTVAKTEN ÄR SKIVANS STRUKTURELLA BEHÅLLNING.** `FORFATTNINGSORD` är byggd
+av tupeln `FORFATTNINGSTERMER`, och `test_varje_forfattningsterm_ar_ISOLERAD`
+kräver en rad där varje term är ENSAM om att matcha. En regressionstabell hindrar
+att en KÄND form tappas; isoleringsvakten hindrar att en OKÄND form tappas.
+Lucka 34 säger vad vakten inte bär.
+
+**SKIVAN STOPPADES MED FÖRBRUKAD GRIND, se `docs/beslutslogg.md` #53.**
+Luckorna 32 till 35 är kodfynd i sändvägen, mätta i varv 3 och medvetet INTE
+åtgärdade: en fjärde självmätt ändring i samma mönsterpar efter förbrukad grind
+är vad skiva 27 gjorde. Sex falska påståenden rättades däremot, eftersom det
+kravet gäller oavsett grind.
+
+Nya poster och ändrade luckor ⇒ MINOR.
 
 ### 0.28.0 — 2026-09-04
 

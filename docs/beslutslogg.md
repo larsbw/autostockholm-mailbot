@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.36.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
+**Version:** 0.39.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -2910,9 +2910,11 @@ bokningsbekräftelser och en fråga om en mellanvägg, och noll a-traktorpar.
 Mätningen ovan räknade en population koden inte använde. `las_exempel` hämtar nu
 kategorin ur `ometiketterade.jsonl` och tar bara a-traktorpar.
 
-**ÖPPEN PUNKT för Lars:** om §11:s krav på plural ska stå kvar oförändrat när
-utkorgen visar att nästan halva materialet är singular. Frågan är ställd och inte
-avgjord, och generatorn följer regeln som den lyder.
+*Här stod en ÖPPEN PUNKT för Lars om §11:s pluralkrav skulle stå kvar när
+utkorgen visar att nästan halva materialet är singular. **Punkten är AVGJORD i
+#50: §11 står oförändrad**, och strykningen är gjord på plats enligt undantaget
+i det här dokumentets huvud, eftersom en punkt som står kvar som öppen är ett
+falskt påstående om vad som är obeslutat.*
 
 ### En §11-regel som INGEN spärr täcker
 
@@ -2936,7 +2938,367 @@ varje fall.
 
 ---
 
+## #50 — Skiva 31 godkänns, och §11 STÅR OFÖRÄNDRAD
+
+**Datum:** 2026-09-04 · **Berör:** CLAUDE.md §11, #49, `src/generera.py`
+
+**Beslut av Lars i skiva 32.**
+
+**Skiva 31 är GODKÄND** trots att varv 3 underkände och grinden var förbrukad.
+Samma form som #34, #42 och #45: godkännandet gäller en enskild skiva och är
+inte en ändring av §7:s varvsgränser.
+
+**§11:s krav på första person plural STÅR OFÖRÄNDRAT.** #49:s öppna punkt är
+därmed avgjord och struken där den stod.
+
+**Att 14 av 43 par duger som få-exempel RÄCKER.** Lars skäl, ordagrant:
+
+> Regeln finns för att kunden ska möta en verkstad och inte en person, och att
+> utkorgen inte alltid följt den är ett skäl att välja bort de paren, inte att
+> sänka kravet.
+
+Det avgör spänningen #49 mätte upp, och det avgör den åt det håll som gör
+bortvalet till en FUNKTION i stället för ett bortfall: paren som bryter mot §11
+är sämre förebilder, inte förlorat underlag. Generatorns `_duger_som_exempel`
+står alltså kvar som den är.
+
+---
+
+## #51 — Spärrmönstren rättas mot en REGRESSIONSTABELL, inte mot det senaste fyndet
+
+**Datum:** 2026-09-04 · **Berör:** `src/generera.py`,
+`tests/test_generera_monster.py`, `docs/sparrar.md`, CLAUDE.md §7, §7.1
+
+**Skiva 32 byggde tabellen som skiva 31 saknade.** Ordningen är Lars:
+
+> Bygg en tabell över varje form som någon lydelse någonsin fångat, och kör hela
+> tabellen efter varje ändring. Ett mönster som fångar en ny form men tappar en
+> gammal är inte en rättelse.
+
+### Varför tabellen behövdes
+
+Skiva 31 ändrade `TROSKELTAL` och `FORFATTNINGSORD` i två av sina tre varv
+(`git diff 086cd93 4956c35 -- src/generera.py` visar att varv 3 ändrade enbart
+en kommentar), och varje
+rättelse införde ett nytt fel i motsatt riktning: ordgräns i båda ändar missade
+`Kravet`, ingen ordgräns alls fällde `lager` och `underlag`, ordgräns till
+vänster tappade `regler`. **Ingen av de tre ändringarna var fel i sig. Felet var
+att var och en prövades mot det senaste fyndet i stället för mot alla tidigare.**
+
+Det är §7:s regel RÄTTELSETEXT GRANSKAS SOM NY TEXT, tillämpad på kod i stället
+för på prosa. En regex är en påståendemängd, och en omskrivning gör HELA mängden
+oläst, inte bara den del fyndet pekade på. Jämför §7.2:s VID OMSKRIVNING RÄKNAS
+TALET SOM OLÄST: samma mekanik, samma botemedel, nämligen att pröva om mot
+källan i stället för mot minnet.
+
+**Tabellen är HISTORISK och inte en ögonblicksbild.** Varje rad bär den skiva och
+det varv den kommer ur, så att nästa läsare ser att raden är en gammal fångst och
+inte ett påhitt. Den bär BÅDA riktningarna: formerna som ska falla, och de
+önskade svar som en tidigare lydelse felaktigt fällde.
+
+### Vad tabellen stängde
+
+En rättelse i taget, hela tabellen körd efter var och en enligt §7:s regel om
+takt. Luckorna, i den ordning de togs:
+
+| Lucka | Vad som var trasigt | Egenskapen som rättade det |
+| --- | --- | --- |
+| 27 | `regler`, `Regleringen`, `Trafikreglerna`, `myndighetskrav` slapp igenom | ett författningsord kan vara ANDRA ledet i en sammansättning, alltså faller vänsterordgränsen för varje ENTYDIG stam |
+| 26 | `tusen kilogram`, `tusen kilon`, `tusentals kilo` slapp igenom | räkneordet blev en stam med fri böjning; enheten räknar upp två suffix och är DÄRFÖR ofullständig, se lucka 33 |
+| 22 | `1400 1500` slogs ihop till talet `1400150` | en tusengrupp är exakt tre siffror som INTE följs av en fjärde |
+| 24 | ett pris helt i ord, `tjugofemtusen`, fälldes av ingenting | ett tal i ord bär en MULTIPLIKATOR före `tusen` eller `hundra`; ett mängdord gör det inte |
+
+**Lucka 24 blev DELVIS stängd.** Ett räkneord utan multiplikand fälls inte:
+*"Det tar fjorton dagar"* passerar. Raden står som `xfail(strict=True)`.
+
+**Lucka 24:s lösning drar en gräns §7.2 kräver.** Paragrafen tillåter uttryckligen
+vaga mängdord. `tusentals` och `hundratals` fälls därför INTE, och tre rader i
+tabellen binder just den gränsen: en lydelse utan multiplikatorkrav gör dem röda.
+
+### Tabellen fällde skivans egen rättelse, och det är postens viktigaste led
+
+**Lucka 27:s egenskap tillämpades först på TVÅ av sju författningsordsstammar.**
+`regler` och `krav` fick sin vänsterordgräns struken; `föreskrift`,
+`bestämmels`, `paragraf`, `lagstiftning` och `reglement` fick behålla sin. Följden
+var att sju former som varv 1:s lydelse i skiva 31 fångade passerade:
+`Trafikföreskriften`, `Trafikbestämmelserna`, `Lagtexten`, `Lagarna`,
+`Reglementet`, `Lagparagrafen`, `Vägtrafiklagstiftningen`.
+
+**Och `regler\w*` införde en NY falsk positiv:** verbet `reglera` delar sträng
+med substantivet, så *"dragkroken är reglerbar"* fälldes. Det är ett vanligt
+verkstadsord.
+
+Båda fälldes av §7-granskningen av skiva 32, varv 1, alltså av en oberoende
+granskare och inte av tabellen själv. **Det är precis det utfall #51 finns för:**
+en egenskap som namnges rätt kan ändå tillämpas bara på de instanser fyndet pekade
+på, och då är den fortfarande en uppräkning.
+
+### Och varv 1:s rättelse tappade två termer, vilket gav postens andra regel
+
+Rättelsen skrev om HELA regexen i ett svep och lämnade `kräv` och `regeln` ute.
+**Regressionstabellen fångade det inte**, och skälet är strukturellt: varje rad
+som bar "kräver" bar också "Lagen", som fälldes av ett annat led. En tabell kan
+alltså inte upptäcka att en term försvinner så länge en annan term täcker samma
+rad.
+
+**DÄRFÖR ÄR MÖNSTRET NU EN TERMTUPEL MED EN DRIFTVAKT.**
+`src/generera.py::FORFATTNINGSTERMER` bär en term per rad, och
+`test_varje_forfattningsterm_ar_ISOLERAD` kräver att var och en har en rad där
+den är ENSAM om att matcha. Vakten mätte upp att **tolv av tjugotvå termer**
+saknade en sådan rad, bland dem just `kräv` och `regeln`.
+
+**Det är skillnaden mellan att rätta en instans och att stänga en klass.** En
+regressionstabell hindrar att en känd form tappas; en isoleringsvakt hindrar att
+en OKÄND form tappas. Formen är lånad från
+`test_varje_term_i_monstret_har_ett_testfall`, som fanns för `FORDONSORD` och
+saknades för de andra tre mönstren. `PRISORD` och `TROSKELTAL` saknar den
+fortfarande, registrerat som lucka 31.
+
+Samtliga former står nu i tabellen, i båda riktningarna.
+
+**`generera_ratext` tillkommer, och den är enbart ett MÄTVERKTYG.** Den lämnar ut
+modellens text före spärrarna, vilket krävs för att mäta hur ofta en spärr fäller
+ett önskat svar: `Sparrfalld` bär bara ett skäl, inte texten. `generera_utkast`
+är fortfarande den enda väg som lämnar ut ett utkast, och den prövar alltid
+`krav_pa_svaret` först.
+
+---
+
+## #52 — Lucka 29 och lucka 28 MÄTTA över hundra körningar
+
+**Datum:** 2026-09-04 · **Berör:** `docs/sparrar.md`, `src/generera.py`,
+`scripts/generator-matning.py`, #51
+
+**Underlaget:** `scripts/generator-matning.py --varv 20`, tjugo varv mot samma
+fem lägen, alltså **100 genererade svar**. Rådata i den gitignorerade
+`scratchpad/skiva32-matning.jsonl`, maskerad enligt §6.
+
+Skriptet **klassificerar inte**. Om en text bär ett påstående om oss är en
+läsarbedömning, och en regex som avgjorde det vore just det mönster Lars order
+förbjuder. Maskinellt räknas bara vad spärrarna gjorde; DEL C:s tal är läst.
+
+### Vad spärrarna gjorde
+
+| Spärr | Fällde av 100 |
+| --- | --- |
+| `genererat-tal-har-kalla` | 11 |
+| `genererat-fordonsfaktum` | **0** |
+| `troskeln-som-forfattningstext` | **0** |
+| passerade alla tre | 89 |
+
+De elva fördelar sig på 6 prisbesked, 2 på `156`, 2 på `5` och 1 på `50`.
+
+**UPPDELNINGEN ÄR EN UNDRE GRÄNS, inte en exakt fördelning.**
+`scripts/generator-matning.py` prövar de tre SPÄRRARNA var för sig, men inte de
+tre villkoren INUTI `krav_pa_tal_med_kalla`: den rapporterar det första som
+kastar. Ett svar som bär både ett prisord och en modellbeteckning räknas därför
+bara som prisbesked. Fällt av §7-granskningen av skiva 32, varv 2.
+**Fem av elva är alltså falska positiva**, och de kommer ur kundens egen text:
+`5` och `50` står i bilmodellerna **A5** och **V50**, som svaren nämner.
+
+Talet `156` fälldes i två svar, och båda bär `[REGNR]` i den maskerade texten.
+**Att `156` kom ur registreringsnumret går INTE att belägga ur artefakten:**
+råtexten sparas inte, bara den maskerade, så positionen är utraderad. En
+konkurrerande förklaring finns, nämligen att `Alfa Romeo 156` är en bilmodell.
+Vilken av dem som gäller är oprövat, och det ändrar ingenting i sak: **båda
+förklaringarna är kundens egen text.** Fällt av §7-granskningen av skiva 32,
+varv 1, som noterade att den ursprungliga formuleringen påstod en position som
+filen inte bär.
+
+**Det är en lucka till, och den registreras som lucka 30 i `docs/sparrar.md`.**
+
+### DEL D: lucka 28 fällde NOLL önskade svar
+
+`FORDONSORD` fällde **0 av 100**, och **0 av de 40 svar som saknade uppslag**,
+vilket är den population luckan gäller.
+
+**Talet är inte ett friskintyg, och det är viktigt att säga rakt ut.** De tre
+mätta formerna *"Vikten av att boka i tid"*, *"Vi återkommer om släp"* och *"Vi
+har en tung period"* fälls fortfarande, prövat, och står som `xfail(strict=True)`
+i `tests/test_generera_monster.py`. Vad mätningen visar är att modellen inte
+skriver dem i de fem lägen som prövats. **Frekvensen är noll i det här urvalet,
+inte i språket.**
+
+**Följden: `FORDONSORD` ÄNDRAS INTE.** Lars order var att mäta innan något
+ändras, och 0 av 100 är inte ett underlag för att lossa en spärr i sändvägen. En
+ändring skulle byta en mätt kostnad på noll mot en omätt risk, och det är fel
+riktning. Luckan står kvar registrerad och mätt.
+
+### DEL C: lucka 29, påhittade påståenden om oss
+
+**Kriteriet, utskrivet därför att talet beror av det:** en mening som hävdar ett
+FAKTUM om Auto Stockholm, alltså vad vår hemsida innehåller, våra öppettider, vad
+vi har på lager eller vad vi klarar, som kommer varken ur `config/` eller ur
+uppslaget. Artighetsfraser räknas inte, och inte heller beskrivningar av vad
+boten faktiskt gör.
+
+| Klass | Antal av 100 |
+| --- | --- |
+| **A. Påstående om vad vår hemsida innehåller** | **3** |
+| **B. Löfte om att vi kan hjälpa, när uppslaget MISSLYCKATS** | **2** |
+| **Summa** | **5** |
+
+**Klass A är formen skiva 31 fann, och den återkom tre gånger.** Samtliga tre i
+RÖTT-läget, alltså 3 av 20 röda svar:
+
+> *"Titta gärna på vår hemsida för tips om vad ni ska titta efter innan ni köper
+> bil, så slipper ni köpa fel."*
+
+> *"Titta gärna på våran hemsida för tips på hur ni kan dubbelkolla detta innan
+> ni köper bil."*
+
+> *"Vi rekommenderar att ni dubbelkollar detta på vår hemsida innan ni köper."*
+
+**Mönstret är inte slumpmässigt.** Modellen når efter något att erbjuda när den
+måste svara nej, och hittar då på en resurs hos oss. Det är den farligaste
+platsen formen kan uppstå på: kunden har just fått ett avslag och är mest benägen
+att följa hänvisningen.
+
+**Klass B, båda i läget där uppslaget MISSLYCKATS**, alltså där ingenting alls är
+känt om bilen. De två lyder olika, och båda återges maskerade som de står:
+
+> *"Vi kan absolut hjälpa dig med [NAMN] [NAMN] din A5."*
+
+> *"Vi kan absolut hjälpa dig med [NAMN]."*
+
+Den FÖRSTA fälldes av talspärren, på `5` ur `A5`, alltså av en slump och inte av
+formen. Den andra passerade alla tre spärrarna. **Ingen spärr rör klassen.**
+
+**INGEN SPÄRR BYGGS, enligt Lars uttryckliga order.** Formen är nu mätt och
+klassad; åtgärden hör till en egen skiva. Den billigaste är en åttonde regel i
+systemprompten, som sedan skiva 32 är bunden av test, se lucka 25.
+
+**Kontrollerat att inget missats:** noll svar bär påståenden om öppettider,
+garanti eller lagerhållning.
+
+---
+
+## #53 — Skiva 32 STOPPAS med förbrukad grind, och mönstren rörs inte en fjärde gång
+
+**Datum:** 2026-09-04 · **Berör:** CLAUDE.md §7, `src/generera.py`,
+`docs/sparrar.md`, #51, `docs/incidentlogg.md` I10
+
+**§7:s tre granskningsvarv är förbrukade och fynd kvarstår.** Regeln säger
+stoppa och rapportera öppet, aldrig sänka kraven. Den här posten är den
+rapporten. **Beslutet ligger hos Lars.**
+
+### Vad de tre varven fällde
+
+| Varv | Blockerande fynd | Det tyngsta |
+| --- | --- | --- |
+| 1 | tolv | Egenskapen för lucka 27 namngavs rätt och tillämpades på TVÅ av sju författningsordsstammar |
+| 2 | elva | Varv 1:s rättelse skrev om hela regexen i ett svep och TAPPADE `kräv` och `regeln` |
+| 3 | tio | Egenskapen tillämpades bara på VÄNSTERgränsen; högergränsen bär samma klass och nio former är kvar |
+
+**Det är samma fel tre gånger, och det är `docs/incidentlogg.md` I10:s form:
+egenskapen namnges rätt och tillämpas sedan bara på de instanser fyndet pekade
+på.** En egenskap som tillämpas på fyndets instanser är fortfarande en
+uppräkning, oavsett hur den formuleras.
+
+### Vad som INTE gjordes, och varför
+
+**INGEN FJÄRDE SJÄLVMÄTT ÄNDRING I MÖNSTREN.** Luckorna 32, 33, 34 och 35 är
+KODFYND i sändvägen. Att rätta dem nu vore en ändring i sändvägskod utan
+granskare, alltså precis vad skiva 27 gjorde efter förbrukad grind, och den
+kostade tre skivor. Skiva 31 stod emot samma frestelse och skrev ut det; den
+raden gäller här.
+
+**Det som DÄREMOT gjordes är att varje känt falskt påstående rättades.** §7:
+*"ETT KÄNT FALSKT PÅSTÅENDE RÄTTAS ALLTID. Det gäller på alla tre nivåerna."*
+Sex av varv 3:s tio fynd var falska påståenden, inte kod:
+
+| Vad som var falskt | Var |
+| --- | --- |
+| `regler(?!a|bar)\w*` namngavs som gällande mönster; det finns inte i `src/`, och mekanismen är den omvända | `docs/sparrar.md` |
+| *"enheten är en STAM med fri böjning"* om en regex som räknar upp två suffix, och `src/generera.py` sade motsatsen i samma commit | `docs/sparrar.md`, #51 |
+| *"TVÅ STAMMAR BEHÅLLER EN GRÄNS"* medan tio gör det | `docs/sparrar.md`, #51 |
+| sex av åtta tal i fällda-rad-tabellerna, föråldrade av tolv testrader som lades till i SAMMA ocommittade arbete | `docs/sparrar.md`, tre spärrposter |
+| lucka 25:s två helsvitrader sade `940 passed` där sviten ger `941` | `docs/sparrar.md` |
+| *"skriver bara till stdout och till gitignorerade `scratchpad/`"* om ett skript vars `--ut` tar en godtycklig sökväg | `tests/test_generera.py` |
+
+**Talen i tabellerna är omkörda SIST av allt**, efter att varje annan ändring
+var gjord, eftersom §7.2 gör ett tal oläst när dess underlag ändras i en
+grannmening. Att de föråldrades två gånger under skivan är samma defekt som den
+här posten fäller skiva 31 för.
+
+### Vad som HÅLLER, och som är skivans behållning
+
+**Driftvakten är den strukturella lärdomen och den står kvar.**
+`FORFATTNINGSORD` är byggd av tupeln `FORFATTNINGSTERMER`, och
+`test_varje_forfattningsterm_ar_ISOLERAD` kräver att varje term har en rad där
+den är ENSAM om att matcha. Vakten mätte upp att tolv av tjugotvå termer saknade
+en sådan rad.
+
+**Skillnaden är principiell:** en regressionstabell hindrar att en KÄND form
+tappas, en isoleringsvakt hindrar att en OKÄND form tappas. Tabellen kunde inte
+se att `kräv` försvann, därför att varje rad som bar "kräver" också bar "Lagen".
+
+Lucka 34 säger vad vakten INTE bär: den gäller termnivån, inte alternativ inuti
+en term.
+
+**Övrigt som är prövat och håller:** hela `SYSTEM` bunden ordagrant (lucka 25),
+regressionstabellen äkta enligt §7.1 med samtliga lager fällda, luckorna 22, 26
+och 27 stängda, lucka 24 delvis, de fyra `xfail(strict=True)` bevisat
+självupphävande, och **samtliga tal i #52 verifierade mot
+`scratchpad/skiva32-matning.jsonl` av granskaren**.
+
+### Öppna luckor efter skivan
+
+| # | Vad | Post |
+| --- | --- | --- |
+| 28 | `FORDONSORD` fäller önskade svar, mätt till 0 av 100 | `genererat-fordonsfaktum` |
+| 29 | påhittade påståenden om oss, mätt till 5 av 100 | egen post utan spärr |
+| 30 | bilmodeller och regnr lästa som tal, 5 av 11 fällningar | `genererat-tal-har-kalla` |
+| 31 | `PRISORD`:s termer skuggade, `kr` raderbar med grön svit | `genererat-tal-har-kalla` |
+| 32 | högergränsen, nio former | `troskeln-som-forfattningstext` |
+| 33 | massenhetens böjningar, fem former | `troskeln-som-forfattningstext` |
+| 34 | driftvakten når inte alternativ inuti en term | `troskeln-som-forfattningstext` |
+| 35 | ast-vakten ser bara `def` | `genererat-tal-har-kalla` |
+
+### Vad Lars behöver avgöra
+
+1. **Godkänns skivan** trots att varv 3 underkände, som skiva 23, 25, 27, 28, 29,
+   30 och 31?
+2. **Luckorna 32 till 35 är kodfynd i sändvägen.** Egen skiva med egen grind?
+3. **Den gemensamma åtgärden för 31, 32, 33 och 34 är EN sak:** ge `PRISORD`,
+   `TROSKELTAL` och `FORFATTNINGSORD` samma driftvakt, och låt den gälla
+   alternativ och inte bara termer. Då stängs fyra luckor av en ändring, i
+   stället för fyra ändringar som var och en riskerar ett nytt fel i motsatt
+   riktning.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.39.0 — 2026-09-04
+
+**#53 tillkommer:** skiva 32 stoppas med förbrukad grind och tio kvarstående
+fynd. Luckorna 32 till 35 registreras som mätta och oåtgärdade; sex falska
+påståenden rättas, eftersom det kravet gäller oavsett grind.
+
+Ny post ⇒ MINOR.
+
+### 0.38.0 — 2026-09-04
+
+**#52 tillkommer:** lucka 28 och lucka 29 mätta över 100 genererade svar.
+`FORDONSORD` fällde noll önskade svar och ändras därför inte. Lucka 29 uppstod i
+5 av 100: **3 av formen "vår hemsida", alla tre i RÖTT-läget**, och 2 löften om
+att vi kan hjälpa, båda i läget där uppslaget misslyckats. Posten registrerar
+också lucka 30, tal ur kundens egen text som läses som påhittade.
+
+*Här stod "3 av formen 'vår hemsida' och samtliga i RÖTT-läget", där "samtliga"
+gick att läsa som alla fem. De två övriga ligger i ett annat läge. Fällt av
+§7-granskningen av skiva 32, varv 1.*
+
+Ny post ⇒ MINOR.
+
+### 0.37.0 — 2026-09-04
+
+**#50 och #51 tillkommer.** #50 är Lars beslut: skiva 31 godkänd, §11 oförändrad,
+och #49:s öppna punkt struken på plats som avgjord. #51 är regressionstabellen,
+som stängde luckorna 22, 24, 26 och 27.
+
+Två nya poster ⇒ MINOR.
 
 ### 0.36.0 — 2026-09-04
 

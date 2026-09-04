@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.11.1 · **Uppdaterad:** 2026-09-04 · **Speglar:** beslutslogg #49
+**Version:** 0.11.3 · **Uppdaterad:** 2026-09-04 · **Speglar:** beslutslogg #53
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -518,6 +518,38 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.11.3 — 2026-09-04
+
+**`Speglar` följer med till beslutslogg #53.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 32:s stopposter lagts till.
+
+**§7:s tre granskningsvarv är OFÖRÄNDRADE.** #53 är en tillämpning av regeln och
+inte ett undantag från den: skivan stoppades därför att fynd kvarstod efter tre
+varv, vilket är precis vad tabellens rad för SÄNDVÄG föreskriver.
+
+**§0:s styrdokumentlista är oförändrad.** Skiva 32 skapade ett test, ett
+mätverktyg och en delad skriptmodul, alltså inget styrdokument.
+
+Ren synk ⇒ PATCH.
+
+### 0.11.2 — 2026-09-04
+
+**`Speglar` följer med till beslutslogg #52.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 32:s tre poster lagts till.
+
+**§0:s styrdokumentlista är oförändrad.** Skiva 32 skapade
+`tests/test_generera_monster.py`, `scripts/generator-matning.py` och
+`scripts/prov_stod.py`, alltså ett test, ett mätverktyg och en delad
+skriptmodul. Inget styrdokument.
+
+**Ingen regel i det här dokumentet är ändrad.** #50 bekräftar uttryckligen att
+§11 STÅR OFÖRÄNDRAD, alltså är den posten ett beslut om att INTE ändra §11 och
+inte en ändring. #51:s regel om regressionstabeller bor i `docs/sparrar.md` och
+`docs/beslutslogg.md`, inte här: den säger hur en spärr rättas, vilket §7.1
+redan reglerar i stort.
+
+Ren synk ⇒ PATCH.
 
 ### 0.11.1 — 2026-09-04
 
