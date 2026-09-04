@@ -1993,17 +1993,19 @@ aldrig kedjan vidare, och `from src import auth` hade sett ut som en import av
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| båda lagren, villkoren satta till `False` | RÖD, `9 failed, 36 passed` | neutraliserade |
-| enbart importlagret | RÖD, `8 failed, 37 passed` | neutraliserad |
-| enbart källtextlagret | RÖD, `1 failed, 44 passed` | neutraliserad |
-| kedjeledet `namn.update(f"{paket}.{alias.name}" ...)` | RÖD, `4 failed, 41 passed` | raderad |
-| kedjeledet `namn.add(paket)` | RÖD, `2 failed, 43 passed` | raderad |
-| nivåvillkoret `if nod.level:` satt till `if False:` | RÖD, `4 failed, 41 passed` | neutraliserad |
-| `i_modul` i `moduler_i_vyn`, satt till tom sträng | RÖD, `1 failed, 44 passed` | neutraliserad |
-| `i_modul` i `krav_pa_sandvagsfrihet`, satt till tom sträng | RÖD, `1 failed, 44 passed` | neutraliserad |
-| `krav_pa_sandvagsfrihet()` i `starta` | RÖD, `1 failed, 44 passed` | raderad |
-| `HTTPServer(("127.0.0.1", port), ...)` satt till `"0.0.0.0"` | RÖD, `1 failed, 44 passed` | neutraliserad |
-| `def log_message` omdöpt, alltså övertäckningen borttagen | RÖD, `1 failed, 44 passed` | neutraliserad |
+| båda lagren, villkoren satta till `False` | RÖD, `11 failed, 36 passed` | neutraliserade |
+| enbart importlagret | RÖD, `10 failed, 37 passed` | neutraliserad |
+| enbart källtextlagret | RÖD, `1 failed, 46 passed` | neutraliserad |
+| kedjeledet `namn.update(f"{paket}.{alias.name}" ...)` | RÖD, `5 failed, 42 passed` | raderad |
+| kedjeledet `namn.add(paket)` | RÖD, `3 failed, 44 passed` | raderad |
+| nivåvillkoret `if nod.level:` satt till `if False:` | RÖD, `6 failed, 41 passed` | neutraliserad |
+| nivåns djup, `[:-niva]` hårdkodat till `[:-1]` | RÖD, `1 failed, 46 passed` | neutraliserad |
+| paketuppslaget, `vag / "__init__.py"` borttaget ur formerna | RÖD, `1 failed, 46 passed` | neutraliserad |
+| `i_modul` i `moduler_i_vyn`, satt till tom sträng | RÖD, `3 failed, 44 passed` | neutraliserad |
+| `i_modul` i `krav_pa_sandvagsfrihet`, satt till tom sträng | RÖD, `1 failed, 46 passed` | neutraliserad |
+| `krav_pa_sandvagsfrihet()` i `starta` | RÖD, `1 failed, 46 passed` | raderad |
+| `HTTPServer(("127.0.0.1", port), ...)` satt till `"0.0.0.0"` | RÖD, `1 failed, 46 passed` | neutraliserad |
+| `def log_message` omdöpt, alltså övertäckningen borttagen | RÖD, `1 failed, 46 passed` | neutraliserad |
 
 **DE TVÅ `i_modul`-ARGUMENTEN FÄLLS VAR FÖR SIG, och de bär olika fall.** Det i
 `moduler_i_vyn` är det som får VANDRINGEN att följa en relativ import vidare;
@@ -2031,7 +2033,7 @@ kod och prövas därför här. Bindningen till loopback är skivans centrala
 §6-påstående, eftersom vyn saknar inloggning: den som når porten når kundtexten.
 Båda var ovaktade fram till varv 2.
 
-Sviten var `tests/test_vy.py`, som bar 45 test vid mätningen. Kommandot är
+Sviten var `tests/test_vy.py`, som bar 47 test vid mätningen. Kommandot är
 `scripts/sparr-prova.sh --fil src/vy.py --ersatt "<rad>=..." -- tests/test_vy.py
 -q --tb=no -rN`. Radnumren skrivs inte ut, eftersom de flyttar av varje
 redigering i filen; villkorens TEXT står ovan.
@@ -2073,8 +2075,17 @@ metoder: `do_GET`, `do_POST` och en tystad `log_message`. All vägval sker i
 | --- | --- | --- |
 | GET | vilken som helst, tom fall-lista | sidan `Inga fall.` |
 | GET | vilken som helst, med fall | `rendera_referens` på det upplösta indexet |
-| POST | vilken som helst | `spara_referenssvar` på det upplösta indexet |
+| POST | vilken som helst, med fall | `spara_referenssvar` på det upplösta indexet |
+| POST | vilken som helst, TOM fall-lista | `IndexError`, se nedan |
 | POST | vid `ValueError` | `rendera_fel`, status 400 |
+
+**`do_POST` SAKNAR `do_GET`:s TOMFALLSVAKT.** `_index_ur_vag(vag, 0)` ger 0 för
+varje väg, och `fall[0]` kastar då `IndexError` i stället för att svara. Ingen
+läcka, men ett obehandlat undantag i stället för en sida. Vakten är AVSIKTLIGT
+inte tillagd i skiva 28: den vore ny och otestad kod i sändvägen, och luckan ska
+mätas nu och stängas av den skiva som kopplar in granskningsläget. Att lägga in
+en oprövad vakt i sändvägen är precis vad skiva 27 gjorde efter förbrukad grind,
+och vad de här granskningsvarven har handlat om.
 
 **INGEN AV DEM HAR ETT TEST.** `grep -rn "do_GET\|do_POST\|_index_ur_vag" tests`
 ger en enda träff, och den ligger i en docstring. Två rader går att fälla med
@@ -2109,6 +2120,18 @@ har `action='/omdome'`. Den vägen löses till index 0, och `do_POST` anropar
 ett REFERENSSVAR mot första posten. Det är ofarligt i dag enbart därför att
 lucka 15 gör att ingen rutt når granskningsläget, alltså skyddar en lucka en
 annan.
+
+**ESCAPKLASSEN GÄLLER RENDERARNA, INTE HTTP-LAGRET.**
+`test_varje_falt_pa_fall_escapas` och
+`test_varje_strangparameter_till_renderarna_escapas` härleder sina fält ur `Fall`
+och sina parametrar ur `inspect.signature`, men bara för `rendera_referens` och
+`rendera_granskning`. `do_POST`:s kvittenssida byggs direkt av `SIDHUVUD`, fast
+text och ett heltal, alltså utan renderare. Uppmätt av §7-granskningen av skiva
+28, varv 2: rå kundtext insatt i den sidan ger hela sviten GRÖN.
+
+Den bär ingen kundtext i dag. Men klassen är stängd för renderarna och öppen
+här, och mängden renderare är själv en uppräkning i testet. Det hör till samma
+lucka och till samma skiva som stänger den.
 
 **Vad som skulle stänga den.** Ett test per rutt, och en `_index_ur_vag` som
 AVVISAR en väg den inte känner igen i stället för att falla tillbaka på 0. Den
@@ -2174,9 +2197,9 @@ Formerna bärs av ett test var, samtliga i `tests/test_vy.py`:
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if sparr:` satt till `if False:` | RÖD, `1 failed, 44 passed` | neutraliserad |
-| `html.escape` runt `forslag` och `sparr` borttagen | RÖD, `1 failed, 44 passed` | neutraliserade |
-| `html.escape(str(fel))` i `rendera_fel` borttagen | RÖD, `1 failed, 44 passed` | neutraliserad |
+| `if sparr:` satt till `if False:` | RÖD, `1 failed, 46 passed` | neutraliserad |
+| `html.escape` runt `forslag` och `sparr` borttagen | RÖD, `1 failed, 46 passed` | neutraliserade |
+| `html.escape(str(fel))` i `rendera_fel` borttagen | RÖD, `1 failed, 46 passed` | neutraliserad |
 
 **De tre sista raderna vaktar §6 och inte DEL 0**, och står här därför att de
 sitter i samma renderare.
@@ -2266,11 +2289,11 @@ Luckan är öppen och inte stängd av den här skivan.
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if relativ.parts[:1] != ("data",) and ... != ("logg",):` satt till `if False:` | RÖD, `4 failed, 41 passed` | neutraliserad |
-| `krav_pa_skrivbar_sokvag(parfil)` i `spara_referenssvar`, ENSAMT | RÖD, `1 failed, 44 passed` | raderad |
-| `krav_pa_skrivbar_sokvag(omdomesfil)` i `spara_omdome`, ENSAMT | RÖD, `1 failed, 44 passed` | raderad |
+| `if relativ.parts[:1] != ("data",) and ... != ("logg",):` satt till `if False:` | RÖD, `4 failed, 43 passed` | neutraliserad |
+| `krav_pa_skrivbar_sokvag(parfil)` i `spara_referenssvar`, ENSAMT | RÖD, `1 failed, 46 passed` | raderad |
+| `krav_pa_skrivbar_sokvag(omdomesfil)` i `spara_omdome`, ENSAMT | RÖD, `1 failed, 46 passed` | raderad |
 
-Sviten var `tests/test_vy.py` med 45 test, samma som ovan.
+Sviten var `tests/test_vy.py` med 47 test, samma som ovan.
 
 **DE TVÅ ANROPEN FÄLLS VAR FÖR SIG, ALDRIG TILLSAMMANS, och det är ett fynd och
 inte en formsak.** Skiva 27:s första prövning fällde båda i samma körning, fick
@@ -2493,7 +2516,10 @@ som skrevs efter att grinden var förbrukad och som ingen annan hade sett.
 Omgången UNDERKÄNDE dem.
 
 **KLAUSULEN OM LAGRAT FÖRSVAR BÄR NU BÅDA RIKTNINGARNA**, i rutan överst.
-Klausulen har sedan skiva 5 sagt att för få fällda lager ger falskt VAKUÖST.
+Klausulen har sagt att för få fällda lager ger falskt VAKUÖST sedan `f9b680a` i
+CLAUDE.md och `820c2ce` i det här dokumentet, alltså sedan repots första commit
+respektive skiva 1. Avläst ur
+`git log --oneline --all -S "inkonklusivt, inte vakuöst" -- docs/sparrar.md`.
 Skiva 27 visade motriktningen: en SAMMANSLAGEN fällning av flera rader ger RÖD,
 och det läses som att alla bär när bara den ena gör det. Instansen är mätt och
 utskriven. Skillnaden mellan LAGER, som fångar samma fall, och
@@ -2525,9 +2551,40 @@ klass, och att varv 3 fann fyra ovaktade platser. Det var sex, avläst ur
 sista är inte en krasch utan ett referenssvar sparat mot FEL inkommande mail,
 alltså ett felaktigt träningsunderlag för rösten. Beslut av Lars i skiva 28.
 
-**Varje tal i varje tabell är omkört mot 45 test.**
+**Varje tal i varje tabell är omkört mot 47 test.**
 
 Ny klausul, ny lucktext och stängda hål ⇒ MINOR.
+
+### 0.26.0, varv 2 — rättelser efter §7-granskningen
+
+Posten ovan skrevs i varv 1 och står kvar. Varv 2 underkände den på sex
+blockerande fynd, och de här raderna hör till samma version.
+
+**TVÅ HÅL TILL I SÄNDVÄGSSPÄRREN, båda i samma funktionspar.**
+
+- **`_paket`:s NIVÅ var vakuös.** `[:-niva]` gick att hårdkoda till `[:-1]` med
+  hela sviten grön, trots att docstringen påstår att varje extra punkt tar ett
+  steg uppåt. Inget test hade en modul djup nog att skilja formerna åt. Bundet
+  av `test_nivan_raknas_steg_for_steg_uppat`, med vyn på djup fyra.
+- **VANDRINGEN KUNDE ALDRIG LÄSA ETT PAKETS `__init__.py`.** Modulnamnet `src`
+  mappades till `src.py`, som inte finns, alltså hoppades filen över. En sändväg
+  i `src/__init__.py` var osynlig för båda lagren, trots att den filen körs av
+  varje `from . import x`. Uppslagningen prövar nu båda formerna.
+
+**Den andra är den allvarligare** och var oregistrerad: posten räknar upp sina
+luckor och den saknades. Det är samma sorts oredovisade räckviddsinskränkning som
+posten själv säger är farligare än en som namnger sin räckvidd.
+
+**TRE FALSKA PÅSTÅENDEN I VARV 1:s EGEN TEXT.** Klausulen daterades till skiva 5
+och står i `f9b680a` respektive `820c2ce`. Två strykningsnoter hänvisade till en
+version `0.25.4` som aldrig skrevs. Och 0.25.3 bar kvar nivåfelet om `snippet`,
+alltså exakt det fynd varv 1 fällde, i den post där tre andra falskheter ströks i
+samma skrivning.
+
+**Lucka 16 bär nu också** att `do_POST` saknar `do_GET`:s tomfallsvakt, och att
+escapklassen är stängd för renderarna men öppen för det `do_POST` bygger själv.
+Ingen av dem är åtgärdad: att lägga oprövad kod i sändvägen är vad skiva 27
+gjorde efter förbrukad grind.
 
 ### 0.25.3 — 2026-09-04
 
@@ -2547,7 +2604,7 @@ ett för formen och ett för nollfallet.
 *Här stod att `nod.module` är None "för varje relativ import". Struket som känt
 falskt: `from .auth import bygg` är relativ och bär `module` lika med `auth`.
 Den premissen var dessutom skälet till att rättelsen lämnade den formen öppen.
-Fällt av §7-granskningen av skiva 28, se 0.25.4.*
+Fällt av §7-granskningen av skiva 28, se 0.26.0.*
 
 **Escapningen stängdes som instanser.** Varv 2 stängde en ovaktad
 `html.escape`, och varv 3 stängde de övriga. `rendera_fel` är utbruten ur
@@ -2557,7 +2614,7 @@ Fällt av §7-granskningen av skiva 28, se 0.25.4.*
 3 fann "fyra till". Båda struket som känt falskt: testet räknade upp de fält som
 fanns när det skrevs, alltså föll det inte av ett nytt fält, och de ovaktade
 platserna var sex. Klassen stängdes först i skiva 28. Fällt av
-§7-granskningen av skiva 28, se 0.25.4.*
+§7-granskningen av skiva 28, se 0.26.0.*
 
 **Ett test mätte att en metod FANNS, inte att den tiger.**
 `test_servern_loggar_inte_vad_lars_laser` anropar nu `log_message` med stderr
@@ -2566,7 +2623,14 @@ fångad.
 **Lucka 16 registrerad:** HTTP-lagret är otestat. **Ett känt falskt påstående
 struket:** att inget test använde formen `from paket.modul import namn`.
 `tests/test_vy.py` bär den sedan `8e369ce`. Och ett led preciserat: `snippet`
-finns på alla 1604 trådar men är tomt på fem.
+sitter på MEDDELANDET, alltså på vart och ett av de 1755 meddelanden de 1604
+trådarna bär, och är tomt på fem av dem.
+
+*Här stod att `snippet` finns på "alla 1604 trådar". Noll trådar bär fältet på
+sin toppnivå. Struket som känt falskt: skiva 28 rättade samma påstående i tre
+andra filer i samma commit och lämnade det stå kvar här, i den post där tre
+andra falskheter ströks i samma skrivning. Fällt av §7-granskningen av skiva 28,
+varv 2.*
 
 **Varje tal i varje tabell är omkört mot 41 test.**
 

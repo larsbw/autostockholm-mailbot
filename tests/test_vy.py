@@ -222,6 +222,59 @@ def test_relativ_import_av_en_forbjuden_modul_falls_pa_NAMNET(tmp_path):
     assert "src.auth" in str(fel.value)
 
 
+def test_vandringen_laser_ett_pakets_init(tmp_path):
+    """`src/__init__.py` KÖRS av varje `from . import x` och lästes aldrig.
+
+    Uppslagningen mappade modulnamnet `src` till `src.py`, som inte finns, och
+    hoppade över den. En sändväg i `src/__init__.py` var därmed osynlig för
+    både importlagret och källtextlagret, trots att filen körs varje gång
+    paketet rörs.
+
+    Funnen av §7-granskningen av skiva 28, varv 2, som en oregistrerad
+    räckviddsinskränkning.
+    """
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "__init__.py").write_text("import smtplib\n", encoding="utf-8")
+    (tmp_path / "src" / "vy.py").write_text("from . import auth\n", encoding="utf-8")
+    (tmp_path / "src" / "auth.py").write_text("OFARLIG = 1\n", encoding="utf-8")
+
+    with pytest.raises(vy.Sandvagsfel) as fel:
+        vy.krav_pa_sandvagsfrihet(rot=tmp_path)
+
+    assert "smtplib" in str(fel.value)
+
+
+def test_nivan_raknas_steg_for_steg_uppat(tmp_path):
+    """`_paket`:s NIVÅ, som var vakuös.
+
+    Docstringen påstår att varje extra punkt tar ett steg till uppåt, och
+    `[:-niva]` gick att hårdkoda till `[:-1]` med hela sviten grön: inget test
+    hade en modul djup nog för att skilja formerna åt.
+
+    Här ligger vyn i `src/a/b/`, alltså på djup fyra, och `from .. import auth`
+    ska nå `src/a/auth.py` och inte `src/a/b/auth.py`. Med `[:-1]` löses den
+    till fel paket och spärren letar efter fel fil.
+
+    Funnen av §7-granskningen av skiva 28, varv 2.
+    """
+    assert vy._paket("src.a.b", 2) == "src"
+    assert vy._paket("src.a.b", 1) == "src.a"
+
+    djup = tmp_path / "src" / "a" / "b"
+    djup.mkdir(parents=True)
+    for katalog in (tmp_path / "src", tmp_path / "src" / "a", djup):
+        (katalog / "__init__.py").write_text("", encoding="utf-8")
+    (djup / "vy.py").write_text("from .. import auth\n", encoding="utf-8")
+    (tmp_path / "src" / "a" / "auth.py").write_text(
+        "import smtplib\n", encoding="utf-8"
+    )
+
+    with pytest.raises(vy.Sandvagsfel) as fel:
+        vy.krav_pa_sandvagsfrihet(start="src.a.b.vy", rot=tmp_path)
+
+    assert "smtplib" in str(fel.value)
+
+
 def test_relativ_import_utan_kant_modul_gissar_inte():
     """NOLLFALLET: går paketet inte att bestämma hittas det inte på.
 

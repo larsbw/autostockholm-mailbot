@@ -2536,12 +2536,20 @@ har ingen sändväg alls. Uppräkningen räcker tills vyn ska ut på Railway enl
 #38, och den flytten är en egen skiva med egen grind. Då, och inte innan, är
 uppräkningen otillräcklig.
 
-**SKÄLET ATT VÄNTA ÄR MÄTT, inte principiellt.** Spärren mot markup i ett värde
-tog fem skivor: `0863a8e`, `8629223`, `52d0a97`, `64b56e4` och `d38b59e`, alltså
-skiva 21 till 25. Skiva 21 bar redan klassen, att ett mönster skrivet för sidans
-nuvarande markup TYSTNAR i stället för att kasta. Varje mellanliggande skiva
-rättade en uppräkning med en längre uppräkning, och först skiva 25 bytte metod
-och mätte egenskapen.
+**SKÄLET ATT VÄNTA ÄR MÄTT, inte principiellt.** Avläsningen av fordonsfakta ur
+en sida tog fem skivor: `0863a8e`, `8629223`, `52d0a97`, `64b56e4` och
+`d38b59e`, alltså skiva 21 till 25. Skiva 21 bar redan klassen, att ett mönster
+skrivet för sidans nuvarande markup TYSTNAR i stället för att kasta.
+
+**Två metodbyten behövdes, inte ett.** Skiva 22 bytte regex mot `html.parser` på
+beslut i #32. Först därefter kunde spärren mot markup i ett värde formuleras, och
+den formulerades som en HÄNDELSELISTA som föll om och om igen, tills skiva 25
+bytte till att mäta EGENSKAPEN.
+
+*Här stod att varje mellanliggande skiva rättade en uppräkning med en längre.
+Det är falskt om skiva 22, som bytte metod och som dessutom införde lucka 11 i
+stället för att rätta en uppräkning: spärren mot markup fanns inte än. Fällt av
+§7-granskningen av skiva 28, varv 2.*
 
 **Lärdomen ska användas och inte upprepas.** Att byta från uppräkning till
 egenskap är rätt drag, men det är ett drag som förtjänar en egen skiva med egen

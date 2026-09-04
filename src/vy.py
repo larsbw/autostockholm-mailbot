@@ -196,6 +196,13 @@ def moduler_i_vyn(start: str = "src.vy", rot: Path | None = None) -> dict[str, s
     vidare, men deras NAMN prövas mot `FORBJUDNA_MODULER` av anroparen: det är
     importen av dem som är förbjuden, inte vad de i sin tur gör.
 
+    **ETT PAKET LIGGER I `__init__.py`, inte i `<namn>.py`.** Uppslagningen
+    prövar båda formerna. Utan den andra formen mappades modulnamnet `src` till
+    `src.py`, som inte finns, och `src/__init__.py` lästes ALDRIG, trots att den
+    filen körs av varje `from . import x` och varje `from src import x`. En
+    sändväg där var osynlig för båda lagren. Fällt av §7-granskningen av
+    skiva 28, varv 2.
+
     `rot` är None som förval och slås upp vid ANROPET, inte i signaturen. Se
     `_rot`.
     """
@@ -207,14 +214,26 @@ def moduler_i_vyn(start: str = "src.vy", rot: Path | None = None) -> dict[str, s
         modul = kvar.pop()
         if modul in sedda:
             continue
-        fil = rot / (modul.replace(".", "/") + ".py")
-        if not fil.exists():
+        kalla = _kalla_for_modul(modul, rot)
+        if kalla is None:
             continue
-        kalla = fil.read_text(encoding="utf-8")
         sedda[modul] = kalla
         kvar.extend(_lokala_importer(kalla, modul))
 
     return sedda
+
+
+def _kalla_for_modul(modul: str, rot: Path) -> str | None:
+    """Källan till en modul i repot, eller None om den inte finns här.
+
+    Två former prövas, och båda behövs: `paket/modul.py` för en vanlig modul och
+    `paket/__init__.py` för ett paket. Den andra är den som saknades.
+    """
+    vag = rot / modul.replace(".", "/")
+    for fil in (vag.with_suffix(".py"), vag / "__init__.py"):
+        if fil.exists():
+            return fil.read_text(encoding="utf-8")
+    return None
 
 
 def _rot(rot: Path | None) -> Path:
