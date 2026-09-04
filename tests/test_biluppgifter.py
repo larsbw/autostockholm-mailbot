@@ -76,8 +76,13 @@ REGNR = "ABC12X"
 
 
 @pytest.fixture(autouse=True)
-def logg_i_tmp(tmp_path, monkeypatch):
+def logg_i_tmp(tmp_path, monkeypatch, request):
     """INGEN TESTKÖRNING SKRIVER I REPOTS `logg/`.
+
+    Ett test måste kunna se den RIKTIGA konstanten: det som prövar att loggfilen
+    ligger i en gitignorerad katalog. Det märks `riktig_loggfil` och hoppas över
+    här. Utan undantaget prövade det fixturens temporärkatalog i stället för
+    modulens rad, alltså ingenting.
 
     `biluppgifter_hamtning` loggar varje misslyckat uppslag, och den här filen
     bär hundratals uppslag som misslyckas med flit. Utan omdirigeringen hade
@@ -87,6 +92,8 @@ def logg_i_tmp(tmp_path, monkeypatch):
     Fixturen är `autouse` därför att kravet gäller varje test i filen, och en
     fixtur man måste komma ihåg att begära är en fixtur någon glömmer.
     """
+    if "riktig_loggfil" in request.keywords:
+        return
     monkeypatch.setattr(biluppgifter, "LOGGFIL", tmp_path / "uppslag.jsonl")
 
 
@@ -626,22 +633,37 @@ def test_en_statuskod_forsoks_ALDRIG_om(monkeypatch):
     assert len(anrop) == 1
 
 
-def test_avbruten_kropp_ar_ett_natverksfel_och_forsoks_om(monkeypatch):
-    """`IncompleteRead` är VARKEN `OSError` ELLER `URLError`, mätt.
+@pytest.mark.parametrize(
+    "fel",
+    [
+        http.client.IncompleteRead(b"halv"),
+        http.client.BadStatusLine("skräp"),
+        http.client.LineTooLong("statusraden"),
+    ],
+)
+def test_http_protokollfel_ar_natverksfel_och_forsoks_om(monkeypatch, fel):
+    """HELA `HTTPException`-FAMILJEN, inte en uppräkning av syskon.
 
-    En kropp som klipps mitt i är ett övergående nätverksfel, men den undantags-
-    typen ligger utanför båda de arv `_hamta_sidan` fångade. Följden var tre på
-    en gång: inget omförsök, ingen `Hamtningsfel`, och ingen loggrad, alltså ett
-    uppslag som föll rått rakt igenom.
+    Ingen av dem är `OSError` eller `URLError`, mätt, så de låg utanför båda de
+    arv `_hamta_sidan` fångade. Följden var tre på en gång: inget omförsök,
+    ingen `Hamtningsfel`, och ingen loggrad, alltså ett uppslag som föll rått
+    rakt igenom.
 
-    Funnet av §7-granskningen av skiva 29, varv 1.
+    **VARV 1 STÄNGDE `IncompleteRead` OCH LÄMNADE SYSKONEN ÖPPNA.** Varv 2 mätte
+    att `BadStatusLine` och `LineTooLong` kastas av `getresponse()`, som
+    `urllib` inte omsluter, och att de nådde anroparen råa. Spärren fångar nu
+    BASKLASSEN, alltså egenskapen i stället för uppräkningen. Det är samma
+    riktning som lucka 12 tog i skiva 25.
+
+    Parametrarna är de tre formerna, en per rad, så att en ny medlem i familjen
+    inte behöver ett eget test för att täckas.
     """
     anrop = []
 
     def urlopen(*_a, **_k):
         anrop.append(1)
         if len(anrop) == 1:
-            raise http.client.IncompleteRead(b"halv")
+            raise fel
         return _svar("<html></html>")
 
     monkeypatch.setattr("src.biluppgifter.urllib.request.urlopen", urlopen)
@@ -664,6 +686,34 @@ def test_user_agent_namnger_oss_och_ar_ingen_forkladnad():
 
 
 # ------------------------------------------------------ loggen, skiva 29
+
+
+@pytest.mark.riktig_loggfil
+def test_loggfilen_ligger_i_en_gitignorerad_katalog():
+    """§6-KRAVET SOM INGENTING BAND.
+
+    Registreringsnumret är persondata och får bara stå på en plats som inte
+    pushas. `LOGGFIL` är den enda raden som avgör var det hamnar, och den gick
+    att peka om till `docs/` med hela sviten grön: varken ett test, `.gitignore`
+    eller `persondatakontroll.py` fällde. Det sista fäller inte, eftersom den
+    bara granskar SPÅRADE filer och en nyskriven loggfil är ospårad.
+
+    Testet läser `.gitignore` i stället för att jämföra mot ett hårdkodat namn,
+    så att raden binds av det som FAKTISKT skyddar den och inte av en kopia av
+    sitt eget påstående.
+
+    Funnet av §7-granskningen av skiva 29, varv 2, som en vakuös rad.
+    """
+    rot = Path(__file__).resolve().parent.parent
+    katalog = biluppgifter.LOGGFIL.relative_to(rot).parts[0]
+
+    ignorerade = {
+        r.strip().rstrip("/")
+        for r in (rot / ".gitignore").read_text(encoding="utf-8").splitlines()
+        if r.strip() and not r.startswith("#")
+    }
+
+    assert katalog in ignorerade
 
 
 def _loggrader() -> list[dict]:

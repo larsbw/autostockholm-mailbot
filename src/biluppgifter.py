@@ -996,7 +996,9 @@ def logga_uppslag(regnr: str, skal: str, **extra) -> dict:
     inte. Med `_hamta_sidan` som hämtare är `status` alltid `int` och `detalj`
     alltid `str`, så vägen är oåtkomlig i drift, men en injicerad `oppna` kan nå
     den. *Här stod "får ALDRIG hindra ett uppslag", vilket var starkare än
-    koden. Fällt av §7-granskningen av skiva 29, varv 1.*
+    koden. Fällt av §7-granskningen av skiva 29, varv 1. Den lydelsen nådde
+    aldrig origin och går därför inte att slå upp i historiken, till skillnad
+    från de flesta noter av den här formen i filen.*
     """
     post = {
         "tidsstampel": datetime.now(timezone.utc).isoformat(),
@@ -1103,12 +1105,12 @@ def _hamta_sidan(regnr: str) -> tuple[int, str]:
     # kastar samma typ för båda, och docstringen ovan vore falsk om sin egen kod.
     try:
         return _ett_forsok(regnr)
-    except (urllib.error.URLError, TimeoutError, OSError, http.client.IncompleteRead):
+    except (urllib.error.URLError, TimeoutError, OSError, http.client.HTTPException):
         pass
 
     try:
         return _ett_forsok(regnr)
-    except (urllib.error.URLError, TimeoutError, OSError, http.client.IncompleteRead) as fel:
+    except (urllib.error.URLError, TimeoutError, OSError, http.client.HTTPException) as fel:
         raise Hamtningsfel(f"biluppgifter.se gick inte att nå: {fel}") from fel
 
 
@@ -1123,7 +1125,8 @@ def _ett_forsok(regnr: str) -> tuple[int, str]:
     Det ligger i att `HTTPError` KONVERTERAS till `Hamtningsfel` här, alltså
     innan den kan nå `_hamta_sidan`:s omförsök, som bara fångar de råa typerna.
     *Här stod "fångas därför först", som beskriver en ordning mellan klausuler
-    som inte finns. Fällt av §7-granskningen av skiva 29, varv 1.*
+    som inte finns. Fällt av §7-granskningen av skiva 29, varv 1. Den lydelsen
+    nådde aldrig origin och går därför inte att slå upp i historiken.*
     """
     begaran = urllib.request.Request(
         URL_MALL.format(regnr=regnr),

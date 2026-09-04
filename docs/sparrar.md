@@ -1325,17 +1325,24 @@ fyra lager plus parserns egna villkor. Att hålla två tabeller som mäter samma
 fällningar mot samma baslinje är inte dubbel säkerhet: det är två tal att hålla i
 takt, och postens historik visar vad som händer när de glider isär.
 
-**BASLINJEN ÄR 225 SEDAN SKIVA 29, och tabellen är INTE omkörd.** Skivan lade
-till elva test för omförsöket och loggen och rörde ingen spärr: `git diff` mot
-`005fe1e` visar att inget av de fyra lagren, `_kontrollera`, `_las_falt` eller
-parserns villkor är ändrat. Tabellens tal är därför sanna om baslinjen 214, som
-den själv namnger, och det är den formen posten redan använder på annat håll.
+**BASLINJEN ÄR 231 SEDAN SKIVA 29, och tabellen är INTE omkörd.** Talet är
+avläst ur `pytest tests/test_biluppgifter.py --collect-only -q`. Skivan lade till
+test för omförsöket och loggen och rörde ingen spärr: `git diff` mot `005fe1e`
+visar att inget av de fyra lagren, `_kontrollera`, `_las_falt` eller parserns
+villkor är ändrat. Tabellens tal är därför sanna om baslinjen 214, som den själv
+namnger, och det är den formen posten redan använder på annat håll.
+
+*Här stod "BASLINJEN ÄR 225" och "elva test". Båda talen var obelagda och
+motsades av tabellen tre rader ned, som bar en annan siffra om samma svit. Fällt
+av §7-granskningen av skiva 29, varv 2. Antalet tillagda test skrivs inte längre
+ut: det ändras av varje rättelse, och skillnaden mot 214 går att räkna ur
+baslinjen.*
 
 **BÅDA TALEN KAN SKILJA SIG, både `passed` OCH `failed`.** Skiva 29:s test
 täcker samma kodvägar som tabellen fäller, så en fällning kan göra fler test röda
 än tabellen anger utan att något är trasigt. Uppmätt på två rader:
 
-| Tabellrad | Dokumenterat | Uppmätt mot 228 |
+| Tabellrad | Dokumenterat mot 214 | Uppmätt mot 231 |
 | --- | --- | --- |
 | `if not _galler_fordonet(...)` → `if False:` | 9 röda | 11 röda |
 | `if status == 404:` → `if False:` | 1 röd | 2 röda |
@@ -2568,10 +2575,14 @@ post och inte en spärr som saknar egenskapen.
 
 ### 0.26.2 — 2026-09-04
 
-**Baslinjen för `fordonsfakta-ur-sida`:s mutationstabell är 225 sedan skiva 29,
-och tabellen är INTE omkörd.** Skivan lade till elva test för omförsöket och
-loggen och rörde ingen spärr. Tabellens tal är sanna om baslinjen 214, som den
-själv namnger.
+**Baslinjen för `fordonsfakta-ur-sida`:s mutationstabell är 231 sedan skiva 29,
+och tabellen är INTE omkörd.** Skivan lade till test för omförsöket och loggen
+och rörde ingen spärr. Tabellens tal är sanna om baslinjen 214, som den själv
+namnger.
+
+*Här stod 225 och "elva test", båda obelagda. Fällt av §7-granskningen av skiva
+29, varv 2, som mätte 228 vid det tillfället; rättelserna i varv 2 förde talet
+till 231.*
 
 **INGEN NY SPÄRR OCH INGEN NY LUCKA i skiva 29.** Hämtningen fick en ärlig user
 agent, ett omförsök och en logg över misslyckade uppslag, se
