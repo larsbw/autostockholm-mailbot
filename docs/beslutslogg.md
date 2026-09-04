@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.32.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
+**Version:** 0.33.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -2493,7 +2493,79 @@ skickade svaren eller hålla dem isär. `kalla` gör båda möjliga; vilket som 
 
 ---
 
+## #42 — Skiva 27 godkänns, och #41 står
+
+**Datum:** 2026-09-04 · **Berör:** `src/vy.py`, `data/par.jsonl`, #34, #36, #41
+
+**Beslut av Lars.** Skiva 27 är godkänd, trots att §7:s tredje och sista
+granskningsvarv underkände.
+
+**Skälet är detsamma som i #34 och #36, med ett tillägg.** Där låg fynden i
+texten och inte i spärren. Här låg det sista fyndet i KODEN, och det är just
+därför skivan godkänns: hålet är stängt. Alternativet var att skeppa en spärr som
+inte såg relativa importer, alltså ett känt sändvägshål, och det är sämre än att
+skeppa en självmätt rättelse med statusen utskriven.
+
+**De självmätta rättelserna granskas i skiva 28**, som en egen omgång på dem och
+bara på dem. Att godkänna skivan är alltså inte att godkänna rättelserna
+ogranskade, utan att flytta granskningen av dem till en egen grind.
+
+**#41 STÅR.** `kalla` löser ett verkligt problem: utan markören blandar
+`data/par.jsonl` ihop svar som FAKTISKT skickades till en kund med referenssvar
+som aldrig lämnat vyn, och #11 räknar svarsinstanser ur filen. De fyra
+ursprungliga nycklarna är orörda, alltså gäller #13 oförändrat.
+
+Posten #41 är fortfarande märkt som mitt val och inte Lars beslut. Det här
+beslutet gör inte om den till hans; det säger att den får stå.
+
+---
+
+## #43 — Lucka 13 väntar, och skälet är vad lucka 12 kostade
+
+**Datum:** 2026-09-04 · **Berör:** `docs/sparrar.md` lucka 12 och 13,
+`src/vy.py`, #38
+
+**Beslut av Lars.** Lucka 13, att sändvägsspärren räknar upp modulnamn och
+anropsformer i stället för att mäta en egenskap, stängs INTE nu.
+
+**Egenskapen är rätt riktning.** Det är samma riktning lucka 12 tog i skiva 25,
+och den ordningen är inte ifrågasatt.
+
+**Men vyn saknar inloggning och är inte exponerad.** Den kör på `127.0.0.1` och
+har ingen sändväg alls. Uppräkningen räcker tills vyn ska ut på Railway enligt
+#38, och den flytten är en egen skiva med egen grind. Då, och inte innan, är
+uppräkningen otillräcklig.
+
+**SKÄLET ATT VÄNTA ÄR MÄTT, inte principiellt.** Spärren mot markup i ett värde
+tog fem skivor: `0863a8e`, `8629223`, `52d0a97`, `64b56e4` och `d38b59e`, alltså
+skiva 21 till 25. Skiva 21 bar redan klassen, att ett mönster skrivet för sidans
+nuvarande markup TYSTNAR i stället för att kasta. Varje mellanliggande skiva
+rättade en uppräkning med en längre uppräkning, och först skiva 25 bytte metod
+och mätte egenskapen.
+
+**Lärdomen ska användas och inte upprepas.** Att byta från uppräkning till
+egenskap är rätt drag, men det är ett drag som förtjänar en egen skiva med egen
+grind, inte ett tillägg till en skiva som gör något annat. Lucka 13 stängs när
+vyn ska exponeras, och då som skivans enda uppgift.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.33.0 — 2026-09-04
+
+**Två poster tillkommer, båda beslut av Lars i skiva 28.**
+
+- **#42** godkänner skiva 27 och låter #41 stå. Skälet skiljer sig från #34 och
+  #36 på en punkt som skrivs ut: där låg fynden i texten, här i koden.
+- **#43** låter lucka 13 vänta till den skiva som exponerar vyn, med lucka 12:s
+  kostnad som mätt skäl.
+
+**#43:s tal är namngivna commits och inte en processräkning.** De fem skivorna
+står som SHA:n, så räkningen går att göra om ur repot. §7.2 förbjuder räkningar
+av ett arbetsförlopp som repot inte bär; den här bär det.
+
+Två nya poster ⇒ MINOR.
 
 ### 0.32.0 — 2026-09-04
 

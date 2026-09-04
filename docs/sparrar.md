@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.25.3 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.26.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -56,14 +56,42 @@ poster i grannstycket, vilket är precis det CLAUDE.md 0.3.1 förbjuder.*
 
 Det här dokumentet är obligatorisk läsning före varje vakuöstprövning enligt
 CLAUDE.md §7.1. Skälet är kolumnen **Redundant med**: mailbotens spärrar är
-redundanta med avsikt, och fälls bara det ena lagret förblir sviten grön och
-prövningen pekar ut ett äkta spärrtest som vakuöst. Ett grönt utfall efter att
-ETT lager fällts är inkonklusivt, inte vakuöst. Samtliga lager som implementerar
-spärren ska fällas i samma körning innan verdiktet sätts:
+redundanta med avsikt, och en fällning som inte tar hänsyn till det ger ett
+verdikt som inte betyder vad det ser ut att betyda.
 
-```
-scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87
-```
+> ### EN SAMMANSLAGEN FÄLLNING LJUGER ÅT BÅDA HÅLLEN
+>
+> **FÄLLER DU FÖR FÅ LAGER FÅR DU FALSKT VAKUÖST.** Fälls bara det ena lagret
+> förblir sviten grön, och prövningen pekar ut ett äkta spärrtest som vakuöst.
+> Ett grönt utfall efter att ETT lager fällts är INKONKLUSIVT, inte vakuöst: det
+> bevisar bara att just den raden inte är ENSAM avgörande.
+>
+> **FÄLLER DU FÖR MÅNGA RADER PÅ EN GÅNG FÅR DU FALSKT ÄKTA.** Ett rött utfall
+> efter att FLERA rader fällts bevisar bara att MINST EN av dem bär. Det säger
+> ingenting om de övriga, och läses ändå rutinmässigt som att alla gör det.
+>
+> **De två felen har motsatt bot, och det är därför båda står här.** Mot det
+> första: fäll samtliga lager i samma körning. Mot det andra: fäll varje
+> verkställighetspunkt ENSAM, och redovisa utfallet per rad.
+>
+> ```
+> scripts/sparr-prova.sh --fil src/x.py --radera 42 --radera 87   # båda lagren
+> scripts/sparr-prova.sh --fil src/x.py --radera 42               # och var för sig
+> scripts/sparr-prova.sh --fil src/x.py --radera 87
+> ```
+>
+> **Den andra riktningen är MÄTT, inte befarad.** Skiva 27 fällde
+> `krav_pa_skrivbar_sokvag(parfil)` och `krav_pa_skrivbar_sokvag(omdomesfil)`
+> tillsammans, fick RÖD, och skrev in det som belägg för att båda var vaktade.
+> §7-granskningens första varv raderade sedan `krav_pa_skrivbar_sokvag(omdomesfil)`
+> ENSAM och fick **hela sviten grön**: raden var vakuös, och §6 obevakad på vägen
+> genom omdömesloggen. Se posten `vyn-skriver-bara-till-data-och-logg`.
+>
+> **Skillnaden mellan lager och verkställighetspunkter avgör vilken riktning som
+> hotar.** Två LAGER som fångar samma fall ska fällas tillsammans. Två
+> VERKSTÄLLIGHETSPUNKTER som var och en vaktar sin egen väg ska fällas var för
+> sig. Kolumnen **Redundant med** säger vilket som är vilket, och det är därför
+> den aldrig får lämnas tom.
 
 ---
 
@@ -1965,15 +1993,25 @@ aldrig kedjan vidare, och `from src import auth` hade sett ut som en import av
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| båda lagren, villkoren satta till `False` | RÖD, `6 failed, 35 passed` | neutraliserade |
-| enbart importlagret | RÖD, `5 failed, 36 passed` | neutraliserad |
-| enbart källtextlagret | RÖD, `1 failed, 40 passed` | neutraliserad |
-| kedjeledet `namn.update(f"{paket}.{alias.name}" ...)` | RÖD, `2 failed, 39 passed` | raderad |
-| kedjeledet `namn.add(paket)` | RÖD, `1 failed, 40 passed` | raderad |
-| det relativa ledet, `paket = nod.module` utan `or _paket(...)` | RÖD, `1 failed, 40 passed` | neutraliserad |
-| `krav_pa_sandvagsfrihet()` i `starta` | RÖD, `1 failed, 40 passed` | raderad |
-| `HTTPServer(("127.0.0.1", port), ...)` satt till `"0.0.0.0"` | RÖD, `1 failed, 40 passed` | neutraliserad |
-| `def log_message` omdöpt, alltså övertäckningen borttagen | RÖD, `1 failed, 40 passed` | neutraliserad |
+| båda lagren, villkoren satta till `False` | RÖD, `9 failed, 36 passed` | neutraliserade |
+| enbart importlagret | RÖD, `8 failed, 37 passed` | neutraliserad |
+| enbart källtextlagret | RÖD, `1 failed, 44 passed` | neutraliserad |
+| kedjeledet `namn.update(f"{paket}.{alias.name}" ...)` | RÖD, `4 failed, 41 passed` | raderad |
+| kedjeledet `namn.add(paket)` | RÖD, `2 failed, 43 passed` | raderad |
+| nivåvillkoret `if nod.level:` satt till `if False:` | RÖD, `4 failed, 41 passed` | neutraliserad |
+| `i_modul` i `moduler_i_vyn`, satt till tom sträng | RÖD, `1 failed, 44 passed` | neutraliserad |
+| `i_modul` i `krav_pa_sandvagsfrihet`, satt till tom sträng | RÖD, `1 failed, 44 passed` | neutraliserad |
+| `krav_pa_sandvagsfrihet()` i `starta` | RÖD, `1 failed, 44 passed` | raderad |
+| `HTTPServer(("127.0.0.1", port), ...)` satt till `"0.0.0.0"` | RÖD, `1 failed, 44 passed` | neutraliserad |
+| `def log_message` omdöpt, alltså övertäckningen borttagen | RÖD, `1 failed, 44 passed` | neutraliserad |
+
+**DE TVÅ `i_modul`-ARGUMENTEN FÄLLS VAR FÖR SIG, och de bär olika fall.** Det i
+`moduler_i_vyn` är det som får VANDRINGEN att följa en relativ import vidare;
+det i `krav_pa_sandvagsfrihet` är det som får NAMNET prövat mot
+`FORBJUDNA_MODULER`. Efter att skiva 28 rättat vandringen blev det andra grönt
+vid fällning, alltså inkonklusivt: de två bar varandra. Testet
+`test_relativ_import_av_en_forbjuden_modul_falls_pa_NAMNET` skiljer dem åt genom
+att göra den importerade modulen ofarlig, så att bara namnprövningen kan fälla.
 
 **DE TRE KEDJELEDEN FÄLLS VAR FÖR SIG, av samma skäl som de två anropen i
 `vyn-skriver-bara-till-data-och-logg`.** `namn.add(nod.module)` gick att radera
@@ -1993,7 +2031,7 @@ kod och prövas därför här. Bindningen till loopback är skivans centrala
 §6-påstående, eftersom vyn saknar inloggning: den som når porten når kundtexten.
 Båda var ovaktade fram till varv 2.
 
-Sviten var `tests/test_vy.py`, som bar 41 test vid mätningen. Kommandot är
+Sviten var `tests/test_vy.py`, som bar 45 test vid mätningen. Kommandot är
 `scripts/sparr-prova.sh --fil src/vy.py --ersatt "<rad>=..." -- tests/test_vy.py
 -q --tb=no -rN`. Radnumren skrivs inte ut, eftersom de flyttar av varje
 redigering i filen; villkorens TEXT står ovan.
@@ -2016,25 +2054,100 @@ låter heltäckande är farligare än en som namnger sin räckvidd.
   Filen läses i dag av `test_repot_sjalvt_ar_rent` för osynliga tecken, alltså
   finns den i sviten, men inte i den här spärren.
 
-- **Lucka 16. HTTP-lagret är otestat.** `do_GET`, `do_POST` och
-  `_index_ur_vag` har inga test alls. `_index_ur_vag`:s klämning och `do_GET`:s
-  tomfall går båda att fälla med sviten grön. Ingen av dem öppnar en sändväg,
-  och utan dem blir det `IndexError`, alltså högljutt fel och ingen läcka. Men
-  det är rutten mellan en begäran och en renderare, och den dagen
-  granskningsläget kopplas in är det här den kopplas.
+- **Lucka 16. HTTP-lagret är otestat, och luckan är MÄTT i stället för bara
+  namngiven.** Se det egna avsnittet nedan.
 
 Ingen av luckorna är stängd av den här skivan.
 
-**LUCKAN SOM VAR OREGISTRERAD OCH ÄR STÄNGD I STÄLLET.** Varv 3 fann att
-`from . import auth` gav en TOM mängd ur `_lokala_importer`: villkoret krävde
-`nod.module`, som är None för varje relativ import. Varken importlagret eller
-källtextlagret såg modulen, och `src/__init__.py` finns, så formen är giltig och
-en enda rad hade räckt för att dra in `src/auth.py`. Ingen av luckorna 13 till 15
-täckte den formen.
+### Lucka 16 i detalj — vad som är oprövat i HTTP-lagret
 
-Den är stängd i koden, inte registrerad, med `_paket` som löser upp nivån mot
-modulens eget namn och lämnar tomt när det inte går. **Rättelsen kom efter varv
-3, alltså är den SJÄLVMÄTT och inte oberoende granskad.**
+**En lucka som är mätt är synlig. En som bara är namngiven är det inte.** Därför
+står rutterna, testtäckningen och konsekvenserna utskrivna här i stället för
+sammanfattade i en mening.
+
+**RUTTERNA.** `bygg_hanterare` bygger en `BaseHTTPRequestHandler` med tre
+metoder: `do_GET`, `do_POST` och en tystad `log_message`. All vägval sker i
+`_index_ur_vag`, som tar SISTA segmentet av sökvägen.
+
+| Metod | Väg | Vad som händer |
+| --- | --- | --- |
+| GET | vilken som helst, tom fall-lista | sidan `Inga fall.` |
+| GET | vilken som helst, med fall | `rendera_referens` på det upplösta indexet |
+| POST | vilken som helst | `spara_referenssvar` på det upplösta indexet |
+| POST | vid `ValueError` | `rendera_fel`, status 400 |
+
+**INGEN AV DEM HAR ETT TEST.** `grep -rn "do_GET\|do_POST\|_index_ur_vag" tests`
+ger en enda träff, och den ligger i en docstring. Två rader går att fälla med
+hela sviten grön:
+`_index_ur_vag`:s klämning och `do_GET`:s tomfall. Även sömmen
+`self._svara(rendera_fel(fel), 400)` går att byta mot en tom sida med sviten
+grön: `rendera_fel` är prövad, anropet av den är det inte.
+
+**VAD `_index_ur_vag` FAKTISKT GÖR.** Avläst genom att anropa funktionen med
+`antal` lika med 5:
+
+| Väg | Index | Kommentar |
+| --- | --- | --- |
+| `/referens/0` | 0 | |
+| `/referens/3` | 3 | |
+| `/referens/999` | 4 | **klämt till sista posten, tyst** |
+| `/referens/-1` | 0 | minustecknet gör `isdigit` falskt |
+| `/referens/` | 0 | |
+| `/` | 0 | |
+| `/omdome` | 0 | **okänd väg blir post 0, tyst** |
+
+**VAD ETT FEL HÄR SKULLE BETYDA, och det är inte en krasch.** Varje icke-siffra
+blir 0 och varje för stort tal blir sista posten, båda utan att något syns.
+Konsekvensen av fel index i `do_POST` är att **Lars referenssvar sparas som ett
+par mot FEL inkommande mail**. `data/par.jsonl` bär då en hopparning som aldrig
+funnits, och fas 5 bygger mallarna ur den filen. Det är alltså inte en trasig
+sida utan ett felaktigt träningsunderlag för rösten, infört tyst.
+
+**DEN KONKRETA INSTANSEN FINNS REDAN I KODEN.** `rendera_granskning`:s formulär
+har `action='/omdome'`. Den vägen löses till index 0, och `do_POST` anropar
+`spara_referenssvar`, inte `spara_omdome`. Ett omdöme skulle alltså sparas som
+ett REFERENSSVAR mot första posten. Det är ofarligt i dag enbart därför att
+lucka 15 gör att ingen rutt når granskningsläget, alltså skyddar en lucka en
+annan.
+
+**Vad som skulle stänga den.** Ett test per rutt, och en `_index_ur_vag` som
+AVVISAR en väg den inte känner igen i stället för att falla tillbaka på 0. Den
+andra delen är en beteendeändring i sändvägen och hör därför till den skiva som
+kopplar in granskningsläget, inte till den här.
+
+**RELATIVA IMPORTER: EN LUCKA SOM TOG TVÅ RÄTTELSER ATT STÄNGA.** Ingen av
+luckorna 13 till 15 täckte formen, och `src/__init__.py` finns, så en enda
+relativ rad hade räckt för att dra in `src/auth.py`.
+
+**Första rättelsen, skiva 27 varv 3.** `from . import auth` gav en TOM mängd ur
+`_lokala_importer`, eftersom villkoret krävde `nod.module`. Stängd med `_paket`,
+som löser nivån mot modulens eget namn.
+
+**Andra rättelsen, skiva 28.** Den första lämnade `from .auth import bygg`
+öppen. Där ÄR `nod.module` satt, men bara till en DEL av sökvägen, och
+uttrycket `nod.module or _paket(...)` tog modulnamnet och ignorerade nivån.
+Spärren fick `auth` i stället för `src.auth`: namnet matchade inte
+`FORBJUDNA_MODULER`, och vandringen letade efter `auth.py` i repotet.
+
+**VILLKORET FRÅGAR NU EFTER `nod.level` OCH INTE EFTER `nod.module`.** Är nivån
+större än noll löses paketet alltid upp, och modulnamnet fogas på när det finns.
+Formerna och deras AST står i `_lokala_importer`:s docstring, avlästa med
+`ast.parse`.
+
+**Skälet till att den första rättelsen missade** var en falsk premiss i sin egen
+docstring, att relativa importer inte bär något paketnamn. Den premissen är
+struken, och det är samma klass av fel som lucka 12: ett villkor formulerat efter
+de FORMER man råkat tänka på, i stället för efter den egenskap som avgör.
+
+Formerna bärs av ett test var, samtliga i `tests/test_vy.py`:
+
+| Form | Test |
+| --- | --- |
+| `from src import mellan` | `test_importlagret_foljer_kedjan_ett_steg_till` |
+| `from src.mellan import hjalp` | `test_importlagret_foljer_kedjan_aven_via_paketform` |
+| `from . import auth` | `test_importlagret_ser_relativa_importer` |
+| `from .auth import bygg` | `test_relativ_import_med_modulnamn_ser_ocksa_sandvagen` |
+| nivån djupare än modulen | `test_relativ_import_utan_kant_modul_gissar_inte` |
 
 ---
 
@@ -2061,18 +2174,39 @@ modulens eget namn och lämnar tomt när det inte går. **Rättelsen kom efter v
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if sparr:` satt till `if False:` | RÖD, `2 failed, 39 passed` | neutraliserad |
-| `html.escape` runt `forslag` och `sparr` borttagen | RÖD, `1 failed, 40 passed` | neutraliserade |
-| `html.escape(str(fel))` i `rendera_fel` borttagen | RÖD, `1 failed, 40 passed` | neutraliserad |
+| `if sparr:` satt till `if False:` | RÖD, `1 failed, 44 passed` | neutraliserad |
+| `html.escape` runt `forslag` och `sparr` borttagen | RÖD, `1 failed, 44 passed` | neutraliserade |
+| `html.escape(str(fel))` i `rendera_fel` borttagen | RÖD, `1 failed, 44 passed` | neutraliserad |
 
 **De tre sista raderna vaktar §6 och inte DEL 0**, och står här därför att de
-sitter i samma renderare. Kundtext, förslag, spärrnamn och felmeddelande
-escapades utan att något test mätte det, alltså gick varje `html.escape` att ta
-bort med hela sviten grön.
+sitter i samma renderare.
 
-**Varv 2 stängde EN instans och varv 3 fann fyra till.** Testet mäter nu
-KLASSEN: varje fält som når sidan prövas mot samma onda sträng, så nästa fält
-som läggs till blir inte ovaktat på samma sätt.
+**VILKA SOM VAR OVAKTADE, per plats i stället för summerat.** Avläst ur
+`git grep -n "html.escape" e16be28 -- src/vy.py` mot
+`git grep -n "escapas" e16be28 -- tests/test_vy.py`: åtta escapningsplatser,
+varav två vaktade. De två var `fall.text` i vardera renderaren, av
+`test_kundtexten_escapas_i_sidan` och
+`test_kundtexten_escapas_aven_i_granskningslaget`. Ovaktade var `fall.etikett` i
+båda renderarna, `fall.kalla`, `sparr`, `forslag` och `str(fel)`.
+
+*Här stod att kundtext, förslag, spärrnamn och felmeddelande escapades "utan att
+något test mätte det" och att därför VARJE `html.escape` gick att ta bort med
+sviten grön. Kundtexten var mätt, av de två testen ovan, alltså är båda leden
+falska. Meningen ersatte en sann och smalare lydelse med en bredare, vilket är
+den form rutan överst i det här dokumentet redan noterar. Här stod också att
+varv 3 fann "fyra till"; det var sex, och uppräkningen utelämnade `sparr`, som
+tabellraden ovanför namnger. Fällt av §7-granskningen av skiva 28.*
+
+**Varv 2 stängde EN instans, och testet som skulle stänga KLASSEN gjorde det
+inte.** Det räknade upp de fält som fanns när det skrevs, alltså föll det inte
+av ett nytt fält. Granskningen av skiva 28 renderade ett befintligt men
+ouppräknat `Fall`-fält oescapat och fick hela sviten grön.
+
+**Nu härleds fälten ur `Fall` och parametrarna ur `inspect.signature`**, så ett
+nytt fält eller en ny strängparameter blir rött av att EXISTERA. Det är
+skillnaden mellan en uppräkning och en egenskap, alltså samma skillnad som
+lucka 12 och lucka 13 handlar om, tillämpad på ett test i stället för på en
+spärr.
 
 `rendera_fel` är UTBRUTEN ur `do_POST` för att gå att pröva alls. Den bär det
 enda stället där data rakt ur POST-kroppen reflekteras tillbaka i HTML, och
@@ -2132,11 +2266,11 @@ Luckan är öppen och inte stängd av den här skivan.
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if relativ.parts[:1] != ("data",) and ... != ("logg",):` satt till `if False:` | RÖD, `4 failed, 37 passed` | neutraliserad |
-| `krav_pa_skrivbar_sokvag(parfil)` i `spara_referenssvar`, ENSAMT | RÖD, `1 failed, 40 passed` | raderad |
-| `krav_pa_skrivbar_sokvag(omdomesfil)` i `spara_omdome`, ENSAMT | RÖD, `1 failed, 40 passed` | raderad |
+| `if relativ.parts[:1] != ("data",) and ... != ("logg",):` satt till `if False:` | RÖD, `4 failed, 41 passed` | neutraliserad |
+| `krav_pa_skrivbar_sokvag(parfil)` i `spara_referenssvar`, ENSAMT | RÖD, `1 failed, 44 passed` | raderad |
+| `krav_pa_skrivbar_sokvag(omdomesfil)` i `spara_omdome`, ENSAMT | RÖD, `1 failed, 44 passed` | raderad |
 
-Sviten var `tests/test_vy.py` med 41 test, samma som ovan.
+Sviten var `tests/test_vy.py` med 45 test, samma som ovan.
 
 **DE TVÅ ANROPEN FÄLLS VAR FÖR SIG, ALDRIG TILLSAMMANS, och det är ett fynd och
 inte en formsak.** Skiva 27:s första prövning fällde båda i samma körning, fick
@@ -2352,6 +2486,49 @@ post och inte en spärr som saknar egenskapen.
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.26.0 — 2026-09-04
+
+Skiva 28. En full §7-omgång på skiva 27:s självmätta rättelser, alltså på den kod
+som skrevs efter att grinden var förbrukad och som ingen annan hade sett.
+Omgången UNDERKÄNDE dem.
+
+**KLAUSULEN OM LAGRAT FÖRSVAR BÄR NU BÅDA RIKTNINGARNA**, i rutan överst.
+Klausulen har sedan skiva 5 sagt att för få fällda lager ger falskt VAKUÖST.
+Skiva 27 visade motriktningen: en SAMMANSLAGEN fällning av flera rader ger RÖD,
+och det läses som att alla bär när bara den ena gör det. Instansen är mätt och
+utskriven. Skillnaden mellan LAGER, som fångar samma fall, och
+VERKSTÄLLIGHETSPUNKTER, som var och en vaktar sin väg, avgör vilken riktning som
+hotar. Beslut av Lars i skiva 28.
+
+**SÄNDVÄGSSPÄRREN LÄCKTE FORTFARANDE, en systerform bort.** Skiva 27:s rättelse
+stängde `from . import auth` och lämnade `from .auth import bygg` öppen, eftersom
+uttrycket frågade efter `nod.module` i stället för efter `nod.level`. Spärren
+fick `auth` i stället för `src.auth`. Villkoret frågar nu efter nivån, och de
+fyra importformerna har ett test var.
+
+**ESCAPNINGEN VAR INTE STÄNGD SOM KLASS, trots att den påstod sig vara det.**
+Testet räknade upp de fält som fanns när det skrevs. Granskningen renderade ett
+befintligt men ouppräknat `Fall`-fält oescapat och fick hela sviten grön. Fälten
+härleds nu ur `Fall` och parametrarna ur `inspect.signature`.
+
+**Ett andra vakuöst led hittades i samma funktion**, `i_modul` i
+`moduler_i_vyn`, och stängdes. Efter den rättelsen blev det andra argumentet
+grönt vid fällning, alltså inkonklusivt, och ett test skiljer nu de två åt.
+
+**Tre kända falskheter strukna på plats i 0.25.3**, med not där de stod: att
+`nod.module` är None för varje relativ import, att escapningen var stängd som
+klass, och att varv 3 fann fyra ovaktade platser. Det var sex, avläst ur
+`git grep -n "html.escape" e16be28 -- src/vy.py`.
+
+**LUCKA 16 ÄR MÄTT i stället för namngiven**, i ett eget avsnitt: rutterna,
+`_index_ur_vag`:s faktiska utfall per väg, och vad ett fel skulle betyda. Det
+sista är inte en krasch utan ett referenssvar sparat mot FEL inkommande mail,
+alltså ett felaktigt träningsunderlag för rösten. Beslut av Lars i skiva 28.
+
+**Varje tal i varje tabell är omkört mot 45 test.**
+
+Ny klausul, ny lucktext och stängda hål ⇒ MINOR.
+
 ### 0.25.3 — 2026-09-04
 
 **ÄNDRINGARNA HÄR ÄR GJORDA EFTER ATT §7:s TRE VARV VAR FÖRBRUKADE. De är
@@ -2362,15 +2539,25 @@ att lämna det öppet sänker inget krav, men det byter granskad kod mot ogransk
 och därför står det utskrivet här.
 
 **Sändvägsspärren såg inte relativa importer.** `from . import auth` gav en TOM
-mängd: villkoret krävde `nod.module`, som är None för varje relativ import.
-`src/__init__.py` finns, så formen är giltig, och en enda rad hade dragit in
-`src/auth.py`. Stängt med `_paket`, som löser nivån mot modulens eget namn och
-lämnar tomt när det inte går. Två test, ett för formen och ett för nollfallet.
+mängd: villkoret krävde `nod.module`. `src/__init__.py` finns, så formen är
+giltig, och en enda rad hade dragit in `src/auth.py`. Stängt med `_paket`, som
+löser nivån mot modulens eget namn och lämnar tomt när det inte går. Två test,
+ett för formen och ett för nollfallet.
 
-**Escapningen är stängd som KLASS, inte som instans.** Varv 2 stängde en
-ovaktad `html.escape` och varv 3 fann fyra till. Testet går nu igenom varje fält
-som når sidan. `rendera_fel` är utbruten ur `do_POST` för att escapningen av
-POST-data ska gå att pröva alls.
+*Här stod att `nod.module` är None "för varje relativ import". Struket som känt
+falskt: `from .auth import bygg` är relativ och bär `module` lika med `auth`.
+Den premissen var dessutom skälet till att rättelsen lämnade den formen öppen.
+Fällt av §7-granskningen av skiva 28, se 0.25.4.*
+
+**Escapningen stängdes som instanser.** Varv 2 stängde en ovaktad
+`html.escape`, och varv 3 stängde de övriga. `rendera_fel` är utbruten ur
+`do_POST` för att escapningen av POST-data ska gå att pröva alls.
+
+*Här stod att escapningen var "stängd som KLASS, inte som instans" och att varv
+3 fann "fyra till". Båda struket som känt falskt: testet räknade upp de fält som
+fanns när det skrevs, alltså föll det inte av ett nytt fält, och de ovaktade
+platserna var sex. Klassen stängdes först i skiva 28. Fällt av
+§7-granskningen av skiva 28, se 0.25.4.*
 
 **Ett test mätte att en metod FANNS, inte att den tiger.**
 `test_servern_loggar_inte_vad_lars_laser` anropar nu `log_message` med stderr

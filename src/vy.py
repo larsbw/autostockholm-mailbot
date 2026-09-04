@@ -96,47 +96,56 @@ FORBJUDET_MONSTER = re.compile(
 )
 
 
-def _lokala_importer(kalla: str, i_modul: str = "") -> set[str]:
+def _lokala_importer(kalla: str, i_modul: str) -> set[str]:
     """Modulnamnen en källfil importerar.
 
-    `i_modul` är namnet på modulen källan KOMMER UR, och behövs bara för
-    relativa importer: de bär inget paketnamn och går inte att lösa upp utan
-    att veta var de står.
+    `i_modul` är namnet på modulen källan KOMMER UR, och behövs för relativa
+    importer, vars sökväg inte går att bestämma utan att veta var satsen står.
+
+    **PARAMETERN HAR INGET FÖRVAL, och det är avsiktligt.** Ett förval hade
+    gjort spärren FAIL-OPEN: en framtida anropare som glömmer argumentet får
+    varje relativ import tyst bortkastad i stället för ett fel. Utan förval
+    kastar Python i stället, och det syns. Fällt av §7-granskningen av skiva 28.
 
     **`from x import y` GER BÅDE `x` OCH `x.y`, och BÅDA leden behövs.** Vilket
-    som bär beror på hur importen är skriven, och de två formerna ser likadana
-    ut i källan medan de ger olika AST:
+    som bär beror på hur importen är skriven, och formerna ser likadana ut i
+    källan medan de ger olika AST. Uppmätt med `ast.parse`:
 
-      `from src import auth`        `nod.module` är `src`, alltså är modulen som
-                                    dras in det SAMMANSATTA `src.auth`.
-                                    Uppmätt av
-                                    `test_importlagret_foljer_kedjan_ett_steg_till`.
-      `from src.auth import bygg`   `nod.module` är redan `src.auth`, medan det
-                                    sammansatta blir `src.auth.bygg`, som inte
-                                    är någon fil. Här bär `nod.module` ensamt.
-                                    Uppmätt av
-                                    `test_importlagret_foljer_kedjan_aven_via_paketform`.
+      sats                          `module`     `level`   modulen som dras in
+      `from src import auth`        `src`        0         `src.auth`, sammansatt
+      `from src.auth import bygg`   `src.auth`   0         `src.auth`, ensamt
+      `from . import auth`          `None`       1         `src.auth`, ur nivån
+      `from .auth import bygg`      `auth`       1         `src.auth`, nivå + modul
 
-    Utan båda leden följer prövningen inte kedjan för den ena formen, och en
-    enda indirektion hade räckt för att gömma en sändväg.
+    **DEN TREDJE KOLUMNEN ÄR DEN SOM AVGÖR.** `nod.module` är None bara för den
+    relativa formen UTAN modulnamn; för `from .auth import bygg` är det satt,
+    men bara till en DEL av sökvägen.
 
-    *Här stod att ledet var uppmätt av det första testet. Det gällde bara det
-    sammansatta ledet: `namn.add(nod.module)` gick att radera med hela sviten
-    grön, eftersom inget test använde paketformen. Fällt av §7-granskningen av
-    skiva 27, varv 2.*
+    *Här stod att relativa importer "bär inget paketnamn". Det är falskt för den
+    fjärde raden ovan, och det var inte en prosadetalj: den premissen är skälet
+    till att koden frågade efter `nod.module` i stället för efter `nod.level`,
+    vilket lämnade `from .auth import bygg` osynlig för spärren. Fällt av
+    §7-granskningen av skiva 28.*
     """
     namn: set[str] = set()
     for nod in ast.walk(ast.parse(kalla)):
         if isinstance(nod, ast.Import):
             namn.update(alias.name for alias in nod.names)
         elif isinstance(nod, ast.ImportFrom):
-            # RELATIV IMPORT: `nod.module` är None för `from . import auth`, och
-            # `nod.level` säger hur många punkter. Paketet läses ur MODULENS EGET
-            # namn, som anroparen skickar med, eftersom en relativ import inte
-            # bär det. Utan den här grenen gav `from . import auth` en tom
-            # mängd, alltså såg spärren varken importen eller modulen den drar
-            # in. `src/__init__.py` finns, så formen är giltig i det här repot.
-            paket = nod.module or _paket(i_modul, nod.level)
+            # NIVÅN AVGÖR, INTE MODULNAMNET. `nod.level` är antalet punkter och
+            # är noll för en absolut import. Är den större än noll ska paketet
+            # ALLTID lösas upp mot modulens eget namn, och `nod.module` fogas på
+            # när det finns.
+            #
+            # Att i stället fråga om `nod.module` är satt gav ett hål: för
+            # `from .auth import bygg` är det satt till `auth`, alltså till en
+            # DEL av sökvägen, och nivån ignorerades. Spärren fick `auth` i
+            # stället för `src.auth` och såg varken namnet eller filen.
+            if nod.level:
+                bas = _paket(i_modul, nod.level)
+                paket = f"{bas}.{nod.module}" if bas and nod.module else bas
+            else:
+                paket = nod.module or ""
             if not paket:
                 continue
             namn.add(paket)
@@ -349,19 +358,24 @@ def las_fall(
     1604 trådar med 1750 icke-tomma `snippet`. Av de 9 a-traktorraderna utan
     svar kopplas 0 på exakt `snippet` och 1 på `snippet` som inledning.
 
-    Skälet är att `snippet` är Gmails eget klartextutdrag och TRUNKERAT. Fältet
-    finns alltså, men det är ingen nyckel.
+    **`snippet` SITTER PÅ MEDDELANDET, inte på tråden.** De 1604 trådarna bär
+    1755 meddelanden, vart och ett med fältet, och fem av dem har det tomt.
+    Noll trådar bär fältet på sin egen toppnivå.
+
+    Skälet att det ändå inte räcker är att `snippet` är Gmails eget
+    klartextutdrag och TRUNKERAT. Fältet finns alltså, men det är ingen nyckel.
 
     Fälten lämnas därför TOMMA, och referenssvaret bär `kalla` som säger varför.
     Att skriva en påhittad hash hade varit ett tal utan källa (§7.2).
 
-    *Två tidigare lydelser stod här. Den första sade 1 av 9 utan att något
-    committat skript kunde räkna om det. Den andra, skriven för att rätta den
-    första, sade att ett extraherat textfält inte finns och att kopplingen är
-    OBEFINTLIG. Båda leden var falska: `snippet` finns på var och en av de 1604
-    trådarna, om än tomt på fem av dem, och
-    mätningen ger 1 av 9. Rättelsen var alltså fel om mer än talet den
-    ersatte. Fällt av §7-granskningen av skiva 27, varv 2.*
+    *TRE tidigare lydelser stod här, och var och en rättade den föregående utan
+    att bli sann. Den första sade 1 av 9 utan att något committat skript kunde
+    räkna om det. Den andra sade att ett extraherat textfält inte finns och att
+    kopplingen är OBEFINTLIG; båda leden var falska. Den tredje, skriven för att
+    rätta den andra, sade att `snippet` finns på var och en av de 1604 trådarna:
+    talet var rätt för meddelandena och fel för trådarna, alltså samma nivåfel
+    som varv 1 fällde fem rader upp i den här filen, nu med ett exakt tal på.
+    Fällt av §7-granskningen av skiva 28.*
     """
     if not etikettfil.exists():
         return []

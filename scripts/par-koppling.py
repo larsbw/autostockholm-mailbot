@@ -54,9 +54,16 @@ def snippets(tradar: list[dict]) -> list[str]:
     **`snippet` ÄR ETT EXTRAHERAT TEXTFÄLT, och det ledet är rättat.** Skiva 27
     påstod först att `data/tradar_obesvarade.jsonl` saknar ett sådant fält och
     att brödtexten bara finns base64-kodad i `payload`. Det är falskt: Gmail
-    lägger ett eget klartextutdrag i `snippet` på varje meddelande. FÄLTET finns
-    på var och en av de 1604 trådarna, och är tomt på fem av dem. Fällt av
-    §7-granskningen av skiva 27, varv 2.
+    lägger ett eget klartextutdrag i `snippet`.
+
+    **PÅ MEDDELANDET, INTE PÅ TRÅDEN**, vilket är varför den här funktionen
+    loopar över `messages`. De 1604 trådarna bär 1755 meddelanden, vart och ett
+    med fältet, och fem har det tomt. Noll trådar bär fältet på sin toppnivå.
+
+    *Här stod att fältet finns "på var och en av de 1604 trådarna". Talet var
+    rätt för meddelandena och fel för trådarna. Att 1750 icke-tomma `snippet`
+    är fler än 1604 trådar är i sig ett bevis för det. Fällt av
+    §7-granskningen av skiva 28.*
 
     Fältet är däremot TRUNKERAT, alltså är det ingen nyckel för en exakt
     jämförelse. Skillnaden mellan "det finns inget fält" och "fältet är
@@ -130,7 +137,7 @@ def main() -> int:
     print(f"varav kopplade på exakt snippet:      {exakt}")
     print(f"varav kopplade på snippet som inledning: {som_inledning}")
     print("")
-    print("`snippet` är Gmails eget klartextutdrag och fältet finns överallt, men")
+    print("`snippet` är Gmails klartextutdrag och sitter på MEDDELANDET, men")
     print("det är TRUNKERAT. Talen ovan säger hur mycket det räcker till. Det är")
     print("skälet till att `las_fall` lämnar hash och tidsstämpel TOMMA för de")
     print("obesvarade i stället för att hitta på dem (§7.2).")

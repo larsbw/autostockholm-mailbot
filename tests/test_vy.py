@@ -16,6 +16,8 @@ kundtext i en testrapport (§6).
 
 from __future__ import annotations
 
+import dataclasses
+import inspect
 import io
 import json
 import re
@@ -129,8 +131,7 @@ def test_importlagret_ser_relativa_importer(tmp_path):
     hade räckt för att dra in `src/auth.py`, som bygger credentials med
     `gmail.send` i sitt scope.
 
-    Funnen av §7-granskningen av skiva 27, VARV 3, alltså efter att grinden var
-    förbrukad. Rättelsen är därför SJÄLVMÄTT och inte oberoende granskad.
+    Funnen av §7-granskningen av skiva 27, VARV 3.
     """
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "__init__.py").write_text("", encoding="utf-8")
@@ -143,7 +144,85 @@ def test_importlagret_ser_relativa_importer(tmp_path):
     assert "src.auth" in str(fel.value)
 
 
-def test_relativ_import_utan_kant_modul_gissar_inte(tmp_path):
+def test_relativ_import_med_modulnamn_ser_ocksa_sandvagen(tmp_path):
+    """DEN FJÄRDE FORMEN, som varv 3:s rättelse lämnade öppen.
+
+    `from .auth import bygg` har `nod.module` satt till `auth`, alltså till en
+    DEL av sökvägen, och `nod.level` lika med 1. Villkoret `nod.module or
+    _paket(...)` tog då modulnamnet och ignorerade nivån, så spärren fick `auth`
+    i stället för `src.auth`: namnet matchade inte `FORBJUDNA_MODULER`, och
+    vandringen letade efter `auth.py` i repotet i stället för `src/auth.py`.
+
+    Samma hål som `test_importlagret_ser_relativa_importer` stängde, en
+    systerform bort. Funnen av §7-granskningen av skiva 28.
+    """
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "src" / "vy.py").write_text(
+        "from .auth import bygg\n", encoding="utf-8"
+    )
+    (tmp_path / "src" / "auth.py").write_text("import smtplib\n", encoding="utf-8")
+
+    with pytest.raises(vy.Sandvagsfel) as fel:
+        vy.krav_pa_sandvagsfrihet(rot=tmp_path)
+
+    assert "src.auth" in str(fel.value)
+
+
+def test_vandringen_foljer_en_relativ_import_till_en_oskyldig_modul(tmp_path):
+    """DET SOM ANROPET I `moduler_i_vyn` VAKTAR, och som saknade test.
+
+    De två anropen av `_lokala_importer` skyddar OLIKA fall. Det i
+    `krav_pa_sandvagsfrihet` räcker när den relativt importerade modulen SJÄLV
+    bär ett förbjudet namn: då fälls den redan på namnet. Det i `moduler_i_vyn`
+    är det som får VANDRINGEN att läsa modulens källa.
+
+    Här heter modulen `mellan`, alltså ingenting förbjudet, och sändvägen ligger
+    inuti den. Utan `i_modul` i `moduler_i_vyn` blir grafen bara `src.vy`,
+    `src/mellan.py` läses aldrig, och båda lagren ser tomt.
+
+    Funnen av §7-granskningen av skiva 28, som en vakuös rad: anropet gick att
+    ta bort med hela sviten grön.
+    """
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "src" / "vy.py").write_text("from . import mellan\n", encoding="utf-8")
+    (tmp_path / "src" / "mellan.py").write_text("import smtplib\n", encoding="utf-8")
+
+    with pytest.raises(vy.Sandvagsfel) as fel:
+        vy.krav_pa_sandvagsfrihet(rot=tmp_path)
+
+    assert "smtplib" in str(fel.value)
+
+
+def test_relativ_import_av_en_forbjuden_modul_falls_pa_NAMNET(tmp_path):
+    """DET SOM ANROPET I `krav_pa_sandvagsfrihet` VAKTAR, och bara det.
+
+    De två anropen av `_lokala_importer` är ett lagrat försvar och bär
+    varandra i de flesta fall. Här är fallet där bara det ena kan fälla:
+    `src.auth` står i `FORBJUDNA_MODULER` och är förbjuden PÅ NAMNET, oavsett
+    vad filen innehåller. Modulen är därför tom här.
+
+    Vandringen läser då `src/auth.py`, hittar ingenting förbjudet i den, och
+    källtextlagret tiger. Bara namnprövningen i `krav_pa_sandvagsfrihet` kan
+    fälla, och den ser namnet bara om `i_modul` skickas med dit.
+
+    Funnen av §7-granskningen av skiva 28: efter att vandringen rättats blev
+    det andra anropet grönt vid fällning, alltså inkonklusivt enligt §7.1:s
+    klausul om lagrat försvar. Det här testet gör utfallet konklusivt.
+    """
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "src" / "vy.py").write_text("from . import auth\n", encoding="utf-8")
+    (tmp_path / "src" / "auth.py").write_text("OFARLIG = 1\n", encoding="utf-8")
+
+    with pytest.raises(vy.Sandvagsfel) as fel:
+        vy.krav_pa_sandvagsfrihet(rot=tmp_path)
+
+    assert "src.auth" in str(fel.value)
+
+
+def test_relativ_import_utan_kant_modul_gissar_inte():
     """NOLLFALLET: går paketet inte att bestämma hittas det inte på.
 
     En gissning hade gett ett modulnamn som inte finns, alltså en TYST lucka
@@ -399,36 +478,75 @@ def test_referenslaget_visar_tomt_falt_och_ingen_skickaknapp():
     ]
 
 
-def test_varje_falt_som_nar_sidan_escapas():
-    """KLASSEN, inte instansen.
+# Strängen varje escapningsprövning matar in. Den är markup som syns direkt om
+# den slipper igenom, och den finns som konstant för att de två testen nedan
+# ska mäta samma sak.
+OND = "<script>larm()</script>"
 
-    Varv 2 stängde ETT ovaktat `html.escape`, i `rendera_granskning`. Varv 3
-    fann fyra till: förslaget, felmeddelandet, etiketten och källan. Att stänga
-    en instans i taget lämnar klassen öppen, och nästa fält som läggs till blir
-    ovaktat på samma sätt.
+# Renderarna, anropade med ETT `Fall` och inget annat. Signaturernas övriga
+# parametrar prövas av `test_varje_strangparameter_till_renderarna_escapas`.
+_RENDERARE = (
+    ("rendera_referens", lambda fall: vy.rendera_referens(fall, 0, 1)),
+    ("rendera_granskning", lambda fall: vy.rendera_granskning(fall, "ett förslag")),
+    (
+        "rendera_granskning spärrad",
+        lambda fall: vy.rendera_granskning(fall, "ett förslag", sparr="en spärr"),
+    ),
+)
 
-    Testet går igenom varje fält som kan bära markup och kräver att det syns
-    som TEXT. `forslag` är modellgenererad text i fas 5, och `str(fel)` är det
-    enda stället där data rakt från POST-kroppen reflekteras tillbaka i HTML.
 
-    Funnet av §7-granskningen av skiva 27, varv 3. SJÄLVMÄTT rättelse: grinden
-    var förbrukad när fyndet kom.
+def test_varje_falt_pa_fall_escapas():
+    """KLASSEN, inte instansen, och den här gången på riktigt.
+
+    **FÄLTEN HÄRLEDS UR `Fall`, inte ur en lista i testet.** Det är skillnaden
+    mot föregående lydelse, som räknade upp de fält som fanns när den skrevs.
+    Läggs ett fält till på `Fall` och renderas oescapat blir raden röd av att
+    fältet EXISTERAR, vilket är vad "klass" betyder.
+
+    Föregående lydelse påstod sig pröva klassen och gjorde det inte:
+    §7-granskningen av skiva 28 renderade ett befintligt men ouppräknat fält
+    oescapat och fick hela sviten grön. Namnet lovade ett beteende testet inte
+    mätte, alltså samma defektform som `test_servern_loggar_inte_vad_lars_laser`
+    bar innan den skrevs om.
     """
-    ond = "<script>larm()</script>"
+    for falt in dataclasses.fields(Fall):
+        for namn, rendera in _RENDERARE:
+            sida = rendera(ett_fall(**{falt.name: OND}))
+            assert OND not in sida, f"{namn} escapar inte {falt.name}"
 
-    sidor = [
-        vy.rendera_referens(ett_fall(text=ond), 0, 1),
-        vy.rendera_referens(ett_fall(etikett=ond), 0, 1),
-        vy.rendera_referens(ett_fall(kalla=ond), 0, 1),
-        vy.rendera_granskning(ett_fall(text=ond), "ett förslag"),
-        vy.rendera_granskning(ett_fall(etikett=ond), "ett förslag"),
-        vy.rendera_granskning(ett_fall(), ond),
-        vy.rendera_granskning(ett_fall(), "ett förslag", sparr=ond),
-    ]
 
-    for sida in sidor:
-        assert ond not in sida
-        assert "&lt;script&gt;" in sida
+def test_varje_strangparameter_till_renderarna_escapas():
+    """ANDRA HALVAN AV KLASSEN: renderarnas egna parametrar.
+
+    `Fall` täcker fälten, men `forslag` och `sparr` är fria parametrar och
+    kommer inte därifrån. De härleds ur `inspect.signature`, så en NY
+    strängparameter som renderas oescapat blir röd av att den existerar.
+
+    `fall`, `index` och `antal` hoppas över: det första prövas av testet ovan,
+    de två andra är heltal och kan inte bära markup.
+    """
+    hoppa = {"fall", "index", "antal"}
+    provade = []
+
+    for renderare in (vy.rendera_referens, vy.rendera_granskning):
+        parametrar = [
+            namn
+            for namn in inspect.signature(renderare).parameters
+            if namn not in hoppa
+        ]
+
+        for namn in parametrar:
+            provade.append(namn)
+            argument = {"fall": ett_fall(), namn: OND}
+            if renderare is vy.rendera_granskning:
+                argument.setdefault("forslag", "ett förslag")
+            sida = renderare(**argument)
+            assert OND not in sida, f"{renderare.__name__} escapar inte {namn}"
+
+    # Att uppräkningen inte tystnade. Blir `hoppa` någon gång för bred, eller
+    # ändras signaturerna, ska testet falla i stället för att pröva noll
+    # parametrar och rapportera grönt.
+    assert provade == ["forslag", "sparr"]
 
 
 def test_felmeddelandet_escapas_innan_det_reflekteras():
@@ -608,7 +726,7 @@ def test_obesvarat_fall_far_tomma_falt_och_ingen_pahittad_hash(tmp_path):
 
     Uppmätt med `scripts/par-koppling.py`: av de 9 obesvarade a-traktorfallen
     kopplas 0 på exakt `snippet` och 1 på `snippet` som inledning, mot 1604
-    trådar. Gmails `snippet` finns överallt men är TRUNKERAT, alltså är
+    trådar. Gmails `snippet` sitter på MEDDELANDET och är TRUNKERAT, alltså är
     det ingen nyckel. En påhittad hash hade varit ett tal utan källa (§7.2).
 
     *Här stod först 1 av 9 utan reproducerbar källa, sedan att kopplingen är

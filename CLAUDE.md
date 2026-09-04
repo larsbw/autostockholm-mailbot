@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.10.1 · **Uppdaterad:** 2026-09-04 · **Speglar:** beslutslogg #41
+**Version:** 0.10.2 · **Uppdaterad:** 2026-09-04 · **Speglar:** beslutslogg #43
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -457,6 +457,26 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.10.2 — 2026-09-04
+
+**`Speglar` följer med till beslutslogg #43.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 28:s två poster lagts till.
+
+**§0:s styrdokumentlista är oförändrad.** Skiva 28 skapade ingen ny fil.
+
+**§7.1:s klausul om lagrat försvar är OFÖRÄNDRAD här, och det är avsiktligt.**
+Skiva 28 skrev in den spegelvända riktningen i `docs/sparrar.md`, alltså att en
+SAMMANSLAGEN fällning ger falskt ÄKTA. Briefen namngav `docs/sparrar.md` och inte
+det här dokumentet. Följden är att CLAUDE.md §7.1 bär en riktning och
+`docs/sparrar.md` två.
+
+**ÖPPEN PUNKT för Lars:** ska §7.1 bära båda riktningarna också? Klausulen här är
+den som läses vid varje sessionsstart, och den som prövar en spärr utan att slå
+upp `docs/sparrar.md` ser bara den ena fällan. Frågan skrivs ut i stället för att
+avgöras, eftersom en ny regel i CLAUDE.md är Lars beslut och inte mitt.
+
+Ren synk ⇒ PATCH.
 
 ### 0.10.1 — 2026-09-04
 
