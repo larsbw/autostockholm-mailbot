@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.33.1 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
+**Version:** 0.34.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -2568,7 +2568,96 @@ vyn ska exponeras, och då som skivans enda uppgift.
 
 ---
 
+## #44 — Hämtningen namnger oss, och loggar när den faller
+
+**Datum:** 2026-09-04 · **Berör:** `src/biluppgifter.py`, `logg/uppslag.jsonl`,
+CLAUDE.md §6, #23, #32
+
+**Beslut av Lars i skiva 29.** Tre ändringar i den befintliga hämtningen.
+
+**1. USER AGENTEN NAMNGER AUTO STOCKHOLM. Ingen förklädnad.**
+
+Strängen var en webbläsares, och den var LASTBÄRANDE. Modulens kommentar sade,
+avläst 2026-09-02, att sidan svarar 200 på en webbläsarklient och avvisade
+Perplexitys hämtare med klientfel, alltså att filtreringen sker på klienten.
+
+**Att byta kan därför göra att hämtningen slutar fungera, och det är OPRÖVAT.**
+Ingen körning mot biluppgifter.se har gjorts med den nya strängen. Sviten rör
+inte nätet, så frågan går inte att avgöra utan en körning mot tredje part, och
+den körningen är inte gjord i den här skivan.
+
+Skälet att byta ändå är att en bot som utger sig för att vara en webbläsare inte
+går att höra av sig till. Den nya strängen bär adress och kontaktväg. Faller
+hämtningen syns det i loggen, vilket är skälet till att punkt 3 ligger i samma
+skiva.
+
+**LOGGEN KAN INTE VISA NÅGOT FÖRRÄN VÄGEN ÄR INKOPPLAD.** `slag_upp` anropas i
+dag bara ur `tests/`, alltså finns ingen produktionsväg som når hämtningen.
+Riskbeskrivningen ovan gäller från den dag fas 4.5 kopplas in nedströms, inte
+från den här committen.
+
+**OM `requests`.** Briefen sade `requests.get`. Hämtningen behåller `urllib`,
+eftersom modulens docstring sedan skiva 22 bär ett dokumenterat svar på just den
+frågan: stdlib räcker och `requirements.txt` rörs inte. `requests` finns i
+`.venv` transitivt via `requests-oauthlib` men står inte i `requirements.txt`,
+och repots konvention är att en transitivt tillgänglig modul som importeras
+direkt måste pinnas explicit, se kommentaren om `httplib2`. Ett byte hade alltså
+krävt en ändring i strid med ett tidigare beslut, utan funktionell vinst.
+**Avvikelsen står här för att den inte ska vara tyst; den är Lars att riva.**
+
+**2. ETT OMFÖRSÖK, INGEN LOOP.** Omförsöket gäller bara det som kan vara
+övergående: nätverksfel och timeout. En HTTP-statuskod är källans SVAR och
+försöks aldrig om. Ett 403 blir inte 200 av att frågas igen, och en loop mot en
+källa som avvisar oss är precis vad en ärlig user agent finns för att slippa.
+
+**3. VARJE MISSLYCKAT UPPSLAG LOGGAS** till `logg/uppslag.jsonl`, append-only,
+med registreringsnummer, tidpunkt och skäl. Skälen är grova med flit så att de
+går att räkna per dygn: `natverksfel`, `statuskod`, `okant_fordon`, `fel_fordon`,
+`fel_vid_lasning` och `falt_saknas`.
+
+**ORDET VARJE VAR FALSKT NÄR DET SKREVS, och det är rättat i koden.** Två vägar
+ut ur hämtningen bar inget loggande: `_galler_fordonet`:s kast vid ett tvetydigt
+canonical-ankare låg utanför loggens ram, och `http.client.IncompleteRead` är
+varken `OSError` eller `URLError` och slank därför förbi både omförsöket och
+loggen. Båda är stängda, och båda har ett test. Fällt av §7-granskningen av
+skiva 29, varv 1.
+
+**Skälet `fel_vid_lasning` var dessutom det enda av de sex som inget test
+rörde**, alltså en vakuös loggrad enligt §7.1. Två test bär den nu.
+
+**`falt_saknas` ÄR DEN SOM BÄR HELA POÄNGEN.** Sidan svarade 200, gällde rätt
+fordon och gick att parsa, men bar inte fälten. Det är vad en markupändring ser
+ut som. Utan loggraden syns den bara i att a-traktorsvaren tyst börjar hamna i
+`utkast`, alltså som försiktighet i stället för som ett fel.
+
+**Ett uppslag som faller är rätt beteende. Ett uppslag som faller utan att någon
+märker det är en tyst nedgång.**
+
+**§6 OCH REGISTRERINGSNUMRET.** Numret är persondata och får aldrig stå i en
+rapport, ett commitmeddelande, i `docs/` eller i något som pushas. `logg/` är
+gitignorerad, alltså är loggfilen den enda plats det får stå på, och det gör den
+raden förenlig med §6 i stället för ett undantag från den.
+
+**Loggningen är en OBSERVATION, aldrig en spärr.** Går skrivningen inte igenom
+sväljs felet och uppslaget fortsätter. Kastade den vidare hade en diskfull maskin
+gjort varje a-traktorsvar till ett utkast, alltså hade övervakningen blivit den
+sak som fäller.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.34.0 — 2026-09-04
+
+**#44 tillkommer:** hämtningen namnger Auto Stockholm, får ett omförsök, och
+loggar varje misslyckat uppslag.
+
+**Posten skriver ut att UA-bytet är OPRÖVAT mot källan.** Den ersatta strängen
+var lastbärande enligt en avläsning 2026-09-02, och ingen körning mot
+biluppgifter.se har gjorts med den nya. Det står i posten och inte bara i koden,
+eftersom det är ett antagande om en tredje parts drift.
+
+Ny post ⇒ MINOR.
 
 ### 0.33.1 — 2026-09-04
 

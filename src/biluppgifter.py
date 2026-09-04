@@ -67,13 +67,25 @@ registrerad i `docs/sparrar.md`.
 
 from __future__ import annotations
 
+import http.client
+import json
 import re
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 from html import unescape
 from html.parser import HTMLParser
+from pathlib import Path
 from typing import Callable
 from urllib.parse import urlsplit
+
+# LOGGEN ÖVER MISSLYCKADE UPPSLAG. Append-only JSONL, samma form som repots
+# övriga loggar, och under gitignorerade `logg/`.
+#
+# **REGISTRERINGSNUMRET SKRIVS HÄR OCH INGEN ANNANSTANS.** §6 förbjuder
+# persondata i rapporter, commitmeddelanden, `docs/` och allt som pushas.
+# `logg/` är gitignorerad, alltså är den den enda plats numret får stå på.
+LOGGFIL = Path(__file__).resolve().parent.parent / "logg" / "uppslag.jsonl"
 
 # Sidans adress. Registreringsnumret kommer normaliserat till VERSALER av
 # `fordonsuppslag.slag_upp`, och sidan svarar på både gemener och versaler,
@@ -85,15 +97,19 @@ from urllib.parse import urlsplit
 # tidigare till `CANONICAL`, en konstant som togs bort med regexen.*
 URL_MALL = "https://biluppgifter.se/fordon/{regnr}/"
 
-# En webbläsares user-agent. DETTA ÄR INTE KOSMETIKA: sidan svarar 200 på en
-# webbläsarklient och avvisade Perplexitys hämtare med klientfel, avläst
-# 2026-09-02. Filtreringen sker alltså på klienten, och det är samtidigt den
-# största driftrisken med den här vägen. Skärps filtret slutar hämtningen
-# fungera, och då är PRO-API:t vägen tillbaka.
-UA = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
-)
+# EN USER AGENT SOM NAMNGER OSS. Beslut av Lars i skiva 29: ingen förklädnad.
+#
+# **HÄR STOD EN WEBBLÄSARSTRÄNG, och den var lastbärande.** Kommentaren som
+# ersätts sade, avläst 2026-09-02, att sidan svarar 200 på en webbläsarklient och
+# avvisade Perplexitys hämtare med klientfel, alltså att filtreringen sker på
+# klienten. Att byta till ett ärligt namn kan därför göra att hämtningen slutar
+# fungera.
+#
+# **DET ÄR OPRÖVAT.** Ingen körning mot biluppgifter.se har gjorts med den här
+# strängen, och sviten rör inte nätet. Faller hämtningen syns det i
+# `logg/uppslag.jsonl` som `natverksfel` eller som en statuskod, vilket är hela
+# skälet till att loggningen byggs i samma skiva. PRO-API:t är vägen tillbaka.
+UA = "AutoStockholmBot/1.0 (+https://autostockholm.se; info@autostockholm.se)"
 
 TIDSGRANS_S = 20
 
@@ -960,6 +976,43 @@ def _las_falt(sida: str) -> dict:
     return ut
 
 
+def logga_uppslag(regnr: str, skal: str, **extra) -> dict:
+    """Skriver ett misslyckat uppslag till `logg/uppslag.jsonl`. Append-only.
+
+    **ETT UPPSLAG SOM FALLER ÄR RÄTT BETEENDE. ETT SOM FALLER UTAN ATT NÅGON
+    MÄRKER DET ÄR EN TYST NEDGÅNG.** Utan den här raden syns en sidändring bara
+    i att a-traktorsvaren långsamt börjar hamna i `utkast`, vilket ser ut som
+    försiktighet och inte som ett fel.
+
+    `skal` är den maskinläsbara orsaken, och den är avsiktligt grov: den ska gå
+    att räkna per dygn. `falt_saknas` är den som betyder att sidan bytt markup.
+
+    En misslyckad SKRIVNING får inte hindra ett uppslag: går disken full är det
+    bättre att uppslaget fortsätter utan logg än att övervakningen blir den sak
+    som fäller. Därför sväljs `OSError` här, och ingen annanstans i modulen.
+
+    **ABSOLUTET GÄLLER SKRIVNINGEN, INTE SERIALISERINGEN.** `json.dumps` kan
+    kasta `TypeError` för ett värde som inte går att serialisera, och det fångas
+    inte. Med `_hamta_sidan` som hämtare är `status` alltid `int` och `detalj`
+    alltid `str`, så vägen är oåtkomlig i drift, men en injicerad `oppna` kan nå
+    den. *Här stod "får ALDRIG hindra ett uppslag", vilket var starkare än
+    koden. Fällt av §7-granskningen av skiva 29, varv 1.*
+    """
+    post = {
+        "tidsstampel": datetime.now(timezone.utc).isoformat(),
+        "regnr": regnr,
+        "skal": skal,
+        **extra,
+    }
+    try:
+        LOGGFIL.parent.mkdir(parents=True, exist_ok=True)
+        with LOGGFIL.open("a", encoding="utf-8") as fil:
+            fil.write(json.dumps(post, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+    return post
+
+
 def biluppgifter_hamtning(
     *,
     oppna: Callable[[str], tuple[int, str]] | None = None,
@@ -985,18 +1038,49 @@ def biluppgifter_hamtning(
     hamtare = oppna or _hamta_sidan
 
     def hamta(regnr: str) -> dict | None:
-        status, sida = hamtare(regnr)
+        # LOGGAS OCH KASTAS VIDARE, aldrig sväljs. `Hamtningsfel` ur `hamtare`
+        # är den form ett nätverksfel eller en timeout tar, och den ska nå
+        # anroparen oförändrad. Loggraden är ett tillägg, inte en hantering.
+        try:
+            status, sida = hamtare(regnr)
+        except Hamtningsfel as fel:
+            logga_uppslag(regnr, "natverksfel", detalj=str(fel))
+            raise
 
         if status == 404:
+            logga_uppslag(regnr, "okant_fordon", status=404)
             return None
 
         if status != 200:
+            logga_uppslag(regnr, "statuskod", status=status)
             raise Hamtningsfel(f"biluppgifter.se svarade {status}")
 
-        if not _galler_fordonet(sida, regnr):
-            return None
+        # BÅDA STEGEN LIGGER UNDER SAMMA RAM, och det är ett fynd och inte en
+        # stilfråga. Först låg bara `_las_falt` här, medan `_galler_fordonet`
+        # kastade på raden ovanför utan att logga: en sida med två
+        # canonical-ankare gav `Hamtningsfel` och INGEN rad, alltså precis den
+        # tvetydighet loggen byggdes för. Fällt av §7-granskningen av skiva 29.
+        #
+        # Spärrarna är oförändrade. Ramen lägger till en loggrad före kastet och
+        # kastar vidare med bar `raise`.
+        try:
+            if not _galler_fordonet(sida, regnr):
+                logga_uppslag(regnr, "fel_fordon")
+                return None
+            falt = _las_falt(sida)
+        except Hamtningsfel as fel:
+            logga_uppslag(regnr, "fel_vid_lasning", detalj=str(fel))
+            raise
 
-        return _las_falt(sida)
+        # **DEN HÄR RADEN ÄR SKÄLET TILL ATT LOGGEN FINNS.** Sidan svarade 200,
+        # gällde rätt fordon, och gick att parsa, men bar inte fälten. Det är
+        # vad en markupändring ser ut som, och utan loggen syns den bara i att
+        # svaren tyst börjar hamna i `utkast`.
+        saknade = sorted(set(EXAKT_ETIKETT) - set(falt))
+        if saknade:
+            logga_uppslag(regnr, "falt_saknas", saknade=saknade)
+
+        return falt
 
     return hamta
 
@@ -1007,6 +1091,39 @@ def _hamta_sidan(regnr: str) -> tuple[int, str]:
     404 översätts INTE till ett undantag här, eftersom ett fordon som inte finns
     är ett giltigt svar från källan. Allt annat som går fel blir `Hamtningsfel`,
     inklusive timeout och DNS: `slag_upp` ska se skillnad på tystnad och tomhet.
+
+    **ETT OMFÖRSÖK, INGEN LOOP.** Beslut av Lars i skiva 29. Omförsöket gäller
+    bara det som kan vara övergående, alltså nätverksfel och timeout. En
+    HTTP-statuskod är källans SVAR och försöks aldrig om: ett 403 blir inte 200
+    av att frågas igen, och en loop mot en källa som avvisar oss är precis vad
+    en ärlig user agent finns för att slippa.
+    """
+    # OMFÖRSÖKET FÅNGAR DE RÅA UNDANTAGEN, inte `Hamtningsfel`. Fångade det
+    # `Hamtningsfel` skulle även en statuskod försökas om, eftersom `_ett_forsok`
+    # kastar samma typ för båda, och docstringen ovan vore falsk om sin egen kod.
+    try:
+        return _ett_forsok(regnr)
+    except (urllib.error.URLError, TimeoutError, OSError, http.client.IncompleteRead):
+        pass
+
+    try:
+        return _ett_forsok(regnr)
+    except (urllib.error.URLError, TimeoutError, OSError, http.client.IncompleteRead) as fel:
+        raise Hamtningsfel(f"biluppgifter.se gick inte att nå: {fel}") from fel
+
+
+def _ett_forsok(regnr: str) -> tuple[int, str]:
+    """Ett enda anrop mot sidan. Omförsöket ligger i `_hamta_sidan`.
+
+    Nätverksfel kastas RÅA härifrån, så att `_hamta_sidan` kan skilja dem från
+    en statuskod.
+
+    `HTTPError` är en subklass av `URLError`, och skyddet mot att en statuskod
+    försöks om ligger INTE i klausulordning: funktionen har en enda `except`.
+    Det ligger i att `HTTPError` KONVERTERAS till `Hamtningsfel` här, alltså
+    innan den kan nå `_hamta_sidan`:s omförsök, som bara fångar de råa typerna.
+    *Här stod "fångas därför först", som beskriver en ordning mellan klausuler
+    som inte finns. Fällt av §7-granskningen av skiva 29, varv 1.*
     """
     begaran = urllib.request.Request(
         URL_MALL.format(regnr=regnr),
@@ -1020,5 +1137,3 @@ def _hamta_sidan(regnr: str) -> tuple[int, str]:
         if fel.code == 404:
             return 404, ""
         raise Hamtningsfel(f"biluppgifter.se svarade {fel.code}") from fel
-    except (urllib.error.URLError, TimeoutError, OSError) as fel:
-        raise Hamtningsfel(f"biluppgifter.se gick inte att nå: {fel}") from fel

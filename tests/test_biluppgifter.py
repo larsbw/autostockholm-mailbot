@@ -51,11 +51,14 @@ All indata är påhittad i den meningen att den inte är hämtad ur kundmaterial
 
 from __future__ import annotations
 
+import http.client
+import json
 import urllib.error
+from pathlib import Path
 
 import pytest
 
-from src import fordonsuppslag
+from src import biluppgifter, fordonsuppslag
 from src.biluppgifter import (
     EXAKT_ETIKETT,
     Hamtningsfel,
@@ -70,6 +73,21 @@ from src.biluppgifter import (
 from src.fordonsuppslag import UppslagMisslyckades, Utfall
 
 REGNR = "ABC12X"
+
+
+@pytest.fixture(autouse=True)
+def logg_i_tmp(tmp_path, monkeypatch):
+    """INGEN TESTKÖRNING SKRIVER I REPOTS `logg/`.
+
+    `biluppgifter_hamtning` loggar varje misslyckat uppslag, och den här filen
+    bär hundratals uppslag som misslyckas med flit. Utan omdirigeringen hade
+    varje svitkörning fyllt `logg/uppslag.jsonl` med fixturnummer, alltså gjort
+    en driftlogg oläsbar med data som aldrig rörde en kund.
+
+    Fixturen är `autouse` därför att kravet gäller varje test i filen, och en
+    fixtur man måste komma ihåg att begära är en fixtur någon glömmer.
+    """
+    monkeypatch.setattr(biluppgifter, "LOGGFIL", tmp_path / "uppslag.jsonl")
 
 
 def rad(etikett: str, varde: str) -> str:
@@ -524,6 +542,260 @@ def test_httperror_500_blir_hamtningsfel(monkeypatch):
         _hamta_sidan(REGNR)
 
     assert "500" in str(fel.value)
+
+
+# ------------------------------------------------------ omförsöket, skiva 29
+
+
+class _svar:
+    """Ett lyckat `urlopen`-svar. Kontexthanterare, som det riktiga."""
+
+    def __init__(self, kropp: str, status: int = 200):
+        self.status = status
+        self._kropp = kropp
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        return False
+
+    def read(self) -> bytes:
+        return self._kropp.encode("utf-8")
+
+
+def test_ett_omforsok_vid_natverksfel(monkeypatch):
+    """Ett övergående nätverksfel ska inte fälla uppslaget.
+
+    Första anropet faller, det andra lyckas, och hämtningen returnerar sidan.
+    """
+    anrop = []
+
+    def urlopen(*_a, **_k):
+        anrop.append(1)
+        if len(anrop) == 1:
+            raise urllib.error.URLError("tillfälligt")
+        return _svar("<html></html>")
+
+    monkeypatch.setattr("src.biluppgifter.urllib.request.urlopen", urlopen)
+
+    assert _hamta_sidan(REGNR) == (200, "<html></html>")
+    assert len(anrop) == 2
+
+
+def test_omforsoket_ar_ETT_och_ingen_loop(monkeypatch):
+    """PÅSTÅENDET ÄR ATT DET INTE LOOPAR. Två fel ska ge upp, inte fortsätta.
+
+    En loop mot en källa som inte svarar är skillnaden mellan ett uppslag som
+    faller och en bot som hamrar. Räknaren är det som binder ordet ETT.
+    """
+    anrop = []
+
+    def urlopen(*_a, **_k):
+        anrop.append(1)
+        raise urllib.error.URLError("nere")
+
+    monkeypatch.setattr("src.biluppgifter.urllib.request.urlopen", urlopen)
+
+    with pytest.raises(Hamtningsfel):
+        _hamta_sidan(REGNR)
+
+    assert len(anrop) == 2
+
+
+def test_en_statuskod_forsoks_ALDRIG_om(monkeypatch):
+    """En statuskod är källans SVAR, inte tystnad, och ska inte frågas igen.
+
+    Ett 403 blir inte 200 av ett omförsök. Villkoret som bär det är att
+    `_hamta_sidan` fångar de RÅA nätverksundantagen och inte `Hamtningsfel`,
+    som `_ett_forsok` kastar för båda sorterna.
+    """
+    anrop = []
+
+    def urlopen(*_a, **_k):
+        anrop.append(1)
+        raise urllib.error.HTTPError(
+            "https://biluppgifter.se/fordon/ABC12X/", 403, "Forbidden", {}, None
+        )
+
+    monkeypatch.setattr("src.biluppgifter.urllib.request.urlopen", urlopen)
+
+    with pytest.raises(Hamtningsfel):
+        _hamta_sidan(REGNR)
+
+    assert len(anrop) == 1
+
+
+def test_avbruten_kropp_ar_ett_natverksfel_och_forsoks_om(monkeypatch):
+    """`IncompleteRead` är VARKEN `OSError` ELLER `URLError`, mätt.
+
+    En kropp som klipps mitt i är ett övergående nätverksfel, men den undantags-
+    typen ligger utanför båda de arv `_hamta_sidan` fångade. Följden var tre på
+    en gång: inget omförsök, ingen `Hamtningsfel`, och ingen loggrad, alltså ett
+    uppslag som föll rått rakt igenom.
+
+    Funnet av §7-granskningen av skiva 29, varv 1.
+    """
+    anrop = []
+
+    def urlopen(*_a, **_k):
+        anrop.append(1)
+        if len(anrop) == 1:
+            raise http.client.IncompleteRead(b"halv")
+        return _svar("<html></html>")
+
+    monkeypatch.setattr("src.biluppgifter.urllib.request.urlopen", urlopen)
+
+    assert _hamta_sidan(REGNR) == (200, "<html></html>")
+    assert len(anrop) == 2
+
+
+def test_user_agent_namnger_oss_och_ar_ingen_forkladnad():
+    """Beslut av Lars i skiva 29: ingen webbläsarförklädnad.
+
+    Strängen ska namnge Auto Stockholm och en kontaktväg, så att den som läser
+    sina serverloggar ser vem som frågar och kan höra av sig.
+    """
+    assert "AutoStockholm" in biluppgifter.UA
+    assert "autostockholm.se" in biluppgifter.UA
+
+    for forkladnad in ("Mozilla", "AppleWebKit", "Chrome", "Safari", "Gecko"):
+        assert forkladnad not in biluppgifter.UA
+
+
+# ------------------------------------------------------ loggen, skiva 29
+
+
+def _loggrader() -> list[dict]:
+    """Raderna i den omdirigerade loggfilen, eller tom lista om den inte finns."""
+    if not biluppgifter.LOGGFIL.exists():
+        return []
+    return [
+        json.loads(r)
+        for r in biluppgifter.LOGGFIL.read_text(encoding="utf-8").splitlines()
+        if r
+    ]
+
+
+def test_falt_som_saknas_loggas_som_markupandring():
+    """**DET HÄR ÄR SKÄLET TILL ATT LOGGEN FINNS.**
+
+    Sidan svarar 200, gäller rätt fordon, och går att parsa, men bär inte
+    fälten. Det är vad en markupändring ser ut som. Utan loggraden syns den bara
+    i att a-traktorsvaren tyst börjar hamna i `utkast`, alltså som försiktighet
+    i stället för som ett fel.
+    """
+    utan_falt = sida(rader="")
+
+    biluppgifter_hamtning(oppna=svarar(utan_falt))(REGNR)
+
+    rader = _loggrader()
+    assert [r["skal"] for r in rader] == ["falt_saknas"]
+    assert rader[0]["saknade"] == sorted(EXAKT_ETIKETT)
+    assert rader[0]["regnr"] == REGNR
+    assert rader[0]["tidsstampel"]
+
+
+def test_ett_fullstandigt_uppslag_loggar_INGENTING():
+    """NEGATIVKONTROLL: loggen är inte ett larm som alltid går.
+
+    En logg som skriver en rad per uppslag går inte att räkna misslyckanden ur,
+    och då är den tillbaka till att vara osynlig.
+    """
+    biluppgifter_hamtning(oppna=svarar(sida(rader=HELA_RADER)))(REGNR)
+
+    assert _loggrader() == []
+
+
+@pytest.mark.parametrize(
+    "oppna, skal",
+    [
+        (lambda _r: (_ for _ in ()).throw(Hamtningsfel("nere")), "natverksfel"),
+        (lambda _r: (503, ""), "statuskod"),
+        (lambda _r: (404, ""), "okant_fordon"),
+    ],
+)
+def test_varje_misslyckad_vag_loggas_med_sitt_skal(oppna, skal):
+    """Varje väg som inte ger fält ska gå att skilja från de andra i loggen.
+
+    Skälen är grova med flit: de ska gå att räkna per dygn. En plötslig topp i
+    `okant_fordon` betyder att canonical-ankaret slutat känna igen sidan, och en
+    i `statuskod` att källan börjat avvisa oss.
+    """
+    hamta = biluppgifter_hamtning(oppna=oppna)
+    try:
+        hamta(REGNR)
+    except Hamtningsfel:
+        pass
+
+    assert [r["skal"] for r in _loggrader()] == [skal]
+
+
+def test_tvetydigt_canonical_ankare_loggas_och_kastas_vidare():
+    """Lager 3:s TVETYDIGHETSKAST, som inte loggades alls.
+
+    Två canonical-ankare betyder att sidan inte går att knyta till ett fordon.
+    `_galler_fordonet` kastar då, och det kastet låg UTANFÖR loggens ram: ett
+    uppslag misslyckades och skrev ingen rad. Det är precis den sortens
+    källändring loggen byggdes för.
+
+    Funnet av §7-granskningen av skiva 29, varv 1.
+    """
+    tvetydig = sida(regnr=REGNR).replace(
+        "</head>",
+        '<link rel="canonical" href="https://biluppgifter.se/fordon/XYZ99Z/">'
+        "</head>",
+    )
+
+    with pytest.raises(Hamtningsfel):
+        biluppgifter_hamtning(oppna=svarar(tvetydig))(REGNR)
+
+    assert [r["skal"] for r in _loggrader()] == ["fel_vid_lasning"]
+
+
+def test_en_otolkbar_sida_loggas_som_fel_vid_lasning():
+    """`_las_falt`:s kast ska också bära en loggrad.
+
+    Skälet `fel_vid_lasning` räknas upp i `docs/beslutslogg.md` #44, och var
+    det enda av de sex som inget test rörde: loggraden gick att RADERA med hela
+    sviten grön. Funnet av §7-granskningen av skiva 29, varv 1 som vakuöst.
+    """
+    otolkbar = sida(rader=rad("Släpvagnsvikt", "2400 kg <b>2500</b> kg"))
+
+    with pytest.raises(Hamtningsfel):
+        biluppgifter_hamtning(oppna=svarar(otolkbar))(REGNR)
+
+    assert [r["skal"] for r in _loggrader()] == ["fel_vid_lasning"]
+
+
+def test_fel_fordon_loggas_som_eget_skal():
+    """Canonical-ankaret fäller, och det ska synas som något annat än 404."""
+    biluppgifter_hamtning(oppna=svarar(sida(regnr="XYZ99Z")))(REGNR)
+
+    assert [r["skal"] for r in _loggrader()] == ["fel_fordon"]
+
+
+def test_loggningen_hindrar_aldrig_ett_uppslag(monkeypatch):
+    """En full disk får inte fälla ett uppslag.
+
+    Loggen är en observation, inte en spärr. Kastade skrivningen vidare hade en
+    diskfull maskin gjort varje a-traktorsvar till ett utkast, alltså hade
+    övervakningen blivit den sak som fäller.
+
+    **FALLET MÅSTE VARA ETT SOM FAKTISKT LOGGAR.** Första lydelsen använde ett
+    fullständigt uppslag, som med flit loggar INGENTING, så `OSError` inträffade
+    aldrig och testet var vakuöst. Här saknas ett fält, alltså skrivs en rad, och
+    det är skrivningen som vägrar.
+    """
+    def vagra(*_a, **_k):
+        raise OSError("ingen plats kvar")
+
+    monkeypatch.setattr(Path, "mkdir", vagra)
+
+    utan_ett_falt = sida(rader=rad("Släpvagnsvikt", "2400 kg"))
+    falt = biluppgifter_hamtning(oppna=svarar(utan_ett_falt))(REGNR)
+
+    assert falt["slapvagnsvikt_kg"] == 2400
 
 
 # ============================================================================

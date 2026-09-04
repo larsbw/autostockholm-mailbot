@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.26.1 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.26.2 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -1325,6 +1325,34 @@ fyra lager plus parserns egna villkor. Att hålla två tabeller som mäter samma
 fällningar mot samma baslinje är inte dubbel säkerhet: det är två tal att hålla i
 takt, och postens historik visar vad som händer när de glider isär.
 
+**BASLINJEN ÄR 225 SEDAN SKIVA 29, och tabellen är INTE omkörd.** Skivan lade
+till elva test för omförsöket och loggen och rörde ingen spärr: `git diff` mot
+`005fe1e` visar att inget av de fyra lagren, `_kontrollera`, `_las_falt` eller
+parserns villkor är ändrat. Tabellens tal är därför sanna om baslinjen 214, som
+den själv namnger, och det är den formen posten redan använder på annat håll.
+
+**BÅDA TALEN KAN SKILJA SIG, både `passed` OCH `failed`.** Skiva 29:s test
+täcker samma kodvägar som tabellen fäller, så en fällning kan göra fler test röda
+än tabellen anger utan att något är trasigt. Uppmätt på två rader:
+
+| Tabellrad | Dokumenterat | Uppmätt mot 228 |
+| --- | --- | --- |
+| `if not _galler_fordonet(...)` → `if False:` | 9 röda | 11 röda |
+| `if status == 404:` → `if False:` | 1 röd | 2 röda |
+
+De tillkomna röda är skiva 29:s loggtest, som rör samma vägar. Verdiktet är RÖD
+i båda fallen, precis som tabellen anger.
+
+*Här stod att `failed`-talet är oförändrat om inget rörts, och att en skillnad
+därför är ett fynd. Båda leden är falska, mätt på de två raderna ovan. Meningen
+skrevs för att motivera att tabellen inte körs om, och den motiverade det med ett
+påstående som just den mätningen fäller. Fällt av §7-granskningen av skiva 29,
+varv 1.*
+
+**Vad som faktiskt gäller:** VERDIKTET, alltså RÖD eller GRÖN, är det tabellen
+bär. Talen är sanna om baslinjen 214. Den som kör om en rad och får ett annat
+`failed`-tal ska läsa VILKA test som föll innan det kallas ett fynd.
+
 **EN FÄLLNING LIGGER I EN ANNAN MODUL OCH HÖR HIT ÄNDÅ.** Briefens fall 1, 2, 3
 och 5 faller inte på något i `src/biluppgifter.py`, utan på att nyckeln utelämnas
 och att spärren nedströms fäller. Testen asserar därför på SKÄLET och inte bara
@@ -2537,6 +2565,25 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.26.2 — 2026-09-04
+
+**Baslinjen för `fordonsfakta-ur-sida`:s mutationstabell är 225 sedan skiva 29,
+och tabellen är INTE omkörd.** Skivan lade till elva test för omförsöket och
+loggen och rörde ingen spärr. Tabellens tal är sanna om baslinjen 214, som den
+själv namnger.
+
+**INGEN NY SPÄRR OCH INGEN NY LUCKA i skiva 29.** Hämtningen fick en ärlig user
+agent, ett omförsök och en logg över misslyckade uppslag, se
+`docs/beslutslogg.md` #44. Loggningen är en OBSERVATION och ingen spärr: den
+sväljer sitt eget `OSError` så att en full disk inte kan fälla ett uppslag.
+
+**Att raden om baslinjen skrivs i stället för att tabellen körs om** är samma
+form posten redan använder på annat håll, alltså en mätning som namnger sin
+baslinje. Att köra om tjugofem rader hade gjort en liten skiva stor utan att
+ändra något verdikt.
+
+Noterad baslinje ⇒ PATCH.
 
 ### 0.26.1 — 2026-09-04
 

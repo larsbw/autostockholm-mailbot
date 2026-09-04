@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.10.2 · **Uppdaterad:** 2026-09-04 · **Speglar:** beslutslogg #43
+**Version:** 0.10.3 · **Uppdaterad:** 2026-09-04 · **Speglar:** beslutslogg #44
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -457,6 +457,17 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.10.3 — 2026-09-04
+
+**`Speglar` följer med till beslutslogg #44.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 29:s post lagts till.
+
+**§0:s styrdokumentlista är oförändrad.** Skiva 29 skapade ingen ny fil.
+`logg/uppslag.jsonl` är en driftlogg under gitignorerade `logg/`, inte ett
+styrdokument, och den skapas först när ett uppslag misslyckas.
+
+Ren synk ⇒ PATCH.
 
 ### 0.10.2 — 2026-09-04
 
