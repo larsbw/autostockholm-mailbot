@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.34.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
+**Version:** 0.34.1 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -2615,15 +2615,36 @@ med registreringsnummer, tidpunkt och skäl. Skälen är grova med flit så att 
 går att räkna per dygn: `natverksfel`, `statuskod`, `okant_fordon`, `fel_fordon`,
 `fel_vid_lasning` och `falt_saknas`.
 
-**ORDET VARJE VAR FALSKT NÄR DET SKREVS, och det är rättat i koden.** Två vägar
-ut ur hämtningen bar inget loggande: `_galler_fordonet`:s kast vid ett tvetydigt
-canonical-ankare låg utanför loggens ram, och `http.client.IncompleteRead` är
-varken `OSError` eller `URLError` och slank därför förbi både omförsöket och
-loggen. Båda är stängda, och båda har ett test. Fällt av §7-granskningen av
-skiva 29, varv 1.
+**ORDET VARJE VAR FALSKT NÄR DET SKREVS, och det tog TVÅ granskningsvarv att
+göra det sant.**
 
-**Skälet `fel_vid_lasning` var dessutom det enda av de sex som inget test
-rörde**, alltså en vakuös loggrad enligt §7.1. Två test bär den nu.
+Varv 1 fann två vägar ut ur hämtningen utan loggrad: `_galler_fordonet`:s kast
+vid ett tvetydigt canonical-ankare låg utanför loggens ram, och
+`http.client.IncompleteRead` är varken `OSError` eller `URLError` och slank förbi
+både omförsöket och loggen.
+
+**Varv 2 fann att den andra rättelsen stängde EN MEDLEM I EN FAMILJ.**
+`BadStatusLine` och `LineTooLong` är syskon under `HTTPException` och slank förbi
+på samma sätt. De är nåbara: `urllib` omsluter `h.request(...)` med
+`except OSError`, men raden `r = h.getresponse()` står oskyddad, och det är den
+som kastar dem.
+
+Hämtningen fångar nu BASKLASSEN `http.client.HTTPException`, alltså egenskapen i
+stället för uppräkningen. Det är samma riktning som lucka 12 tog i skiva 25.
+Testet är parametriserat över tre former.
+
+*Här stod "Två vägar" och "Båda är stängda, och båda har ett test". Det var sant
+om varv 1 och blev falskt av varv 2:s mätning, och posten rördes inte i den
+committen fastän dess commitmeddelande skrev ut att ordet VARJE var falskt en
+andra gång. Ett känt falskt påstående i ett styrdokument om sändvägen, skeppat.
+Fällt av §7-granskningen av skiva 29, varv 3.*
+
+**Skälet `fel_vid_lasning` bar dessutom en vakuös loggrad** enligt §7.1: den gick
+att radera med hela sviten grön. Två test bär den nu.
+
+*Här stod att det var "det enda av de sex" utan test. Det tillståndet nådde
+aldrig origin och går därför inte att verifiera mot repot, alltså är det en
+processräkning §7.2 förbjuder. Fällt av §7-granskningen av skiva 29, varv 3.*
 
 **`falt_saknas` ÄR DEN SOM BÄR HELA POÄNGEN.** Sidan svarade 200, gällde rätt
 fordon och gick att parsa, men bar inte fälten. Det är vad en markupändring ser
@@ -2635,8 +2656,13 @@ märker det är en tyst nedgång.**
 
 **§6 OCH REGISTRERINGSNUMRET.** Numret är persondata och får aldrig stå i en
 rapport, ett commitmeddelande, i `docs/` eller i något som pushas. `logg/` är
-gitignorerad, alltså är loggfilen den enda plats det får stå på, och det gör den
-raden förenlig med §6 i stället för ett undantag från den.
+gitignorerad, alltså pushas loggraden inte, och det gör den förenlig med §6 i
+stället för ett undantag från den.
+
+*Här stod att `logg/` därmed är "den enda plats" numret får stå på. Slutledningen
+följer inte: `.gitignore` bär också `data/` och `scratchpad/`. Att det ska vara
+`logg/` är ett VAL, och kravet §6 ställer är att katalogen inte pushas. Testet
+binder kravet, inte valet. Fällt av §7-granskningen av skiva 29, varv 3.*
 
 **Loggningen är en OBSERVATION, aldrig en spärr.** Går skrivningen inte igenom
 sväljs felet och uppslaget fortsätter. Kastade den vidare hade en diskfull maskin
@@ -2646,6 +2672,24 @@ sak som fäller.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.34.1 — 2026-09-04
+
+**Fyra falska led strukna ur #44 efter §7-granskningens tredje varv.** Grinden är
+förbrukad, och det som görs här är enbart att stryka kända falskheter, vilket
+undantaget aldrig rättfärdigar att skeppa.
+
+- **"Två vägar … Båda är stängda"** var sant om varv 1 och blev falskt av varv
+  2:s mätning. Posten rördes inte i den committen fastän dess commitmeddelande
+  skrev ut att ordet VARJE var falskt en andra gång. Ett känt falskt påstående
+  om sändvägen, skeppat.
+- **"det enda av de sex som inget test rörde"** beskriver ett tillstånd som
+  aldrig nådde origin, alltså en processräkning §7.2 förbjuder.
+- **"alltså är loggfilen den enda plats det får stå på"** följer inte:
+  `.gitignore` bär också `data/` och `scratchpad/`. Det är ett VAL, inte en
+  följd.
+
+Strukna falskheter ⇒ PATCH.
 
 ### 0.34.0 — 2026-09-04
 

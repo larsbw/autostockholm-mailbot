@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.26.2 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.26.3 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -2572,6 +2572,23 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.26.3 — 2026-09-04
+
+**§7:s TRE VARV ÄR FÖRBRUKADE OCH UNDERKÄNNANDEN KVARSTOD.** Varv 3 fann två
+falska påståenden, båda i text skriven för att rätta ett tidigare varv. §7 säger
+att arbetet då stoppas och rapporteras öppet i stället för att kraven sänks.
+
+**INGEN KOD ÄR ÄNDRAD EFTER GRINDEN.** Det som gjorts är att stryka kända
+falskheter, vilket undantaget aldrig rättfärdigar att skeppa, oavsett hur många
+varv som är kvar.
+
+**0.26.2-posten ovan skrevs om på plats i varv 2 utan en egen versionspost.**
+CLAUDE.md 0.3.2 säger att en strykning i en committad appendixpost redovisas i en
+NY post. Den här raden är den redovisningen, i efterhand. Vad som ströks: talen
+"225" och "elva test", båda obelagda.
+
+Strukna falskheter ⇒ PATCH.
 
 ### 0.26.2 — 2026-09-04
 

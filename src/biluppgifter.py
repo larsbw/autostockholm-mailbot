@@ -84,7 +84,11 @@ from urllib.parse import urlsplit
 #
 # **REGISTRERINGSNUMRET SKRIVS HÄR OCH INGEN ANNANSTANS.** §6 förbjuder
 # persondata i rapporter, commitmeddelanden, `docs/` och allt som pushas.
-# `logg/` är gitignorerad, alltså är den den enda plats numret får stå på.
+# `logg/` är gitignorerad, alltså pushas raden inte. Att det ska vara just
+# `logg/` och inte en annan gitignorerad katalog är ett VAL: `.gitignore` bär
+# också `data/` och `scratchpad/`, så gitignore ensamt pekar inte ut den här.
+# `test_loggfilen_ligger_i_en_gitignorerad_katalog` binder kravet som §6 ställer,
+# alltså att katalogen inte pushas, och inte valet av vilken.
 LOGGFIL = Path(__file__).resolve().parent.parent / "logg" / "uppslag.jsonl"
 
 # Sidans adress. Registreringsnumret kommer normaliserat till VERSALER av
@@ -997,8 +1001,7 @@ def logga_uppslag(regnr: str, skal: str, **extra) -> dict:
     alltid `str`, så vägen är oåtkomlig i drift, men en injicerad `oppna` kan nå
     den. *Här stod "får ALDRIG hindra ett uppslag", vilket var starkare än
     koden. Fällt av §7-granskningen av skiva 29, varv 1. Den lydelsen nådde
-    aldrig origin och går därför inte att slå upp i historiken, till skillnad
-    från de flesta noter av den här formen i filen.*
+    aldrig origin och går därför inte att slå upp i historiken.*
     """
     post = {
         "tidsstampel": datetime.now(timezone.utc).isoformat(),
