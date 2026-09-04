@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.29.0 · **Uppdaterad:** 2026-09-03 · **Implementerar** CLAUDE.md §8
+**Version:** 0.30.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -2193,7 +2193,75 @@ leden är skälet att luckan står öppen i stället för stängd.
 
 ---
 
+## #35 — Skiva 24 godkänns med lucka 12 öppen, och spärren mäter en egenskap i stället för en händelse
+
+**Datum:** 2026-09-04 · **Berör:** `src/biluppgifter.py`,
+`tests/test_biluppgifter.py`, `docs/sparrar.md` `fordonsfakta-ur-sida` lucka 11
+och 12, #34
+
+**1. SKIVA 24 ÄR GODKÄND med lucka 12 öppen och registrerad.** Beslut av Lars.
+
+**Skälet är att luckan var MÄTT OCH SYNLIG, vilket är den säkra formen av att
+inte veta.** En registrerad lucka med uppmätt utdata går att fatta beslut om. En
+lucka ingen känner till gör det inte.
+
+**Att den fjärde självmätta rättelsen inte skrevs efter förbrukad grind var
+rätt.** §7:s tre varv var slut, och de två föregående rättelserna av samma spärr
+var båda fel på samma sätt. En tredje gissning som ingen prövar är inte
+försiktighet, den är samma fel en gång till med mindre insyn.
+
+**2. SPÄRREN BYTER FRÅN HÄNDELSE TILL EGENSKAP.** Beslut av Lars.
+
+**Varje tidigare lydelse har beskrivit en HÄNDELSE, och de föll på en händelse
+ingen tänkt på.** Formerna är uppräknade var för sig i `_varde_bar_markup`:s
+docstring: kommentar, processing instruction, declaration, ensam sluttagg, tom
+tagg, sluttagg under fältet. **En händelselista går alltid att utöka med en post
+till, och det är därför den fortsätter falla.**
+
+*Här räknades lydelserna och fällningarna. Talen går inte att läsa ur repot, och
+§7.2 namnger formen som förbjuden. Fällt av granskningen av skiva 25.*
+
+**Egenskapen: VÄRDETS RÅA KÄLLTEXT SKA VARA IDENTISK MED DESS TEXTNODER.** Är den
+inte det innehöll värdet markup, oavsett sort. Det villkoret går inte att utöka.
+Kasta när de skiljer sig. Sanera inte, tolka inte.
+
+**Lucka 12 stängs av samma egenskap tillämpad där den inte GÅR att mäta.** Stängs
+fältet av något annat än värdets egen sluttagg är utsträckningen okänd, och då vet
+vi inte hur mycket text som släpptes. Det ledet är inte en femte händelse.
+
+**3. EGENSKAPEN GÅR ATT MÄTA MED STDLIB, alltså föll DEL B bort.** Briefen bad om
+besked ifall `html.parser` inte räckte, och att inte bygga en femte händelselista i
+stället. Den frågan behövde inte ställas: `getpos()` och `get_starttag_text()` ger
+det som krävs, och läsaren bär källtexten. `requirements.txt` rörs inte.
+
+**Entiteter är inte markup.** `convert_charrefs` gör `&nbsp;` till ett hårt
+blanksteg i textnoden, så jämförelsen görs efter `unescape`, samma funktion
+parsern själv använder. Utan det ledet hade källans eget sifferformat kastat,
+uppmätt till `2 failed, 212 passed` med en fällning som tar bort `unescape`.
+
+*Här hängdes talet 115 på det ledet, hämtat från mutationsrad 25, som mäter något
+annat. Fällt av granskningsvarv 2 i skiva 25.*
+
+### Vad posten INTE avgör
+
+- **Om lucka 10 ska stängas.** Den står registrerad som öppen sedan #34.
+- **Om `config/priser.json` finns.** #30:s led 2 står oförändrat.
+- **Var driften körs.** #20 står oförändrat.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.30.0 — 2026-09-04
+
+**#35 tillkommer:** skiva 24 godkänns med lucka 12 öppen och registrerad, och
+spärren mot markup i ett värde byter från att beskriva en HÄNDELSE till att mäta
+en EGENSKAP. Två beslut av Lars i skiva 25.
+
+Posten skriver ut varför en registrerad lucka är den säkra formen av att inte
+veta, och varför en händelselista alltid går att utöka med en post till.
+
+Ny beslutspost ⇒ MINOR.
 
 ### 0.29.0 — 2026-09-03
 

@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.23.0 · **Uppdaterad:** 2026-09-03 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.24.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -700,10 +700,14 @@ ingen leverantör som garanterar svarets form.
   gör att innehåll i `template` och `noscript` aldrig blir data. Föräldervillkoret
   i `_stang_faltet` gör att en etikett bara paras med ett värde under SAMMA
   förälder, jämförd på identitet. `_behall` gör att en fotnotsMARKÖR inuti en
-  etikettnod inte bidrar till dess text. `_markera_markup` flaggar ett värde vars
-  text avdelas av en NODTYP som inte är text, med undantag för `handle_endtag`:s
-  träffgren, som är lucka 12. Alla fyra är fällbara var för sig och står i
-  mutationstabellen nedan, som rad 14, 15, 19, 21 och 23.
+  etikettnod inte bidrar till dess text. `_varde_bar_markup` jämför VÄRDETS RÅA
+  KÄLLTEXT med dess textnoder och kräver att stängningen är värdets egen. Alla
+  fyra är fällbara var för sig och står i mutationstabellen nedan, som rad 14, 15,
+  19, 21, 23, 24 och 25.
+
+  *Här stod `_markera_markup`, som flaggade på en LISTA av nodtyper och bar lucka
+  12 som undantag. Metoden finns inte längre; skiva 25 ersatte listan med
+  egenskapen.*
 
   *Här stod TRE, skrivet innan skiva 24 lade till det fjärde. Fällt av
   granskningsvarv 2, som också fällde att uppslagningsmönstret för parsern inte
@@ -736,7 +740,7 @@ ingen leverantör som garanterar svarets form.
   | 2 | `'forekomster > 1'` |
   | 3 | `'FORVANTA\|def _galler_fordonet\|len(ankare)\|_galler_fordonet(sida\|vard.startswith'` |
   | 4 | `'re\.fullmatch\|def _ja_nej\|def _krav_pa_rimlighet\|MIN_VIKT_KG\|if bar_element'` |
-  | parsern | `'HOPPAS_OVER\|_vantar_foralder\|def _behall\|serie is None\|_markera_markup\|class _Faltlasare'` |
+  | parsern | `'HOPPAS_OVER\|_vantar_foralder\|def _behall\|serie is None\|_varde_bar_markup\|egen_sluttagg\|class _Faltlasare'` |
 
   **Ett enda kombinerat mönster duger inte, och den här posten har själv burit TVÅ
   som inte gjorde det.** Det första missade det försiktiga förvalet vid saknad
@@ -866,7 +870,7 @@ indentering som `raise`-raden, annars stannar körningen på insamlingsfel.
 Beskrivningarna i tabellen är därför skrivna om till att bära det uttryck som
 byts, så att var och en går att köra om utan att gissa.
 
-**TABELLEN ÄR OMMÄTT I SKIVA 24 MOT BASLINJEN 210.** Postens egen regel gäller
+**TABELLEN ÄR OMMÄTT I SKIVA 25 MOT BASLINJEN 214.** Postens egen regel gäller
 den själv: *ett tal som mäts vid en baslinje slutar gälla när baslinjen rör sig,
 och det enda som duger är att mäta om.* Baslinjen är `tests/test_biluppgifter.py`,
 alltså modulens egen fil, och samma urval som varje tidigare omgång:
@@ -880,11 +884,17 @@ struken i stället för lagad, eftersom varje led i den mäter en filversion som
 ingen längre kan köra. Att baslinjen rör sig står kvar, det är påståendet som
 bär.*
 
-**Rad 18 till 21 prövar villkor som kom i skiva 23, rad 22 och 23 sådana som kom
-i skiva 24.** De två sista fäller lucka 11:s spärr på var sitt led: rad 22 tar
-bort KASTET i `_las_falt`, rad 23 tar bort FLAGGNINGEN i `_markera_markup`. Båda
-ger samma fjorton röda, och det är väntat: leden sitter i serie, så var och en
-ensam räcker för att släppa igenom värdet. Rad 9 bytte FORMULERING i skiva 23 av skivans egen ändring: värdnamnet går
+**Rad 18 till 21 prövar villkor som kom i skiva 23, rad 22 ett som kom i skiva 24,
+och rad 23 till 25 sådana som kom i skiva 25.** De fyra sista fäller lucka 11 och
+12 på var sitt led: rad 22 tar bort KASTET i `_las_falt`, rad 23 tar bort kravet
+att stängningen ska vara värdets egen, och rad 24 och 25 fäller jämförelsen mellan
+råtext och textnoder åt var sitt håll.
+
+*Här stod att rad 23 fäller FLAGGNINGEN i `_markera_markup`. Den metoden finns
+inte längre: skiva 25 ersatte händelselistan med en egenskap, och radens plats
+används nu till ett annat villkor.*
+
+Rad 9 bytte FORMULERING i skiva 23 av skivans egen ändring: värdnamnet går
 genom `_vard`. Rad 15 bytte också formulering, men av ett annat skäl: VILLKORET är
 skiva 22:s och oförändrat, det var TABELLEN som bar ett namn, `_vantar_niva`, som
 aldrig funnits i den committade koden. Skillnaden mellan de två fallen ska stå
@@ -899,7 +909,7 @@ utskriven, eftersom det ena är en ändring och det andra ett dokumentfel.
 | 3 | **Lager 1 och 2 samtidigt** | **RÖD** | **33** |
 | 4 | Lager 3, `if not _galler_fordonet(...)` blir `if False:` | RÖD | 9 |
 | 5 | Lager 3, saknat ankare godtas: `return False` blir `return True` | RÖD | 6 |
-| 6 | Lager 3, skiftläget i JÄMFÖRELSEN: `vag.upper() == f"...".upper()` blir jämförelse utan `upper()` | RÖD | 134 |
+| 6 | Lager 3, skiftläget i JÄMFÖRELSEN: `vag.upper() == f"...".upper()` blir jämförelse utan `upper()` | RÖD | 138 |
 | 7 | Lager 3, två ankare godtas: `if len(ankare) > 1:` blir `if False:` | RÖD | 2 |
 | 8 | Lager 3, schemat prövas inte: `if delar.scheme.lower() != FORVANTAT_SCHEMA:` blir `if False:` | RÖD | 1 |
 | 9 | Lager 3, värdnamnet prövas inte: `if _vard(delar.netloc) != FORVANTAD_VARD:` blir `if False:` | RÖD | 3 |
@@ -908,15 +918,17 @@ utskriven, eftersom det ena är en ändring och det andra ett dokumentfel.
 | 12 | Lager 4, `.strip()` före matchningen borttagen | RÖD | 3 |
 | 13 | Lager 4, rimligheten godtas alltid: `if MIN_VIKT_KG <= varde <= MAX_VIKT_KG:` blir `if True:` | RÖD | 6 |
 | 14 | Parsern, `if tagg in HOPPAS_OVER:` blir `if False:` | RÖD | 8 |
-| 15 | Parsern, föräldervillkoret stryks ur `elif self._vantar is not None and foralder == self._vantar_foralder:` | RÖD | 7 |
+| 15 | Parsern, föräldervillkoret stryks ur `if self._vantar is not None and foralder == self._vantar_foralder:` | RÖD | 7 |
 | 16 | Statusgrenen kastar inte: `raise Hamtningsfel(...)` blir `return None` | RÖD | 6 |
 | 17 | 404-grenen neutraliserad: `if status == 404:` blir `if False:` | RÖD | 1 |
 | 18 | Lager 4, kastgrenen: `if MISSLASNING.fullmatch(rensat):` blir `if False:` | RÖD | 6 |
 | 19 | Parsern, INGEN fotnot utesluts: `_behall`:s `if serie is None:` blir `if True:` | RÖD | 9 |
 | 20 | Lager 3, `www` strippas inte: `return vard[4:] if vard.startswith("www.") else vard` blir `return vard` | RÖD | 2 |
 | 21 | Parsern, VARJE fotnot utesluts: `_behall`:s `return text if any(tecken.isalpha() …) else ""` blir `return ""` | RÖD | 4 |
-| 22 | **NY i skiva 24.** Lager 4, lucka 11:s spärr: `if bar_element:` i `_las_falt` blir `if False:` | RÖD | 14 |
-| 23 | **NY i skiva 24.** Parsern, flaggan sätts aldrig: `if self._i_varde():` i `_markera_markup` blir `if False:` | RÖD | 14 |
+| 22 | Lager 4, lucka 11 och 12:s spärr: `if bar_element:` i `_las_falt` blir `if False:` | RÖD | 17 |
+| 23 | **NY i skiva 25.** Egenskapen, utsträckningen: `if not egen_sluttagg:` i `_varde_bar_markup` blir `if False:` | RÖD | 2 |
+| 24 | **NY i skiva 25.** Egenskapen godtar ALLT: jämförelsen `unescape(...) != samlad` blir `return False` | RÖD | 15 |
+| 25 | **NY i skiva 25.** Egenskapen godtar INGET: samma jämförelse blir `==` i stället för `!=` | RÖD | 115 |
 
 **LAGER 1 OCH 2 ÄR INTE REDUNDANTA, och rad 3 visar det.** 8 + 25 är 33, alltså
 exakt additivt: dubbelfällningen fäller precis unionen och inget maskeras. Förr
@@ -930,11 +942,20 @@ Rimligheten i rad 13 fäller ett tal som ÄR läst men är omöjligt. Ett värde
 nedan. De två har alltså ett överlapp, men varje lager fäller fall det andra inte
 når, och båda är röda var för sig.
 
+**RAD 24 OCH 25 FÄLLER SAMMA JÄMFÖRELSE ÅT VARSITT HÅLL.** Rad 24 låter
+egenskapen godta allt, alltså läget före skiva 24, och de femton röda är
+kastfallen. Rad 25 låter den godta ingenting, och de 115 röda visar att spärren
+då blir ett larm som alltid går: varje verkligt svar faller. Ett villkor med ett
+riktigt intervall behöver en fällning i vardera riktningen. *Här stod att
+`test_entitet_i_ett_varde_ar_inte_markup` är det test som skiljer de två. Det är
+ett av 115, och `unescape`-ledet binds av en annan fällning; se stycket om
+entiteter i 0.24.0-posten. Fällt av granskningsvarv 2.*
+
 **SKIVA 24:S RAD 22 ERSATTE EN RAD SOM BLEV OFÄLLBAR, och det ska stå utskrivet.**
-Skiva 23:s rad 22 fällde värdevägen i `_stang_faltet`, alltså
-`text = "".join(...)` bytt mot `text = self._etikettext()`. Efter att lucka 11:s
-spärr kom in ger den fällningen **GRÖN, 210 passed**. I DUBBELFÄLLNING tillsammans
-med rad 22 ger den `14 failed`, vilket är exakt rad 22:s egna röda: värdevägen
+Skiva 23:s rad 22 fällde värdevägen i `_stang_faltet`, alltså värdets
+textbygge bytt mot `text = self._etikettext()`. Efter att lucka 11:s
+spärr kom in ger den fällningen **GRÖN, 214 passed**. I DUBBELFÄLLNING tillsammans
+med rad 22 ger den `17 failed`, vilket är exakt rad 22:s egna röda: värdevägen
 bidrar alltså med noll också då. Skälet är att ett värde som bär markup numera
 kastar innan dess text spelar roll, och ett värde UTAN markup ger identisk text i
 båda vägarna.
@@ -998,8 +1019,8 @@ gitignorerad `scratchpad/`, så repot bär inget om vilka rader ett givet varv k
 Påståendet är smalnat till det som stod i dokumentet före skivan. Fällt av
 granskningen av skiva 24.*
 
-Nedströmsraden i `src/fordonsuppslag.py` gav `52 failed, 158 passed` vid
-baslinjen 210.
+Nedströmsraden i `src/fordonsuppslag.py` gav `52 failed, 162 passed` vid
+baslinjen 214.
 
 Ordvalet är avsiktligt: `oberoende` är i det här repot §7:s term, satt i motsats
 till `självmätt`. Det gäller granskarens körning. Skiva 20:s egen var bara ett
@@ -1268,7 +1289,7 @@ tidigare en egen tabell med nio rader. Den dubblerade mutationstabellen i sju av
 dem, och de återstående två fällde uttryck som ombyggnaden i skiva 22 tog bort:
 `MONSTER`, `ETIKETTSPAN` och de rättelser som gjordes inuti dem.
 
-Mutationstabellens tjugotre rader är körda mot baslinjen 210 och täcker samtliga
+Mutationstabellens tjugofem rader är körda mot baslinjen 214 och täcker samtliga
 fyra lager plus parserns egna villkor. Att hålla två tabeller som mäter samma
 fällningar mot samma baslinje är inte dubbel säkerhet: det är två tal att hålla i
 takt, och postens historik visar vad som händer när de glider isär.
@@ -1280,7 +1301,7 @@ på att något kastades, och skälet produceras av `_kontrollera`:
 
 | Fälld rad, citerad | Fällning | Utdata | Verdikt |
 | --- | --- | --- | --- |
-| `_kontrollera`:s TRE grenar i `src/fordonsuppslag.py`, `if not _bar_nyckel(svar, ...)` | `if False:` × 3 | `52 failed, 158 passed` | RÖD |
+| `_kontrollera`:s TRE grenar i `src/fordonsuppslag.py`, `if not _bar_nyckel(svar, ...)` | `if False:` × 3 | `52 failed, 162 passed` | RÖD |
 
 Utan den fällningen vore det oprövat om testen mäter avläsningen eller bara att
 `slag_upp` kastar något över huvud taget.
@@ -1532,9 +1553,11 @@ lager 3 fällt är det just den assertionen som fäller
     inte som stängd. `test_lucka_10_formen_finns_bland_de_avlasta_etiketterna`
     mäter båda leden och blir rött den dag fixturen slutar bära paret.
 
-11. **MARKUP INUTI ETT VÄRDE KORRUMPERADE TALET. DELVIS STÄNGD I SKIVA 24.**
-    Den återstående vägen är lucka 12 nedan. *Här stod STÄNGD, fällt av
-    granskningens tredje varv.*
+11. **MARKUP INUTI ETT VÄRDE KORRUMPERADE TALET. DELVIS STÄNGD I SKIVA 24,
+    HELT I SKIVA 25.** Den väg som återstod efter skiva 24 är lucka 12 nedan,
+    och den är stängd. *Här stod först STÄNGD, fällt av granskningens tredje varv
+    i skiva 24. Därefter stod DELVIS STÄNGD med lucka 12 som återstående väg i
+    presens, vilket blev falskt av skiva 25 och fälldes av dess tredje varv.*
     Fälld av granskningsvarv 3 i skiva 23, uppmätt då mot både arbetsträdet och
     `8629223`:
 
@@ -1564,7 +1587,10 @@ lager 3 fällt är det just den assertionen som fäller
     **STÄNGD GENOM KAST, INTE GENOM SANERING.** Beslut av Lars i skiva 24. Ett
     värde vars text är avdelad av något som inte är text går inte att tolka, och
     då är avläsningen fel. `if bar_element:` i `_las_falt` kastar, och
-    mutationsrad 22 och 23 fäller de två leden.
+    mutationsrad 22 till 25 fäller leden.
+
+    **SEDAN SKIVA 25 MÄTS EGENSKAPEN OCH INTE HÄNDELSEN**, se lucka 12. Samma fall
+    fälls, av ett villkor som inte går att utöka.
 
     **SPÄRRENS FÖRSTA LYDELSE VAR FÖR SMAL, och det ska stå här.** Den satte
     flaggan bara i `handle_starttag` och `handle_startendtag`. Granskningen av
@@ -1609,24 +1635,35 @@ lager 3 fällt är det just den assertionen som fäller
     **Att fällningen kom av att rättelsen följde en UPPRÄKNING i stället för
     egenskapen är postens lärdom.** Varv 1 räknade upp fyra nodtyper, rättelsen
     stängde de fyra, och den femte fanns bakom en gren ingen hade räknat.
-    `test_varde_avdelat_av_nagot_som_inte_ar_text_kastar` bär samtliga sex.
+    `test_varde_avdelat_av_nagot_som_inte_ar_text_kastar` bär formerna som
+    parametrar, en per form. *Här stod "samtliga sex". Skiva 25 lade till en
+    CDATA-parameter i samma test, och gjorde därmed sin egen räkning falsk i
+    samma commit. Fällt av granskningsvarv 2.*
 
-    **DET HÄNDE EN TREDJE GÅNG, och därför är luckan bara DELVIS stängd.** Varv 3
-    fällde att `handle_endtag`:s TRÄFFGREN, alltså den där en matchande starttagg
-    hittas på stacken, inte heller anropar `_markera_markup`. Den vägen är lucka
-    12 nedan. Tre rättelser i rad har följt varvets uppräkning i stället för
-    egenskapen, och det är skälet att den fjärde inte skrevs: §7:s tre varv var
-    slut, och en självmätt spärrändring efter grinden hade varit den fjärde
-    gissningen i rad utan någon som prövar den.
+    **DET HÄNDE EN TREDJE GÅNG.** Varv 3 fällde att `handle_endtag`:s TRÄFFGREN,
+    alltså den där en matchande starttagg hittas på stacken, inte heller
+    flaggade. Den vägen är lucka 12 nedan.
 
-12. **EN SLUTTAGG SOM STÄNGER ETT ELEMENT UNDER VÄRDET KLIPPER VÄRDETS TEXT,
-    OFLAGGAT.** Uppmätt av granskningens tredje varv i skiva 24, reproducerad av
-    mig i egen körning. **ÖPPEN.**
+    **VARJE RÄTTELSE FÖLJDE VARVETS UPPRÄKNING i stället för egenskapen**, och
+    det var skälet att nästa inte skrevs i skiva 24: §7:s varv var slut, och en
+    självmätt spärrändring efter grinden hade prövats av ingen. **Skiva 25 bytte
+    i stället metod**, se lucka 12. Händelselistan är borta ur koden.
+
+    *Här stod "tre rättelser i rad" och att nästa hade varit "den fjärde
+    gissningen". Båda är räkningar av ett arbetsförlopp som repot inte bär:
+    skiva 24 är EN commit, och granskningsrapporterna ligger i gitignorerad
+    `scratchpad/`. §7.2 namnger den formen som förbjuden. Fällt av granskningen
+    av skiva 25. Lydelserna är uppräknade var för sig i `_varde_bar_markup`:s
+    docstring, och det är den formen som bär.*
+
+12. **EN SLUTTAGG SOM STÄNGER ETT ELEMENT UNDER VÄRDET KLIPPTE VÄRDETS TEXT,
+    OFLAGGAT. STÄNGD I SKIVA 25.** Uppmätt av granskningens tredje varv i skiva
+    24, reproducerad av mig i egen körning.
 
     `handle_endtag` letar upp närmaste öppna element med samma namn. Ligger det
     UNDER det aktiva värdet på stacken anropas `_stang_faltet`, som lägger paret
-    med den text som hunnit samlas, medan `_varde_bar_element` fortfarande är
-    `False`. Resten av värdet släpps.
+    med den text som hunnit samlas. Före skiva 25 var flaggan då `False`, och
+    resten av värdet släpptes utan att någon visste hur mycket det var.
 
     ```
     <li><b><span class="label">Släpvagnsvikt</span>
@@ -1636,19 +1673,34 @@ lager 3 fällt är det just den assertionen som fäller
       med  </b>  ->  ('Släpvagnsvikt', '1500 kg', False)
     ```
 
-    Utan sluttaggen faller fältet till utkast, eftersom texten inte är en ren
-    vikt. Med den blir svaret `1500 kg`, alltså **en välformad vikt som sidan
-    aldrig påstått om släpvagnen**, och den ligger över tröskeln.
+    Utan sluttaggen föll fältet till utkast, eftersom texten inte är en ren vikt.
+    Med den blev svaret `1500 kg`, alltså **en välformad vikt som sidan aldrig
+    påstått om släpvagnen**, och den ligger över tröskeln. I dag kastar båda
+    formerna. *Här stod meningen i presens efter att skiva 25 stängt luckan, medan
+    grannmeningarna skrevs om till imperfekt. Fällt av granskningsvarv 3.*
 
     **Riktningen är den farliga**, och luckan är av samma klass som lucka 11:
     markup inuti ett värde ändrar det avlästa talet utan att flaggan sätts.
 
-    **VARFÖR DEN INTE STÄNGDES DIREKT.** Rättelsen är känd och liten: flagga i
-    träffgrenen när det stängda elementet ligger UNDER det aktiva fältet. Men
-    §7:s tre granskningsvarv var förbrukade när den hittades, och de två
-    föregående rättelserna av samma spärr var båda fel på samma sätt. En tredje
-    självmätt spärrändring efter grinden hade ingen prövat. Luckan står därför
-    registrerad och mätt, och åtgärden är Lars beslut.
+    **VARFÖR DEN INTE STÄNGDES I SKIVA 24.** §7:s tre granskningsvarv var
+    förbrukade när den hittades, och de två föregående rättelserna av samma spärr
+    var båda fel på samma sätt. En tredje självmätt spärrändring efter grinden
+    hade ingen prövat. Luckan stod därför registrerad och mätt, och åtgärden blev
+    Lars beslut. **Det beslutet är #35**, och det gjorde om spärren i grunden i
+    stället för att lappa den.
+
+    **STÄNGD GENOM ATT MÄTA EGENSKAPEN, INTE GENOM ETT FEMTE VILLKOR.** Beslut av
+    Lars, skiva 25. Kravet är att stängningen ska vara VÄRDETS EGEN sluttagg. Det
+    är inte en femte händelse utan samma egenskap tillämpad där den inte GÅR att
+    mäta: stängs fältet av något annat är värdets verkliga utsträckning okänd,
+    och då vet vi inte hur mycket text som släpptes. Mutationsrad 23 fäller
+    villkoret, och `test_varde_som_stangs_av_nagot_annat_an_sin_egen_sluttagg_kastar`
+    bär de två formerna.
+
+    **Att jämförelsen mellan råtext och textnoder INTE fångar det här fallet ska
+    stå utskrivet.** Fältet stängs vid sluttaggen, så råtexten fram till den
+    punkten ÄR lika med textnoderna. Det som saknas är utsträckningen, inte
+    innehållet.
 
     **Etikettsidan är inte drabbad.** Föräldrajämförelsen på löpnummer fäller
     paret där, eftersom numret ändras när elementet tas av stacken. Det är värdet
@@ -2054,6 +2106,65 @@ post och inte en spärr som saknar egenskapen.
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.24.0 — 2026-09-04
+
+**SPÄRREN MOT MARKUP I ETT VÄRDE MÄTER SEDAN NU EN EGENSKAP, INTE EN HÄNDELSE.**
+Beslut av Lars, `docs/beslutslogg.md` #35. Villkoret är att **värdets råa
+källtext ska vara identisk med dess textnoder**. Är den inte det innehöll värdet
+markup, oavsett sort.
+
+**LUCKA 12 ÄR STÄNGD.** Kravet att stängningen ska vara värdets EGEN sluttagg är
+inte ett femte villkor i en lista utan samma egenskap tillämpad där den inte GÅR
+att mäta: stängs fältet av något annat är värdets utsträckning okänd.
+
+**VARJE LYDELSE FÖRE DEN HÄR BESKREV EN HÄNDELSE, och de föll på en händelse
+ingen tänkt på**, var för sig: starttaggar, sedan kommentar och processing
+instruction och declaration och ensam sluttagg, sedan `TOMMA_TAGGAR`-grenens
+tidiga return, sedan träffgrenen. **En händelselista går alltid att utöka med en
+post till.** *Här summerades lydelserna och fällningarna i en bisats, i samma fil
+som noten i lucka 11:s post stryker just den formen. Fällt av granskningsvarv 2.
+*Avståndet stod först utskrivet som ett radantal, vilket är en mening som räknar
+sin egen omgivning och föråldras av nästa appendixpost.*
+Jämförelsen går inte att utöka: den frågar inte VAD som stod i värdet, bara om
+värdets text är hela värdet.
+
+**FYRA METODER ÄR BORTTAGNA UR KODEN**, `handle_comment`, `handle_pi`,
+`handle_decl` och `unknown_decl`, tillsammans med `_markera_markup` och
+`_i_varde`. Samma fall fälls fortfarande, uppmätt form för form: det är därför
+borttagningen inte är en uppmjukning.
+
+**ENTITETER ÄR INTE MARKUP, och det är gränsen som gör spärren användbar.**
+`convert_charrefs` gör `&nbsp;` till ett hårt blanksteg i textnoden, så råtext och
+textnod skiljer sig på varje entitet. Jämförelsen görs efter `unescape`, samma
+funktion `html.parser` själv använder. Utan det ledet hade källans eget
+sifferformat kastat: en fällning som tar bort `unescape` ur jämförelsen ger
+**`2 failed, 212 passed`**, och de två röda är
+`test_format_som_sidan_faktiskt_anvander_lases[2&nbsp;400 kg-2400]`, som är äldre
+än skivan, och `test_entitet_i_ett_varde_ar_inte_markup`.
+
+*Här stod att mutationsrad 25 mäter vad det ledet kostar, med talet 115. Rad 25
+mäter något annat, nämligen att vända jämförelsens riktning. Talet var avläst men
+hängt på fel fällning. Fällt av granskningsvarv 2.*
+
+**EGENSKAPEN GÅR ATT MÄTA MED `html.parser`, alltså krävdes inget nytt
+beroende.** `getpos()` ger positionen för den konstruktion som hanteras, och
+`get_starttag_text()` ger starttaggen precis som den står i källan. Läsaren bär
+källtexten och en tabell över radstarter, och räknar om `(rad, kolumn)` till ett
+index. DEL B:s fråga är därmed besvarad med nej: ingenting saknas.
+
+**MUTATIONSTABELLEN ÄR OMMÄTT MOT BASLINJEN 214 och utökad till tjugofem rader.**
+Rad 23, 24 och 25 är nya, rad 22 gick från 14 till 17 röda, och rad 6 från 134
+till 138. Rad 23:s plats bar tidigare ett villkor som inte finns kvar.
+
+**ETT OBUNDET VILLKOR ÄR BORTTAGET UR `_varde_bar_markup`.** Granskningen fällde
+`if self._varde_start is None: return True` som ovärderbar: både en fällning och
+en injicerad `AssertionError` på raden gav GRÖN, alltså nådde inget test grenen.
+Skälet står i metodens docstring, och valet är detsamma som för det borttagna
+`_vantar`-villkoret: ett villkor som ser ut som försiktighet utan att kunna göra
+något binds eller tas bort.
+
+En stängd lucka, en spärr som bytt metod och en ommätt tabell ⇒ MINOR.
+
 ### 0.23.0 — 2026-09-03
 
 **LUCKA 11 ÄR DELVIS STÄNGD GENOM KAST.** Beslut av Lars, `docs/beslutslogg.md`
@@ -2061,6 +2172,10 @@ post och inte en spärr som saknar egenskapen.
 och `if bar_element:` i `_las_falt` kastar. **Den återstående vägen är lucka 12**,
 uppmätt av granskningens tredje varv och registrerad öppen. Ingenting saneras: att plocka bort tecken
 ur ett värde vore att ändra ett tal vi skickar vidare.
+
+*Föråldrad av 0.24.0: lucka 12 är stängd, så meningen ovan gäller läget när den
+skrevs och inte i dag. Posten skrivs inte om, eftersom en committad appendixpost
+rättas genom en ny versionspost.*
 
 **SPÄRRENS FÖRSTA LYDELSE FÖLJDE BARA STARTTAGGAR, och granskningen fällde den.**
 En HTML-kommentar, en processing instruction, en declaration och en ENSAM sluttagg

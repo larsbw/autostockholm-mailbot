@@ -1857,6 +1857,7 @@ def test_varde_med_element_kastar(beskrivning, varde):
         ("ensam sluttagg utan starttagg", "750</b>1 kg"),
         ("sluttagg för ett tomt element", "750</br>1 kg"),
         ("sluttagg för img", "750</img>1 kg"),
+        ("CDATA-sektion", "750<![CDATA[x]]>1 kg"),
     ],
 )
 def test_varde_avdelat_av_nagot_som_inte_ar_text_kastar(beskrivning, varde):
@@ -1880,11 +1881,13 @@ def test_varde_avdelat_av_nagot_som_inte_ar_text_kastar(beskrivning, varde):
     tagg öppnas`, i stället för det den skulle vakta, `värdets text är avdelad av
     något som inte är text`.
 
-    **DE TVÅ SISTA FALLEN KOM AV ATT RÄTTELSEN GJORDE OM SAMMA FEL.** Den första
-    rättelsen lade flaggan i `handle_endtag`:s gren för en sluttagg utan öppen
-    motsvarighet, men `handle_endtag` returnerar för `TOMMA_TAGGAR` FÖRE den
-    grenen. `750</br>1 kg` gav därför fortfarande 7501, uppmätt av
-    granskningsvarv 2. Det är samma tidiga return som `handle_starttag`:s egen
+    **DE TVÅ SLUTTAGGSFALLEN FÖR TOMMA ELEMENT KOM AV ATT RÄTTELSEN GJORDE OM
+    SAMMA FEL.** Den första rättelsen lade flaggan i `handle_endtag`:s gren för en
+    sluttagg utan öppen motsvarighet, men `handle_endtag` returnerar för
+    `TOMMA_TAGGAR` FÖRE den grenen. `750</br>1 kg` gav därför fortfarande 7501,
+    uppmätt av granskningsvarv 2 i skiva 24. *Här stod "de två sista fallen".
+    Skiva 25 lade till CDATA-parametern sist och gjorde meningen falsk i samma
+    commit; fällt av granskningsvarv 2 i skiva 25.* Det är samma tidiga return som `handle_starttag`:s egen
     kommentar varnar för, och rättelsen hade tillämpat insikten på den ena
     metoden och inte på den andra.
 
@@ -1900,6 +1903,75 @@ def test_varde_avdelat_av_nagot_som_inte_ar_text_kastar(beskrivning, varde):
         )
 
     assert "bär markup" in str(fel.value)
+
+
+@pytest.mark.parametrize(
+    ("beskrivning", "block"),
+    [
+        (
+            "sluttagg för ett element UNDER värdet",
+            '<li><b><span class="label">Släpvagnsvikt</span>\n'
+            '<span class="value">1500 kg</b> enligt registrering, verklig 750 kg'
+            "</span></b></li>\n",
+        ),
+        (
+            "sluttagg för li:t under värdet",
+            '<li><span class="label">Släpvagnsvikt</span>\n'
+            '<span class="value">1500 kg</li> verklig 750 kg</span>\n',
+        ),
+    ],
+)
+def test_varde_som_stangs_av_nagot_annat_an_sin_egen_sluttagg_kastar(beskrivning, block):
+    """LUCKA 12, stängd i skiva 25. Uppmätt av granskningens tredje varv i skiva 24.
+
+    En sluttagg som stänger ett element UNDER värdet avslutar fältet där. Värdets
+    text KLIPPS vid sluttaggen och resten släpps, utan att någon vet hur mycket
+    det var.
+
+    **Utan sluttaggen faller fältet till utkast**, eftersom texten inte är en ren
+    vikt. Med den blev svaret `1500 kg`, alltså **en välformad vikt som sidan
+    aldrig påstått om släpvagnen**, och den ligger över tröskeln.
+
+    **Det här fallet fångas inte av jämförelsen mellan råtext och textnoder**, och
+    det ska sägas rakt ut: fältet stängs vid sluttaggen, så råtexten fram till den
+    punkten ÄR lika med textnoderna. Det som saknas är utsträckningen. Villkoret
+    är därför att stängningen ska vara värdets EGEN sluttagg, vilket inte är en
+    femte händelse utan samma egenskap tillämpad där den inte går att mäta.
+    """
+    sidan = sida(rader=rad("Tjänstevikt", "1500 kg") + block + rad("Draganordning", "Ja"))
+
+    with pytest.raises(Hamtningsfel) as fel:
+        fordonsuppslag.slag_upp(
+            REGNR, hamta=biluppgifter_hamtning(oppna=svarar(sidan))
+        )
+
+    assert "bär markup" in str(fel.value)
+
+
+def test_entitet_i_ett_varde_ar_inte_markup():
+    """GRÄNSEN FÖR EGENSKAPEN, och den viktigaste negativkontrollen i skiva 25.
+
+    `convert_charrefs` gör `&nbsp;` till ett hårt blanksteg i textnoden, så
+    råtexten och textnoden skiljer sig åt på varje entitet. Jämfördes de utan
+    `unescape` hade **källans eget sifferformat kastat**, alltså varje verkligt
+    svar som skriver tusenavskiljaren som entitet.
+
+    **Testet är inte ensamt om att binda `unescape`, och det ska stå rätt.** En
+    fällning som tar bort `unescape` ur jämförelsen ger `2 failed`: det här testet
+    och `test_format_som_sidan_faktiskt_anvander_lases[2&nbsp;400 kg-2400]`, som
+    är ÄLDRE än skivan. *Här stod att ingen rad hade blivit röd utan den här, och
+    att spärren då blivit ett larm som alltid går. Båda leden var falska: en rad
+    hade blivit röd ändå, och utan `unescape` faller bara värden som bär
+    entiteter. Fällt av granskningsvarv 2.*
+
+    Raden står kvar därför att den binder ledet i sitt EGET namn: går den röd vet
+    nästa läsare vad som gick sönder, medan det äldre testets namn talar om
+    sidans format och inte om spärren.
+    """
+    sidan = sida_med(slapvagnsvikt="2&nbsp;400 kg")
+
+    hamta = biluppgifter_hamtning(oppna=svarar(sidan))
+    assert fordonsuppslag.slag_upp(REGNR, hamta=hamta).slapvagnsvikt_kg == 2400
 
 
 def test_rent_varde_ger_fortfarande_uppslag():
