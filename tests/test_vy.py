@@ -16,8 +16,10 @@ kundtext i en testrapport (§6).
 
 from __future__ import annotations
 
+import io
 import json
 import re
+from contextlib import redirect_stderr
 from pathlib import Path
 
 import pytest
@@ -115,6 +117,43 @@ def test_importlagret_foljer_kedjan_aven_via_paketform(tmp_path):
     assert "smtplib" in str(fel.value)
 
 
+def test_importlagret_ser_relativa_importer(tmp_path):
+    """DEN TREDJE IMPORTFORMEN, och den var helt osynlig för spärren.
+
+    `from . import auth` har `nod.module` lika med None, alltså tog grenen
+    `elif isinstance(nod, ast.ImportFrom) and nod.module` aldrig, och
+    `_lokala_importer` returnerade en TOM MÄNGD. Varken importlagret eller
+    källtextlagret såg modulen, och vandringen slutade följa kedjan.
+
+    `src/__init__.py` finns, så formen är giltig i det här repot: en enda rad
+    hade räckt för att dra in `src/auth.py`, som bygger credentials med
+    `gmail.send` i sitt scope.
+
+    Funnen av §7-granskningen av skiva 27, VARV 3, alltså efter att grinden var
+    förbrukad. Rättelsen är därför SJÄLVMÄTT och inte oberoende granskad.
+    """
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "src" / "vy.py").write_text("from . import auth\n", encoding="utf-8")
+    (tmp_path / "src" / "auth.py").write_text("import smtplib\n", encoding="utf-8")
+
+    with pytest.raises(vy.Sandvagsfel) as fel:
+        vy.krav_pa_sandvagsfrihet(rot=tmp_path)
+
+    assert "src.auth" in str(fel.value)
+
+
+def test_relativ_import_utan_kant_modul_gissar_inte(tmp_path):
+    """NOLLFALLET: går paketet inte att bestämma hittas det inte på.
+
+    En gissning hade gett ett modulnamn som inte finns, alltså en TYST lucka
+    där spärren letar efter fel fil och hittar ingenting. Tomt är det ärliga
+    svaret, och det syns i att mängden är tom i stället för fel.
+    """
+    assert vy._lokala_importer("from . import auth", "") == set()
+    assert vy._lokala_importer("from .. import auth", "vy") == set()
+
+
 def test_kalltextlagret_faller_ett_anrop_utan_import(tmp_path):
     """NEGATIVKONTROLL för det andra lagret, och det är inte redundant.
 
@@ -191,12 +230,19 @@ def test_servern_loggar_inte_vad_lars_laser():
     döpa om med hela sviten grön, alltså var kommentarens §6-åberopande
     ovaktat. Funnen av §7-granskningen av skiva 27, varv 2.
 
-    Testet frågar om metoden är VYNS egen och inte den ärvda, vilket är det
-    som avgör om något skrivs.
+    **TESTET MÄTER ATT DEN TIGER, inte att den finns.** Första lydelsen frågade
+    bara om `log_message` låg i klassens `vars`, alltså att en övertäckning
+    existerade. En kropp som bytte `return` mot ett `stderr.write` hade hållit
+    den grön. Namnet lovade ett beteende testet inte mätte. Fällt av
+    §7-granskningen av skiva 27, varv 3.
     """
     hanterare = vy.bygg_hanterare([])
+    skrivet = io.StringIO()
 
-    assert "log_message" in vars(hanterare)
+    with redirect_stderr(skrivet):
+        hanterare.log_message(None, "%s kundtext %s", "GET", "/referens/3")
+
+    assert skrivet.getvalue() == ""
 
 
 def test_servern_binder_bara_loopback():
@@ -351,6 +397,56 @@ def test_referenslaget_visar_tomt_falt_och_ingen_skickaknapp():
     assert [k.strip() for k in re.findall(r"<button[^>]*>(.*?)</button>", sida)] == [
         "Spara som par"
     ]
+
+
+def test_varje_falt_som_nar_sidan_escapas():
+    """KLASSEN, inte instansen.
+
+    Varv 2 stängde ETT ovaktat `html.escape`, i `rendera_granskning`. Varv 3
+    fann fyra till: förslaget, felmeddelandet, etiketten och källan. Att stänga
+    en instans i taget lämnar klassen öppen, och nästa fält som läggs till blir
+    ovaktat på samma sätt.
+
+    Testet går igenom varje fält som kan bära markup och kräver att det syns
+    som TEXT. `forslag` är modellgenererad text i fas 5, och `str(fel)` är det
+    enda stället där data rakt från POST-kroppen reflekteras tillbaka i HTML.
+
+    Funnet av §7-granskningen av skiva 27, varv 3. SJÄLVMÄTT rättelse: grinden
+    var förbrukad när fyndet kom.
+    """
+    ond = "<script>larm()</script>"
+
+    sidor = [
+        vy.rendera_referens(ett_fall(text=ond), 0, 1),
+        vy.rendera_referens(ett_fall(etikett=ond), 0, 1),
+        vy.rendera_referens(ett_fall(kalla=ond), 0, 1),
+        vy.rendera_granskning(ett_fall(text=ond), "ett förslag"),
+        vy.rendera_granskning(ett_fall(etikett=ond), "ett förslag"),
+        vy.rendera_granskning(ett_fall(), ond),
+        vy.rendera_granskning(ett_fall(), "ett förslag", sparr=ond),
+    ]
+
+    for sida in sidor:
+        assert ond not in sida
+        assert "&lt;script&gt;" in sida
+
+
+def test_felmeddelandet_escapas_innan_det_reflekteras():
+    """POST-kroppen reflekteras tillbaka i HTML, och det är den enda platsen.
+
+    `spara_referenssvar` kastar `ValueError` med det okända utfallet inbakat,
+    och `do_POST` skriver felet i sidan. Värdet kommer ur POST-kroppen, alltså
+    utifrån. Utan escapning är det en väg att få egen markup renderad.
+
+    **TESTET ANROPAR VYNS EGEN FUNKTION.** Första lydelsen byggde sidan i
+    testet med `html.escape` och prövade alltså sin egen rad: den hade förblivit
+    grön hur `src/vy.py` än såg ut. Felsidan är därför utbruten till
+    `rendera_fel`, som går att fälla.
+    """
+    sida = vy.rendera_fel(ValueError("okänt utfall: '<script>larm()</script>'"))
+
+    assert "<script>larm()</script>" not in sida
+    assert "&lt;script&gt;" in sida
 
 
 def test_kundtexten_escapas_aven_i_granskningslaget():
@@ -512,7 +608,7 @@ def test_obesvarat_fall_far_tomma_falt_och_ingen_pahittad_hash(tmp_path):
 
     Uppmätt med `scripts/par-koppling.py`: av de 9 obesvarade a-traktorfallen
     kopplas 0 på exakt `snippet` och 1 på `snippet` som inledning, mot 1604
-    trådar. Gmails `snippet` finns på varje tråd men är TRUNKERAT, alltså är
+    trådar. Gmails `snippet` finns överallt men är TRUNKERAT, alltså är
     det ingen nyckel. En påhittad hash hade varit ett tal utan källa (§7.2).
 
     *Här stod först 1 av 9 utan reproducerbar källa, sedan att kopplingen är

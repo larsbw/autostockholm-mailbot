@@ -96,8 +96,12 @@ FORBJUDET_MONSTER = re.compile(
 )
 
 
-def _lokala_importer(kalla: str) -> set[str]:
+def _lokala_importer(kalla: str, i_modul: str = "") -> set[str]:
     """Modulnamnen en källfil importerar.
+
+    `i_modul` är namnet på modulen källan KOMMER UR, och behövs bara för
+    relativa importer: de bär inget paketnamn och går inte att lösa upp utan
+    att veta var de står.
 
     **`from x import y` GER BÅDE `x` OCH `x.y`, och BÅDA leden behövs.** Vilket
     som bär beror på hur importen är skriven, och de två formerna ser likadana
@@ -125,10 +129,32 @@ def _lokala_importer(kalla: str) -> set[str]:
     for nod in ast.walk(ast.parse(kalla)):
         if isinstance(nod, ast.Import):
             namn.update(alias.name for alias in nod.names)
-        elif isinstance(nod, ast.ImportFrom) and nod.module:
-            namn.add(nod.module)
-            namn.update(f"{nod.module}.{alias.name}" for alias in nod.names)
+        elif isinstance(nod, ast.ImportFrom):
+            # RELATIV IMPORT: `nod.module` är None för `from . import auth`, och
+            # `nod.level` säger hur många punkter. Paketet läses ur MODULENS EGET
+            # namn, som anroparen skickar med, eftersom en relativ import inte
+            # bär det. Utan den här grenen gav `from . import auth` en tom
+            # mängd, alltså såg spärren varken importen eller modulen den drar
+            # in. `src/__init__.py` finns, så formen är giltig i det här repot.
+            paket = nod.module or _paket(i_modul, nod.level)
+            if not paket:
+                continue
+            namn.add(paket)
+            namn.update(f"{paket}.{alias.name}" for alias in nod.names)
     return namn
+
+
+def _paket(i_modul: str, niva: int) -> str:
+    """Paketet en relativ import på `niva` punkter pekar ut.
+
+    `from . import x` i `src.vy` har `niva` 1 och pekar på `src`. Varje extra
+    punkt tar ett steg till uppåt. Är `i_modul` okänt eller nivån djupare än
+    modulen ligger går paketet inte att bestämma, och då returneras tom sträng:
+    en gissning här hade blivit ett modulnamn som inte finns, alltså en tyst
+    lucka i stället för en synlig.
+    """
+    delar = i_modul.split(".")[:-niva] if i_modul else []
+    return ".".join(delar)
 
 
 def _kod_utan_prosa(kalla: str) -> str:
@@ -177,7 +203,7 @@ def moduler_i_vyn(start: str = "src.vy", rot: Path | None = None) -> dict[str, s
             continue
         kalla = fil.read_text(encoding="utf-8")
         sedda[modul] = kalla
-        kvar.extend(_lokala_importer(kalla))
+        kvar.extend(_lokala_importer(kalla, modul))
 
     return sedda
 
@@ -218,7 +244,7 @@ def krav_pa_sandvagsfrihet(start: str = "src.vy", rot: Path | None = None) -> No
     kallor = moduler_i_vyn(start, _rot(rot))
 
     for modul, kalla in sorted(kallor.items()):
-        for importerad in sorted(_lokala_importer(kalla)):
+        for importerad in sorted(_lokala_importer(kalla, modul)):
             rot_namn = importerad.split(".")[0]
             if importerad in FORBJUDNA_MODULER or rot_namn in FORBJUDNA_MODULER:
                 raise Sandvagsfel(
@@ -332,7 +358,8 @@ def las_fall(
     *Två tidigare lydelser stod här. Den första sade 1 av 9 utan att något
     committat skript kunde räkna om det. Den andra, skriven för att rätta den
     första, sade att ett extraherat textfält inte finns och att kopplingen är
-    OBEFINTLIG. Båda leden var falska: varje tråd bär ett `snippet`, och
+    OBEFINTLIG. Båda leden var falska: `snippet` finns på var och en av de 1604
+    trådarna, om än tomt på fem av dem, och
     mätningen ger 1 av 9. Rättelsen var alltså fel om mer än talet den
     ersatte. Fällt av §7-granskningen av skiva 27, varv 2.*
     """
@@ -537,6 +564,22 @@ def rendera_granskning(fall: Fall, forslag: str, sparr: str = "") -> str:
     )
 
 
+def rendera_fel(fel: Exception) -> str:
+    """Felsidan, med felets text ESCAPAD.
+
+    **DEN ENDA PLATSEN DÄR DATA UR POST-KROPPEN REFLEKTERAS TILLBAKA I HTML.**
+    `spara_referenssvar` bakar in det okända utfallet i sitt `ValueError`, och
+    det värdet kommer utifrån. Utan escapning är det en väg att få egen markup
+    renderad i vyn.
+
+    Funktionen är UTBRUTEN ur `do_POST` för att gå att pröva. Låg den kvar
+    inbakad i hanteraren kunde escapningen bara testas genom att testet
+    upprepade den, vilket är ett test som inte kan bli rött. Funnet av
+    §7-granskningen av skiva 27, varv 3.
+    """
+    return SIDHUVUD.format() + f"<p>{html.escape(str(fel))}</p>" + SIDFOT
+
+
 def _utfallsval() -> str:
     return "".join(
         f"<label><input type='radio' name='utfall' value='{v}'"
@@ -594,10 +637,7 @@ def bygg_hanterare(fall: list[Fall], parfil: Path = PAR):
                     parfil=parfil,
                 )
             except ValueError as fel:
-                self._svara(
-                    SIDHUVUD.format() + f"<p>{html.escape(str(fel))}</p>" + SIDFOT,
-                    400,
-                )
+                self._svara(rendera_fel(fel), 400)
                 return
             nasta = min(index + 1, len(fall) - 1)
             self._svara(

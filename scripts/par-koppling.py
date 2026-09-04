@@ -54,7 +54,8 @@ def snippets(tradar: list[dict]) -> list[str]:
     **`snippet` ÄR ETT EXTRAHERAT TEXTFÄLT, och det ledet är rättat.** Skiva 27
     påstod först att `data/tradar_obesvarade.jsonl` saknar ett sådant fält och
     att brödtexten bara finns base64-kodad i `payload`. Det är falskt: Gmail
-    lägger ett eget klartextutdrag i `snippet` på varje tråd. Fällt av
+    lägger ett eget klartextutdrag i `snippet` på varje meddelande. FÄLTET finns
+    på var och en av de 1604 trådarna, och är tomt på fem av dem. Fällt av
     §7-granskningen av skiva 27, varv 2.
 
     Fältet är däremot TRUNKERAT, alltså är det ingen nyckel för en exakt
@@ -129,7 +130,7 @@ def main() -> int:
     print(f"varav kopplade på exakt snippet:      {exakt}")
     print(f"varav kopplade på snippet som inledning: {som_inledning}")
     print("")
-    print("`snippet` är Gmails eget klartextutdrag och finns på varje tråd, men")
+    print("`snippet` är Gmails eget klartextutdrag och fältet finns överallt, men")
     print("det är TRUNKERAT. Talen ovan säger hur mycket det räcker till. Det är")
     print("skälet till att `las_fall` lämnar hash och tidsstämpel TOMMA för de")
     print("obesvarade i stället för att hitta på dem (§7.2).")
