@@ -1,6 +1,6 @@
 # Incidentlogg
 
-**Version:** 0.9.0 · **Uppdaterad:** 2026-09-03 · **Implementerar** CLAUDE.md §0
+**Version:** 0.10.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §0
 
 Varje regel som bärs av en incident bor här. Dokumentet finns för att förlagornas
 styrka är att en härdad regel namnger det fel som skapade den. En regel utan
@@ -701,7 +701,84 @@ skrivas om till en kontroll vi inte har.*
 
 ---
 
+## I10 — Regeln om rättelsetext upptäcker varje gång och förebygger aldrig
+
+**Uppmätt i:** skiva 23, 24 och 25 · **Berör:** CLAUDE.md §7 RÄTTELSETEXT
+GRANSKAS SOM NY TEXT och EN RÄTTELSE I TAGET, `docs/beslutslogg.md` #36
+
+**Vad som hände. I skiva 23, 24 och 25 bar RÄTTELSEN nästa fynd.** Var för sig,
+med den committade källan för varje:
+
+- **Skiva 23**, `52d0a97`: *"lucka 7 återöppnad av sin egen rättelse"*. Den
+  uteslutning som skulle stänga luckan var för bred och släppte ut samma vikt
+  genom en annan form. Varv 3:s fyra fynd låg *"samtliga i TEXT och inget i
+  koden"*, och tre av dem var kända falska tal och ett ord i text skriven för att
+  rätta tidigare fynd.
+- **Skiva 24**, `64b56e4`: *"de två föregående rättelserna av samma spärr var båda
+  fel på samma sätt"*. Här låg fyndet i KODEN och inte i texten, vilket
+  commitmeddelandet skriver ut självt: *"till skillnad från skiva 23 ligger det
+  sista fyndet i KODEN"*.
+- **Skiva 25**, `d38b59e`: *"rättelsens EGEN motivering var det som bar felet"*.
+  Den sade att ett brutet invariant får ett snitt att kasta; `'abcdef'[None:3]`
+  ger `'abc'`. Varv 3 fällde att en processräkning som en not påstod var struken
+  låg kvar sju rader från noten.
+
+**MÖNSTRET ÄR ATT RÄTTELSEN BÄR FYNDET, INTE ATT FYNDET ÄR TEXT.** Skiva 24 är
+motexemplet som gör skillnaden tydlig: där var rättelsen kod, och den gjorde om
+samma fel i nästa gren. *Här stod först att det sista fyndet låg i rättelseTEXT i
+tre skivor i rad. Det är falskt om skiva 24 mot dess egen commit, och rättat.*
+
+**Regeln fungerade varje gång.** RÄTTELSETEXT GRANSKAS SOM NY TEXT säger att
+granskaren prövar rättelsen mot källan i stället för mot fyndet den svarar på,
+och det är precis så varje instans ovan hittades. Ingen av dem hade hittats av en
+granskare som frågade *svarar den här meningen på anmärkningen*.
+
+**DET SOM ÄR VÄRT ATT SKRIVA NER ÄR VAD REGELN GÖR, INTE ATT DEN BORDE SKÄRPAS.**
+Regeln är en UPPTÄCKTSREGEL. Den binder granskaren och säger ingenting om hur den
+som skriver ska arbeta. Den systerregeln finns, EN RÄTTELSE I TAGET, VERIFIERAD
+MOT KÄLLAN INNAN NÄSTA SKRIVS, och den infördes i CLAUDE.md 0.8.0 av exakt det
+skälet: den första fångade varje instans utan att hindra någon.
+
+**Två regler senare är utfallet detsamma.** Instanserna ovan inträffade med båda
+reglerna på plats. Det är den observationen posten finns för.
+
+**Varför det förmodligen ser ut så.** Rättelsetext skrivs i övertygelsen om att
+den ÄR rättelsen, och den övertygelsen lånar trovärdighet åt varje bisats i samma
+stycke. Den som skriver har dessutom nyss läst fyndet och skriver mot minnet av
+det. Det är CLAUDE.md:s egen förklaring, och den beskriver ett tillstånd hos den
+som skriver, inte en lucka i en regel. **En regel kan inte ta bort det
+tillståndet.** Den kan bara se till att någon annan läser efteråt.
+
+**Åtgärd: ingen.** Posten föreslår ingen skärpning, och det är avsiktligt. Vad
+den ger nästa läsare är en förväntan: **räkna med att rättelsetexten bär nästa
+fynd**, och lägg granskningens tyngd där i stället för att bli förvånad. Att
+grinden fann dem alla är inte ett tecken på att något fattas, det är regeln som
+gör sitt arbete.
+
+**Vad som INTE följer.** Att fynden var många säger ingenting om huruvida en
+skiva ska godkännas. Det avgörs av VAR de låg, vilket är skälet i
+`docs/beslutslogg.md` #36.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.10.0 — 2026-09-04
+
+**I10 tillkommer:** i skiva 23, 24 och 25 bar rättelsen nästa fynd. Skriven på
+Lars beslut i skiva 26.
+
+**Briefen sade "i föregående varvs RÄTTELSETEXT", och posten säger något
+smalare.** Skiva 24:s sista fynd låg i KODEN enligt dess egen commit `64b56e4`.
+Det som håller mot alla tre committade källorna är att rättelsen bar fyndet,
+oavsett om rättelsen var text eller kod. Skillnaden är redovisad i posten.
+
+**Posten är en OBSERVATION och inte ett förslag att skärpa regeln.** Den skiljer
+en upptäcktsregel från en förebyggande, konstaterar att båda formerna finns i
+CLAUDE.md sedan 0.8.0 och att utfallet ändå är detsamma, och lämnar det utan
+åtgärd. Det den ger nästa läsare är en förväntan om var nästa fynd sitter.
+
+Ny post ⇒ MINOR.
 
 ### 0.9.0 — 2026-09-03
 

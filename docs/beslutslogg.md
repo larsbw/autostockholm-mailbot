@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.30.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
+**Version:** 0.31.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -717,6 +717,13 @@ Lars beslut och blev falsk av det här.
 ## #21 — Inloggning till vyn: Google med domänlås plus committad whitelist
 
 **Datum:** 2026-08-27 · **Berör:** `config/`, #20
+
+> **STÄNGD AV #37.** Whitelisten byggs inte. Inloggningen sker som
+> `info@autostockholm.se`, alltså ett konto på domänen, och båda de öppna
+> punkterna nedan upphör: sakkonflikten mellan whitelist och Internal finns inte
+> när ingen extern identitet ska släppas in, och Lars privata adress behövs
+> aldrig. **Posten skrivs inte om**, den står kvar som det beslut den var och som
+> det underlag #37 vilar på.
 
 **Beslut av Lars.** Autentisering till utkastvyn sker med Sign in with Google,
 med `hd=autostockholm.se`, plus en whitelist i `config/` för adresser utanför
@@ -2250,7 +2257,207 @@ annat. Fällt av granskningsvarv 2 i skiva 25.*
 
 ---
 
+## #36 — Skiva 25 godkänns: varv 3 underkände, men fynden låg i texten
+
+**Datum:** 2026-09-04 · **Berör:** `docs/sparrar.md` lucka 11 och 12,
+`docs/incidentlogg.md` I10, #35
+
+**Beslut av Lars.** Skiva 25 är godkänd, trots att §7:s tredje och sista
+granskningsvarv underkände.
+
+**Skälet är var fynden låg.** Enligt `d38b59e` godkände varv 3 kriterierna K1 och
+K3 till K7, och granskaren skrev ut att alla tre fynden ligger i text: en
+processräkning som låg kvar på två ställen, en statusrad som pekade på en redan
+stängd lucka, och en utfallsbeskrivning i presens om ett beteende som inte längre
+finns.
+
+**Spärren själv fick godkänt.** Varje form ur lucka 11 och 12:s historia kastar,
+och två oberoende produktsvep om vardera tiotusen konstruerade sidor hittade
+ingen väg förbi. Mutationstabellen är delvis reproducerad av granskningen: varv 2
+körde om tjugo rader och varv 3 tolv, samtliga med samma tal.
+
+**Det här är ett beslut om EN skiva, inte en ny regel.** Samma sak sades i #34 och
+gäller likadant här: §7:s tre varv står oförändrade, och nästa skiva som underkänns
+i varv 3 ska stoppas och rapporteras öppet. Skillnaden är att grinden gjorde sitt
+arbete och att det som återstod inte kunde nå en kund.
+
+**Rättelserna efter grinden är självmätta, inte oberoende granskade**, och det
+gäller både varv 2:s och varv 3:s.
+
+*Fyra tal i den här posten fälldes av granskningen av skiva 26 mot `d38b59e`:
+"kriterierna utom två" där källan namnger K1 och K3 till K7, "uttömmande" där
+källan säger oberoende, "oberoende reproducerad i två varv" där källan säger tjugo
+respektive tolv rader, och "varv 2:s sex" där källan säger fem. Talen är strukna
+eller sänkta till det källan bär. Att posten återger ett granskningsförlopp gör
+varje sådant tal till en processräkning enligt §7.2, och de står därför inte kvar
+som summor.*
+
+---
+
+## #37 — Inloggningen till vyn sker som info@autostockholm.se, och #21 stängs
+
+**Datum:** 2026-09-04 · **Berör:** `docs/roadmap.md` fas 5.5, GCP-projektet
+`autostockholm-mailbot`, #21, #22
+
+**Beslut av Lars.** Sign in with Google med `hd=autostockholm.se`, och
+inloggningen sker som **info@autostockholm.se**, alltså det konto som redan
+finns.
+
+**INGEN WHITELIST. INGEN NY LICENS. INGET NYTT KONTO.**
+
+**Skälet.** Kontot finns, det ligger på domänen, och Internal-spärren släpper
+igenom det. Ingen av #21:s tre vägar behöver alltså väljas: kostnaden i väg 1 var
+en Workspace-licens, väg 2 bröt mot #22, och väg 3 avvisades redan.
+
+**#21:S WHITELIST GICK ALDRIG ATT BYGGA, och det är den avgörande upptäckten.**
+En app vars user type är Internal avvisar konton utanför organisationen med
+`org_internal` INNAN appen får se någon identitet. Whitelisten hade därför aldrig
+fått något att pröva. Beslutet river alltså inte en fungerande konstruktion, det
+stryker en som inte kunde fungera.
+
+**BÅDA #21:S ÖPPNA PUNKTER STÄNGS.** Öppen punkt 1 var sakkonflikten mellan
+whitelist och Internal, och den upphör med whitelisten. Öppen punkt 2 var om Lars
+privata adress kan stå i repot, och den upphör därför att adressen aldrig behövs.
+**Den hamnar därmed aldrig i repot**, vilket är det utfall §6 pekar mot.
+
+**KOSTNADEN, och den ska stå utskriven.** Med ett DELAT konto signeras varje
+omdöme av `info@`, och `logg/omdomen.jsonl` skiljer inte Lars från Matte.
+
+Så länge Lars ensam granskar spelar det ingen roll: alla omdömen är hans, och
+loggen är entydig i sak även om den inte är det i namn. **Kopplas Matte in senare
+krävs ett eget konto**, och det är ett eget beslut som ska fattas då. Fas 5.5:s
+grind mäter omdömesvolym och inte vem som fällde omdömet, så inget nedströms
+kräver åtskillnaden i dag.
+
+**EN SPÄNNING MOT FAS 5.5:S EGEN LYDELSE, och den ska stå utskriven.** Fasen
+inleds med att vyn är där *"Lars och Matte"* läser förslagen. Den meningen är
+äldre än det här beslutet och rörs inte, men den beskriver en användning som
+kräver det egna konto posten skjuter upp. **Så länge fasen byggs och används av
+Lars ensam finns ingen konflikt**, och den dag Matte kopplas in är kontot en del
+av samma beslut.
+
+**Egen OAuth-klient av typen Web application**, skild från `mailbot-cli`, i samma
+projekt och med samma consent screen. Det är #22 oförändrat, och det fungerar nu
+när ingen extern identitet ska släppas in.
+
+---
+
+## #38 — Hosting: Railway, och mailagent.dasher.se pekas dit med CNAME
+
+**Datum:** 2026-09-04 · **Berör:** `docs/roadmap.md`, `token.json`, `data/`, #20
+
+**Beslut av Lars.** Boten hostas på **Railway**. `mailagent.dasher.se` pekas dit
+med CNAME. Detta kompletterar #20, som avgjorde att HELA boten flyttar och till
+vilken ADRESS, men inte på vilken VÄRD den körs. *Här stod "men inte VART", vilket
+är falskt om #20: dess rubrik namnger adressen. Fällt av granskningen av skiva
+26.*
+
+**Skälet, alternativ för alternativ.** #20 flyttar hela boten och inte bara vyn,
+alltså krävs en långlivad process med persistent disk och schemalagd mining.
+
+- **Cloudflare Workers** saknar båda. En worker är kortlivad och har ingen disk.
+- **Cloudways** är WordPress-hosting och fel maskin för kundmail.
+- **Vultr** fungerar, men ger en VPS att underhålla.
+- **Railway** ger deploy från repot, HTTPS, volume, cron och miljövariabler, och
+  Lars kör det redan i ett annat projekt.
+
+**BINDANDE: `token.json` OCH `data/` LIGGER PÅ ETT PERSISTENT VOLUME, aldrig i
+containern.** Railway kör om containern vid varje deploy och allt i den
+försvinner. Skrivs det inte in i fasen från början upptäcks det i drift, och det
+som försvinner är en token som kostar en ny auktorisering och en `data/`-katalog
+som bär hela underlaget.
+
+**RISKFÖRFLYTTNINGEN, och den ska vara utskriven.** Två filer flyttar till en
+tredjepartsleverantör:
+
+- **`data/par.jsonl` bär kundtext.** Faktiska mail från namngivna personer.
+- **`token.json` kan skicka mail som info@autostockholm.se.** Scopet
+  `gmail.send` finns i den.
+
+#20 skrev ut det andra ledet som en flytt av var ett intrång måste ta sig in.
+Den här posten lägger till det första: efter flytten ligger kundtexten hos
+Railway, och det är en behandling av persondata hos en leverantör och inte bara
+en driftfråga.
+
+**Vad som INTE följer.** Ingen sändning aktiveras. §10:s stopp om första
+sändningen i en NY MILJÖ gäller Railway, oavsett vad som skickats från Lars
+maskin.
+
+**Öppen punkt ur #20 kvarstår:** hur `token.json` och `client_secret.json` skyddas
+från annat som kör på servern. Railway ger volume och miljövariabler; vilket som
+används och med vilka rättigheter är inte avgjort här.
+
+---
+
+## #39 — Fas 5.5 flyttas före fas 5, och vyn får ett krav den inte var specad för
+
+**Datum:** 2026-09-04 · **Berör:** `docs/roadmap.md` fas 5 och 5.5,
+`data/par.jsonl`, #11, #13
+
+**Beslut av Lars.** Fas 5.5, utkastvyn, byggs FÖRE fas 5, mallar och spärrar.
+
+**Skälet.** Lars ska skriva fyra till fem referenssvar direkt i vyn. **Rösten
+skapas alltså där**, och mallarna i fas 5 byggs ur de svaren tillsammans med
+`data/par.jsonl`. Ordningen i den gamla roadmapen hade krävt att mallarna fanns
+innan Lars skrivit något, och att Lars skrev i en vy som inte fanns.
+
+**KRAVET SOM FÖLJER, och som vyn inte var specad för: den ska kunna visa ett
+inkommande mail UTAN att boten genererat ett förslag.** Tomt fält, Lars skriver,
+det sparas som ett par.
+
+Utan det finns ingenting att skriva innan mallarna finns, och mallarna kan inte
+finnas innan Lars skrivit. Fas 5.5:s ursprungliga spec utgick från att varje post
+i vyn bär ett botgenererat förslag som ska bedömas med ett av fyra omdömen. Den
+utgångspunkten gäller inte längre för de första posterna.
+
+**BINDANDE: ETT REFERENSSVAR SKICKAS ALDRIG.** Kunderna har fått svar för länge
+sedan eller inte alls. Vyn sparar texten som ett par i `data/par.jsonl`, aldrig
+som utgående mail.
+
+**Det är en ANNAN KNAPP än den vyn var specad för, och den måste vara omöjlig att
+förväxla.** Fas 5.5 bär sedan tidigare raden att vyn aldrig skickar mail; den här
+posten skärper den till att vyn nu har ett textfält vars innehåll ser ut precis
+som ett svar och som ändå aldrig får nå en kund.
+
+**Förhållandet till `forbattra`.** Omdömet `forbattra` skriver också ett nytt par
+till `data/par.jsonl`, och referenssvaret gör detsamma. Skillnaden är att
+`forbattra` förutsätter ett förslag att förbättra. Referenssvaret är samma
+skrivning utan förslaget, och båda vägarna slutar i samma fil.
+
+**#13 gäller oförändrat:** `data/par.jsonl` är RÅ. Ett referenssvar skrivs dit
+som det skrevs, utan efterbehandling.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.31.0 — 2026-09-04
+
+**Fyra poster tillkommer**, samtliga beslut av Lars i skiva 26:
+
+- **#36** godkänner skiva 25, med skälet att varv 3:s fynd låg i texten och inte
+  i koden.
+- **#37** avgör inloggningen till vyn: `info@autostockholm.se`, ingen whitelist.
+  **#21 stängs**, och båda dess öppna punkter med den. **#21:s text har fått en
+  stängningsruta överst**, alltså en redigering på plats i en committad numrerad
+  post. Loggens huvud tillåter det bara för att stryka en känd falskhet; det här
+  är en markör och inte en strykning, och den redovisas därför här.
+- **#38** avgör hostingen: Railway, med `mailagent.dasher.se` via CNAME. Bindande
+  krav på persistent volume, och riskförflyttningen utskriven.
+- **#39** flyttar fas 5.5 före fas 5 och ger vyn ett krav den inte var specad
+  för.
+
+**#21 stängs av att dess konstruktion visade sig omöjlig**, inte av att ett val
+gjordes mellan dess vägar. Whitelisten kunde aldrig få något att pröva bakom en
+Internal-app. Det som är avläsbart nytt är markören: `grep -n "STÄNGD"
+docs/beslutslogg.md` ger en enda träff, rutan i #21.
+
+*Här stod att #21 är den FÖRSTA posten som stängs så. Det är ett superlativ utan
+namngiven källa, och loggen bär närliggande fall: #17 ströks därför att undantaget
+aldrig nådde det skydd det var ett undantag från, och #4 upphävde en anvisning som
+beskrev en träff kommandot inte producerar. Fällt av granskningen av skiva 26.*
+
+Fyra nya beslutsposter ⇒ MINOR.
 
 ### 0.30.0 — 2026-09-04
 

@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.11.0 · **Uppdaterad:** 2026-09-02 · **Implementerar** CLAUDE.md §10
+**Version:** 0.12.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -41,6 +41,12 @@ grindbeslutet i fas 6, och `--send` aktiveras aldrig av kod eller default
 ---
 
 ## Faser
+
+**FASNUMREN ÄR IDENTITETER, ORDNINGEN I FILEN ÄR UTFÖRANDEORDNING.** Sedan
+beslutslogg #39 byggs fas 5.5 FÖRE fas 5, och avsnitten står i den ordning de
+utförs. Numren är oförändrade därför att de är korsreferenser i
+`docs/beslutslogg.md`, `docs/sparrar.md` och CLAUDE.md; en omnumrering hade gjort
+varje sådan hänvisning fel utan att tillföra något.
 
 ### Fas 0 — Google · KLAR
 
@@ -576,22 +582,45 @@ Fasen lämnas inte av att koden fungerar mot en testnyckel.
 > grindens villkor**, av samma skäl som raden ovan ger om testnyckeln. Grinden
 > passeras av beslutet, inte av koden.
 
-### Fas 5 — Mallar och spärrar
-
-Mallarna byggs ur `data/par.jsonl`, alltså ur faktiska svar (§11).
-`config/sparrar.yaml` och spärrlogiken byggs, och varje spärr registreras i
-`docs/sparrar.md` med sin negativkontroll och sin redundans.
-`config/priser.json` och `config/fakta.json` upprättas.
-
-**Grind:** Lars godkänner varje mall ORDAGRANT, och varje ändring i
-`config/sparrar.yaml`, `config/priser.json` och `config/fakta.json` är ett
-§10-stopp. Hela fasen är sändväg och får full §7, ovillkorligt.
-
-### Fas 5.5 — Utkastvyn
+### Fas 5.5 — Utkastvyn · BYGGS FÖRE FAS 5
 
 Webbvyn där Lars och Matte läser botens förslag och fäller omdöme om dem.
+**Inloggningen sker som ett DELAT konto enligt #37**, så loggen skiljer inte de
+två åt. Så länge Lars ensam granskar är det utan betydelse; kopplas Matte in
+krävs ett eget konto, och det är ett eget beslut.
 Beslutad av Lars i skiva 10. Hostas på `mailagent.dasher.se` enligt
-beslutslogg #20, med inloggning enligt #21 och #22.
+beslutslogg #20 och #38, med inloggning enligt #37 och #22.
+
+**BYGGS FÖRE FAS 5, beslutslogg #39.** Lars skriver fyra till fem referenssvar
+direkt i vyn, alltså skapas rösten här, och mallarna i fas 5 byggs ur de svaren
+tillsammans med `data/par.jsonl`. Den gamla ordningen krävde att mallarna fanns
+innan Lars skrivit något, och att Lars skrev i en vy som inte fanns.
+
+**BINDANDE: VYN SKA KUNNA VISA ETT INKOMMANDE MAIL UTAN ETT BOTGENERERAT
+FÖRSLAG.** Tomt fält, Lars skriver, det sparas som ett par i `data/par.jsonl`.
+Det är ett krav fasen inte var specad för: den utgick från att varje post bär ett
+förslag som ska bedömas med ett av fyra omdömen. Den utgångspunkten gäller inte
+för de första posterna.
+
+**BINDANDE: ETT REFERENSSVAR SKICKAS ALDRIG.** Kunderna har fått svar för länge
+sedan eller inte alls. Texten sparas som ett par, aldrig som utgående mail.
+
+**Det är en ANNAN KNAPP än den vyn var specad för, och den måste vara omöjlig att
+förväxla.** Fältet innehåller text som ser ut precis som ett svar och som ändå
+aldrig får nå en kund. Raden längre ned om att vyn aldrig skickar mail gäller
+oförändrat och skärps av detta.
+
+**ÖPPEN PUNKT: vad som gäller för en SPÄRRFÄLLD post i det tomma fältets läge.**
+Raden längre ned säger att spärrfällda förslag visas UTAN textfält, av §9.1:s
+skäl. En post utan genererat förslag har ingen spärr som fällt något, så de två
+raderna krockar inte i dag. Men en post kan ha både ett fällt förslag och ett
+behov av ett referenssvar, och vad som gäller då är inte avgjort. **Punkten
+avgörs av Lars innan fasen byggs**, eftersom fasen är sändväg och får full §7.
+
+**BINDANDE, DRIFT: `token.json` och `data/` ligger på ett PERSISTENT VOLUME,
+aldrig i containern.** Beslutslogg #38. Railway kör om containern vid varje
+deploy och allt i den försvinner. Kravet står här och inte bara i beslutsloggen
+därför att det ska vara läst innan fasen byggs, inte upptäckas i drift.
 
 **BYGGS FÖRE SKUGGLÄGET, och det är hela skälet till att fasen finns.** Skuggläge
 utan vy producerar en loggfil ingen läser. Fas 6 mäter klassificeringens
@@ -643,6 +672,18 @@ gränssnitt utan de stopp §10 föreskriver.
 eftersom det beror på hur många kategorier som visar sig bära underlag, och
 skiva 9 mätte att bara två kategorier når tio par med svar.
 
+### Fas 5 — Mallar och spärrar · BYGGS EFTER FAS 5.5
+
+Mallarna byggs ur `data/par.jsonl` OCH ur de referenssvar Lars skriver i vyn,
+alltså ur faktiska svar (§11).
+`config/sparrar.yaml` och spärrlogiken byggs, och varje spärr registreras i
+`docs/sparrar.md` med sin negativkontroll och sin redundans.
+`config/priser.json` och `config/fakta.json` upprättas.
+
+**Grind:** Lars godkänner varje mall ORDAGRANT, och varje ändring i
+`config/sparrar.yaml`, `config/priser.json` och `config/fakta.json` är ett
+§10-stopp. Hela fasen är sändväg och får full §7, ovillkorligt.
+
 ### Fas 6 — Skuggläge
 
 `respond.py` körs i skuggläge enligt definitionen överst. Beslutsloggen samlas
@@ -666,6 +707,39 @@ visat dagsvolymen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.12.0 — 2026-09-04
+
+**FAS 5.5 STÅR NU FÖRE FAS 5.** Beslut av Lars, `docs/beslutslogg.md` #39.
+Avsnitten är fysiskt flyttade, inte omnumrerade: numren är korsreferenser i tre
+andra dokument, och en omnumrering hade gjort varje sådan hänvisning fel. En rad
+överst i `## Faser` säger nu att numren är identiteter och ordningen
+utförandeordning.
+
+**FAS 5.5 FÅR TRE BINDANDE KRAV.**
+
+- Vyn ska kunna visa ett inkommande mail UTAN ett botgenererat förslag. Det är
+  ett krav fasen inte var specad för, och utan det finns ingenting att skriva
+  innan mallarna finns.
+- Ett referenssvar SKICKAS ALDRIG. Det sparas som ett par i `data/par.jsonl`, och
+  knappen måste vara omöjlig att förväxla med en skicka-knapp.
+- `token.json` och `data/` ligger på ett PERSISTENT VOLUME, aldrig i containern,
+  enligt #38. Kravet står i fasen och inte bara i beslutsloggen därför att det
+  ska läsas innan fasen byggs.
+
+**FAS 5:S FÖRSTA MENING ÄR ÄNDRAD.** Mallarna byggs ur `data/par.jsonl` OCH ur
+referenssvaren Lars skriver i vyn. Före den här posten namngav fasen bara filen.
+
+**Fas 5.5:s inloggnings- och hostingrader pekar om.** Inloggning enligt #37 i
+stället för #21, som är stängd, och hosting enligt #20 och #38. Fasens första
+mening bär nu också att kontot är DELAT, alltså att loggen inte skiljer Lars från
+Matte.
+
+**EN ÖPPEN PUNKT ÄR TILLAGD.** Vad som gäller för en spärrfälld post när vyn
+också ska kunna bära ett tomt fält är inte avgjort. Fälld av granskningen av
+skiva 26 som ett hål i en fas som får full §7.
+
+Flyttad fas, tre bindande krav och en öppen punkt ⇒ MINOR.
 
 ### 0.11.0 — 2026-09-02
 

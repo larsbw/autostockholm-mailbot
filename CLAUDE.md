@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.9.5 · **Uppdaterad:** 2026-09-04 · **Speglar:** beslutslogg #35
+**Version:** 0.10.0 · **Uppdaterad:** 2026-09-04 · **Speglar:** beslutslogg #39
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -18,7 +18,9 @@ Ett skickat mail går inte att ångra, och avsändaren är ett företags rykte.
 - **Stack:** Python · google-api-python-client · Anthropic API (klassificering och
   generering) · lokal disk för data och loggar.
 - **Drift:** boten flyttar i sin helhet till `mailagent.dasher.se`, se
-  beslutslogg #20. Fram till dess körs allt på Lars maskin.
+  beslutslogg #20, och hostas på **Railway** enligt #38. `token.json` och `data/`
+  SKA då ligga på ett persistent volume, aldrig i containern. Fram till dess körs
+  allt på Lars maskin, och flytten är inte gjord.
 - **Styrdokument:** `docs/roadmap.md` (fasordning, grindar, och definitionen av
   SKUGGLÄGE),
   `docs/kategorier-forslag.md` (maskinproducerad av `src/ometikettera.py`, skrivs
@@ -455,6 +457,25 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.10.0 — 2026-09-04
+
+**`Speglar` följer med till beslutslogg #39.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 26:s fyra poster lagts till.
+
+**§0:s driftrad namnger nu VÄRDEN och det bindande volymkravet.** Railway enligt
+#38, och att `token.json` och `data/` ska ligga på ett persistent volume. Raden
+namngav tidigare adressen och nuläget men inte värden. Skälet att kravet står här
+och inte bara i `docs/roadmap.md` är att §0 är det som läses vid varje
+sessionsstart, och att en container som körs om raderar både token och underlag.
+
+*Här stod att raden tidigare sade "bara att boten flyttar". Den bar också
+adressen och raden om att allt körs på Lars maskin till dess. Fällt av
+granskningen av skiva 26, som självrapportering mot diffen enligt §7.2.*
+
+**§0:s styrdokumentlista är oförändrad.** Skiva 26 skapade ingen ny fil.
+
+**Ingen regel i det här dokumentet är ändrad.** Ändrad rad i §0 ⇒ MINOR.
 
 ### 0.9.5 — 2026-09-04
 
