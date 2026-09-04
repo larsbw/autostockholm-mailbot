@@ -524,12 +524,15 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 **`Speglar` följer med till beslutslogg #49.** Avläst ur
 `grep -n "^## #" docs/beslutslogg.md` efter att skiva 31:s post lagts till.
 
-**§11 ÄR OFÖRÄNDRAD, och det är ett val.** Skiva 31 mätte att 14 av 32
-användbara a-traktorsvar i utkorgen bär första person SINGULAR, vilket §11
-förbjuder samtidigt som samma paragraf säger att rösten finns i utkorgen.
-Spänningen är utskriven som en öppen punkt i `#49` i stället för att avgöras
-här: en ändring i §11 är Lars beslut. Generatorn följer regeln som den lyder och
-väljer bort de 14.
+**§11 ÄR OFÖRÄNDRAD, och det är ett val.** Skiva 31 mätte att 18 av 32
+a-traktorsvar i utkorgen bryter mot §11: 15 bär första person singular eller
+"man", 9 bär bindestreck som skiljetecken. Samma paragraf säger att rösten finns
+i utkorgen. Spänningen är utskriven som en öppen punkt i `#49` i stället för att
+avgöras här: en ändring i §11 är Lars beslut. Generatorn följer regeln som den
+lyder och väljer bort de 18, så att 14 blir kvar.
+
+*Här stod "14 av 32 ... bär första person SINGULAR" och "väljer bort de 14". 14
+är antalet som blir KVAR. Fällt av §7-granskningen av skiva 31, varv 2.*
 
 **§0:s styrdokumentlista är oförändrad.** Skiva 31 skapade `src/generera.py`,
 `tests/test_generera.py`, `scripts/par-matning.py` och

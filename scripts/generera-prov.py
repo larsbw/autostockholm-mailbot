@@ -58,9 +58,13 @@ A_TRAKTOR = (
     "fråga om pris a-traktorkonvertering",
 )
 
-# Fylls i `main` och läses av `maska_svaret`. Modulglobal därför att maskeringen
-# måste se exakt de exempel prompten bar, och inte en ny avläsning.
-EXEMPEL_I_PROMPTEN: list[dict] = []
+# **HÄR STOD EN MODULGLOBAL `EXEMPEL_I_PROMPTEN`, och den var en fälla.** Den
+# fylldes bara i `main`, alltså gav ett anrop av `maska_svaret` utanför `main`
+# en TOM lista och därmed exakt den §6-läcka varv 1 fällde, tyst och utan att
+# något test märkte det. Det är formen `docs/incidentlogg.md` I1 handlar om.
+#
+# Exemplen skickas nu som ARGUMENT. En anropare som glömmer dem får ett fel av
+# Python i stället för en tyst omaskerad rad.
 
 # DE FEM LÄGENA. Uppslagen är KONSTRUERADE, inte avlästa: skiva 31 kopplar inte
 # in hämtningen. Det står i utdatan vid varje fall.
@@ -76,11 +80,17 @@ LAGEN = [
 ]
 
 
-def maska_svaret(svar: str, kundens_mail: str) -> str:
-    """Botens svar med identifierare och KUNDENS namn maskerade.
+def maska_svaret(svar: str, kundens_mail: str, exempel: list[dict]) -> str:
+    """Botens svar med identifierare och namn maskerade.
 
-    Namnen hämtas ur kundens eget mail, inte ur svaret. Det som §6 skyddar är
-    kundens persondata, och den kan inte stå i svaret utan att ha stått i mailet.
+    Namnen hämtas ur kundens mail OCH ur få-exemplen, eftersom prompten matar in
+    sex verkliga par i klartext och modellen därför har andra kunders namn i
+    kontexten. Genitiv och bestämd form maskeras med.
+
+    *Här stod att namnen hämtas "ur kundens eget mail, inte ur svaret" och att
+    kundens persondata "inte kan stå i svaret utan att ha stått i mailet". Båda
+    leden var falska, och kommentaren i funktionskroppen skrev ut det medan
+    docstringen ovanför stod kvar. Fällt av §7-granskningen av skiva 31, varv 2.*
     """
     ut = maskera.maska_identifierare(svar)
 
@@ -95,7 +105,7 @@ def maska_svaret(svar: str, kundens_mail: str) -> str:
     # `EJ_NAMN` i `src/maskera.py` skyddar verkstadens egna ord; Matte och Auto
     # Stockholm står i klartext i CLAUDE.md och maskeras inte här heller.
     kallor = [kundens_mail] + [
-        p["inkommande_text"] + " " + p["utgaende_text"] for p in EXEMPEL_I_PROMPTEN
+        p["inkommande_text"] + " " + p["utgaende_text"] for p in exempel
     ]
     kandidater = set()
     for kalla in kallor:
@@ -109,8 +119,13 @@ def maska_svaret(svar: str, kundens_mail: str) -> str:
     # till en kandidat, och en ersättning i taget lät den sedan matcha INUTI sin
     # egen platshållare: `Hej [NAMN],` blev `Hej [[NAMN]],`. En alternation kan
     # inte träffa text den själv nyss skrivit.
+    #
+    # **GENITIV OCH BESTÄMD FORM MÅSTE MED.** Ordgränsen i högerändan lät
+    # `Sigrids bil` och `Bengts bil` gå ut OMASKERADE, och genitiv är den
+    # naturligaste formen i just den mening en verkstad skriver. Fällt av
+    # §7-granskningen av skiva 31, varv 2.
     monster = re.compile(
-        r"\b(" + "|".join(re.escape(k) for k in kandidater) + r")\b",
+        r"\b(" + "|".join(re.escape(k) for k in kandidater) + r")(s|en|et|ens)?\b",
         flags=re.IGNORECASE,
     )
     return monster.sub("[NAMN]", ut)
@@ -135,7 +150,6 @@ def main() -> int:
         return 1
 
     exempel = las_exempel()
-    EXEMPEL_I_PROMPTEN.extend(exempel)
     print(f"få-exempel ur par.jsonl, a-traktorpar: {len(exempel)}")
     print("")
 
@@ -174,7 +188,7 @@ def main() -> int:
             continue
 
         print("BOTENS UTKAST, maskerat:")
-        print(maska_svaret(utkast, post["text"]).strip())
+        print(maska_svaret(utkast, post["text"], exempel).strip())
         print("")
 
     return 0

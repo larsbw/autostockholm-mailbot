@@ -101,9 +101,20 @@ class Forfragan:
 # och hålls kort med flit: varje tillägg är ett hål i spärren.
 ALLTID_TILLATNA_TAL = frozenset({"1", "2", "3"})
 
-# Ett tal med minst tre siffror, eller ett tal följt av en enhet som gör det till
-# ett påstående. Tusenavskiljare räknas som en del av talet.
-TAL_I_TEXT = re.compile(r"\b\d[\d\s.,]*\d\b|\b\d+\b")
+# VARJE SIFFERFÖLJD, med tusengruppering som en del av talet.
+#
+# **INGA ORDGRÄNSER, och det ledet är fällt fram två gånger.** Första lydelsen
+# krävde `\b` efter sista siffran, alltså var `25000kr` och `1000kg` OSYNLIGA för
+# spärren: `_tal_i` gav en tom mängd. Det är den vanligaste svenska skrivformen,
+# och den gick rakt igenom alla tre spärrarna.
+#
+# **AVSKILJAREN ÄR BARA BLANKSTEG ELLER PUNKT FÖLJT AV EXAKT TRE SIFFROR.**
+# Första lydelsen tog med komma och slog därmed ihop `1400, 1500` till talet
+# `14001500`, alltså en FALSK fällning av två avlästa vikter. Det var lucka 22
+# och den är nu stängd i stället för registrerad.
+#
+# Fällt av §7-granskningen av skiva 31, varv 2.
+TAL_I_TEXT = re.compile(r"\d+(?:[\s.]\d{3})*")
 
 # ORD SOM GÖR ETT SVAR TILL ETT PRISBESKED. Priser finns inte i config än,
 # alltså faller ett svar som nämner ett pris i någon av formerna nedan. Ordet
@@ -150,22 +161,37 @@ FORDONSORD = re.compile(
 
 # TRÖSKELN SOM FÖRFATTNINGSTEXT. Talet 1000 i sällskap med ett ord som gör det
 # till en återgiven föreskrift.
-TROSKELTAL = re.compile(r"\b1[\s.,]?000\b|\bett\s+ton\b|\btusen\s+kilo\b")
+# TRÖSKELN, i siffror och i ord, med och utan mellanrum före enheten.
+#
+# Varv 1 stängde `1 000 kg` och lämnade `1000kg`, `ettusen kilo`, `tusen kg` och
+# `minst 1 ton` öppna. Två av dem gällde GRÄNSBILEN, där uppslaget ger talet en
+# källa så att talspärren inte fäller först. Fällt av §7-granskningen, varv 2.
+TROSKELTAL = re.compile(
+    r"1[\s.]?000|\bettusen\b|\btusen\s*(kilo|kg)\b|\b1\s*ton\b|\bett\s+ton\b",
+    flags=re.IGNORECASE,
+)
 
-# ORDSTAMMAR, INTE HELA ORD, och det ledet är fällt fram.
+# ORDGRÄNS TILL VÄNSTER, FRI SUFFIX TILL HÖGER. Båda leden är fällda fram.
 #
-# Första lydelsen krävde ordgräns i BÅDA ändar, alltså `\bkrav\b`. Den släppte
-# igenom "Kravet är 1 000 kg", "Föreskriften säger", "Lagkravet" och
-# "Paragrafen anger" — alltså precis de former ett svar naturligt tar. Värst av
-# allt gällde det GRÄNSBILEN, där talet 1 000 har en källa ur uppslaget och
-# talspärren därför inte fäller först. Fällt av §7-granskningen av skiva 31.
+# Varv 1 krävde ordgräns i BÅDA ändar och släppte igenom "Kravet", "Lagkravet",
+# "Föreskriften" och "Paragrafen", alltså de former ett svar naturligt tar.
 #
-# Vänsterledet behåller ordgränsen, högerledet gör det inte: `krav` matchar
-# `Kravet` och `Lagkravet` matchar på sin `krav`-del.
+# Varv 1:s rättelse tog bort ordgränsen HELT, och bytte därmed en falsk negativ
+# mot en familj falska POSITIVA: `lag` matchade inuti `lager`, `lagt`,
+# `underlag` och `uppslaget`, så önskade svar som "vi har delarna på lager" och
+# "enligt uppslaget är bilen godkänd" fälldes. §7.1: en spärr som fäller
+# önskade svar blir avstängd.
+#
+# **`enligt` STÅR INTE LÄNGRE MED.** Ordet är för svagt: "enligt uppslaget" är
+# ett svar som refererar VÅR källa, inte en föreskrift. "Enligt lagen" fälls
+# ändå, på `lagen`.
+#
+# Fällt av §7-granskningen av skiva 31, varv 1 och varv 2.
 FORFATTNINGSORD = re.compile(
-    r"krav|kräv|krav|lag|regel|regl|föreskrift|foreskrift|bestämmels|"
-    r"bestammels|vvfs|paragraf|§|måste|maste|enligt|trafikverket|"
-    r"transportstyrelsen",
+    r"\bkrav\w*|\bkräv\w*|\bkrav\w*|\blag\b|\blagen\b|\blagkrav\w*|"
+    r"\blagstiftning\w*|\bregel\b|\bregeln\b|\breglerna\b|\bföreskrift\w*|"
+    r"\bforeskrift\w*|\bbestämmels\w*|\bbestammels\w*|\bvvfs\b|\bparagraf\w*|"
+    r"§|\bmåste\b|\bmaste\b|\btrafikverket\b|\btransportstyrelsen\b",
     flags=re.IGNORECASE,
 )
 
@@ -282,8 +308,8 @@ def las_exempel(parfil: Path | None = None, antal: int = ANTAL_EXEMPEL,
     `scripts/par-matning.py`.
 
     **ETT EXEMPEL SOM BRYTER MOT §11 LÄR MODELLEN ATT BRYTA MOT DEN.** Uppmätt
-    med `scripts/par-matning.py`: av 43 a-traktorpar ryms 32 under taket, och 14
-    av dem bär första person singular.
+    med `scripts/par-matning.py`: av 43 a-traktorpar ryms 32 under taket, och 18
+    av dem bryter mot §11. Kvar blir 14.
 
     Urvalet är de kortaste av de dugliga, eftersom ett kort exempel lämnar plats
     åt fler och åt kundens egen text.

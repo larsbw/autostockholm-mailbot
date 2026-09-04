@@ -152,17 +152,46 @@ def test_fordonsfaktum_utan_uppslag_faller():
 
 
 @pytest.mark.parametrize(
-    "ord", ["tjänstevikt", "släpvagnsvikt", "draganordning", "dragkrok"]
+    "ord",
+    [
+        "tjänstevikt", "tjanstevikt", "släpvagnsvikt", "slapvagnsvikt",
+        "draganordning", "dragkrok", "totalvikt", "väger", "vager", "vikten",
+        "krok", "släp", "slap", "släpet", "tung", "tyngd",
+    ],
 )
 def test_varje_fordonsord_faller_utan_uppslag(ord):
-    """Varje ord som gör svaret till ett faktapåstående om bilen.
+    """VARJE term i `FORDONSORD`, inte fyra av sexton.
 
-    Parametriserat så att en ny term inte kan läggas till i mönstret utan att
-    någon skriver en rad här.
+    Första lydelsen parametriserade fyra termer och påstod i spärrposten att en
+    ny term därför inte kunde läggas till utan en rad här. Varv 1:s rättelse
+    lade till sex termer utan en enda ny rad, alltså falsifierade samma commit
+    sitt eget påstående. Sju av sexton termer prövades av ingenting.
+
+    Fällt av §7-granskningen av skiva 31, varv 2. Listan här ska hållas i takt
+    med `FORDONSORD`, och `test_varje_term_i_mönstret_har_ett_testfall` binder
+    att den gör det.
     """
     with pytest.raises(Sparrfalld):
         generera.krav_pa_fordonsfakta_ur_uppslag(f"Bilens {ord} är godkänd.",
                                                  forfragan())
+
+
+def test_varje_term_i_monstret_har_ett_testfall():
+    """PARAMETRARNA OCH MÖNSTRET SKA INTE KUNNA GLIDA ISÄR.
+
+    Det här är raden som gör påståendet i spärrposten sant: läggs en term till i
+    `FORDONSORD` utan en rad i parametriseringen ovan blir det här testet rött.
+    Utan den var påståendet en förhoppning.
+    """
+    i_monstret = {
+        del_.strip(r"\b")
+        for del_ in generera.FORDONSORD.pattern.split("|")
+    }
+    i_testet = set(
+        test_varje_fordonsord_faller_utan_uppslag.pytestmark[0].args[1]
+    )
+
+    assert i_monstret == i_testet
 
 
 def test_fordonsfaktum_MED_uppslag_slapps_igenom():
@@ -485,6 +514,64 @@ def test_las_exempel_utan_fil_ger_tom_lista(tmp_path):
 
 
 # --------------------------------------------------------- prompten
+
+
+def test_undantagslistan_far_inte_vidgas_till_belopp():
+    """`ALLTID_TILLATNA_TAL` VAR VAKUÖS I DEN FARLIGA RIKTNINGEN.
+
+    Listan gick att vidga med `25000`, `1000` och `9999` utan att ett enda test
+    blev rött, alltså kunde ett prisbelopp göras alltid tillåtet av misstag.
+    Kommentaren vid den kallar varje tillägg "ett hål i spärren" och ingenting
+    band det.
+
+    Funnet av §7-granskningen av skiva 31, varv 2.
+    """
+    assert generera.ALLTID_TILLATNA_TAL == frozenset({"1", "2", "3"})
+
+    for tal in generera.ALLTID_TILLATNA_TAL:
+        assert len(tal) == 1, "ett flersiffrigt undantag är ett belopp"
+
+
+def test_fa_exemplen_nar_faktiskt_prompten():
+    """**SKIVANS CENTRALA RÄTTELSE, BUNDEN I SIN SISTA LÄNK.**
+
+    Varv 1 fällde att prompten bar noll a-traktorpar. Rättelsen fixade urvalet,
+    och `bygg_prompt`:s få-exempelblock gick fortfarande att sätta till `False`
+    med hela sviten grön: ingen rad band att urvalets resultat renderas in.
+    Kategorifiltret var alltså testat, och att dess resultat användes var det
+    inte.
+
+    Funnet av §7-granskningen av skiva 31, varv 2.
+    """
+    exempel = [
+        {"inkommande_text": "Går det att bygga om?",
+         "utgaende_text": "Ja, det går bra."}
+    ]
+
+    prompt = generera.bygg_prompt(forfragan(), exempel)
+
+    assert "Går det att bygga om?" in prompt
+    assert "Ja, det går bra." in prompt
+    assert "EXEMPEL 1" in prompt
+
+
+def test_generera_utkast_laddar_exempel_nar_inga_ges(monkeypatch):
+    """Förvalsvägen, som varje annat test går förbi genom att skicka `exempel=`.
+
+    Utan den här raden band ingenting att `generera_utkast` alls hämtar
+    få-exempel när anroparen inte ger några, alltså kunde laddningen tas bort
+    tyst. Funnen av §7-granskningen av skiva 31, varv 2.
+    """
+    anropad = []
+
+    def fejk_las_exempel():
+        anropad.append(True)
+        return []
+
+    monkeypatch.setattr(generera, "las_exempel", fejk_las_exempel)
+    generera.generera_utkast(FejkKlient("Hej, hör av dig."), forfragan())
+
+    assert anropad
 
 
 def test_prompten_sager_att_inget_uppslag_finns():

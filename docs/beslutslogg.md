@@ -2872,9 +2872,21 @@ få-exempel. Avläst med `scripts/par-matning.py`:
 | som faller på längden | 11 |
 | som `generera._duger_som_exempel` släpper igenom | **14** |
 
-**DE 14 SOM FALLER BORT GÖR DET AV ETT SKÄL SOM ÄR VÄRT ETT EGET BESLUT: de bär
-första person SINGULAR.** "jag", "mig", "min" eller "mitt". Noll bär tankstreck,
-noll skriver "friverkstad".
+**DE 18 SOM FALLER BORT GÖR DET AV TVÅ SKÄL, och båda är §11-regler:**
+
+| Skäl | Antal av de 18 |
+| --- | --- |
+| bär första person singular eller "man" | 15 |
+| bär bindestreck som skiljetecken | 9 |
+| **enbart** bindestreck, alltså inte pronomen | 3 |
+
+Noll bär em-streck eller en-streck, noll skriver "friverkstad".
+
+*Här stod att 14 faller bort och att skälet var singular. Båda leden var fel: 14
+är antalet som blir KVAR, och tre av bortfallet faller enbart på
+bindestrecksregeln. Här stod också "Noll bär tankstreck", vilket var sant om
+em-strecket men dolde att 9 av de 32 bär bindestreck som skiljetecken, som §11
+förbjuder i samma mening. Fällt av §7-granskningen av skiva 31, varv 2.*
 
 **Det är en spänning INUTI §11.** Paragrafen säger både att mallarna ska byggas
 ur `data/par.jsonl` därför att *"rösten finns redan i utkorgen"*, och att texten

@@ -2456,9 +2456,14 @@ samma verdikt och utan filrest.
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if PRISORD.search(svar):` satt till `if False:` | RÖD, `2 failed, 31 passed` | neutraliserad |
-| `if tal not in tillatna:` satt till `if False:` | RÖD, `1 failed, 32 passed` | neutraliserad |
-| anropet i `krav_pa_svaret` | RÖD, `3 failed, 30 passed` | raderad |
+| `if PRISORD.search(svar):` satt till `if False:` | RÖD, `4 failed, 71 passed` | neutraliserad |
+| `if tal not in tillatna:` satt till `if False:` | RÖD, `1 failed, 74 passed` | neutraliserad |
+| anropet i `krav_pa_svaret` | RÖD, `3 failed, 72 passed` | raderad |
+
+Sviten är `tests/test_generera.py`, som bar 75 test vid mätningen. *Talen är
+omkörda i varv 2: tabellerna skrevs mot en svit på 33 test, och varv 1:s
+rättelser ändrade den i SAMMA commit. §7.2 gör talet oläst när underlaget
+ändras.*
 
 **PRISORDET FÄLLER UTAN SIFFRA.** "Vad det kostar återkommer vi om" bär inget tal
 och är ändå ett besked om pris. Spärren tar ordet och inte bara siffran, och
@@ -2481,10 +2486,16 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
 - **Lucka 21. Tal ett till tre är alltid tillåtna.** `ALLTID_TILLATNA_TAL` finns
   för ordningstal, och släpper därmed igenom ledtider: *"på 2 veckor"* och *"i 3
   dagar"* fälls inte. Talen är obelagda påståenden om vår leveranstid.
-- **Lucka 22. `TAL_I_TEXT` slår ihop tal över komma och blanksteg.** *"Vikterna
-  är 1400, 1500 kg"* fälls som `talet 14001500`, alltså en FALSK fällning trots
-  att båda talen är avlästa. Riktningen är säker, ett svar faller som inte borde,
-  men det är en spärr som fäller fel och sådana blir avstängda.
+- **Lucka 22 är STÄNGD i skiva 31, varv 2.** Den gällde att `TAL_I_TEXT` slog
+  ihop tal över komma: *"Vikterna är 1400, 1500 kg"* fälldes som `talet
+  14001500`. Avskiljaren är nu blanksteg eller punkt följt av EXAKT tre siffror,
+  alltså tusengruppering och ingenting annat.
+
+**ETT HÅL SOM VARV 2 FANN OCH SOM VAR VÄRRE ÄN NÅGON REGISTRERAD LUCKA:** ett tal
+skrivet ihop med sin enhet var OSYNLIGT för spärren. `_tal_i("25000kr")` gav en
+tom mängd, och `1000kg` likaså. Det är den vanligaste svenska skrivformen, och
+den gick rakt igenom alla tre spärrarna. Mönstret kräver inte längre ordgräns
+efter sista siffran.
 
 ---
 
@@ -2509,12 +2520,18 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if traff and forfragan.uppslag is None:` satt till `if False:` | RÖD, `6 failed, 27 passed` | neutraliserad |
-| anropet i `krav_pa_svaret` | RÖD, `1 failed, 32 passed` | raderad |
+| `if traff and forfragan.uppslag is None:` satt till `if False:` | RÖD, `23 failed, 52 passed` | neutraliserad |
+| anropet i `krav_pa_svaret` | RÖD, `1 failed, 74 passed` | raderad |
 
 Orden är parametriserade i `test_varje_fordonsord_faller_utan_uppslag`, en per
-term, så att en ny term inte kan läggas till i mönstret utan att någon skriver en
-rad i testet.
+term, och `test_varje_term_i_monstret_har_ett_testfall` jämför parameterlistan
+mot mönstret. **Det är den senare som gör påståendet sant**: utan den kunde en
+term läggas till utan en rad i testet, vilket är precis vad varv 1 gjorde.
+
+*Här stod att parametriseringen ensam omöjliggjorde det. Falskt, och falsifierat
+av samma commit: varv 1 lade till sex termer utan en enda ny rad, och sju av
+sexton termer prövades av ingenting. Fällt av §7-granskningen av skiva 31,
+varv 2.*
 
 **KÄNDA LUCKOR.**
 
@@ -2560,8 +2577,8 @@ rad i testet.
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if TROSKELTAL.search(svar) and FORFATTNINGSORD.search(svar):` satt till `if False:` | RÖD, `2 failed, 31 passed` | neutraliserad |
-| anropet i `krav_pa_svaret` | RÖD, `1 failed, 32 passed` | raderad |
+| `if TROSKELTAL.search(svar) and FORFATTNINGSORD.search(svar):` satt till `if False:` | RÖD, `9 failed, 66 passed` | neutraliserad |
+| anropet i `krav_pa_svaret` | RÖD, `1 failed, 74 passed` | raderad |
 
 **ORDNINGEN AVGÖR VILKEN SPÄRR SOM RAPPORTERAS, och det är ett fynd.**
 `krav_pa_svaret` prövar talspärren först. Ett svar som skriver "lagen kräver
