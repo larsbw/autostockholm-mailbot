@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.33.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
+**Version:** 0.33.1 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -2536,10 +2536,20 @@ har ingen sändväg alls. Uppräkningen räcker tills vyn ska ut på Railway enl
 #38, och den flytten är en egen skiva med egen grind. Då, och inte innan, är
 uppräkningen otillräcklig.
 
-**SKÄLET ATT VÄNTA ÄR MÄTT, inte principiellt.** Avläsningen av fordonsfakta ur
-en sida tog fem skivor: `0863a8e`, `8629223`, `52d0a97`, `64b56e4` och
-`d38b59e`, alltså skiva 21 till 25. Skiva 21 bar redan klassen, att ett mönster
-skrivet för sidans nuvarande markup TYSTNAR i stället för att kasta.
+**SKÄLET ATT VÄNTA ÄR MÄTT, inte principiellt.** `src/biluppgifter.py` bär sex
+committar, avlästa ur `git log --oneline --all -- src/biluppgifter.py`:
+`3c7c751` byggde avläsningen i skiva 19, och `0863a8e`, `8629223`, `52d0a97`,
+`64b56e4` och `d38b59e` är skiva 21 till 25.
+
+**FEM AV DE SEX GICK ÅT TILL SAMMA KLASS AV FEL.** Skiva 21 mätte upp den: ett
+mönster skrivet för sidans nuvarande markup TYSTNAR i stället för att kasta.
+
+*Två tidigare lydelser stod här, och båda var falska. Den första sade att
+"spärren mot markup i ett värde" tog fem skivor; spärren fanns inte förrän
+skiva 24. Den andra, skriven för att rätta den, bytte subjekt till "avläsningen
+av fordonsfakta ur en sida" och behöll talet fem: avläsningen byggdes i skiva
+19, alltså är sex committar inblandade. §7.2 säger att en omskrivning gör talet
+oläst, och talet skrevs inte om. Fällt av §7-granskningen av skiva 28, varv 3.*
 
 **Två metodbyten behövdes, inte ett.** Skiva 22 bytte regex mot `html.parser` på
 beslut i #32. Först därefter kunde spärren mot markup i ett värde formuleras, och
@@ -2559,6 +2569,23 @@ vyn ska exponeras, och då som skivans enda uppgift.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.33.1 — 2026-09-04
+
+**#43:s mätning är rättad för andra gången, och den andra lydelsen var falsk på
+samma sätt som den första.**
+
+Den första sade att "spärren mot markup i ett värde" tog fem skivor; spärren
+fanns inte förrän skiva 24. Rättelsen bytte subjekt till "avläsningen av
+fordonsfakta ur en sida" och BEHÖLL talet fem och samma fem SHA:n. Avläsningen
+byggdes i skiva 19, alltså är sex committar inblandade.
+
+**Det är §7.2:s omskrivningsregel, missad två gånger i rad i samma mening.** När
+subjektet byttes ändrades talets underlag, och då är talet oläst. Posten namnger
+nu kommandot i stället för att räkna: `git log --oneline --all --
+src/biluppgifter.py`.
+
+Fällt av §7-granskningen av skiva 28, varv 3. Rättat påstående ⇒ PATCH.
 
 ### 0.33.0 — 2026-09-04
 

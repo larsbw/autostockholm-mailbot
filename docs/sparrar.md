@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.26.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.26.1 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -2058,8 +2058,37 @@ låter heltäckande är farligare än en som namnger sin räckvidd.
 
 - **Lucka 16. HTTP-lagret är otestat, och luckan är MÄTT i stället för bara
   namngiven.** Se det egna avsnittet nedan.
+- **Lucka 17. `_paket` antar att `i_modul` är ett MODULnamn, och matas numera
+  också med PAKETnamn.** Den skalar alltid av sista ledet, så `_paket("src", 1)`
+  ger tom sträng. Följden är att en relativ import INUTI ett pakets
+  `__init__.py` blir osynlig för båda lagren:
+  `_lokala_importer("from . import auth", "src")` ger en tom mängd, och
+  `src.auth` står i `FORBJUDNA_MODULER`. För ett UNDERpaket blir den i stället
+  fel med ett steg: samma sats i `src.paket` ger `src.auth` i stället för
+  `src.paket.auth`.
 
-Ingen av luckorna är stängd av den här skivan.
+  **Luckan öppnades av skiva 28:s egen rättelse i varv 2.** Innan `__init__.py`
+  gick att läsa anropades `_lokala_importer` aldrig med ett paketnamn, alltså
+  var fallet onåbart. Att göra filen läsbar utan att göra `_paket` medveten om
+  paketnamn flyttade hålet i stället för att stänga det.
+- **Lucka 18. Ett mellanliggande paket vandras aldrig vid punktad absolut
+  import.** `_lokala_importer("from src.mellan import hjalp", "src.vy")` ger
+  `src.mellan` och `src.mellan.hjalp`, aldrig `src`. Vandringens frontier fylls
+  bara ur `_lokala_importer`, så `src/__init__.py` läses aldrig för den formen,
+  trots att Python kör den. Det är formen
+  `test_importlagret_foljer_kedjan_aven_via_paketform` använder, och den
+  fixturen skapar inget `__init__.py`.
+- **Lucka 19. Källtextlagret är testat för EN av sina tre anropsformer.**
+  `grep -rn "sendmail\|SMTP(" tests/test_vy.py` ger noll träffar: bara
+  `messages().send` har ett test. `test_smtp_faller_ocksa` fälls av
+  IMPORTlagret, inte av mönstret. Tabellraden "enbart källtextlagret RÖD" gäller
+  alltså den ena formen och läses som att lagret är vaktat.
+
+  Lucka 13 registrerar vad som SAKNAS i uppräkningarna. Den här registrerar att
+  uppräkningarnas egna poster är otestade, vilket är en annan sak.
+
+Ingen av luckorna är stängd av den här skivan. **Lucka 17, 18 och 19 fanns
+kvar när §7:s tre varv var förbrukade**, se 0.26.1.
 
 ### Lucka 16 i detalj — vad som är oprövat i HTTP-lagret
 
@@ -2508,6 +2537,37 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.26.1 — 2026-09-04
+
+**§7:s TRE VARV ÄR FÖRBRUKADE OCH UNDERKÄNNANDEN KVARSTÅR.** Varv 3 fann fem
+blockerande fynd. §7 säger att arbetet då ska stoppas och rapporteras öppet i
+stället för att kraven sänks, och det är vad som sker: beslutet ligger hos Lars.
+
+**INGEN KOD ÄR ÄNDRAD EFTER GRINDEN, och det är hela poängen.** Skiva 27 stängde
+sitt sista hål med självmätt kod efter förbrukad grind. Skiva 28 granskade den
+koden och fann två hål till, och varv 2:s rättelse av dem öppnade ett tredje.
+Att lägga en fjärde oprövad rättelse i sändvägen vore att göra om samma sak en
+gång till.
+
+**Det som gjorts är i stället att LUCKORNA REGISTRERAS**, 17, 18 och 19. Posten
+själv säger att en oredovisad räckviddsinskränkning är farligare än en som
+namnger sin räckvidd, och det gäller också när inskränkningen är nyupptäckt.
+
+**Lucka 17 är den som väger tyngst**, därför att den är öppnad av en rättelse.
+`_paket` är skriven för modulnamn och matas sedan varv 2 också med paketnamn.
+
+**Ett känt falskt påstående i `docs/beslutslogg.md` #43 är rättat**, eftersom
+undantaget aldrig rättfärdigar att skeppa en känd falskhet. Avläsningen byggdes i
+skiva 19 och inte i skiva 21: `git log --oneline --all -- src/biluppgifter.py`
+ger sex committar med `3c7c751` först. Det var andra gången samma mening rättades
+och andra gången talet ärvdes oförändrat genom omskrivningen.
+
+**Ingen av bristerna är en läcka i dag.** `src/__init__.py` är tom, `src/vy.py`
+importerar bara stdlib, och vyn kör på `127.0.0.1` utan sändväg. Risken är
+strukturell och framtida.
+
+Registrerade luckor och ett rättat påstående ⇒ PATCH.
 
 ### 0.26.0 — 2026-09-04
 
