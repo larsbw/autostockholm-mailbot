@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.45.0 · **Uppdaterad:** 2026-09-10 · **Implementerar** CLAUDE.md §8
+**Version:** 0.47.0 · **Uppdaterad:** 2026-09-10 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -3881,7 +3881,187 @@ isoleringsvakten. Vakterna fällde mina egna rättelser tre gånger under varv 3
 
 ---
 
+## #67 — Skiva 34 GODKÄND som levererad
+
+**Lars beslut i skiva 35 DEL 0.** DEL B och C hela, DEL A delvis med skälet mätt.
+
+**"HELA" GÄLLER LEVERANSEN, INTE ATT KODEN ÄR UTAN FYND.** #66 registrerar lucka
+40 och 41 som orättade i just den koden. Kedjan går hela vägen från inkommande
+mail till utkast i vyn och loggar varje ärende, alltså är delarna levererade; att
+två mätta luckor står öppna i dem är ett annat påstående. Lucka 40 stängdes i
+skiva 35 på Lars order, lucka 41 lämnades öppen som vägt beslut i #69.
+
+Godkännandet gäller en enskild skiva och är inte en ändring av §7. #66 står kvar
+oförändrad: skivan stoppades efter tre varv med fynd kvar, och den posten
+beskriver vad som var sant när arbetet stannade. **Att Lars sedan godkänner det
+levererade är ett annat beslut än att grinden skulle ha släppt igenom det.**
+
+Raden finns här av samma skäl som CLAUDE.md 0.9.4 och 0.11.4 anger: en läsare ska
+inte behöva härleda ett undantag ur en godkännandepost.
+
+---
+
+## #68 — Lucka 39 lämnas ÖPPEN. Ingen uppräkning
+
+**Lars beslut i skiva 35 DEL 0.** Ett vägt beslut, inte ett förbiseende.
+
+**SKÄLET, med Lars ord:** `lag` är tvetydigt i båda riktningarna, `uppslagen` är
+vad kedjan gör och `lagar` är vad en verkstad gör. **En uppräkning som inte
+stänger mängden är inte värd priset.**
+
+Alternativet som fanns på bordet var att sätta enskilda sammansättningar som egna
+termer, till exempel `trafiklag\w*`. Det hade fångat `Vägtrafiklagen` och
+`Trafiklagen` och lämnat de tio övriga i `TROSKEL_LUCKA_39` orörda, alltså
+`Fordonslagen`, `Körkortslagen`, `Ordningslagen`, `Trafikbrottslagen`,
+`Lagboken`, `Lagförslaget`, `Lagrådet`, `Lagsamlingen`, `reglerat` och `måsten`.
+Två former köpta för priset av ett växande mönster som
+varje framtida skiva måste komma ihåg att fylla på.
+
+| Vad | Med uppräkning | Utan |
+| --- | --- | --- |
+| Formerna som fälls | två av de tolv raderna i `TROSKEL_LUCKA_39` | noll |
+| Mängden stängd | nej | nej |
+| Underhåll | varje ny sammansättning måste läggas till för hand | inget |
+| Risk för falskt positivt | ingen mätt | ingen |
+
+**KOSTNADEN ÄR VÄGD OCH LITEN.** Formen kräver att modellen skriver en
+författningssammansättning OCH ett tröskeltal i samma svar, och
+`krav_pa_tal_med_kalla` verkar oberoende: utan ett lyckat uppslag som levererat
+just det talet fälls raden av talspärren i stället. Faller svaret ändå igenom
+hamnar det i utkast, och Lars läser varje utkast.
+
+Luckan är bunden av tolv `xfail(strict=True)`-rader i `TROSKEL_LUCKA_39`, alltså
+blir sviten RÖD den dag någon stänger den. Se `docs/sparrar.md` lucka 39.
+
+*Här stod "tio", i samma post som en tabellrad som säger "tolv".
+Rättelsen i skiva 35 letade upp den GAMLA instansen av talet, i `docs/sparrar.md`
+0.33.0, och missade den som skrevs i samma ocommittade arbete. Egenskapen
+tillämpades på den instans fyndet räknade upp, alltså I10 en gång till. Fällt av
+§7-granskningen av skiva 35, varv 2.*
+
+*Noten skrev först ut avståndet som "tio rader under", vilket dels var fel, dels
+är en mening som räknar sin egen omgivning och föråldras av nästa redigering.
+`docs/sparrar.md` har redan en fälld post om exakt den formen, och SAMMA
+rättelseomgång strök ett radantal ur CLAUDE.md av det skälet innan den skrev in
+ett nytt här. Fällt av §7-granskningen av skiva 35, varv 3.*
+
+---
+
+## #69 — Lucka 41 lämnas ÖPPEN. En betydelseregel avvisas igen
+
+**Lars beslut i skiva 35 DEL 0.** Ett innehållslöst svar, alltså ett som bara är
+en hälsningsfras eller ett citat av kundens mail, passerar varje spärr.
+
+**SKÄLET:** ett sådant svar hamnar i utkast, och Lars läser varje utkast. **En
+regel mot det är betydelsebaserad, alltså samma form som avvisades i #60.**
+
+*Här stod #59. Den posten drar tillbaka en ORDER om `V50` och `ca10` och avvisar
+ingen betydelsebaserad spärr. Det är #60 som bär avvägningen, ordagrant: "Ett
+svar som faller till `utkast` LÄSER Lars innan det går ut". Rättelsen bytte
+dessutom en KORREKT pekare mot en felaktig: `docs/sparrar.md` pekade före
+skivan mot lucka 30, alltså mot #60. Fällt av §7-granskningen av skiva 35,
+varv 1.*
+
+**Avvägningen är gjord förut, och #60 är den posten.** Mönstret bör namnges:
+`tomt-svar` fäller den BOKSTAVLIGA tomheten, som är en egenskap kod kan mäta.
+Tomhet i BETYDELSE är den inte, och varje regel som försöker fånga den kommer
+att fälla riktiga korta svar också. Ett svar som bara säger *"Hej, vi återkommer
+i morgon"* är kort, innehållsfattigt och fullt användbart.
+
+**Gränsen mellan spärr och läsare går här:** spärrarna fäller det som inte går
+att verifiera, vyn fångar det som inte är värt att skicka.
+
+---
+
+## #70 — Skiva 35 STOPPAS efter tre varv. Koden bär, texten om koden gjorde det inte
+
+**§7:s rad för SÄNDVÄG: tre varv, och vid kvarstående fynd stoppa och rapportera
+öppet.** Varv 1 gav nio blockerande fynd, varv 2 gav fem, varv 3 gav fyra.
+
+**SAMTLIGA ARTON FYNDEN LÅG I TEXT. INGET LÅG I KODEN.** Varje varv godkände
+koden på varje kodpunkt: lucka 40 är stängd med en parameter och inte en
+uppräkning, ingen skrivväg går förbi `_skrivindex_ur_vag`, `varning` är bunden i
+alla tre leden, och de tolv `xfail`-raderna är strikt bundna var för sig, prövat
+genom att bredda `FORFATTNINGSORD` så att elva av dem gick till XPASS.
+
+### Mönstret, och att det inte bröts
+
+Varv 2 fann tre av sina fem fynd i varv 1:s rättelsetext. Varv 3 fann alla fyra i
+varv 2:s. Det är `docs/incidentlogg.md` I10, och den här skivan är fjärde i rad.
+
+**DE SKARPASTE INSTANSERNA ÄR SJÄLVREFERERANDE:**
+
+| Fynd | Formen |
+| --- | --- |
+| #68 skrev "tio" `xfail`-rader | I samma post som en tabellrad som säger "tolv", skriven i samma arbete som lade till de två. Rättelsen letade upp den GAMLA instansen i `docs/sparrar.md` 0.33.0 och missade den nya. |
+| CLAUDE.md 0.11.9 | En siffra i samma stycke som sin egen försäkran om att ingen siffra står där. Formen 0.8.1 redan har en post om. |
+| #68:s rättelsenot | Skrev in ett NYTT radantal, i noten som rättade ett räknefynd, i samma omgång som strök ett radantal ur CLAUDE.md av det skälet. |
+| *"SAMTLIGA tabeller ommätta"* | Skrivet medan tre tabeller med nitton rader stod omätta på en 47-testsbaslinje. |
+
+**Slutsatsen är inte att texten ska granskas hårdare.** Den granskades tre varv
+och fynden kom ändå i rättelserna. Det som faktiskt håller i det här repot är det
+som går att KÖRA: regressionstabellen, isoleringsvakten, `sparr-prova.sh`. Varje
+kodpåstående i skivan gick att reproducera på siffran. Varje textpåstående som
+föll gjorde det för att ingen körning band det.
+
+### Vad som rättades ändå
+
+**§7: ETT KÄNT FALSKT PÅSTÅENDE RÄTTAS ALLTID, på alla tre nivåerna.** Alla fyra
+fynden ur varv 3 är rättade, och **samtliga fällda-rad-tabeller i dokumentet är
+ommätta**, de nitton raderna på 47-testsbaslinjen inräknade.
+
+### Vad som INTE rättades
+
+**Lucka 42**, att fyra dokumenterade avvisningar i `_skrivindex_ur_vag` inte binds
+av någon rad. Fyra rader i den befintliga parametriseringen är hela åtgärden, men
+fyndet mättes upp i varv 3, alltså efter förbrukad grind. Samma avvägning som
+lucka 40 fick i skiva 34, se #53.
+
+**Lucka 39 och 41** står öppna som vägda beslut, #68 och #69.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.47.0 — 2026-09-10
+
+**#70 tillkommer: skiva 35 STOPPAS efter tre varv.** Arton fynd, samtliga i text
+och inget i kod. Posten skriver ut mönstret, som är I10 för fjärde skivan i rad,
+och att det inte bröts av tre varvs granskning.
+
+**Rättelser på plats i #68**, båda med kursiv not: talet "tio" och den
+radräkning som skrevs i noten som rättade det.
+
+Ny post och rättade påståenden ⇒ MINOR.
+
+### 0.46.0 — 2026-09-10
+
+**Tre poster, #67 till #69, ur skiva 35:s DEL 0.** Alla tre är Lars beslut.
+
+**ARBETSTRÄDET ÄNDRADES UNDER PÅGÅENDE GRANSKNING, och det ska stå.** Jag startade
+granskaren och fortsatte sedan redigera `docs/sparrar.md` och `CLAUDE.md` medan
+den läste. Granskaren mätte det själv och skrev ut att en granskning vars underlag
+byts under prövningen är ett stopptecken enligt §7.1:s krav på att utgångsdiffen
+ska gå att kvittera. Fynden nedan är prövade mot det senare läget och står, men
+ordningen var min och den var fel: **granskaren startas när arbetet står stilla.**
+
+**#67 godkänner skiva 34 som levererad.** Posten skriver ut att godkännandet
+gäller en enskild skiva och inte är en ändring av §7, och att #66 står kvar
+oförändrad. Samma form som CLAUDE.md 0.9.4 och 0.11.4.
+
+**#68 och #69 avgör lucka 39 och 41 som ÖPPNA.** Båda bär skälet, så att nästa
+läsare ser att de är vägda och inte förbisedda. #68 bär en avvägningstabell över
+vad en uppräkning hade kostat och gett.
+
+**#69 namnger ett mönster som #60 gjorde före den:** en betydelsebaserad regel
+avvisas till förmån för att utkastet läses. Posten drar gränsen: spärrarna fäller
+det som inte går att verifiera, vyn fångar det som inte är värt att skicka.
+
+*Här stod "ett mönster som nu gjorts två gånger". Det är en räkning av instanser
+av ett mönster, alltså §7.2:s förbjudna form, och talet var dessutom fel: #60 bar
+samma avvägning ordagrant. Fällt av §7-granskningen av skiva 35, varv 1.*
+
+Nya poster ⇒ MINOR.
 
 ### 0.45.0 — 2026-09-10
 

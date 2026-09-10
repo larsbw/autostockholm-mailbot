@@ -353,6 +353,12 @@ TROSKEL_LUCKA_39 = [
         ("Trafiklagen anger 1 000 kg.", "lag som andra led"),
         ("Fordonslagen anger 1 000 kg.", "lag som andra led"),
         ("Körkortslagen anger 1 000 kg.", "lag som andra led"),
+        # `Ordningslagen` och `Trafikbrottslagen` stod i `docs/sparrar.md`:s
+        # formtabell men saknades här, alltså band koden tio av tolv MÄTTA
+        # former. En lucka som är dokumenterad men obunden är den sorten som
+        # tystnar vid nästa ändring. Fällt av §7-granskningen av skiva 35, varv 1.
+        ("Ordningslagen anger 1 000 kg.", "lag som andra led"),
+        ("Trafikbrottslagen anger 1 000 kg.", "lag som andra led"),
         ("Lagboken anger 1 000 kg.", "lag som första led"),
         ("Lagförslaget anger 1 000 kg.", "lag som första led"),
         ("Lagrådet anger 1 000 kg.", "lag som första led"),

@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.33.0 · **Uppdaterad:** 2026-09-10 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.35.0 · **Uppdaterad:** 2026-09-10 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -112,6 +112,7 @@ verdikt som inte betyder vad det ser ut att betyda.
 | `vyn-har-ingen-sandvag` | Att ett referenssvar lämnar servern som mail | `test_en_ren_modul_slapps_igenom` | Ingen annan spärr. TVÅ LAGER, importlagret och källtextlagret, och de fångar olika fall. Se posten. |
 | `spärrfälld-post-utan-textfalt` | Att §9.1:s förbud mot att skriva om ett fällt mail blir ett klick | `test_osparrad_post_visar_textfalt` | Ingen annan spärr. Skyddar gränssnittet, inte texten. Se posten. |
 | `vyn-skriver-bara-till-data-och-logg` | Att rå kundtext skrivs till en fil som pushas | `test_de_tva_gitignorerade_katalogerna_slapps_igenom` | `persondatakontroll`, men bara delvis: den fäller vid commit, alltså efter skrivningen. Se posten. |
+| `skrivning-pekar-entydigt-ut-sin-post` | Att en skrivande rutt klampar till en granne och sparar på fel post | `test_ett_REFERENSSVAR_med_entydig_post_sparas`, `test_ett_omdome_sparas_pa_den_post_vagen_pekar_ut` | Ingen annan spärr. TVÅ rutter, `/omdome` och `/referens`, båda via samma funktion, alltså EN implementation och inte två lager. Se posten. |
 | `tomt-svar` | Att ett tomt modellsvar blir ett godkänt utkast med tomt textfält i vyn | Varje rad i `TROSKEL_SKA_PASSERA` och `PRIS_SKA_PASSERA` | Ingen. De andra SÖKER EFTER SAKER och släpper därför alla igenom det tomma. Det är hela skälet till att den behövdes. |
 | `genererat-tal-har-kalla` | Att boten skriver ett tal, särskilt ett pris, som inte är avläst | `test_uppslagets_egna_tal_slapps_igenom`, `test_ett_svar_utan_tal_slapps_igenom` | Ingen. ÖVERLAPPAR med `troskeln-som-forfattningstext` och prövas FÖRE den. Se posten. |
 | `genererat-fordonsfaktum` | Att boten påstår något om kundens bil utan ett lyckat uppslag | `test_fordonsfaktum_MED_uppslag_slapps_igenom` | `fordonsfakta-ur-uppslag` uppströms, men bara delvis: den fäller ett ofullständigt uppslag, aldrig ett svar utan uppslag. |
@@ -2067,19 +2068,19 @@ aldrig kedjan vidare, och `from src import auth` hade sett ut som en import av
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| båda lagren, villkoren satta till `False` | RÖD, `11 failed, 36 passed` | neutraliserade |
-| enbart importlagret | RÖD, `10 failed, 37 passed` | neutraliserad |
-| enbart källtextlagret | RÖD, `1 failed, 46 passed` | neutraliserad |
-| kedjeledet `namn.update(f"{paket}.{alias.name}" ...)` | RÖD, `5 failed, 42 passed` | raderad |
-| kedjeledet `namn.add(paket)` | RÖD, `3 failed, 44 passed` | raderad |
-| nivåvillkoret `if nod.level:` satt till `if False:` | RÖD, `6 failed, 41 passed` | neutraliserad |
-| nivåns djup, `[:-niva]` hårdkodat till `[:-1]` | RÖD, `1 failed, 46 passed` | neutraliserad |
-| paketuppslaget, `vag / "__init__.py"` borttaget ur formerna | RÖD, `1 failed, 46 passed` | neutraliserad |
-| `i_modul` i `moduler_i_vyn`, satt till tom sträng | RÖD, `3 failed, 44 passed` | neutraliserad |
-| `i_modul` i `krav_pa_sandvagsfrihet`, satt till tom sträng | RÖD, `1 failed, 46 passed` | neutraliserad |
-| `krav_pa_sandvagsfrihet()` i `starta` | RÖD, `1 failed, 46 passed` | raderad |
-| `HTTPServer(("127.0.0.1", port), ...)` satt till `"0.0.0.0"` | RÖD, `1 failed, 46 passed` | neutraliserad |
-| `def log_message` omdöpt, alltså övertäckningen borttagen | RÖD, `1 failed, 46 passed` | neutraliserad |
+| båda lagren, villkoren satta till `False` | RÖD, `11 failed, 61 passed` | neutraliserade |
+| enbart importlagret | RÖD, `10 failed, 62 passed` | neutraliserad |
+| enbart källtextlagret | RÖD, `1 failed, 71 passed` | neutraliserad |
+| kedjeledet `namn.update(f"{paket}.{alias.name}" ...)` | RÖD, `5 failed, 67 passed` | raderad |
+| kedjeledet `namn.add(paket)` | RÖD, `3 failed, 69 passed` | raderad |
+| nivåvillkoret `if nod.level:` satt till `if False:` | RÖD, `6 failed, 66 passed` | neutraliserad |
+| nivåns djup, `[:-niva]` hårdkodat till `[:-1]` | RÖD, `1 failed, 71 passed` | neutraliserad |
+| paketuppslaget, `vag / "__init__.py"` borttaget ur formerna | RÖD, `1 failed, 71 passed` | neutraliserad |
+| `i_modul` i `moduler_i_vyn`, satt till tom sträng | RÖD, `3 failed, 69 passed` | neutraliserad |
+| `i_modul` i `krav_pa_sandvagsfrihet`, satt till tom sträng | RÖD, `1 failed, 71 passed` | neutraliserad |
+| `krav_pa_sandvagsfrihet()` i `starta` | RÖD, `1 failed, 71 passed` | raderad |
+| `HTTPServer(("127.0.0.1", port), ...)` satt till `"0.0.0.0"` | RÖD, `1 failed, 71 passed` | neutraliserad |
+| `def log_message` omdöpt, alltså övertäckningen borttagen | RÖD, `1 failed, 71 passed` | neutraliserad |
 
 **DE TVÅ `i_modul`-ARGUMENTEN FÄLLS VAR FÖR SIG, och de bär olika fall.** Det i
 `moduler_i_vyn` är det som får VANDRINGEN att följa en relativ import vidare;
@@ -2107,7 +2108,7 @@ kod och prövas därför här. Bindningen till loopback är skivans centrala
 §6-påstående, eftersom vyn saknar inloggning: den som når porten når kundtexten.
 Båda var ovaktade fram till varv 2.
 
-Sviten var `tests/test_vy.py`, som bar 47 test vid mätningen. Kommandot är
+Sviten var `tests/test_vy.py`, som bar 72 test vid omkörningen i skiva 35. Kommandot är
 `scripts/sparr-prova.sh --fil src/vy.py --ersatt "<rad>=..." -- tests/test_vy.py
 -q --tb=no -rN`. Radnumren skrivs inte ut, eftersom de flyttar av varje
 redigering i filen; villkorens TEXT står ovan.
@@ -2328,9 +2329,9 @@ Formerna bärs av ett test var, samtliga i `tests/test_vy.py`:
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if sparr:` satt till `if False:` | RÖD, `1 failed, 46 passed` | neutraliserad |
-| `html.escape` runt `forslag` och `sparr` borttagen | RÖD, `1 failed, 46 passed` | neutraliserade |
-| `html.escape(str(fel))` i `rendera_fel` borttagen | RÖD, `1 failed, 46 passed` | neutraliserad |
+| `if sparr:` satt till `if False:` | RÖD, `2 failed, 70 passed` | neutraliserad |
+| `html.escape` runt `forslag` och `sparr` borttagen | RÖD, `1 failed, 71 passed` | neutraliserade |
+| `html.escape(str(fel))` i `rendera_fel` borttagen | RÖD, `1 failed, 71 passed` | neutraliserad |
 
 **De tre sista raderna vaktar §6 och inte DEL 0**, och står här därför att de
 sitter i samma renderare.
@@ -2427,11 +2428,11 @@ Luckan är öppen och inte stängd av den här skivan.
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if relativ.parts[:1] != ("data",) and ... != ("logg",):` satt till `if False:` | RÖD, `4 failed, 43 passed` | neutraliserad |
-| `krav_pa_skrivbar_sokvag(parfil)` i `spara_referenssvar`, ENSAMT | RÖD, `1 failed, 46 passed` | raderad |
-| `krav_pa_skrivbar_sokvag(omdomesfil)` i `spara_omdome`, ENSAMT | RÖD, `1 failed, 46 passed` | raderad |
+| `if relativ.parts[:1] != ("data",) and ... != ("logg",):` satt till `if False:` | RÖD, `4 failed, 68 passed` | neutraliserad |
+| `krav_pa_skrivbar_sokvag(parfil)` i `spara_referenssvar`, ENSAMT | RÖD, `1 failed, 71 passed` | raderad |
+| `krav_pa_skrivbar_sokvag(omdomesfil)` i `spara_omdome`, ENSAMT | RÖD, `1 failed, 71 passed` | raderad |
 
-Sviten var `tests/test_vy.py` med 47 test, samma som ovan.
+Sviten var `tests/test_vy.py` med 72 test, samma som ovan.
 
 **DE TVÅ ANROPEN FÄLLS VAR FÖR SIG, ALDRIG TILLSAMMANS, och det är ett fynd och
 inte en formsak.** Skiva 27:s första prövning fällde båda i samma körning, fick
@@ -2459,6 +2460,65 @@ committen. Filen bar fixturtext och ingen kundtext, alltså kostade det ingentin
 med en post ur `data/par.jsonl` i fixturen hade det varit ett §6-brott begånget av
 granskningen själv. Testet skriver nu i `tmp_path`, och fällningen gjordes om med
 samma verdikt och utan filrest.
+
+---
+
+## `skrivning-pekar-entydigt-ut-sin-post`
+
+**Vad den skyddar mot:** att en skrivande rutt klampar till en granne och sparar
+på fel post.
+
+**Var:** `src/vy.py::_skrivindex_ur_vag`, anropad från båda skrivande vägarna:
+referensgrenen i `do_POST` och `_omdome`, som `do_POST` delegerar till.
+
+**EGENSKAPEN ÄR ENTYDIGHET, INTE VÄLFORMAT.** `_index_ur_vag` klampar och är rätt
+för att BLÄDDRA, eftersom en bläddring inte skriver. En skrivning avvisar i
+stället. `/omdome` utan index skrev annars på post noll och `/omdome/99` på den
+sista, och med omdömet `forbattra` skrevs ett par av FEL KUNDS text till
+`data/par.jsonl`, som generatorn läser som få-exempel.
+
+Formen accepterar mer än vyn själv genererar, och det är avsiktligt: `\d` är
+unicode i Python, så `/referens/١` och ledande nollor går igenom. Ingen av dem är
+tvetydig. Avvisade blir `/REFERENS/1`, `/referens/1?x=1`, `/referens/%31`,
+`/referens//1` och varje väg utan siffra eller utanför intervallet.
+
+**Negativkontroll:** `test_ett_REFERENSSVAR_med_entydig_post_sparas` för
+referensrutten, som parametriseras över `/referens/1` och `/referens/1/` och
+kräver att paret hamnar på post ETT, och för omdömesrutten
+`test_ett_omdome_sparas_pa_den_post_vagen_pekar_ut`.
+
+En lydelse som avvisar ALLT fälls av fyra rader, mätt: de två ovan plus
+`test_en_SPARRAD_post_vagrar_ta_emot_ett_omdome` och referensradens andra
+parameter.
+
+*Här stod att `return None` för allt annars vore "en grön lösning". Mätt är det
+falskt: `--ersatt 'traff = None'` ger `4 failed, 68 passed`, och två av de fyra
+raderna fanns i repot före skivan. Meningen var skriven mot minnet av att
+referensrutten saknade negativkontroll, inte mot filen. Fällt av
+§7-granskningen av skiva 35, varv 2.*
+
+**Redundant med:** ingen. Två rutter delar funktionen, alltså är den ENA
+implementationen och inte två lager.
+
+**Fällda rader.** Spärren har TVÅ verkställighetspunkter, en per skrivande rutt,
+och dokumentets egen regel är att varje punkt fälls ENSAM. Referensgrenens rader
+står i lucka 40:s tabell, där rättelsen mättes. Omdömesgrenens står här:
+
+| Fälld rad | Utfall | Form |
+| --- | --- | --- |
+| `_skrivindex_ur_vag` bytt mot `_index_ur_vag` och `if index is None:` neutraliserad | RÖD, `6 failed, 66 passed` | neutraliserad |
+| bara `if index is None:` neutraliserad | RÖD, `6 failed, 66 passed` | neutraliserad |
+| `rutt`-argumentet satt till `"referens"` i omdömesgrenen | RÖD, `2 failed, 70 passed` | neutraliserad |
+
+Mot `tests/test_vy.py`, som bar 72 test vid mätningen.
+
+*Fältet pekade först enbart på lucka 40:s tabell, som uteslutande fäller
+referensgrenen. En sändvägsspärrs bevisfält pekade alltså på ett bevis för halva
+spärren. Fällt av §7-granskningen av skiva 35, varv 2.*
+
+**HISTORIK:** `/omdome` rättades i skiva 34 varv 2, `/referens` först i skiva 35.
+Att spärren fanns för en rutt och inte för grannen är lucka 40, och `rutt` är
+numera en parameter just därför.
 
 ---
 
@@ -2536,13 +2596,13 @@ Mot `tests/test_generera.py`, som bar 111 test vid mätningen.
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if PRISORD.search(svar):` satt till `if False:` | RÖD, `45 failed, 443 passed, 54 skipped, 6 xfailed` | neutraliserad |
-| `if traff_i_ord:` satt till `if False:` | RÖD, `10 failed, 478 passed, 54 skipped, 6 xfailed` | neutraliserad |
-| `if tal not in tillatna:` satt till `if False:` | RÖD, `23 failed, 465 passed, 54 skipped, 6 xfailed` | neutraliserad |
-| anropet i `krav_pa_svaret` | RÖD, `47 failed, 441 passed, 54 skipped, 6 xfailed` | raderad |
+| `if PRISORD.search(svar):` satt till `if False:` | RÖD, `45 failed, 443 passed, 54 skipped, 16 xfailed` | neutraliserad |
+| `if traff_i_ord:` satt till `if False:` | RÖD, `10 failed, 478 passed, 54 skipped, 16 xfailed` | neutraliserad |
+| `if tal not in tillatna:` satt till `if False:` | RÖD, `23 failed, 465 passed, 54 skipped, 16 xfailed` | neutraliserad |
+| anropet i `krav_pa_svaret` | RÖD, `47 failed, 441 passed, 54 skipped, 16 xfailed` | raderad |
 
 **SVITEN ÄR `tests/test_generera.py` PLUS `tests/test_generera_monster.py`,
-och den bar 548 test vid mätningen, varav 54 hoppade över.** Talen är omkörda i
+och den bar 558 test vid mätningen, varav 54 hoppade över.** Talen är omkörda i
 skiva 33 SIST AV ALLT, efter varje annan ändring, eftersom skivan lade till både
 isolerande rader och nya negativkontroller. §7.2 gör talet oläst när underlaget
 ändras i en grannmening, och det underlaget ändrades två gånger under skiva 32
@@ -2794,9 +2854,23 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   mätte att formuleringen överlevt i `docs/sparrar.md` efter att den strukits i
   `src/generera.py`.*
 
-- **Lucka 40. `/referens/N` KLAMPAR FORTFARANDE. ÖPPEN, MÄTT, OCH SAMMA DEFEKT
-  SOM LUCKA 2 GÄLLDE.** `do_POST`:s referensgren använder `_index_ur_vag`, som
-  klampar i stället för att avvisa. Avläst i skiva 34 varv 3:
+- **Lucka 42. FYRA DOKUMENTERADE AVVISNINGAR SOM INGEN RAD BINDER. ÖPPEN OCH
+  MÄTT.** `src/vy.py` skriver ut att `/REFERENS/1`, `/referens/1?x=1`,
+  `/referens/%31` och `/referens//1` avvisas, och alla fyra är sanna om raden i
+  dag. **Men parametriseringen i `tests/test_vy.py` täcker ingen av dem.** En
+  framtida `re.IGNORECASE`, eller en urldekodning av `self.path`, skulle passera
+  med grön svit.
+
+  Det är §7.1:s påståendebaserade urval: ett dokumenterat *"detta sker inte"* utan
+  rad är samma sorts hål som ett vakuöst spärrtest, bara ett steg tidigare.
+
+  **INTE ÅTGÄRDAD, och skälet är §7.** Fyndet mättes upp i varv 3, alltså efter
+  att sändvägsgrindens tre varv var förbrukade. Fyra rader i den befintliga
+  parametriseringen är hela åtgärden, **och den är Lars att beställa.** Samma
+  avvägning som lucka 40 fick i skiva 34, se `docs/beslutslogg.md` #53.
+
+- **Lucka 40. STÄNGD I SKIVA 35.** `do_POST`:s referensgren använde
+  `_index_ur_vag`, som klampar i stället för att avvisa. Avläst i skiva 34 varv 3:
 
   | Väg | Post som skrivs |
   | --- | --- |
@@ -2807,16 +2881,63 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   `spara_referenssvar` skriver till `data/par.jsonl`, alltså exakt den fil vars
   få-exempel generatorn läser. Ett par ihopsatt av FEL KUNDS text är sändväg.
 
-  **DEN ÄR INTE RÄTTAD, OCH SKÄLET ÄR §7.** Grinden för sändväg är tre varv och
-  var förbrukad när fyndet mättes upp. `docs/beslutslogg.md` #53 skriver ut vad
-  en fjärde självmätt sändvägsändring efter förbrukad grind kostade sist. Fixen
-  är känd och liten, att byta `_index_ur_vag` mot `_skrivindex_ur_vag` i
-  referensgrenen, **och den är Lars att beställa.**
+  **DEN LÄMNADES ORÄTTAD I SKIVA 34, och det var §7.** Grinden för sändväg är
+  tre varv och var förbrukad när fyndet mättes upp. `docs/beslutslogg.md` #53
+  skriver ut vad en självmätt sändvägsändring EFTER FÖRBRUKAD GRIND kostade sist:
+  *"precis vad skiva 27 gjorde efter förbrukad grind, och den kostade tre
+  skivor."* Villkoret hör till citatet och stod först utelämnat. Lars beställde
+  fixen i skiva 35 och skrev ut att det var rätt att vänta.
 
-  *Egenskapen står redan utskriven i `_skrivindex_ur_vag`: ingen skrivning får
-  gälla en post som vägen inte entydigt pekar ut. Varv 2 fällde `/omdome`, varv 3
-  fällde att rättelsen gällde den rutt fyndet NAMNGAV. Det är fjärde instansen av
-  I10 i den här skivan.*
+  **RÄTTELSEN ÄR EN PARAMETER OCH INTE EN UPPRÄKNING AV TVÅ RUTTER.**
+  `_skrivindex_ur_vag` tar nu `rutt`, och båda skrivande rutterna skickar sin
+  egen. Att i stället skriva `(?:omdome|referens)` hade varit samma fel en gång
+  till: nästa skrivande rutt hade behövt komma ihåg att ändra i mönstret.
+
+  | Fälld rad | Utfall | Form |
+  | --- | --- | --- |
+  | `_skrivindex_ur_vag` bytt tillbaka mot `_index_ur_vag` och `if index is None:` neutraliserad | RÖD, `7 failed, 65 passed` | neutraliserad |
+  | bara `if index is None:` neutraliserad | RÖD, `7 failed, 65 passed` | neutraliserad |
+  | `rutt`-argumentet satt till `"omdome"` i referensgrenen | RÖD, `2 failed, 70 passed` | neutraliserad |
+  | `.rstrip("/")` borttaget ur mönstret | RÖD, `1 failed, 71 passed` | neutraliserad |
+
+  Mot `tests/test_vy.py`, som bar 72 test vid mätningen. **Talen är omkörda sist
+  av allt**, eftersom skivans DEL B lade till test i samma fil efter att tabellen
+  först skrevs.
+
+  *Sista radens form stod som "raderad". Raden står kvar; det som togs bort var
+  ett anrop inuti den, alltså NEUTRALISERAD enligt §7.1. Här stod också att DEL B
+  lade till "tre test", vilket både var fel och en räkning av ett arbetsförlopp.
+  Fällt av §7-granskningen av skiva 35, varv 1.*
+
+  **Den sista raden är en NEGATIVKONTROLL som saknades.** `.rstrip("/")` gick
+  först att ta bort med grön svit, alltså var permissiviteten oprövad enligt
+  §7.1: den finns för att en läsare kan skriva `/referens/1/` i adressfältet.
+  `tests/test_vy.py:1025` binder den nu, genom att
+  `test_ett_REFERENSSVAR_med_entydig_post_sparas` parametriseras över både
+  `/referens/1` och `/referens/1/`.
+
+  *Här stod att raden lyder `("/referens/1/", accepteras)`. Ingen sådan
+  konstruktion finns: parametriseringen är en lista med två strängar. Fällt av
+  §7-granskningen av skiva 35, varv 1.*
+
+  *Egenskapen står utskriven i `_skrivindex_ur_vag`: ingen skrivning får gälla en
+  post som vägen inte entydigt pekar ut. Varv 2 fällde `/omdome`, varv 3 fällde
+  att rättelsen gällde den rutt fyndet NAMNGAV. Det är mönstret i I10.*
+
+  *Här stod, ordagrant i HEAD, "Det är fjärde instansen av I10 i den här skivan".
+  Det är en räkning av instanser av ett mönster, alltså §7.2:s förbjudna form,
+  och den gick inte att läsa ur någon källa: I10 räknar inte skiva 34. Fällt av
+  §7-granskningen av skiva 35, varv 1.*
+
+  *Citatet löd först "fjärde instansen av I10 i skiva 34". Det är inte HEAD:s
+  ordalydelse, och ett citat av committad text ska vara ordagrant. Samma klass
+  som CLAUDE.md 0.4.1 fällde. Fällt av §7-granskningen av skiva 35, varv 2.*
+
+  *Noten bar sedan bisatsen "och `src/vy.py` bar samma ordinal". Falskt:
+  `git grep -n "I10" HEAD -- src/vy.py` ger inga träffar. Ordinalen fanns där
+  bara i skiva 35:s egna ocommittade utkast, alltså i något jag själv skrivit och
+  sedan tog bort. En bisats inuti en rättelse, som säger fel om filen. Fällt av
+  §7-granskningen av skiva 35, varv 3.*
 
 - **Lucka 41. ETT SVAR SOM INTE ÄR ETT SVAR PASSERAR VARJE SPÄRR. ÖPPEN OCH
   MÄTT.** `tomt-svar` fäller den tomma strängen. Ett svar som bara är `"Hej!"`,
@@ -2825,9 +2946,18 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
 
   Posten finns därför att `tomt-svar`:s rad *"Redundant med: ingen"* annars läses
   som att tomhetsklassen är täckt. Den är täckt i sin bokstavliga form och inte i
-  sin betydelse, och **en betydelsebaserad regel är precis vad Lars avvisade i
-  skiva 34:s DEL 0.** Kostnaden är ett tunt utkast som Lars läser i vyn innan
-  något går ut, vilket är samma avvägning som lucka 30.
+  sin betydelse.
+
+  **AVGJORD AV LARS I SKIVA 35: LUCKAN LÄMNAS ÖPPEN.** Ett innehållslöst svar
+  hamnar i utkast, och Lars läser varje utkast. En regel mot det är
+  betydelsebaserad, alltså samma form som avvisades för lucka 30 i
+  `docs/beslutslogg.md` #60. Den posten bär skälet ordagrant: *"Ett svar som
+  faller till `utkast` LÄSER Lars innan det går ut."* #69 namnger mönstret:
+  **spärrarna fäller det som inte går att verifiera, vyn fångar det som inte är
+  värt att skicka.**
+
+  *Här stod #59 och "andra gången samma avvägning görs". Fel post, och en räkning
+  av instanser av ett mönster. Fällt av §7-granskningen av skiva 35, varv 1.*
 
 - **Lucka 39. SAMMANSÄTTNINGAR MED `lag`, I BÅDA LEDEN. ÖPPEN, MÄTT, OCH STÖRRE
   ÄN DEN SÅG UT.** Följande läcker `FORFATTNINGSORD` i dag, avläst i skiva 34
@@ -2852,8 +2982,12 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   **EN ENSKILD SAMMANSÄTTNING GÅR DÄREMOT ATT SÄTTA**, till exempel
   `trafiklag\w*`, som fångar `Vägtrafiklagen` och `Trafiklagen` utan att röra
   `uppslagen`. Det är en UPPRÄKNING av kända sammansättningar och stänger inte
-  klassen: `Fordonslagen` och `Lagrådet` läcker vidare. **Frågan om upprepad
-  uppräkning ändå är värd priset är Lars**, och den är inte avgjord här.
+  klassen: `Fordonslagen` och `Lagrådet` läcker vidare.
+
+  **AVGJORD AV LARS I SKIVA 35: LUCKAN LÄMNAS ÖPPEN, INGEN UPPRÄKNING.** Ett
+  vägt beslut, inte ett förbiseende. Skälet med Lars ord: *"En uppräkning som
+  inte stänger mängden är inte värd priset."* Avvägningstabellen och kostnaden
+  står i `docs/beslutslogg.md` #68.
 
   *Här stod att klassen är sammansättningar vars ANDRA led är `lagen`, att den
   bär två former, och att `lagen\b` är DEN ENDA lydelse som fångar dem. Alla tre
@@ -2906,8 +3040,8 @@ efter sista siffran.
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if traff and forfragan.uppslag is None:` satt till `if False:` | RÖD, `58 failed, 433 passed, 54 skipped, 3 xfailed` | neutraliserad |
-| anropet i `krav_pa_svaret` | RÖD, `20 failed, 471 passed, 54 skipped, 3 xfailed` | raderad |
+| `if traff and forfragan.uppslag is None:` satt till `if False:` | RÖD, `58 failed, 433 passed, 54 skipped, 13 xfailed` | neutraliserad |
+| anropet i `krav_pa_svaret` | RÖD, `20 failed, 471 passed, 54 skipped, 13 xfailed` | raderad |
 
 **Sviten är `tests/test_generera.py` plus `tests/test_generera_monster.py`,
 omkörd i skiva 34, sist av allt.**
@@ -2991,11 +3125,11 @@ varv 2.*
   | --- | --- |
   | regel 6 raderad | RÖD, `3 failed, 108 passed` |
   | regel 6 utvattnad till *"Var försiktig med tal."* | RÖD, `2 failed, 109 passed` |
-  | `REGLER SOM ALDRIG BRYTS:` inverterad till en riktlinje | RÖD, `1 failed, 1253 passed, 54 skipped, 6 xfailed` |
+  | `REGLER SOM ALDRIG BRYTS:` inverterad till en riktlinje | RÖD, `1 failed, 1267 passed, 54 skipped, 16 xfailed` |
 
   De två första mot `tests/test_generera.py`, som bar 111 test, den tredje mot
-  hela sviten, som bar 1314. Omkörda i skiva 34 VARV 3 SIST AV ALLT, eftersom
-  varvet lade till en fjärde spärr, en rutt i vyn och rader i regressionstabellen.
+  hela sviten, som bar 1338. Omkörda i skiva 35 varv 2 SIST AV ALLT, eftersom
+  skivan lade till rader i både `tests/test_vy.py` och regressionstabellen.
 
   *Här stod fyra rader mot `tests/test_generera.py` och två mot hela sviten, med
   tal från före varv 2:s rättelser. Raderna för ett tillagt undantag och för en
@@ -3095,8 +3229,8 @@ varv 2.*
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if TROSKELTAL.search(svar) and FORFATTNINGSORD.search(svar):` satt till `if False:` | RÖD, `143 failed, 345 passed, 54 skipped, 6 xfailed` | neutraliserad |
-| anropet i `krav_pa_svaret` | RÖD, `87 failed, 401 passed, 54 skipped, 6 xfailed` | raderad |
+| `if TROSKELTAL.search(svar) and FORFATTNINGSORD.search(svar):` satt till `if False:` | RÖD, `143 failed, 345 passed, 54 skipped, 16 xfailed` | neutraliserad |
+| anropet i `krav_pa_svaret` | RÖD, `87 failed, 401 passed, 54 skipped, 16 xfailed` | raderad |
 
 **Sviten är `tests/test_generera.py` plus `tests/test_generera_monster.py`,
 omkörd i skiva 34, sist av allt.**
@@ -3279,8 +3413,8 @@ eftersom `tusen kilo` och `tusentals kilo` saknar räkneord och därmed passerar
 >
 >   | Fällning | Utfall |
 >   | --- | --- |
->   | `\bettusen\b` bort ur `TROSKELTERMER` | GRÖN, `486 passed, 53 skipped, 6 xfailed` |
->   | `ettusen\|` bort ur `TAL_I_ORD` | RÖD, `2 failed, 486 passed, 54 skipped, 6 xfailed` |
+>   | `\bettusen\b` bort ur `TROSKELTERMER` | GRÖN, `486 passed, 53 skipped, 16 xfailed` |
+>   | `ettusen\|` bort ur `TAL_I_ORD` | RÖD, `2 failed, 486 passed, 54 skipped, 16 xfailed` |
 >
 >   Omkörda i skiva 34 varv 3, sist av allt. **Notera att den gröna raden ger 53
 >   överhoppade och inte 54:** en raderad term tar bort sina egna vakter,
@@ -3664,6 +3798,77 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.35.0 — 2026-09-10
+
+**Skiva 35 STOPPAD efter tre varv**, se `docs/beslutslogg.md` #70. Samtliga arton
+fynd låg i text; koden godkändes varje varv.
+
+**LUCKA 42 TILLKOMMER, öppen och mätt.** Fyra avvisningar som `src/vy.py` skriver
+ut binds inte av någon rad i parametriseringen. En framtida `re.IGNORECASE` eller
+en urldekodning skulle passera grön. Inte åtgärdad: fyndet mättes i varv 3, efter
+förbrukad grind.
+
+**VARJE FÄLLD-RAD-TABELL I DOKUMENTET ÄR OMMÄTT.** Det inkluderar de tre som rör
+`src/vy.py` och som stod på en 47-testsbaslinje medan `tests/test_vy.py` bär 72
+test, alltså nitton rader som inte gick att reproducera. De var föråldrade sedan
+tidigare skivor, och §7 säger att ett känt falskt påstående rättas alltid.
+
+### 0.34.0 — 2026-09-10
+
+**Skiva 35. LUCKA 40 STÄNGD, 39 och 41 AVGJORDA av Lars.**
+
+**Lucka 40 stängd med en PARAMETER, inte en uppräkning.** `_skrivindex_ur_vag`
+tar nu `rutt`, och båda skrivande rutterna skickar sin egen. Att skriva
+`(?:omdome|referens)` hade varit samma fel en gång till, eftersom nästa skrivande
+rutt hade behövt komma ihåg mönstret. Fyra fällda rader, alla RÖDA.
+
+**En negativkontroll som saknades tillkom.** `.rstrip("/")` gick att ta bort med
+grön svit, alltså var permissiviteten oprövad enligt §7.1. Bunden nu.
+
+**Lucka 39 och 41 lämnas ÖPPNA som vägda beslut**, se `docs/beslutslogg.md` #68
+och #69. Båda posterna bär skälet, och #69 namnger gränsen mellan spärr och
+läsare: spärrarna fäller det som inte går att verifiera, vyn fångar det som inte
+är värt att skicka.
+
+**`skrivning-pekar-entydigt-ut-sin-post` FÅR EN EGEN POST.** Funktionen har varit
+en sändvägsspärr sedan skiva 34 utan att stå i översiktstabellen, som §7.1 gör
+obligatorisk läsning före varje prövning. En spärr som inte står i den listan kan
+inte vägas mot sina grannar. Översiktstabellen bär nu 18 rader.
+
+**LUCKA 40 STOD INTE ÖPPEN DÄRFÖR ATT POSTEN SAKNADES.** Den var SEDD och
+registrerad, avläst i skiva 34 varv 3, och lämnades orättad därför att §7:s grind
+för sändväg var förbrukad. Det står i lucka 40:s egen post och i
+`docs/beslutslogg.md` #66 under rubriken *"VAD SOM INTE ÄR RÄTTAT, och skälet är
+att grinden är förbrukad"*.
+
+*Här stod att den saknade posten var "precis den försummelse som lät lucka 40 stå
+öppen". Det är en efterhandskonstruktion som motiverar den nya posten med ett
+problem repot självt tillskriver en annan orsak. En ny post får inte skriva om
+varför en lucka stod öppen. Fällt av §7-granskningen av skiva 35, varv 2.*
+
+**VARJE FÄLLD-RAD-TABELL I DOKUMENTET ÄR OMMÄTT, sist av allt.** Det gäller också
+de tre som rör `src/vy.py` och som stod på en 47-testsbaslinje: `tests/test_vy.py`
+bär 72 test i dag, alltså kunde ingen av deras nitton rader reproduceras.
+
+**INGET AV DE DRIVNA `xfailed`-TALEN GICK ATT REPRODUCERA MOT HEAD HELLER.** Mätt
+genom att ta bort skivans två nya rader ur `TROSKEL_LUCKA_39`: HEAD:s baslinje var
+`14 xfailed`, medan tabellerna stod på `6` och `3`. Skiva 34 varv 3 växte lucka 39
+utan att räkna om dem.
+
+*Här stod först "SAMTLIGA … OMMÄTTA" medan tre tabeller med nitton rader stod
+omätta, och att "åtta av de tio" drivna talen var föråldrade i HEAD medan två kom
+ur den här skivan. Båda leden var falska: alla tio var föråldrade, och den
+partitionen var en gissning och ingen mätning. Fällt av §7-granskningen av skiva
+35, varv 3.*
+
+**`TROSKEL_LUCKA_39` BÄR NU TOLV FORMER, inte tio.** 0.33.0-posten skriver "tio",
+vilket var sant när den skrevs. Lucka 39:s formtabell listade `Ordningslagen` och
+`Trafikbrottslagen` utan att koden band dem, alltså var två MÄTTA former
+dokumenterade men obundna. En sådan lucka tystnar vid nästa ändring. Bundna nu,
+och 0.33.0 står oförändrad som historik enligt 0.3.1.
+
+Stängd lucka och avgjorda luckor ⇒ MINOR.
 
 ### 0.33.0 — 2026-09-10
 

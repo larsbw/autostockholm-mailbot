@@ -400,6 +400,25 @@ def test_servern_binder_bara_loopback():
         server.server_close()
 
 
+def test_starta_LAMNAR_VIDARE_varningen_till_hanteraren():
+    """`starta` är den enda vägen in i vyn för en körning, alltså den som räknas.
+
+    Renderingen och `bygg_hanterare` prövas var för sig ovan. Utan den här raden
+    gick argumentet att strypa i `starta` med grön svit, alltså var det sista
+    ledet i genomkopplingen oprövat och varningen hade tyst försvunnit.
+    """
+    server = vy.starta(
+        port=0, fall=[], granskning=[_granskningsfall()],
+        varning="UPPSLAGET ÄR EN FIXTUR.",
+    )
+    try:
+        fejk = FejkHanterare(server.RequestHandlerClass, "/granskning/0")
+        fejk.get()
+        assert "UPPSLAGET ÄR EN FIXTUR." in fejk.svar
+    finally:
+        server.server_close()
+
+
 # ---------------------------------------------------------------- §6
 
 
@@ -599,7 +618,7 @@ def test_varje_strangparameter_till_renderarna_escapas():
     # Att uppräkningen inte tystnade. Blir `hoppa` någon gång för bred, eller
     # ändras signaturerna, ska testet falla i stället för att pröva noll
     # parametrar och rapportera grönt.
-    assert provade == ["forslag", "sparr"]
+    assert provade == ["forslag", "sparr", "varning"]
 
 
 def test_felmeddelandet_escapas_innan_det_reflekteras():
@@ -963,6 +982,117 @@ def test_en_SPARRAD_post_vagrar_ta_emot_ett_omdome(tmp_path, monkeypatch):
     assert fejk.kod == 400
     assert "spärrad" in fejk.svar
     assert not omdomesfil.exists(), "inget fick skrivas"
+
+
+@pytest.mark.parametrize(
+    "vag",
+    [
+        "/referens",
+        "/referens/",
+        "/referens/99",
+        "/referens/-1",
+        "/referens/1x",
+        "/referens/0/../1",
+        "/",
+    ],
+)
+def test_ett_REFERENSSVAR_utan_ENTYDIG_post_sparas_INTE(vag, tmp_path, monkeypatch):
+    """SPÄRR: LUCKA 40. Samma egenskap som `/omdome`, på grannrutten.
+
+    `spara_referenssvar` skriver till `data/par.jsonl`, alltså den fil vars
+    få-exempel generatorn läser. Ett par ihopsatt av FEL KUNDS text är sändväg.
+
+    **Skiva 34 rättade `/omdome` och lämnade den här rutten klampande**, alltså
+    gällde rättelsen den rutt fyndet NAMNGAV och inte egenskapen. Mätt då:
+    `/referens/999` av tre fall skrev på post 2, `/` skrev på post 0, och
+    `/referens/0/../1` skrev på post 1.
+    """
+    monkeypatch.setattr(vy, "ROT", tmp_path)
+    parfil = tmp_path / "data" / "par.jsonl"
+    fall = [
+        ett_fall(avsandare_hash="a" * 64),
+        ett_fall(avsandare_hash="b" * 64),
+    ]
+    hanterare = vy.bygg_hanterare(fall, parfil=parfil)
+
+    fejk = FejkHanterare(hanterare, vag, "svar=Hej%20igen&utfall=gront")
+    fejk.post()
+
+    assert fejk.kod == 400, f"{vag} togs emot i stället för att avvisas"
+    assert not parfil.exists(), f"{vag} skrev ett par på en gissad post"
+
+
+@pytest.mark.parametrize("vag", ["/referens/1", "/referens/1/"])
+def test_ett_REFERENSSVAR_med_entydig_post_sparas(vag, tmp_path, monkeypatch):
+    """NEGATIVKONTROLL: spärren ovan får inte stänga av rutten.
+
+    *Här stod att `return None` för allt annars vore en grön lösning. Mätt är det
+    falskt: omdömesrutten har egna negativkontroller sedan skiva 34, och en
+    lydelse som avvisar allt fälls av fyra rader varav två fanns före den här
+    skivan. Raden bär ändå sitt eget värde, se nedan. Fällt av §7-granskningen av
+    skiva 35, varv 2.*
+
+    **DEN AVSLUTANDE SNEDSTRECKSFORMEN ÄR EN EGEN RAD.** `_skrivindex_ur_vag`
+    gör `vag.rstrip("/")`, alltså godtar den `/referens/1/`, som en läsare kan
+    skriva för hand i adressfältet. Utan raden gick `.rstrip("/")` att ta bort
+    med grön svit, alltså var permissiviteten oprövad enligt §7.1.
+    """
+    monkeypatch.setattr(vy, "ROT", tmp_path)
+    parfil = tmp_path / "data" / "par.jsonl"
+    fall = [
+        ett_fall(avsandare_hash="a" * 64),
+        ett_fall(avsandare_hash="b" * 64),
+    ]
+    hanterare = vy.bygg_hanterare(fall, parfil=parfil)
+
+    fejk = FejkHanterare(hanterare, vag, "svar=Hej%20igen&utfall=gront")
+    fejk.post()
+
+    assert fejk.kod == 200
+    assert "Sparat som par" in fejk.svar
+    post = json.loads(parfil.read_text(encoding="utf-8"))
+    assert post["utgaende_text"] == "Hej igen"
+    # Post ETT, alltså den vägen pekar ut, och inte post noll.
+    assert post["avsandare_hash"] == "b" * 64
+
+
+def test_en_VARNING_syns_i_granskningsvyn():
+    """Ett fixturuppslag ska synas DÄR utkastet läses, inte bara i stdout.
+
+    Ett utkast som lyder *"Tjänstevikten är 980 kg"* ser ut som avläst
+    fordonsdata. `kedja-prov.py` bygger de talen ur registreringsnumrets sista
+    siffra, alltså är de påhitt om en verklig kunds bil. Terminalen rullar
+    vidare, men sidan lever kvar i en flik.
+    """
+    sida = vy.rendera_granskning(
+        ett_fall(), "Hej, ett förslag.", varning="UPPSLAGET ÄR EN FIXTUR."
+    )
+
+    assert "UPPSLAGET ÄR EN FIXTUR." in sida
+    assert "class='fixtur'" in sida
+
+
+def test_utan_varning_ritas_ingen_ruta():
+    """NEGATIVKONTROLL: en tom varning får inte ge en tom gul ruta."""
+    sida = vy.rendera_granskning(ett_fall(), "Hej, ett förslag.")
+
+    assert "class='fixtur'" not in sida
+
+
+def test_varningen_nar_hela_vagen_genom_bygg_hanterare():
+    """Raden ovan prövar renderingen. Den här prövar att den KOPPLAS in.
+
+    Utan den gick `varning` att strypa i `bygg_hanterare` med grön svit, alltså
+    var själva genomkopplingen oprövad.
+    """
+    hanterare = vy.bygg_hanterare(
+        [], granskning=[_granskningsfall()], varning="UPPSLAGET ÄR EN FIXTUR."
+    )
+
+    fejk = FejkHanterare(hanterare, "/granskning/0")
+    fejk.get()
+
+    assert "UPPSLAGET ÄR EN FIXTUR." in fejk.svar
 
 
 def test_en_POST_utan_referensfall_svarar_i_stallet_for_att_krascha():

@@ -519,6 +519,7 @@ SIDHUVUD = """<!doctype html>
  .mail {{ background: #f6f6f6; padding: 1rem; white-space: pre-wrap; }}
  .etikett {{ color: #555; }}
  .sparr {{ background: #fee; border-left: 4px solid #c00; padding: 1rem; }}
+ .fixtur {{ background: #ffd; border-left: 4px solid #a80; padding: .6rem 1rem; }}
  textarea {{ width: 100%; height: 12rem; }}
  nav a {{ margin-right: 1rem; }}
 </style></head><body>
@@ -554,9 +555,18 @@ def rendera_referens(fall: Fall, index: int, antal: int) -> str:
 
 
 def rendera_granskning(
-    fall: Fall, forslag: str, sparr: str = "", index: int = 0
+    fall: Fall, forslag: str, sparr: str = "", index: int = 0, varning: str = ""
 ) -> str:
     """GRANSKNINGSLÄGE: förslag med fyra omdömen.
+
+    **`varning` SÄTTS NÄR UPPSLAGET INTE ÄR ÄKTA, och den raden är inte kosmetik.**
+    Ett utkast som lyder *"Tjänstevikten är 980 kg"* ser ut som avläst
+    fordonsdata. Kommer talet ur `kedja-prov.py`:s fixtur, som svarar utifrån
+    registreringsnumrets sista siffra, är det ett PÅHITT om en verklig kunds bil.
+    Skriptet skriver ut det i terminalen, men vyn är det Lars läser, och en
+    varning som bara står i stdout är ingen varning när sidan lever kvar i en
+    flik. Utan raden är skillnaden mellan fixtur och källa osynlig just där den
+    spelar roll.
 
     **EN SPÄRRFÄLLD POST VISAR ALDRIG ETT TEXTFÄLT, oavsett läge.** Beslut av
     Lars, `docs/beslutslogg.md` #40. §9.1 väger tyngre än bekvämligheten att
@@ -577,6 +587,7 @@ def rendera_granskning(
     """
     huvud = (
         SIDHUVUD.format()
+        + (f"<p class='fixtur'>{html.escape(varning)}</p>" if varning else "")
         + f"<p class='etikett'>{html.escape(fall.etikett)}</p>"
         + f"<div class='mail'>{html.escape(fall.text)}</div>"
     )
@@ -677,6 +688,7 @@ def bygg_hanterare(
     parfil: Path = PAR,
     granskning: list[Granskningsfall] | None = None,
     omdomesfil: Path = OMDOMEN,
+    varning: str = "",
 ):
     """HTTP-hanteraren, med fallen inbakade.
 
@@ -717,7 +729,8 @@ def bygg_hanterare(
             index = _index_ur_vag(self.path, len(granskning))
             post = granskning[index]
             self._svara(
-                rendera_granskning(post.fall, post.forslag, post.sparr, index)
+                rendera_granskning(post.fall, post.forslag, post.sparr, index,
+                                   varning=varning)
                 + f"<p><a href='/granskning/{index + 1}'>nästa</a></p>"
             )
 
@@ -737,7 +750,19 @@ def bygg_hanterare(
                 self._svara(rendera_fel(ValueError("inga referensfall")), 400)
                 return
 
-            index = _index_ur_vag(self.path, len(fall))
+            # LUCKA 40, skiva 35: `_skrivindex_ur_vag` och inte `_index_ur_vag`.
+            # `spara_referenssvar` skriver till `data/par.jsonl`, alltså är det
+            # här en SKRIVANDE rutt och får inte klampa. Se funktionens docstring.
+            index = _skrivindex_ur_vag(self.path, len(fall), "referens")
+            if index is None:
+                self._svara(
+                    rendera_fel(ValueError(
+                        "referenssvaret saknar en entydig post och sparas inte"
+                    )),
+                    400,
+                )
+                return
+
             try:
                 spara_referenssvar(
                     fall[index],
@@ -768,7 +793,7 @@ def bygg_hanterare(
                 self._svara(rendera_fel(ValueError("inga förslag")), 400)
                 return
 
-            index = _skrivindex_ur_vag(self.path, len(granskning))
+            index = _skrivindex_ur_vag(self.path, len(granskning), "omdome")
             if index is None:
                 self._svara(
                     rendera_fel(ValueError(
@@ -826,7 +851,7 @@ def _index_ur_vag(vag: str, antal: int) -> int:
     return 0
 
 
-def _skrivindex_ur_vag(vag: str, antal: int) -> int | None:
+def _skrivindex_ur_vag(vag: str, antal: int, rutt: str) -> int | None:
     """Index för att SKRIVA. Klampar aldrig, utan avvisar.
 
     **ATT KLAMPA ÄR RÄTT FÖR EN BLÄDDRING OCH FEL FÖR EN SKRIVNING**, och den
@@ -842,12 +867,29 @@ def _skrivindex_ur_vag(vag: str, antal: int) -> int | None:
     den. **Egenskapen är att ingen skrivning får gälla en post som vägen inte
     entydigt pekar ut**, och den bor här och inte i en `action`-sträng. Fällt av
     §7-granskningen av skiva 34, varv 2.
+
+    **`rutt` ÄR EN PARAMETER OCH INTE EN UPPRÄKNING AV TVÅ.** Första lydelsen
+    hårdkodade `/omdome`, alltså gällde rättelsen den rutt fyndet NAMNGAV medan
+    `/referens` klampade vidare mot samma `data/par.jsonl`. Det var lucka 40, och
+    det är mönstret i `docs/incidentlogg.md` I10. Att i
+    stället skriva `(?:omdome|referens)` hade varit samma fel en gång till: nästa
+    skrivande rutt hade behövt komma ihåg att ändra här.
     """
     # HELA vägen prövas, inte bara sista ledet. Ett `rsplit` hade godtagit
     # `/omdome/0/../1`, alltså en väg som SER ut att peka på post noll och
-    # skriver på post ett. En skrivande rutt ska bara ta emot den form den
-    # själv genererar.
-    traff = re.fullmatch(r"/omdome/(\d+)", vag.rstrip("/"))
+    # skriver på post ett.
+    #
+    # **KRAVET ÄR ENTYDIGHET, INTE ATT VÄGEN SER UT SOM DEN VYN GENERERAR.**
+    # `\d` är unicode i Python, så `/referens/١` och `/referens/１` accepteras,
+    # och ledande nollor likaså: `/referens/007` ger post 7. Ingen av dem
+    # genereras av vyn, och ingen av dem är tvetydig heller, alltså bryter de
+    # inte spärren. Avvisade blir `/REFERENS/1`, `/referens/1?x=1`,
+    # `/referens/%31` och `/referens//1`. Allt mätt.
+    #
+    # *Här stod "En skrivande rutt ska bara ta emot den form den själv
+    # genererar". Det är falskt om raden nedan, och det beskrev dessutom fel
+    # egenskap. Fällt av §7-granskningen av skiva 35, varv 1.*
+    traff = re.fullmatch(rf"/{re.escape(rutt)}/(\d+)", vag.rstrip("/"))
     if traff is None:
         return None
 
@@ -859,6 +901,7 @@ def starta(
     port: int = 8765,
     fall: list[Fall] | None = None,
     granskning: list[Granskningsfall] | None = None,
+    varning: str = "",
 ) -> HTTPServer:
     """Startar vyn på localhost.
 
@@ -874,5 +917,6 @@ def starta(
     krav_pa_sandvagsfrihet()
     fall = las_fall() if fall is None else fall
     return HTTPServer(
-        ("127.0.0.1", port), bygg_hanterare(fall, granskning=granskning)
+        ("127.0.0.1", port),
+        bygg_hanterare(fall, granskning=granskning, varning=varning),
     )

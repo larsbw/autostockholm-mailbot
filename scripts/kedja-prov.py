@@ -83,8 +83,52 @@ def bygg_fixturkalla():
     return hamta
 
 
-def las_arenden(antal: int) -> list[dict]:
+def _a_traktor_spritt(a_traktor: list[dict], antal: int) -> list[dict]:
+    """`antal` a-traktorärenden SPRIDDA över de tre kategorierna.
+
+    **SKÄLET ÄR BALANSEN, inte att en kategori annars saknas.** Ett naivt urval
+    på längd, `a_traktor[5:25]`, ger `fråga 11, pris 5, boka 4`, alltså alla tre
+    kategorierna men med den ena nästan tre gånger den andra. Rundgången ger
+    `7, 6, 7`. Med tjugo utkast att läsa är det skillnaden mellan att se hur
+    generatorn hanterar en bokning och att se elva varianter av samma fråga.
+
+    Räcker en kategori inte till fylls resten ur de andra, och det behöver inte
+    vara jämnt: materialet är ojämnt fördelat och urvalet ska inte låtsas annat.
+
+    *Här stod att de kortaste "ligger samlade i en kategori" och att ett naivt
+    urval därför visar tjugo utkast ur samma kategori. Mätt mot
+    `data/ometiketterade.jsonl` med funktionens egen sorteringsnyckel är det
+    falskt: alla tre kategorierna finns i det naiva urvalet. Fällt av
+    §7-granskningen av skiva 35, varv 1.*
+    """
+    per_kategori: dict[str, list[dict]] = {}
+    for post in a_traktor:
+        per_kategori.setdefault(post["etikett"], []).append(post)
+
+    valda: list[dict] = []
+    while len(valda) < antal:
+        lade_till = False
+        for kategori in sorted(per_kategori):
+            if len(valda) >= antal:
+                break
+            if per_kategori[kategori]:
+                valda.append(per_kategori[kategori].pop(0))
+                lade_till = True
+        if not lade_till:
+            break  # materialet är slut, och då är det slut
+
+    return valda
+
+
+def las_arenden(antal: int, bara_a_traktor: bool = False) -> list[dict]:
     """Verkliga mail ur materialet: HÄLFTEN a-traktor, hälften annat.
+
+    Med `bara_a_traktor` blir det i stället `antal` a-traktorärenden spridda
+    över de tre kategorierna. Läget finns för skiva 35:s DEL B, där vyn ska bära
+    a-traktorutkast som Lars läser. **FLAGGAN ÄNDRAR INTE `--antal`:s
+    DEFAULTVÄRDE TIO**, alltså är kommandot som gav skivans utfall
+    `--antal 20 --bara-a-traktor`. Räcker materialet inte till blir det färre,
+    se `_a_traktor_spritt`.
 
     **A-TRAKTOR MÅSTE VARA MED, och det är fällt fram.** Ett första urval tog en
     per etikett i bokstavsordning och fick då noll a-traktorärenden på tio
@@ -114,9 +158,12 @@ def las_arenden(antal: int) -> list[dict]:
         key=lambda p: (p["etikett"], len(p["text"])),
     )
 
-    halva = antal // 2
     # Hoppar över de allra kortaste, som ofta är fragment utan fråga. Samma
     # skäl som `prov_stod.las_forfragningar` anger.
+    if bara_a_traktor:
+        return _a_traktor_spritt(a_traktor[5:], antal)
+
+    halva = antal // 2
     valda = a_traktor[5 : 5 + halva]
 
     sedda: set[str] = set()
@@ -134,6 +181,8 @@ def las_arenden(antal: int) -> list[dict]:
 def main() -> int:
     argp = argparse.ArgumentParser()
     argp.add_argument("--antal", type=int, default=10)
+    argp.add_argument("--bara-a-traktor", action="store_true",
+                      help="bara a-traktorärenden, spridda över de tre kategorierna")
     argp.add_argument("--vy", action="store_true",
                       help="starta vyn på fallen i stället för att bara skriva ut")
     argp.add_argument("--port", type=int, default=8765)
@@ -162,7 +211,7 @@ def main() -> int:
     # går att koppla till ett ärende är ett svagt underlag för skuggläget.
     parkarta = vy._par_karta(vy.PAR)
 
-    poster = las_arenden(args.antal)
+    poster = las_arenden(args.antal, bara_a_traktor=args.bara_a_traktor)
     print(f"få-exempel: {len(exempel)}   taxonomi: {len(taxonomi)} kategorier"
           f"   ärenden: {len(poster)}")
     print("UPPSLAGET ÄR EN FIXTUR, ingen nättrafik mot biluppgifter.se.\n")
@@ -237,7 +286,17 @@ def main() -> int:
     # `/granskning/N` renderar "Inga förslag". Skriptet STARTAR ingen server:
     # det visar bara att fallen går att lämna till vyn, och `--vy` gör det.
     if args.vy:
-        server = vy.starta(args.port, fall=[], granskning=granskningsfall)
+        # VARNINGEN FÖLJER MED IN I VYN. Utkasten bär vikter ur fixturen, och
+        # ett utkast som lyder "Tjänstevikten är 980 kg" ser ut som avläst
+        # fordonsdata. Skriptets docstring och stdout säger det redan, men vyn
+        # är det Lars läser, och sidan lever kvar i en flik långt efter att
+        # terminalen rullat vidare.
+        server = vy.starta(
+            args.port, fall=[], granskning=granskningsfall,
+            varning="UPPSLAGET ÄR EN FIXTUR. Vikter och dragkroksbesked i "
+                    "utkasten nedan är konstruerade utifrån registreringsnumrets "
+                    "sista siffra, inte hämtade från biluppgifter.se.",
+        )
         print(f"\nvyn kör på http://127.0.0.1:{args.port}/granskning/0")
         print("avsluta med ctrl-c")
         server.serve_forever()
