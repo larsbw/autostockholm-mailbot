@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.39.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §8
+**Version:** 0.42.0 · **Uppdaterad:** 2026-09-10 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -3268,7 +3268,327 @@ självupphävande, och **samtliga tal i #52 verifierade mot
 
 ---
 
+## #54 — Skiva 32 godkänns
+
+**Datum:** 2026-09-10 · **Berör:** #53
+
+**Beslut av Lars i skiva 33.** Skiva 32 är GODKÄND trots att varv 3 underkände
+och grinden var förbrukad. Samma form som #34, #42, #45 och #50: godkännandet
+gäller en enskild skiva och är inte en ändring av §7:s varvsgränser.
+
+---
+
+## #55 — Isoleringsvakten gäller ALTERNATIV, och en term får inte bära alternation
+
+**Datum:** 2026-09-10 · **Berör:** `src/generera.py`,
+`tests/test_generera_monster.py`, #51, #53, luckorna 31, 32, 33, 34, 35
+
+**Beslut av Lars i skiva 33**, som antog skiva 32:s förslag: `PRISORD`,
+`TROSKELTAL` och `FORFATTNINGSORD` får samma isoleringsvakt som `FORDONSORD`,
+och den ska gälla ALTERNATIV inuti en term och inte bara termer.
+
+### Skälet, som ska stå i posten
+
+**En regressionstabell hindrar att en KÄND form tappas. En isoleringsvakt
+hindrar att en OKÄND form tappas.**
+
+Skiva 32 mätte upp att tabellen var **grön av fel skäl**: när `kräv` föll ur
+`FORFATTNINGSORD` förblev sviten grön, eftersom varje rad som bar *"kräver"*
+också bar *"Lagen"*, och `\blagen\b` fällde raden. Tabellen bevisade alltså
+ingenting om just den term som försvann.
+
+Isolering är kravet som stänger det: för varje term ska det finnas en rad där
+just den termen är den ENDA som matchar.
+
+### Hur alternativnivån löstes, och varför inte med en smartare vakt
+
+**En term får inte innehålla alternation.** `test_ingen_term_gommer_en_alternation`
+förbjuder `|` och `(` i en term. Då ÄR termnivå och alternativnivå samma nivå.
+
+Alternativet hade varit en vakt som tolkar reguljära uttryck och räknar ut
+grenarna själv. Den vakten hade blivit ännu en sak att hålla korrekt, och den
+sortens sak är precis vad de senaste skivorna visat att jag håller dåligt. **Den
+strukturella lösningen flyttar kravet dit det går att se med blotta ögat.**
+
+Lucka 34 var att `regler(?:na|ing\w*|s)?\b` gick att förkorta till
+`regler(?:na|ing\w*)?\b` med hela sviten grön. Grenarna står nu som fyra termer,
+och `reglers` fick sin första isolerande rad.
+
+### Vad vakten mätte upp när den slogs på
+
+| Mönster | Termer utan isolerande rad |
+| --- | --- |
+| `PRISTERMER` | 13 av 19 |
+| `FORDONSTERMER` | 8 av 16 |
+| `FORFATTNINGSTERMER` | 1 av 25 |
+| `TROSKELTERMER` | 0 av 8 |
+
+**`kr` var otestad, och det var lucka 31.** Mönstrets centralaste term skuggades
+av `kostar` och av `TAL_I_TEXT` i varje rad som bar den.
+
+`FORDONSORD` hade sedan tidigare `test_varje_term_i_monstret_har_ett_testfall`,
+som band att varje term HAR ett testfall men inte att något testfall prövar den
+ENSAM. Åtta av sexton var skuggade.
+
+### Lucka 35 stängd i samma svep
+
+`_samla_anrop` vandrar nu hela trädet i stället för att filtrera på
+`ast.FunctionDef`. Både `ast.AsyncFunctionDef` och modulnivå, inklusive
+`lambda`, omfattas. De två fällningar som var gröna i skiva 32 är röda.
+
+**Luckorna 32 och 33 är INTE stängda av den här skivan**, och det är avsiktligt:
+de är fynd om vilka FORMER mönstren fångar, inte om vaktens struktur. Vakten gör
+dem synliga; att rätta dem är en egen ändring med egen grind.
+
+---
+
+## #56 — Lucka 30 gick INTE att stänga. Tre lydelser, tre hål, allt återställt
+
+**Datum:** 2026-09-10 · **Berör:** `src/generera.py`, lucka 30, §0 ramverksregel 3
+
+**Lars order i skiva 33:** *"Ett tal som kunden själv skrivit är inte påhittat av
+boten. Låt `_tillatna_tal` läsa förfrågans text. MEN: ett tal ur kundens text får
+bara passera om det står OFÖRÄNDRAT i svaret."*
+
+**PROBLEMET, som ordern skulle lösa:** `A5`, `V50` och registreringsnummer fälls
+som påhittade tal. **Fem av elva fällningar i #52:s mätning över 100 svar var
+falska positiva av den formen.**
+
+**ORDERN GICK INTE ATT UTFÖRA UTAN ATT BRYTA §0:s RAMVERKSREGEL 3.** Tre lydelser
+byggdes och alla tre är återställda. Skivan levererar alltså INTE DEL B, och
+lucka 30 står kvar öppen.
+
+### De tre lydelserna och deras hål, var för sig mätta av §7-granskningen
+
+| Varv | Lydelse | Hålet |
+| --- | --- | --- |
+| 1 | varje tal ur `forfragan.text` blev tillåtet | *"Vi gör det för 25000. Vi hinner på 14 dagar."* passerade så snart kunden nämnt talen |
+| 2 | bara tal som sitter ihop med bokstäver | kunden skrev `ca25000`, då fick boten skriva `25000` fritt |
+| 3 | beteckningen maskerades bort ur svaret innan talen lästes | `ca10 dagar`, `ca800` och `ca950 kg` blev osynliga för spärren |
+
+**De två första kom ur samma feltanke: att kunden nämnt ett tal gör talet till en
+källa.** Det gör det inte. §7.2 säger var priser och ledtider läses, och det är i
+`config/`.
+
+**Den tredje var en REGRESSION mot skiva 32**, alltså gjorde spärren sämre än före
+skivan, och den upptäcktes först i tredje granskningsvarvet. Alla tre former
+fälldes av koden som fanns när skivan började.
+
+### Egenskapen som gör luckan svår, och som är skivans lärdom
+
+**Varje regel som gör en siffra intill bokstäver ofarlig gör också en KVANTITET
+intill bokstäver ofarlig.** `V50` och `ca10` har samma form. Ett svenskt
+registreringsnummer och `SEK25000` har samma form. Skillnaden ligger i
+BETYDELSEN, inte i tecknen, och ingen av de tre lydelserna nådde betydelsen.
+
+**Det förklarar också varför ordern inte gick att utföra som skriven.** Kravet
+att talet ska stå OFÖRÄNDRAT skyddar mot att boten räknar med kundens siffra. Det
+skyddar inte mot att boten återger den i en annan BETYDELSE, och det är där
+skadan ligger: kunden skriver `A5`, boten skriver `5 dagar`.
+
+### Vad som gäller nu
+
+`_tal_i` och `_tillatna_tal` är oförändrade mot skiva 32. Lucka 30 är öppen och
+mätt, och `test_en_BETECKNING_faller_FORTFARANDE` asserterar defekten, så att den
+dag någon stänger luckan blir raden röd.
+
+**Riktningen är den säkra:** utfallet blir `utkast` i stället för `auto`, alltså
+en manuell läsning. Den kostnaden är mindre än ett pris eller en ledtid som går
+ut i vårt namn.
+
+**Frågan går tillbaka till Lars**, se rapporten.
+
+---
+
+## #57 — Lucka 29 gick från 5 av 100 till NOLL, utan att en spärr byggdes
+
+**Datum:** 2026-09-10 · **Berör:** `src/generera.py`, #52, lucka 29
+
+**Underlaget:** `scripts/generator-matning.py --varv 20`, alltså **100
+genererade svar** mot samma fem lägen som #52 mätte. Rådata i den gitignorerade
+`scratchpad/skiva33-matning-v3.jsonl`. Samma kriterium som #52, ordagrant: en
+mening som hävdar ett FAKTUM om Auto Stockholm som kommer varken ur `config/`
+eller ur uppslaget. Artighetsfraser räknas inte, och inte heller beskrivningar av
+vad boten faktiskt gör.
+
+**MÄTNINGEN ÄR KÖRD TRE GÅNGER, en per lydelse av lucka 30:s åtgärd.** Varje
+lydelse ändrade spärrens beteende, alltså gjorde §7.2 föregående körnings
+fällningstal olästa. Talen nedan är den TREDJE körningens, mot den kod som
+faktiskt skeppas.
+
+**UTFALLET FÖR LUCKA 29 ÄR NOLL I ALLA TRE KÖRNINGARNA.** Det talet beror inte
+av spärrarna utan av prompten och RÖTT-texten, som är oförändrade mellan
+körningarna. Tre oberoende urval om hundra svar ger samma resultat.
+
+### Talet
+
+| | #52, före | #57, efter |
+| --- | --- | --- |
+| Påstående om vad vår hemsida innehåller | 3 | **0** |
+| Löfte om att vi kan hjälpa, vid MISSLYCKAT uppslag | 2 | **0** |
+| **Summa** | **5 av 100** | **0 av 100** |
+
+**INGEN SPÄRR BYGGDES.** Åtgärden var en åttonde promptregel och ett RÖTT-svar
+som har något verkligt att erbjuda.
+
+### Vad det belägger
+
+Lars formulering i skiva 33: *"Går 5 av 100 ner utan att en spärr byggts är det
+belagt att formen kom ur tomrummet."*
+
+**Det är belagt.** Alla tre hemsidepåståendena låg i RÖTT-läget, alltså i det enda
+läge där svaret var ett avslag utan något kunden kunde göra. När `_utfallstext`
+fick säga VARFÖR och bjuda in kunden att återkomma med ett annat fordon
+försvann formen helt.
+
+**Det är §9.1:s princip mätt.** En spärr som fäller ett påhitt lämnar orsaken
+orörd. Här togs orsaken bort, och då fanns inget att fälla.
+
+### Vad spärrarna gjorde
+
+| Spärr | #52 | #57 |
+| --- | --- | --- |
+| `genererat-tal-har-kalla` | 11 | **6** |
+| `genererat-fordonsfaktum` | 0 | 0 |
+| `troskeln-som-forfattningstext` | 0 | 0 |
+| passerade alla tre | 89 | **94** |
+
+**SAMTLIGA SEX FÄLLNINGAR ÄR LUCKA 30:s FORM, alltså falska positiva.** Tre bär
+en modellbeteckning ur kundens mail, två ett registreringsnummer och en en `V50`.
+**Noll prisbesked fälldes**, till skillnad från #52 där sex av elva var det.
+
+Det gör mätningen skarpare än #52:s: där var 5 av 11 fällningar falska positiva,
+här är det **6 av 6**. Lucka 30 är alltså i det här urvalet den ENDA orsaken till
+att ett svar fälls.
+
+*Talet är inte jämförbart med #52:s rakt av: prompten har ändrats, och en
+åttonde regel plus ett RÖTT-svar med skäl gör att modellen skriver annorlunda.
+Att noll prisbesked fälldes är ett utfall av det urvalet, inte ett mätt bevis för
+att prisspärren blivit onödig.*
+
+### En gränsdragning som skrivs ut i stället för att tigas ihjäl
+
+I den FÖRSTA körningen, `skiva33-matning.jsonl` rad 15, lyder ett svar i läget
+MISSLYCKAT UPPSLAG, ordagrant och alltså med maskeringen kvar: *"Vill du beskriva
+lite mer hur du vill [NAMN] det gjort? [NAMN] gärna med inspirationsbilder så är
+det lättare för oss att ge dig [NAMN] bra förslag."*
+
+**I den andra körningen förekommer formen inte alls**, `grep -c
+"inspirationsbilder"` ger 0. Den är alltså inte återkommande i det här
+underlaget.
+
+Det är en FRÅGA och inte ett påstående om vad vi har, alltså faller det utanför
+kriteriet och är inte räknat. **Men det förutsätter en tjänst**, och nästa
+mätning bör avgöra om formen är återkommande. Den står här för att talet 0 ska gå
+att pröva av den som läser rådata, inte för att den är ett fynd.
+
+### RÖTT-svaret efter ändringen
+
+Ordagrant ur rad 34 i `scratchpad/skiva33-matning-v3.jsonl`, med maskeringen kvar:
+
+> *"[NAMN] ser det inte ut att gå för just den här bilen. Tjänstevikten ligger
+> på 980 kg och släpvagnsvikten på 600 kg, och ingen av dem räcker till för en
+> konvertering till A-traktor.*
+>
+> *Har ni [NAMN] annat fordon i åtanke är ni varmt välkomna att höra av er så
+> tittar vi på det."*
+
+Båda vikterna namngivna, båda ur uppslaget (`scripts/prov_stod.py` konstruerar
+RÖTT-läget med 980 och 600), ingen tröskel återgiven, och kunden har något att
+göra.
+
+*Här stod båda citaten i den här posten som REKONSTRUKTIONER, där `[NAMN]`
+fyllts i på fri hand till "Idag" respektive "Skicka". Ingen av strängarna finns i
+filen, `grep -c` ger 0 för båda. Ett citat som ska belägga ett påstående måste
+vara avläst, §7.2, och en avmaskering på gissning kringgår dessutom §6. Fällt av
+§7-granskningen av skiva 33, varv 1.*
+
+---
+
+## #58 — Skiva 33 stoppas: DEL B levereras INTE, resten skeppas
+
+**Datum:** 2026-09-10 · **Berör:** CLAUDE.md §7, §0 ramverksregel 3, #56
+
+**§7:s tre granskningsvarv är förbrukade.** Varv 1 gav tretton blockerande fynd,
+varv 2 gav åtta, varv 3 gav fjorton. **Beslutet ligger hos Lars.**
+
+### Vad som levereras och vad som inte gör det
+
+| Del | Utfall |
+| --- | --- |
+| DEL A, isoleringsvakten till alla fyra mönstren, på alternativnivå | **LEVERERAD** |
+| DEL B, lucka 30 och kundens egen text | **INTE LEVERERAD, återställd** |
+| DEL C, lucka 29 utan spärr | **LEVERERAD**, mätt till noll av hundra |
+| DEL D, de fem svaren | **LEVERERAD** |
+
+### Varför DEL B återställdes i stället för att skeppas
+
+Tre lydelser, tre hål mot §0:s ramverksregel 3, som är obrytbar. #56 bär
+tabellen. **Den tredje var dessutom en REGRESSION**: den gjorde spärren sämre än
+före skivan, och den upptäcktes först i sista granskningsvarvet.
+
+**Att skeppa den hade varit att skeppa en känd regression i sändvägen.** §7 säger
+stoppa och rapportera öppet, och §0:s ramverksregler säger att ingen kod får
+implementera något som bryter dem. Återställningen är inte en ny självmätt
+ändring: den återför kod som skiva 32 redan granskat och skeppat.
+
+### Ändringar som gjordes EFTER att grinden var förbrukad
+
+Dessa är **självmätta och inte oberoende granskade**, och de räknas upp så att
+Lars kan värdera dem var för sig:
+
+| Ändring | Skäl |
+| --- | --- |
+| DEL B återställd | en obrytbar regel får inte skeppas bruten |
+| `test_ett_lydigt_ROTT_svar_utan_uppslag_PASSERAR` omskriven | den var VAKUÖS: grön under just den defekt den namngav, eftersom indatan var en handskriven konstant. §7.1 kräver omdöpning eller äkthet |
+| `\bkräv\w+` återställd till `\w*` | skärpningens motivering var ett falskt faktapåstående: `kräv` ÄR ett svenskt ordform, imperativ av `kräva` |
+| två rader för `inkl.moms` och `exkl.moms` | `\s*`-grenen var oprövad, mätt grön |
+| luckorna 36, 37 och 39 strukna | de beskrev egenskaper hos kod som inte längre finns, alltså vore de falska påståenden om vad som är öppet |
+
+**Alla rättelser av falska påståenden är gjorda oavsett grind**, vilket §7 kräver
+uttryckligen.
+
+### Vad Lars behöver avgöra
+
+1. **Skivan.** Godkänns den utan DEL B?
+2. **Lucka 30.** Den är öppen och mätt. Kostnaden är att fem av elva fällningar
+   är falska positiva, alltså onödiga `utkast`. Ska den lämnas öppen, eller ska
+   en egen skiva försöka igen med betydelsen och inte formen som grund?
+3. **Egenskapen som gjorde ordern outförbar** står i #56 och är värd ett eget
+   beslut: en modellbeteckning och en prefixad kvantitet är samma tecken. Att
+   skilja dem kräver att spärren vet vad talet BETYDER, inte hur det ser ut.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.42.0 — 2026-09-10
+
+**#58 tillkommer:** skiva 33 stoppas med förbrukad grind. DEL B återställd och
+inte levererad, DEL A, C och D levererade. #56 skriven om till en post om varför
+lucka 30 inte gick att stänga.
+
+Ny post ⇒ MINOR.
+
+### 0.41.0 — 2026-09-10
+
+**#57 tillkommer:** lucka 29 mätt till 0 av 100 efter åtgärden, ned från 5 av
+100. Ingen spärr byggd. Talspärrens fällningar ned från 11 till 5, och de sex som
+försvann är lucka 30:s fem falska positiva plus ett prisbesked. *Här stod "från
+11 till 6" och "de fem som försvann", och båda leden var fel: mätningen ger 5, och
+posten motsade sin egen tabell. Fällt av §7-granskningen av skiva 33, varv 2.*
+
+Ny post ⇒ MINOR.
+
+### 0.40.0 — 2026-09-10
+
+**#54, #55 och #56 tillkommer.** Skiva 32 godkänd. Isoleringsvakten utvidgad
+till alla fyra mönstren och till alternativnivå, med en term som inte får bära
+alternation. **#56 blev en post om att lucka 30 INTE gick att stänga:** tre
+lydelser byggdes, alla tre öppnade ett hål mot §0:s ramverksregel 3, och alla tre
+är återställda.
+
+Tre nya poster ⇒ MINOR.
 
 ### 0.39.0 — 2026-09-04
 

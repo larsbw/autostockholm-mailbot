@@ -77,6 +77,14 @@ TILLATNA = {
     "kund@exempel.se",
 }
 
+# **INGET REGISTRERINGSNUMMER STÅR I TILLATNA, och det är ett medvetet val.**
+# Skiva 33 skrev ett påhittat regnr i `docs/sparrar.md` för att illustrera lucka
+# 37, spärren fällde det, och undantaget lades först här. Det gjorde spärren
+# blind för exakt den sträng `test_registreringsnummer_falls` använder som sin
+# kanariefågel, alltså föll testet. Rätt åtgärd var att BESKRIVA formen i
+# dokumentet i stället för att skriva ut en sträng som har den. Ett undantag som
+# tystar en spärrs eget bevis är inget undantag.
+
 
 def _kor(argument: list[str]) -> str:
     # `errors="replace"` matchar arbetsträdsvägen. Utan det gav en stagad

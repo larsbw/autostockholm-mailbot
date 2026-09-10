@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.11.3 · **Uppdaterad:** 2026-09-04 · **Speglar:** beslutslogg #53
+**Version:** 0.11.5 · **Uppdaterad:** 2026-09-10 · **Speglar:** beslutslogg #58
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -518,6 +518,38 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.11.5 — 2026-09-10
+
+**`Speglar` följer med till beslutslogg #58.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 33:s stoppost lagts till.
+
+**§7:s tre granskningsvarv är OFÖRÄNDRADE.** #58 är en tillämpning av regeln:
+skivan stoppades, och den del som inte gick att bygga utan att bryta §0:s
+ramverksregel 3 återställdes i stället för att skeppas.
+
+**§0:s ramverksregler är oförändrade, och regel 3 är skälet till att DEL B inte
+levereras.** Att en obrytbar regel faktiskt stoppade en leverans är värt att
+notera här, eftersom det är första gången det hänt.
+
+Ren synk ⇒ PATCH.
+
+### 0.11.4 — 2026-09-10
+
+**`Speglar` följer med till beslutslogg #57.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 33:s fyra poster lagts till.
+
+**§0:s styrdokumentlista är oförändrad.** Skiva 33 skapade ingen ny fil.
+
+**§7:s tre granskningsvarv är OFÖRÄNDRADE.** #54 godkänner skiva 32 trots att
+varv 3 underkände och grinden var förbrukad. Godkännandet gäller en enskild skiva
+och är inte en ändring av regeln. Raden står här av samma skäl som i 0.9.4: en
+läsare av CLAUDE.md ska inte behöva härleda ett undantag ur beslutsloggen.
+
+**Ingen regel i det här dokumentet är ändrad.** #55 och #56 är beslut om kod och
+bor i `docs/sparrar.md` och `docs/beslutslogg.md`. #57 är en mätning.
+
+Ren synk ⇒ PATCH.
 
 ### 0.11.3 — 2026-09-04
 

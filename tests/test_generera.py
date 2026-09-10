@@ -129,6 +129,130 @@ def test_uppslagets_egna_tal_slapps_igenom():
     generera.krav_pa_tal_med_kalla(svar, forfragan(uppslag=GRONT_UPPSLAG))
 
 
+# ---------------- LUCKA 30 ÄR ÖPPEN, och kundens text är INGEN källa
+#
+# Skiva 33 fick i uppdrag att låta `_tillatna_tal` läsa `forfragan.text`, så att
+# `V50` slutar fällas som ett påhittat tal. **Tre lydelser byggdes och alla tre
+# återställdes**, eftersom var och en lät ett PRIS eller en LEDTID ur kundens
+# text nå ut. Det bryter mot §0:s ramverksregel 3, som är obrytbar. Historien
+# står i `docs/beslutslogg.md` #56.
+#
+# Raderna nedan är därför tvådelade: en som asserterar den ÖPPNA luckan, så att
+# den syns och blir röd den dag den stängs, och flera som binder att kundens text
+# aldrig gör ett tal tillåtet. De senare är regressionsvakter mot de tre
+# lydelserna, inte kontroller av en funktion som finns.
+
+
+@pytest.mark.parametrize(
+    "svar",
+    ["Din V50 går bra att bygga om.",
+     "Din A5 går bra att bygga om.",
+     "Bilen ABC156 går bra att bygga om."],
+)
+def test_en_BETECKNING_faller_FORTFARANDE(svar):
+    """LUCKA 30 ÄR ÖPPEN, och den här raden är dess mätning.
+
+    En modellbeteckning fälls som ett påhittat tal. Fem av elva fällningar i
+    skiva 32:s mätning över 100 svar var av den här formen.
+
+    **RADEN ASSERTERAR DEFEKTEN, inte önskeläget**, och det är avsiktligt: en
+    lucka som är mätt är synlig, och den dag någon stänger luckan blir raden röd
+    och tvingar fram sin egen borttagning. Skiva 33 försökte stänga den i tre
+    lydelser och återställde alla tre, se `docs/beslutslogg.md` #56.
+    """
+    with pytest.raises(Sparrfalld):
+        generera.krav_pa_tal_med_kalla(svar, forfragan(text="Hej!"))
+
+
+@pytest.mark.parametrize(
+    "kundtext, svar",
+    [
+        # Varv 2:s fynd: bokstäver FÖRE siffran gjorde en kvantitet till en
+        # beteckning, alltså räckte det att kunden nämnde beloppet.
+        ("Jag har fått pris ca25000 hos en annan verkstad.", "Vi gör det för 25000."),
+        ("Jag har fått pris SEK25000 av en annan.", "Det landar på 25000 hos oss."),
+        ("Se annonsen blocket.se/annons123456", "Det blir 123456."),
+        # Varv 2:s fynd om lucka 36: kundens beteckning fick bli en ledtid.
+        ("Jag har en A5, går den att bygga om?", "Vi hinner på 5 dagar."),
+        ("Min bil är en V70.", "Vi hinner på 70 dagar."),
+    ],
+)
+def test_kundens_tal_gor_ALDRIG_ett_svarstal_tillatet(kundtext, svar):
+    """§0:s ramverksregel 3: att kunden nämnt ett tal gör det inte till en källa.
+
+    Varje rad här passerade i någon av skiva 33:s två första lydelser. De två
+    första leden är ett PRIS, det tredje ett godtyckligt tal ur en länk, och de
+    två sista en LEDTID byggd på kundens modellbeteckning.
+    """
+    with pytest.raises(Sparrfalld):
+        generera.krav_pa_tal_med_kalla(svar, forfragan(text=kundtext))
+
+
+def test_ett_PRIS_ur_kundens_text_faller():
+    """§0:s ramverksregel 3 är OBRYTBAR: priser läses ur källa eller utelämnas.
+
+    **DET HÄR ÄR HÅLET SOM SKIVA 33 SJÄLV INFÖRDE OCH SOM GRANSKNINGEN FÄLLDE.**
+    Första lydelsen tog varje tal ur `forfragan.text`, alltså kunde boten skriva
+    ett pris som vårt eget så snart kunden hade nämnt talet, utan att något
+    prisord behövdes. Att kunden har fått en offert av NÅGON ANNAN gör inte
+    beloppet till vårt.
+    """
+    kundens = forfragan(text="Jag har fått offert på 25000 kr någon annanstans.")
+
+    with pytest.raises(Sparrfalld):
+        generera.krav_pa_tal_med_kalla("Vi gör det för 25000.", kundens)
+
+
+def test_en_LEDTID_ur_kundens_text_faller():
+    """Samma regel, andra ledet: ledtider läses ur källa eller utelämnas."""
+    kundens = forfragan(text="Kan ni fixa det på 14 dagar?")
+
+    with pytest.raises(Sparrfalld):
+        generera.krav_pa_tal_med_kalla("Vi hinner med det på 14 dagar.", kundens)
+
+
+def test_kundens_VIKT_faller():
+    """En vikt kunden uppgett är ett obelagt påstående om bilen.
+
+    Bilens vikter kommer ur UPPSLAGET. Att kunden skrivit en siffra gör den inte
+    avläst, och ett svar som återger den låter som en bekräftelse.
+    """
+    kundens = forfragan(text="Min bil väger 1450 kg.")
+
+    with pytest.raises(Sparrfalld):
+        generera.krav_pa_tal_med_kalla("Din bil väger 1450 kg.", kundens)
+
+
+@pytest.mark.parametrize(
+    "svar",
+    [
+        # Enheten EFTER siffran gör det till en kvantitet, inte en beteckning.
+        # Det var skiva 31:s värsta hål och får inte återkomma.
+        "Vi tar 25000kr för jobbet.",
+        "Bilen klarar 1000kg.",
+        # Fler än tre siffror är ingen modellbeteckning.
+        "Vi gör det för ca25000.",
+        # Ett fristående tal är alltid en kvantitet.
+        "Tillsammans blir det 55.",
+        "Vi hinner på 15 dagar.",
+    ],
+)
+def test_ett_tal_UTAN_KALLA_faller_i_varje_skrivform(svar):
+    """Skrivformen får aldrig göra ett tal osynligt för spärren.
+
+    De två första raderna är skiva 31:s värsta hål: ett tal ihopskrivet med sin
+    enhet gav en TOM mängd, alltså gick den vanligaste svenska skrivformen rakt
+    igenom alla tre spärrarna.
+
+    *Raden hette `test_en_KVANTITET_ar_ingen_beteckning` och prövade gränsen mot
+    en beteckningsregel som skiva 33 återställde. Utan den regeln fanns ingen
+    sådan gräns, och namnet påstod något testet inte längre prövade. §7.1: döp om
+    det till vad det faktiskt bevisar.*
+    """
+    with pytest.raises(Sparrfalld):
+        generera.krav_pa_tal_med_kalla(svar, forfragan(text="Hej!"))
+
+
 def test_ett_svar_utan_tal_slapps_igenom():
     """NEGATIVKONTROLL: ett vanligt svar utan siffror passerar."""
     generera.krav_pa_tal_med_kalla(
@@ -605,7 +729,11 @@ def test_prompten_sager_att_priser_inte_finns():
     assert "Priser: INGA" in generera.bygg_prompt(forfragan(), exempel=[])
 
 
-# SYSTEMPROMPTENS SJU REGLER, en rad per regel, med de fraser som bär den.
+# SYSTEMPROMPTENS REGLER, en rad per regel, ordagrant.
+#
+# *Här stod "SJU REGLER" över en tabell som skiva 33 gav en åttonde post. Antalet
+# står inte längre i rubriken, eftersom en rubrik som räknar sin egen omgivning
+# blir falsk av nästa tillägg, §7.2. Fällt av §7-granskningen av skiva 33.*
 #
 # **DET HÄR ÄR LUCKA 25:s STÄNGNING.** Spärrposterna pekar ut systemprompten som
 # det som BÄR när `PRISORD` och `FORDONSORD` släpper igenom en omskrivning. Den
@@ -643,6 +771,13 @@ REGLER_I_PROMPTEN = {
        "ledtider, inga antal du inte fått.",
     7: "Återge aldrig en lagtext eller en föreskrift sammanfattad. Säg inte att "
        "något är ett krav enligt lag.",
+    # SKIVA 33, LUCKA 29. Formen mättes till 5 av 100 svar innan regeln fanns,
+    # och tre av dem hänvisade till vad vår hemsida innehåller. Regeln är
+    # åtgärdens ena hälft; den andra är att RÖTT-svaret nu har något verkligt
+    # att erbjuda, se `_utfallstext`.
+    8: "Påstå aldrig något om vad Auto Stockholm har, erbjuder eller innehåller "
+       "utöver det som står i underlaget nedan. Inte vår hemsida, inte våra "
+       "öppettider, inte vårt lager, inte våra tjänster.",
 }
 
 
@@ -695,6 +830,36 @@ REGLER SOM ALDRIG BRYTS:
 Skriv kort, konkret och vänligt. Svara på det kunden faktiskt frågar."""
 
 
+def _samla_anrop(nod, hemvist: str, malnamn: str, traffar: list[str]) -> None:
+    """Varje anrop av `malnamn`, med namnet på det som omsluter anropet.
+
+    **VANDRAR HELA TRÄDET, inte bara `ast.FunctionDef`.** Första lydelsen
+    filtrerade på `FunctionDef` och missade därför både `ast.AsyncFunctionDef`
+    och modulnivån, inklusive `lambda`. Två fällningar var GRÖNA, båda vägar som
+    lämnar ut modellens text FÖRE `krav_pa_svaret`:
+
+        ratext_utan_sparr = lambda klient, f: generera_ratext(klient, f)
+        async def ratext_utan_sparr(klient, f): return generera_ratext(klient, f)
+
+    Det var lucka 35. Fällt av §7-granskningen av skiva 32, varv 3.
+    """
+    for barn in ast.iter_child_nodes(nod):
+        if isinstance(barn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            inre_hemvist = f"{hemvist.split('::')[0]}::{barn.name}"
+        elif isinstance(barn, ast.Lambda):
+            inre_hemvist = f"{hemvist}::<lambda>"
+        else:
+            inre_hemvist = hemvist
+
+        if isinstance(barn, ast.Call):
+            mal = barn.func
+            namn = getattr(mal, "id", None) or getattr(mal, "attr", None)
+            if namn == malnamn:
+                traffar.append(hemvist)
+
+        _samla_anrop(barn, inre_hemvist, malnamn, traffar)
+
+
 def test_generera_ratext_anropas_BARA_av_generera_utkast_i_src():
     """`generera_ratext` lämnar ut modellens text FÖRE spärrarna.
 
@@ -718,16 +883,7 @@ def test_generera_ratext_anropas_BARA_av_generera_utkast_i_src():
     anropare: list[str] = []
     for fil in sorted(src.rglob("*.py")):
         trad = ast.parse(fil.read_text(encoding="utf-8"), filename=str(fil))
-        for nod in ast.walk(trad):
-            if not isinstance(nod, ast.FunctionDef):
-                continue
-            for inre in ast.walk(nod):
-                if not isinstance(inre, ast.Call):
-                    continue
-                mal = inre.func
-                namn = getattr(mal, "id", None) or getattr(mal, "attr", None)
-                if namn == "generera_ratext":
-                    anropare.append(f"{fil.name}::{nod.name}")
+        _samla_anrop(trad, f"{fil.name}::<modul>", "generera_ratext", anropare)
 
     assert anropare == ["generera.py::generera_utkast"], (
         f"generera_ratext anropas från {anropare} i src/. Bara "
@@ -750,7 +906,99 @@ def test_HELA_systemprompten_ar_bunden():
     assert generera.SYSTEM == forvantad
 
 
-def test_systemprompten_bar_ALLA_sju_reglerna():
+def test_rott_utfall_sager_VARFOR_och_vad_kunden_kan_gora():
+    """RÖTT-texten är sändväg och var obunden av test.
+
+    **DET ÄR SAMMA FORM SOM LUCKA 25.** `_utfallstext` styr vad ett avslag säger
+    till kunden, och den texten gick att tömma på både skäl och inbjudan utan
+    att något blev rött. Lucka 29 uppstod i just det tomrummet.
+
+    Raden binder de tre leden var för sig: att BÅDA lämplighetsvillkoren namnges,
+    att kunden bjuds in med ett annat fordon, och att modellen inte får hänvisa
+    till något annat hos oss.
+    """
+    text = generera._utfallstext(Utfall.ROTT)
+
+    assert "tjänstevikten" in text
+    assert "släpvagnsvikten" in text
+    assert "annat fordon" in text
+    assert "Hänvisa inte" in text
+
+
+def test_rott_UTAN_uppslag_ber_inte_om_siffror():
+    """Prompten får aldrig både förbjuda och beordra viktangivelser.
+
+    Med `utfall=ROTT` och `uppslag=None` skriver `_underlag` att modellen inte
+    vet något om bilen och inte får nämna vikter. Bad bedömningen i samma stycke
+    om bilens egna siffror var varje lydigt svar dömt att fällas av
+    `krav_pa_fordonsfakta_ur_uppslag`.
+
+    Fällt av §7-granskningen av skiva 33, varv 1.
+    """
+    utan = generera._utfallstext(Utfall.ROTT, har_uppslag=False)
+
+    # **INGET FORDONSORD, inte bara inga siffror.** Första rättelsen tog bort
+    # siffrorna och lät orden `tjänstevikten` och `släpvagnsvikten` stå kvar.
+    # Båda är `FORDONSORD`, alltså fälldes varje lydigt svar ändå.
+    assert not generera.FORDONSORD.search(utan), utan
+    assert "siffror ur underlaget" not in utan
+    # Inbjudan ska stå kvar: det är den som ger kunden något att göra.
+    assert "annat fordon" in utan
+
+
+def test_underlaget_ber_ALDRIG_om_bilfakta_utan_uppslag():
+    """Samma krav prövat på HELA underlagstexten, inte bara på fragmentet.
+
+    Den här raden binder att `_underlag` skickar med `har_uppslag`. Utan den
+    kunde funktionen sluta göra det med sviten grön.
+
+    **PRÖVAR BEDÖMNINGSRADEN och inte hela texten**, eftersom förbudsraden
+    ovanför den med avsikt räknar upp orden den förbjuder.
+    """
+    text = generera._underlag(forfragan(utfall=Utfall.ROTT, uppslag=None))
+
+    assert "Nämn inte" in text
+
+    bedomning = [r for r in text.splitlines() if r.startswith("Bedömning:")]
+    assert len(bedomning) == 1, text
+    assert not generera.FORDONSORD.search(bedomning[0]), bedomning[0]
+
+
+def test_BEDOMNINGSRADEN_sjalv_passerar_spärrarna():
+    """Det prompten ber om ska aldrig fällas av spärrarna.
+
+    **PRÖVAR BEDÖMNINGSRADEN SOM TEXT, inte en handskriven konstant.** En
+    tidigare lydelse skickade in ett eget lydigt svar och hette
+    `test_ett_lydigt_ROTT_svar_utan_uppslag_PASSERAR`. Den var VAKUÖS: strängen
+    rörde aldrig `_utfallstext`, så den förblev grön när defekten återinfördes.
+    Fällt av §7-granskningen av skiva 33, varv 3.
+
+    Nu tas texten ur prompten själv, alltså går raden röd om bedömningsraden
+    börjar be om något spärrarna fäller.
+    """
+    forfr = forfragan(utfall=Utfall.ROTT, uppslag=None)
+
+    bedomning = [
+        r for r in generera._underlag(forfr).splitlines()
+        if r.startswith("Bedömning:")
+    ][0]
+
+    generera.krav_pa_svaret(bedomning, forfr)
+
+
+def test_rott_utfall_namner_INTE_troskeln():
+    """Skälet får inte bli en återgiven föreskrift.
+
+    Texten säger att vikterna inte räcker, aldrig vilket tal som är gränsen.
+    Talet står i VVFS 2003:19 och hör inte i ett kundsvar, se
+    `krav_pa_att_troskeln_inte_ar_forfattningstext`.
+    """
+    text = generera._utfallstext(Utfall.ROTT)
+
+    assert not generera.TROSKELTAL.search(text), text
+
+
+def test_systemprompten_bar_EXAKT_reglerna_i_tabellen():
     """En raderad ELLER TILLAGD regel ska göra den här raden röd.
 
     Regel 6 och 7 gick att radera med hela sviten grön innan det här testet

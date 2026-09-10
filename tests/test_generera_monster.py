@@ -109,7 +109,8 @@ TROSKEL_SKA_FALLA = [
     ("Vägtrafiklagstiftningen säger 1 000 kg.", GRANSBIL),
     # skiva 32, varv 2: ISOLERANDE RADER, en per författningsterm som saknade en.
     #
-    # Driftvakten `test_varje_forfattningsterm_ar_ISOLERAD` mätte att TOLV av
+    # Driftvakten, som i skiva 33 heter `test_varje_term_ar_ISOLERAD` och då
+    # gällde alla fyra mönstren, mätte att TOLV av
     # tjugotvå termer inte hade någon rad där de var ensamma om att matcha.
     # Bland dem `\bkräv\w*` och `regeln\b`, alltså exakt de två som varv 2:s
     # omskrivning TAPPADE utan att sviten blev röd.
@@ -128,6 +129,46 @@ TROSKEL_SKA_FALLA = [
     ("Bilen maste klara 1 000 kg.", GRANSBIL),
     ("Trafikverket anger 1 000 kg.", GRANSBIL),
     ("Transportstyrelsen anger 1 000 kg.", GRANSBIL),
+    # skiva 33: `reglers` fick sin isolerande rad när `regler`-termens fyra
+    # böjningar delades upp i egna termer. Grenen var lucka 34, alltså ett
+    # lager som gick att ta bort med hela sviten grön.
+    ("Dessa reglers innebörd är 1 000 kg.", GRANSBIL),
+    # skiva 33, varv 1: RADER SOM UTNYTTJAR `\w*` MED OLIKA SUFFIX.
+    #
+    # Ett `\w*` är en gren som alternationsförbudet inte når: den kan matcha
+    # tomt eller en böjning, och utan två OLIKA träffar går suffixdelen att
+    # snäva bort med grön svit. Raderna nedan finns bara för att ge varje sådan
+    # term en andra, annorlunda träff.
+    #
+    # **En prefixsammansättning duger INTE**, eftersom termen saknar
+    # vänsterankare: `föreskrift\w*` träffar samma sträng i "Föreskriften" som i
+    # "Trafikföreskriften". Skillnaden måste ligga i SUFFIXET.
+    ("Det kräver 1 000 kg släpvagnsvikt.", GRANSBIL),
+    ("Föreskrifter anger 1 000 kg.", GRANSBIL),
+    ("Foreskrifter anger 1 000 kg.", GRANSBIL),
+    ("Bestammelser anger 1 000 kg.", GRANSBIL),
+    ("Paragrafer anger 1 000 kg.", GRANSBIL),
+    ("Lagstiftning anger 1 000 kg.", GRANSBIL),
+    ("Reglementen säger 1 000 kg.", GRANSBIL),
+    ("Reglering anger 1 000 kg.", GRANSBIL),
+    ("Lagtext anger 1 000 kg.", GRANSBIL),
+    # skiva 33, varv 2: RADER MED DEN NAKNA STAMMEN.
+    #
+    # `föreskrift`, `foreskrift` och `paragraf` är ord på egen hand, alltså är
+    # den tomma böjningen i `\w*` en gren som måste prövas. Utan de här raderna
+    # gick termerna att snäva till `\w+` med hela sviten grön, och då tappades
+    # just grundformen.
+    ("Denna föreskrift anger 1 000 kg.", GRANSBIL),
+    ("Denna foreskrift anger 1 000 kg.", GRANSBIL),
+    ("Denna paragraf anger 1 000 kg.", GRANSBIL),
+    # `kräv` är imperativ av `kräva`, alltså ett ord på egen hand. En tidigare
+    # lydelse skärpte termen till `\w+` med motiveringen att stammen inte är ett
+    # ord, och tappade då den här formen.
+    ("Kräv 1 000 kg av bilen.", GRANSBIL),
+    ("Kravet är tusentals kilogram.", UTAN_UPPSLAG),
+    ("Kravet är tusentals kilon.", UTAN_UPPSLAG),
+    ("Kravet är tusentals kg.", GRANSBIL),
+    ("Kravet är 1ton.", GRANSBIL),
     # skiva 31, varv 3, LUCKA 26: enheten utskriven
     ("Kravet är tusen kilogram.", UTAN_UPPSLAG),
     ("Lagen kräver ett tusen kilogram.", UTAN_UPPSLAG),
@@ -222,50 +263,6 @@ def test_troskelformer_som_ska_passera(svar, fall):
     generera.krav_pa_svaret(svar, fall)
 
 
-# ------------------------------------------------------- DRIFTVAKTEN
-#
-# **VARFÖR DEN FINNS.** `FORFATTNINGSORD` har rättats om och om igen, och varje
-# gång har rättelsen tappat eller fällt något den inte skulle. Senast skrevs
-# hela regexen om i ett svep och TAPPADE `kräv` och `regeln`,
-# och tabellen ovan blev ändå grön: varje rad som bar "kräver" bar också
-# "Lagen", som fälldes av ett annat led. **Tabellen kan inte upptäcka att en
-# term försvinner så länge en annan term täcker samma rad.**
-#
-# Vakten kräver därför ISOLERING: för varje term ska det finnas en rad där just
-# den termen är den ENDA som matchar. Då gör en tappad term raden röd.
-#
-# Formen är lånad från `test_varje_term_i_monstret_har_ett_testfall`, som fanns
-# för `FORDONSORD` men saknades här. Fällt av §7-granskningen av skiva 32,
-# varv 2.
-
-
-def _termer_som_matchar(text: str) -> set[str]:
-    """Vilka av `FORFATTNINGSTERMER` som träffar texten."""
-    return {
-        term
-        for term in generera.FORFATTNINGSTERMER
-        if re.search(term, text, flags=re.IGNORECASE)
-    }
-
-
-@pytest.mark.parametrize("term", generera.FORFATTNINGSTERMER)
-def test_varje_forfattningsterm_ar_ISOLERAD(term):
-    """Varje term ska ha en rad där den är ENSAM om att matcha.
-
-    Utan den här raden kan en term tas bort ur mönstret med hela sviten grön,
-    så länge någon annan term råkar täcka samma testrader.
-    """
-    isolerande = [
-        svar
-        for svar, _ in TROSKEL_SKA_FALLA
-        if _termer_som_matchar(svar) == {term}
-    ]
-    assert isolerande, (
-        f"ingen rad i TROSKEL_SKA_FALLA isolerar {term!r}: "
-        "lägg till en där ingen annan författningsterm förekommer"
-    )
-
-
 # ------------------------------------------------------------------- PRIS
 
 PRIS_SKA_FALLA = [
@@ -289,6 +286,47 @@ PRIS_SKA_FALLA = [
     # Fällt av §7-granskningen av skiva 32, varv 1.
     ("Vi tar några tkr för jobbet.", UTAN_UPPSLAG),
     ("Vi tar några spänn för det.", UTAN_UPPSLAG),
+    # skiva 33: ISOLERANDE RADER, en per pristerm som saknade en.
+    #
+    # Driftvakten mätte att tretton av nitton prisord inte hade någon rad där de
+    # var ensamma om att matcha. `kr` är mönstrets centralaste term och var
+    # skuggad av `kostar` och av `TAL_I_TEXT` i varje rad som bar den. Det var
+    # lucka 31.
+    #
+    # Raderna bär därför MEDVETET inget andra prisord och ingen siffra.
+    ("Vi tar några kr.", UTAN_UPPSLAG),
+    ("Vi tar några kronor.", UTAN_UPPSLAG),
+    ("Vi tar några sek.", UTAN_UPPSLAG),
+    ("Det tillkommer en kostnad.", UTAN_UPPSLAG),
+    ("Vi tar kostnaden.", UTAN_UPPSLAG),
+    ("Vi sätter ett pris.", UTAN_UPPSLAG),
+    ("Vi tar priset.", UTAN_UPPSLAG),
+    ("Vi har olika priser.", UTAN_UPPSLAG),
+    ("Det tillkommer en avgift.", UTAN_UPPSLAG),
+    ("Vi tar nagra spann.", UTAN_UPPSLAG),
+    ("Vi tar pengar.", UTAN_UPPSLAG),
+    ("Det är inkl. moms.", UTAN_UPPSLAG),
+    ("Det är exkl. moms.", UTAN_UPPSLAG),
+    # skiva 33, varv 1: RADER SOM UTNYTTJAR DEN VALFRIA DELEN OLIKA.
+    #
+    # `\binkl\.?\s*moms\b` gick att snäva till `\binkl\.\s*moms\b` med grön
+    # svit, alltså var punktens valfrihet ett otestat lager. Samma för `\d\s*tkr`,
+    # där den enda raden bar "25tkr".
+    ("Det är inkl moms.", UTAN_UPPSLAG),
+    ("Det är exkl moms.", UTAN_UPPSLAG),
+    # `\s*` tillåter noll blanksteg, och den grenen prövas av raderna nedan.
+    # Vakten snävar inte `\s*` själv, se dess kommentar, alltså är de här
+    # raderna det enda som gör `inkl.moms` prövad.
+    ("Det är inkl.moms.", UTAN_UPPSLAG),
+    ("Det är exkl.moms.", UTAN_UPPSLAG),
+    ("Det blir 9tkr.", UTAN_UPPSLAG),
+    # skiva 33, varv 1: RADEN SOM GÖR `\d\s*tkr` LASTBÄRANDE.
+    #
+    # Varje annan tkr-rad bär en siffra UTAN källa, alltså fälls den av
+    # `TAL_I_TEXT` även om prisordet tas bort. Med GRÄNSBILEN har 1400 en källa,
+    # så prisordet är det enda som kan fälla. Utan raden gick `\d\s*tkr` att
+    # radera med hela sviten grön.
+    ("Det blir 1400tkr.", GRANSBIL),
 ]
 
 PRIS_SKA_PASSERA = [
@@ -380,6 +418,19 @@ FORDONSFAKTA_SKA_FALLA = [
     ("Det finns krok på bilen redan.", UTAN_UPPSLAG),
     ("Din bil är tung nog.", UTAN_UPPSLAG),
     ("Vikten på din bil räcker gott.", UTAN_UPPSLAG),
+    # skiva 33: ISOLERANDE RADER, en per fordonsterm som saknade en.
+    #
+    # `test_varje_term_i_monstret_har_ett_testfall` band att varje term HAR ett
+    # testfall, men inte att något testfall prövar den ENSAM. Åtta av sexton
+    # termer var skuggade av en annan term i samma rad.
+    ("Bilens tjanstevikt racker.", UTAN_UPPSLAG),
+    ("Bilens slapvagnsvikt ar godkand.", UTAN_UPPSLAG),
+    ("Bilens dragkrok sitter kvar.", UTAN_UPPSLAG),
+    ("Bilens totalvikt är hög.", UTAN_UPPSLAG),
+    ("Bilen vager tillrackligt.", UTAN_UPPSLAG),
+    ("Din bil klarar slap.", UTAN_UPPSLAG),
+    ("Släpet är monterat.", UTAN_UPPSLAG),
+    ("Bilens tyngd räcker.", UTAN_UPPSLAG),
 ]
 
 FORDONSFAKTA_SKA_PASSERA = [
@@ -418,3 +469,276 @@ def test_fordonsfaktaformer_som_ska_falla(svar, fall):
 @pytest.mark.parametrize("svar, fall", FORDONSFAKTA_SKA_PASSERA)
 def test_fordonsfaktaformer_som_ska_passera(svar, fall):
     generera.krav_pa_svaret(svar, fall)
+
+
+# ------------------------------------------------------- DRIFTVAKTEN
+#
+# **VARFÖR DEN FINNS.** Mönstren har rättats om och om igen, och varje gång har
+# rättelsen tappat eller fällt något den inte skulle. Senast skrevs
+# `FORFATTNINGSORD` om i ett svep och TAPPADE `kräv` och `regeln`, och tabellen
+# ovan blev ändå grön: varje rad som bar "kräver" bar också "Lagen", som fälldes
+# av ett annat led.
+#
+# **EN REGRESSIONSTABELL HINDRAR ATT EN KÄND FORM TAPPAS. EN ISOLERINGSVAKT
+# HINDRAR ATT EN OKÄND FORM TAPPAS.** Det är hela skillnaden, och det är skälet
+# att båda finns. Tabellen var grön av fel skäl, alltså bevisade den ingenting
+# om just de termer som försvann.
+#
+# Vakten kräver ISOLERING: för varje term ska det finnas en rad där just den
+# termen är den ENDA som matchar.
+#
+# **ISOLERING RÄCKER INTE, och det ledet är fällt fram.** En rad kan vara
+# isolerad för sin term och ändå falla på ett HELT ANNAT lager, alltså är termen
+# oprövad medan vakten är grön. `\d\s*tkr` var det: varje tkr-rad bar en siffra
+# utan källa, så `TAL_I_TEXT` fällde raden och prisordet var skuggat.
+# `test_varje_term_BAR_en_fallning` prövar därför att minst en rad slutar fällas
+# AV TERMENS EGEN SPÄRR när termen tas bort. Fällt av §7-granskningen av skiva
+# 33, varv 1.
+#
+# **DET ÄR RADEN SOM FÄLLER, INTE VAKTEN, och den skillnaden ska ingen behöva
+# gissa sig till.** Testerna är parametriserade över tupeln, alltså FÖRSVINNER en
+# raderad terms egna vakter tillsammans med termen. Skyddet mot en tappad term
+# utövas av tabellraden, och vakternas uppgift är att garantera att en sådan rad
+# finns OCH att den fäller av rätt skäl. Utan isoleringskravet fanns ingen sådan
+# rad för tolv av tjugotvå författningstermer, och det var precis så `kräv` kunde
+# försvinna.
+#
+# **ETT UNDANTAG SOM ÄR MÄTT:** `\bettusen\b` i `TROSKELTERMER` går att radera
+# med hela sviten grön, eftersom `TAL_I_ORD` fäller de raderna först i
+# `krav_pa_svaret`. Termen är lastbärande för sin EGEN spärr, vilket
+# `test_varje_term_BAR_en_fallning` visar, men oåtkomlig via kedjan. Enligt §7.1
+# är det lagrat försvar och alltså inkonklusivt, inte vakuöst.
+#
+# **VAKTEN GÄLLER ALTERNATIV OCH INTE BARA TERMER, och det är skiva 33:s
+# tillägg.** Lucka 34 var att en gren INUTI en term inte nåddes:
+# `regler(?:na|ing\w*|s)?\b` gick att förkorta till `regler(?:na|ing\w*)?\b` med
+# hela sviten grön. Lösningen är strukturell i stället för att vakten görs
+# smartare: **en term får inte innehålla alternation.** Då ÄR termnivå och
+# alternativnivå samma nivå, och `test_ingen_term_gommer_en_alternation` binder
+# det. En vakt som måste tolka reguljära uttryck hade själv blivit en sak att
+# hålla korrekt.
+#
+# Beslut av Lars i skiva 33, se `docs/beslutslogg.md` #55.
+
+MONSTER_OCH_TABELL = {
+    "PRISTERMER": (generera.PRISTERMER, "PRIS_SKA_FALLA"),
+    "TROSKELTERMER": (generera.TROSKELTERMER, "TROSKEL_SKA_FALLA"),
+    "FORFATTNINGSTERMER": (generera.FORFATTNINGSTERMER, "TROSKEL_SKA_FALLA"),
+    "FORDONSTERMER": (generera.FORDONSTERMER, "FORDONSFAKTA_SKA_FALLA"),
+}
+
+TABELLER = {
+    "PRIS_SKA_FALLA": PRIS_SKA_FALLA,
+    "TROSKEL_SKA_FALLA": TROSKEL_SKA_FALLA,
+    "FORDONSFAKTA_SKA_FALLA": FORDONSFAKTA_SKA_FALLA,
+}
+
+ALLA_TERMER = [
+    (monster, term)
+    for monster, (termer, _) in MONSTER_OCH_TABELL.items()
+    for term in termer
+]
+
+
+# VILKEN SPÄRR VARJE MÖNSTER TILLHÖR, och hur den anropas.
+#
+# Behövs för `test_varje_term_BAR_en_fallning`, som prövar att en rads fällning
+# faktiskt BEROR på termen. Isolering inom tupeln räcker inte: en rad kan vara
+# isolerad för sin term och ändå falla på ett helt annat lager.
+SPARR_FOR_MONSTER = {
+    "PRISTERMER": ("PRISORD", "krav_pa_tal_med_kalla"),
+    "TROSKELTERMER": ("TROSKELTAL", "krav_pa_att_troskeln_inte_ar_forfattningstext"),
+    "FORFATTNINGSTERMER": (
+        "FORFATTNINGSORD",
+        "krav_pa_att_troskeln_inte_ar_forfattningstext",
+    ),
+    "FORDONSTERMER": ("FORDONSORD", "krav_pa_fordonsfakta_ur_uppslag"),
+}
+
+
+def _faller(sparrnamn: str, svar: str, fall) -> bool:
+    """Om den namngivna spärren fäller svaret."""
+    sparr = getattr(generera, sparrnamn)
+    try:
+        if sparrnamn == "krav_pa_att_troskeln_inte_ar_forfattningstext":
+            sparr(svar)
+        else:
+            sparr(svar, fall)
+    except Sparrfalld:
+        return True
+    return False
+
+
+def _tabellrader(tabellnamn: str) -> list[tuple]:
+    """Raderna som (svar, förfrågan), oavsett tupel eller `pytest.param`."""
+    return [getattr(rad, "values", rad) for rad in TABELLER[tabellnamn]]
+
+
+def _radtexter(tabellnamn: str) -> list[str]:
+    """Svarstexterna i en tabell, oavsett om raden är en tupel eller en param."""
+    texter = []
+    for rad in TABELLER[tabellnamn]:
+        # `pytest.param` bär sina värden i `.values`; en vanlig rad är en tupel.
+        varden = getattr(rad, "values", rad)
+        texter.append(varden[0])
+    return texter
+
+
+@pytest.mark.parametrize("monster", sorted(MONSTER_OCH_TABELL))
+def test_ingen_term_gommer_en_alternation(monster):
+    """En term får inte innehålla `|` eller en grupp.
+
+    **DET HÄR ÄR VAD SOM GÖR ISOLERINGSVAKTEN FULLSTÄNDIG.** En gren inuti en
+    term är ett lager som vakten inte når, eftersom vakten prövar termer. Med
+    förbudet är varje alternativ en egen term och alltså isolerat var för sig.
+    """
+    termer, _ = MONSTER_OCH_TABELL[monster]
+    for term in termer:
+        assert "|" not in term, f"{monster}: {term!r} bär en alternation"
+        assert "(" not in term, f"{monster}: {term!r} bär en grupp"
+
+
+# **OPTIONALITET ÄR OCKSÅ EN GREN, och alternationsförbudet når den inte.**
+#
+# `\w*`, `?`, `*` och `+` gör en del av en term valfri, alltså bär termen två
+# vägar utan att bära ett `|`. Två mätta fall, båda GRÖNA innan den här raden
+# fanns:
+#
+#     `\binkl\.?\s*moms\b`   ->  `\binkl\.\s*moms\b`    snävade bort "inkl moms"
+#     `\btusen\w*\s*kg\b`    ->  `\btusen\s*kg\b`       snävade bort "tusentals kg"
+#
+# Den andra är samma klass som lucka 33. Fällt av §7-granskningen av skiva 33,
+# varv 1, som fällde mitt påstående att förbudet mot `|` gör termnivå och
+# alternativnivå till samma nivå.
+#
+# **KRAVET ÄR EN FAKTISK SNÄVNING, inte två olika träffsträngar.** Första
+# lydelsen krävde bara att de isolerande raderna gav minst två OLIKA strängar,
+# och kommentaren påstod att det betyder "en som utnyttjar den valfria delen och
+# en som inte gör det". Det ledet var falskt om koden: båda träffarna fick
+# utnyttja den valfria delen. Följden var att sju `\w*`-termer gick att snäva:
+#
+#     `föreskrift\w*` -> `föreskrift\w+`   tappade ordet `föreskrift`, GRÖN
+#     `\binkl\.?\s*moms\b` -> `\binkl\.?\smoms\b`  tappade `inkl.moms`, GRÖN
+#
+# Fällt av §7-granskningen av skiva 33, varv 2.
+#
+# Vakten SNÄVAR nu termen på riktigt, ett kvantifierare i taget, och kräver att
+# minst en isolerande rad slutar matcha. Det är samma prövning en granskare gör
+# för hand, gjord av sviten i stället.
+#
+# **`+` RÄKNAS INTE.** Det kräver minst en förekomst och går alltså inte att
+# utelämna, så `\bett\s+ton\b` bär ingen gren.
+#
+# **`\s*` SNÄVAS INTE HELLER.** Att kräva en rad utan blanksteg där mönstret
+# tillåter det skulle tvinga fram former ingen skriver, som `tusenkilo`.
+# Blankstegstolerans är formatering och inte en språklig gren. `\.?` snävas
+# däremot, eftersom `inkl moms` och `inkl.moms` båda är former någon skriver.
+OPTIONALITET = re.compile(r"(?<!\\)[?*]")
+
+
+def _snavningar(term: str) -> list[str]:
+    """Termen med EN kvantifierare snävad, en variant per kvantifierare.
+
+    `\\w*` blir `\\w+`, alltså tappas den tomma böjningen. `\\.?` blir `\\.`,
+    alltså tappas formen utan tecknet. `\\s*` lämnas, se kommentaren ovan.
+    """
+    varianter = []
+    for i, tecken in enumerate(term):
+        if i == 0 or term[i - 1] == "\\":
+            continue
+        if tecken == "*" and term[i - 2 : i] != r"\s":
+            varianter.append(term[:i] + "+" + term[i + 1 :])
+        elif tecken == "?":
+            varianter.append(term[:i] + term[i + 1 :])
+    return varianter
+
+
+@pytest.mark.parametrize("monster, term", ALLA_TERMER)
+def test_en_SNAVAD_term_tappar_en_rad(monster, term):
+    """Varje valfri del ska bära minst en isolerande rad."""
+    if not OPTIONALITET.search(term):
+        pytest.skip("termen bär ingen optionalitet")
+
+    termer, tabellnamn = MONSTER_OCH_TABELL[monster]
+
+    isolerande = [
+        text
+        for text in _radtexter(tabellnamn)
+        if {t for t in termer if re.search(t, text, flags=re.IGNORECASE)} == {term}
+    ]
+
+    for snavad in _snavningar(term):
+        tappade = [
+            text
+            for text in isolerande
+            if not re.search(snavad, text, flags=re.IGNORECASE)
+        ]
+        assert tappade, (
+            f"{monster}: {term!r} går att snäva till {snavad!r} utan att någon "
+            f"isolerande rad slutar matcha. Den valfria delen är oprövad. "
+            f"Isolerande rader i dag: {isolerande}"
+        )
+
+
+@pytest.mark.parametrize("monster, term", ALLA_TERMER)
+def test_varje_term_BAR_en_fallning(monster, term, monkeypatch):
+    """Det ska finnas en rad vars FÄLLNING beror på just den här termen.
+
+    **ISOLERING INOM TUPELN RÄCKER INTE, och det är fällt fram.** En rad kan
+    vara isolerad för sin term och ändå falla på ett helt annat lager. Två
+    termer gick därför att radera med hela sviten grön:
+
+        `\\d\\s*tkr`      raderna föll på `TAL_I_TEXT`, inte på prisordet
+        `\\bettusen\\b`   raderna föll på `TAL_I_ORD`, inte på tröskeln
+
+    Vakten var alltså grön medan två lager var otestade, vilket är samma
+    skuggning som lucka 31 handlade om, en nivå bort. Fällt av §7-granskningen
+    av skiva 33, varv 1.
+
+    Prövningen tar bort termen ur mönstret och kräver att MINST EN rad slutar
+    fällas av just den spärr termen tillhör.
+    """
+    termer, tabellnamn = MONSTER_OCH_TABELL[monster]
+    monsternamn, sparrnamn = SPARR_FOR_MONSTER[monster]
+
+    utan = re.compile(
+        "|".join(t for t in termer if t != term), flags=re.IGNORECASE
+    )
+
+    barande = []
+    for svar, fall in _tabellrader(tabellnamn):
+        if not _faller(sparrnamn, svar, fall):
+            continue
+        monkeypatch.setattr(generera, monsternamn, utan)
+        try:
+            if not _faller(sparrnamn, svar, fall):
+                barande.append(svar)
+        finally:
+            monkeypatch.undo()
+
+    assert barande, (
+        f"ingen rad i {tabellnamn} slutar fällas av {sparrnamn} när {term!r} "
+        f"tas bort ur {monsternamn}. Termen är oprövad: varje rad som bär den "
+        "fälls av något annat lager. Lägg till en rad där bara den här termen "
+        "kan fälla."
+    )
+
+
+@pytest.mark.parametrize("monster, term", ALLA_TERMER)
+def test_varje_term_ar_ISOLERAD(monster, term):
+    """Varje term ska ha en rad där den är ENSAM om att matcha.
+
+    Utan den här raden kan en term tas bort ur mönstret med hela sviten grön,
+    så länge någon annan term råkar täcka samma testrader.
+    """
+    termer, tabellnamn = MONSTER_OCH_TABELL[monster]
+
+    isolerande = [
+        text
+        for text in _radtexter(tabellnamn)
+        if {t for t in termer if re.search(t, text, flags=re.IGNORECASE)} == {term}
+    ]
+    assert isolerande, (
+        f"ingen rad i {tabellnamn} isolerar {term!r} ur {monster}: "
+        f"lägg till en där ingen annan term ur {monster} förekommer"
+    )

@@ -180,12 +180,32 @@ TAL_I_ORD = re.compile(
 # raderna men inte ramen omkring dem: raden "REGLER SOM ALDRIG BRYTS:" gick att
 # invertera med grön svit. Fällt av §7-granskningen av skiva 32, varv 1 och
 # varv 2.*
-PRISORD = re.compile(
-    r"\b(kr|kronor|sek|kostar|kostnad|kostnaden|pris|priset|priser|"
-    r"offert|avgift|spänn|spann|peng|pengar|"
-    r"inkl\.?\s*moms|exkl\.?\s*moms)\b|\btkr\b|\d\s*tkr",
-    flags=re.IGNORECASE,
+#
+# **EN TERM PER RAD, UTAN INTERN ALTERNATION.** Se `FORFATTNINGSTERMER` för
+# skälet: en gren inuti en term är ett lager som isoleringsvakten inte når.
+PRISTERMER = (
+    r"\bkr\b",
+    r"\bkronor\b",
+    r"\bsek\b",
+    r"\bkostar\b",
+    r"\bkostnad\b",
+    r"\bkostnaden\b",
+    r"\bpris\b",
+    r"\bpriset\b",
+    r"\bpriser\b",
+    r"\boffert\b",
+    r"\bavgift\b",
+    r"\bspänn\b",
+    r"\bspann\b",
+    r"\bpeng\b",
+    r"\bpengar\b",
+    r"\binkl\.?\s*moms\b",
+    r"\bexkl\.?\s*moms\b",
+    r"\btkr\b",
+    r"\d\s*tkr",
 )
+
+PRISORD = re.compile("|".join(PRISTERMER), flags=re.IGNORECASE)
 
 # **`prisuppgift` STÅR MED FLIT INTE I LISTAN.** "En kollega återkommer med
 # prisuppgift" är precis det svar spärren finns för att framtvinga, och en
@@ -204,12 +224,26 @@ PRISORD = re.compile(
 # Det som bär i det fallet är SYSTEMPROMPTEN, som säger att modellen inte vet
 # något om bilen när uppslaget saknas. Spärren är nätet under, inte det enda
 # skyddet.
-FORDONSORD = re.compile(
-    r"tjänstevikt|tjanstevikt|släpvagnsvikt|slapvagnsvikt|draganordning|"
-    r"dragkrok|totalvikt|\bväger\b|\bvager\b|\bvikten\b|\bkrok\b|"
-    r"\bsläp\b|\bslap\b|\bsläpet\b|\btung\b|\btyngd\b",
-    flags=re.IGNORECASE,
+FORDONSTERMER = (
+    r"tjänstevikt",
+    r"tjanstevikt",
+    r"släpvagnsvikt",
+    r"slapvagnsvikt",
+    r"draganordning",
+    r"dragkrok",
+    r"totalvikt",
+    r"\bväger\b",
+    r"\bvager\b",
+    r"\bvikten\b",
+    r"\bkrok\b",
+    r"\bsläp\b",
+    r"\bslap\b",
+    r"\bsläpet\b",
+    r"\btung\b",
+    r"\btyngd\b",
 )
+
+FORDONSORD = re.compile("|".join(FORDONSTERMER), flags=re.IGNORECASE)
 
 # TRÖSKELN SOM FÖRFATTNINGSTEXT. Talet 1000 i sällskap med ett ord som gör det
 # till en återgiven föreskrift.
@@ -223,11 +257,22 @@ FORDONSORD = re.compile(
 # kilometer"*, alltså ett önskat svar om körsträcka. Massenhetens böjningar är
 # `kilo`, `kilogram` och `kilon`; `kilometer` är en LÄNGDenhet och hör inte hit.
 # Fällt av §7-granskningen av skiva 32, varv 2.
-TROSKELTAL = re.compile(
-    r"1[\s.]?000|\bettusen\b|\btusen\w*\s*(kilo(?:gram|n)?|kg)\b|"
-    r"\b1\s*ton\b|\bett\s+ton\b",
-    flags=re.IGNORECASE,
+#
+# **ENHETENS BÖJNINGAR STÅR SOM EGNA TERMER, inte som en gren i en grupp.**
+# Lydelsen `(kilo(?:gram|n)?|kg)` gjorde `gram`- och `n`-grenarna osynliga för
+# isoleringsvakten, alltså gick de att ta bort med grön svit. Det var lucka 34.
+TROSKELTERMER = (
+    r"1[\s.]?000",
+    r"\bettusen\b",
+    r"\btusen\w*\s*kilo\b",
+    r"\btusen\w*\s*kilogram\b",
+    r"\btusen\w*\s*kilon\b",
+    r"\btusen\w*\s*kg\b",
+    r"\b1\s*ton\b",
+    r"\bett\s+ton\b",
 )
+
+TROSKELTAL = re.compile("|".join(TROSKELTERMER), flags=re.IGNORECASE)
 
 # FÖRFATTNINGSORDEN, EN TERM PER RAD.
 #
@@ -237,7 +282,7 @@ TROSKELTAL = re.compile(
 # ett svep, och regressionstabellen fångade det inte: varje rad som bar
 # "kräver" bar också "Lagen", som fälldes av ett annat led.
 #
-# Termerna står därför var för sig, och `test_varje_forfattningsterm_ar_ISOLERAD`
+# Termerna står därför var för sig, och `test_varje_term_ar_ISOLERAD`
 # kräver en rad i regressionstabellen där VARJE term är den enda som matchar.
 # En term som tappas gör den raden röd, och en term som SNÄVAS likaså.
 #
@@ -257,14 +302,24 @@ TROSKELTAL = re.compile(
 # VÅR källa, inte en föreskrift. "Enligt lagen" fälls ändå, på `lagen`.
 FORFATTNINGSTERMER = (
     r"krav\w*",
+    # **`\w+` DÄR DEN NAKNA STAMMEN INTE ÄR ETT ORD.** `bestämmels` och
+    # `reglement` förekommer aldrig ensamma på svenska, alltså är den tomma
+    # böjningen en gren som ingen rad kan pröva. Ett `\w*` som bara kan matcha
+    # icke-ord är ett otestbart lager, och `test_en_SNAVAD_term_tappar_en_rad`
+    # fäller det. Där stammen ÄR ett ord står `\w*` kvar och prövas av en rad.
+    # Fällt av §7-granskningen av skiva 33, varv 2.
+    #
+    # *`kräv` stod här som `\w+` med motiveringen att stammen inte är ett ord.
+    # Det var FALSKT: `kräv` är imperativ av `kräva`, och skärpningen tappade
+    # formen "Kräv 1 000 kg". Fällt av §7-granskningen av skiva 33, varv 3.*
     r"\bkräv\w*",
     r"föreskrift\w*",
     r"foreskrift\w*",
-    r"bestämmels\w*",
-    r"bestammels\w*",
+    r"bestämmels\w+",
+    r"bestammels\w+",
     r"paragraf\w*",
     r"lagstiftning\w*",
-    r"reglement\w*",
+    r"reglement\w+",
     # `regler` MED SINA EGNA BÖJNINGAR OCH INGA ANDRA. Substantivet `regler`
     # delar sträng både med verbet `reglera` och med sammansättningar där
     # `regler` är FÖRSTA ledet: termostaten REGLERAR, tomgången REGLERAS,
@@ -272,7 +327,16 @@ FORFATTNINGSTERMER = (
     # är verkstadsord. Substantivets egna former är `regler`, `reglerna`,
     # `reglering(en)` och `reglers`, alltså räcker det att kräva att ordet SLUTAR
     # där böjningen slutar.
-    r"regler(?:na|ing\w*|s)?\b",
+    #
+    # **BÖJNINGARNA STÅR SOM FYRA TERMER och inte som en grupp.** Lydelsen
+    # `regler(?:na|ing\w*|s)?\b` gick att förkorta till `regler(?:na|ing\w*)?\b`
+    # med hela sviten grön: `|s`-grenen var ett lager som ingen rad prövade. Det
+    # var lucka 34, och den är stängd av att grenar inte längre får gömma sig
+    # inuti en term.
+    r"regler\b",
+    r"reglerna\b",
+    r"reglering\w*",
+    r"reglers\b",
     # `regel` behåller sin HÖGERgräns, som `regelbundet` gjorde lastbärande.
     r"regel\b",
     r"regeln\b",
@@ -295,6 +359,33 @@ FORFATTNINGSTERMER = (
 FORFATTNINGSORD = re.compile("|".join(FORFATTNINGSTERMER), flags=re.IGNORECASE)
 
 
+# EN BILMODELL LÄSES SOM ETT TAL, och det är lucka 30. Utan den
+#
+# **`V50` OCH `ABC156` ÄR NAMN PÅ SAKER, inte kvantiteter.** Utan den här
+# skillnaden fälls `A5`, `V50` och registreringsnummer som påhittade tal: fem av
+# elva fällningar i skiva 32:s mätning över 100 svar var falska positiva av den
+# formen. Det är lucka 30, och den är fortfarande ÖPPEN.
+#
+# **SKIVA 33 FÖRSÖKTE STÄNGA DEN I TRE LYDELSER OCH ÅTERSTÄLLDE ALLA TRE.**
+# Var och en öppnade ett hål mot §0:s ramverksregel 3, som är obrytbar:
+#
+#   varv 1  varje tal ur kundens text blev tillåtet, alltså kunde boten skriva
+#           ett PRIS och en LEDTID som våra egna
+#   varv 2  bokstäver FÖRE siffran gjorde en kvantitet till en beteckning:
+#           kunden skrev `ca25000`, och då fick boten skriva `25000` fritt
+#   varv 3  en beteckning maskerades bort ur svaret innan talen lästes, och då
+#           blev `ca10 dagar`, `ca800` och `ca950 kg` osynliga för spärren
+#
+# **DE TVÅ FÖRSTA behandlade kundens text som en källa.** Det är den inte: §7.2
+# säger att priser läses ur `config/priser.json` och ledtider ur
+# `config/fakta.json`.
+#
+# **DEN TREDJE gjorde spärren SÄMRE ÄN FÖRE SKIVAN**, alltså en regression, och
+# den upptäcktes först i sista granskningsvarvet.
+#
+# Gemensamt för alla tre: varje regel som gör en siffra intill bokstäver
+# ofarlig gör också en KVANTITET intill bokstäver ofarlig. Se
+# `docs/beslutslogg.md` #56.
 def _tal_i(text: str) -> set[str]:
     """Talen i en text, normaliserade utan blanksteg och avskiljare."""
     rena = set()
@@ -311,6 +402,14 @@ def _tillatna_tal(forfragan: Forfragan) -> set[str]:
     **PRISER FINNS INTE ÄN.** `config/priser.json` existerar inte, alltså bidrar
     den med noll tal, och det är avsiktligt: ett svar som nämner ett pris ska
     falla tills filen finns och är fylld av Lars.
+
+    **KUNDENS TEXT ÄR INGEN KÄLLA, och det ledet är fällt fram i två varv.**
+    Skiva 33 lade två gånger `forfragan.text` här, för att lösa lucka 30, och
+    båda lydelserna öppnade ett hål i sändvägen. Feltanken var densamma: att
+    kunden nämnt ett tal gör inte talet till en källa. §7.2 säger var priser och
+    ledtider läses, och det är i `config/`.
+
+    **LUCKA 30 ÄR ÖPPEN**, se noten vid `_tal_i` ovan för alla tre försöken.
     """
     tillatna = set(ALLTID_TILLATNA_TAL)
 
@@ -518,6 +617,9 @@ prisuppgift.
 inga antal du inte fått.
 7. Återge aldrig en lagtext eller en föreskrift sammanfattad. Säg inte att något \
 är ett krav enligt lag.
+8. Påstå aldrig något om vad Auto Stockholm har, erbjuder eller innehåller \
+utöver det som står i underlaget nedan. Inte vår hemsida, inte våra öppettider, \
+inte vårt lager, inte våra tjänster.
 
 Skriv kort, konkret och vänligt. Svara på det kunden faktiskt frågar."""
 
@@ -568,18 +670,70 @@ def _underlag(forfragan: Forfragan) -> str:
             f"draganordning {'ja' if u.draganordning else 'nej'}."
         )
 
-    rader.append(f"Bedömning: {_utfallstext(forfragan.utfall)}")
+    rader.append(
+        f"Bedömning: {_utfallstext(forfragan.utfall, forfragan.uppslag is not None)}"
+    )
     rader.append("Priser: INGA. Du har inga prisuppgifter alls.\n")
     return "\n".join(rader)
 
 
-def _utfallstext(utfall: Utfall | None) -> str:
-    """Utfallet i ord, utan att avslöja tröskeln eller föreskriften."""
+def _utfallstext(utfall: Utfall | None, har_uppslag: bool = True) -> str:
+    """Utfallet i ord, utan att avslöja tröskeln eller föreskriften.
+
+    **`har_uppslag` STYR OM SIFFROR FÅR BEGÄRAS, och det ledet är fällt fram.**
+    Första lydelsen bad ALLTID om bilens egna siffror vid RÖTT. Med
+    `utfall=ROTT` och `uppslag=None` producerade `_underlag` då en prompt som i
+    samma stycke förbjöd och beordrade viktangivelser:
+
+        Fordonsuppslag: INGET. ... Nämn inte tjänstevikt, släpvagnsvikt ...
+        Bedömning: ... SÄG DET SOM SKÄLET, med bilens egna siffror ...
+
+    Varje lydigt svar fälldes sedan av `krav_pa_fordonsfakta_ur_uppslag`, alltså
+    en garanterad falsk fällning. §7.1: en spärr som fäller önskade svar blir
+    avstängd. Fällt av §7-granskningen av skiva 33, varv 1.
+
+    **RÖTT SÄGER VARFÖR OCH VAD KUNDEN KAN GÖRA, och det är skiva 33:s ändring.**
+    Skiva 31:s röda svar sade bara att bedömningen är negativ. Det lämnar kunden
+    utan något att göra, och i det tomrummet hittade modellen på en resurs hos
+    oss: tre av tjugo röda svar hänvisade till vad vår hemsida innehåller. Det
+    var lucka 29. Åtgärden är att ge modellen något VERKLIGT att erbjuda i
+    stället för en spärr som fäller påhittet i efterhand. Beslut av Lars.
+
+    **SKÄLET NAMNGER BÅDA VILLKOREN, inte bara släpvagnsvikten.** `RÖTT` kräver
+    att `fordonsuppslag.ar_lamplig_som_dragfordon` faller, och den bär TVÅ
+    alternativa villkor förenade med ELLER. Ett svar som anger släpvagnsvikten
+    som enda skäl gör en ofullständig föreskrift till ett besked, vilket är
+    precis vad `troskeln-som-forfattningstext` finns för och vad skiva 12:s
+    defekt bestod i. Siffrorna kommer ur uppslaget och är alltså avlästa.
+    """
+    rott_med_siffror = (
+        "bilen ser inte ut att gå att bygga om, eftersom varken "
+        "tjänstevikten eller släpvagnsvikten räcker till. SÄG DET SOM "
+        "SKÄLET, med bilens egna siffror ur underlaget ovan, och skriv att "
+        "kunden är välkommen att höra av sig med ett annat fordon så tittar "
+        "vi på det. Hänvisa inte till något annat hos oss."
+    )
+    # UTAN UPPSLAG NÄMNS INGENTING OM BILEN, inte ens ordet vikt.
+    #
+    # Första rättelsen tog bort SIFFRORNA men lät orden `tjänstevikten` och
+    # `släpvagnsvikten` stå kvar. Båda är `FORDONSORD`, alltså fälldes varje
+    # lydigt svar ändå av `krav_pa_fordonsfakta_ur_uppslag`, och prompten
+    # förbjöd och beordrade fortfarande samma sak. Rättelsen bar nästa fynd.
+    # Fällt av §7-granskningen av skiva 33, varv 2.
+    #
+    # Utan uppslag VET vi inte varför, alltså ska svaret inte påstå ett skäl.
+    rott_utan_siffror = (
+        "bilen ser inte ut att gå att bygga om. Säg det, MEN UTAN att nämna "
+        "något om bilen alls, eftersom du inte har några uppgifter om den, och "
+        "skriv att kunden är välkommen att höra av sig med ett annat fordon så "
+        "tittar vi på det. Hänvisa inte till något annat hos oss."
+    )
+
     return {
         Utfall.GRONT: "bilen ser ut att gå att bygga om.",
         Utfall.GULT: "bilen kan gå att bygga om, men något behöver åtgärdas.",
         Utfall.OKLART: "vi kan inte avgöra det på uppgifterna vi har.",
-        Utfall.ROTT: "bilen ser inte ut att gå att bygga om.",
+        Utfall.ROTT: rott_med_siffror if har_uppslag else rott_utan_siffror,
     }.get(utfall, "vi har inte kunnat slå upp bilen.")
 
 
