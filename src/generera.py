@@ -9,8 +9,11 @@ modulen. Samma spärr som vyn har, samma två lager.
 mail lämnar servern den dag fas 7 kopplar in sändningen. Tre granskningsvarv,
 ovillkorligt.
 
-SPÄRRARNA PÅ DET GENERERADE, tre stycken, var och en med sin negativkontroll:
+SPÄRRARNA PÅ DET GENERERADE, var och en med sin negativkontroll:
 
+  `tomt-svar`                    Ett svar som är tomt efter `.strip()` är inget
+                                 utkast. De andra SÖKER EFTER SAKER och släppte
+                                 därför igenom det tomma.
   `genererat-tal-har-kalla`      Ett tal i svaret ska komma ur uppslaget eller ur
                                  config. Priser finns inte än, alltså faller ett
                                  svar som nämner ett pris i känd form.
@@ -83,12 +86,23 @@ class Forfragan:
     `uppslag` är None när uppslaget MISSLYCKADES eller när inget gjordes. Det är
     inte samma sak som ett rött utfall: rött betyder att fordonet inte duger,
     None betyder att vi inte vet. Skillnaden avgör vilka fakta som får nämnas.
+
+    **`uppslag_gjordes` SKILJER ETT MISSLYCKAT UPPSLAG FRÅN ETT SOM ALDRIG
+    GJORDES, och den skillnaden är fälld fram av kedjan i skiva 34.** Utan den
+    fick en REKONDBOKNING svaret *"Vi har inte kunnat slå upp ditt fordon just
+    nu"*, eftersom `utfall=None` bara hade en betydelse. Vi hade inte försökt
+    slå upp något: kategorin gatas inte av fordonsuppslaget. Kunden bad om en
+    tid och fick ett besked om ett uppslag som aldrig gjordes.
+
+    Förvalet är `True`, alltså oförändrat för varje anropare som bara har de två
+    lägen som fanns före kedjan.
     """
 
     text: str
     kategori: str
     utfall: Utfall | None
     uppslag: Uppslag | None = None
+    uppslag_gjordes: bool = True
 
 
 # ------------------------------------------------------------------ DEL C
@@ -261,12 +275,31 @@ FORDONSORD = re.compile("|".join(FORDONSTERMER), flags=re.IGNORECASE)
 # **ENHETENS BÖJNINGAR STÅR SOM EGNA TERMER, inte som en gren i en grupp.**
 # Lydelsen `(kilo(?:gram|n)?|kg)` gjorde `gram`- och `n`-grenarna osynliga för
 # isoleringsvakten, alltså gick de att ta bort med grön svit. Det var lucka 34.
+# **LUCKA 33 ÄR STÄNGD I SKIVA 34, och den stängdes genom UPPRÄKNING.** Fem
+# böjningar som `kilo\w*` fångade tappades när enheten snävades för att inte
+# fälla `kilometer`: `kilos`, `kilot`, `kilona`, `kilogrammen`, `kilogrammet`.
+#
+# **VARFÖR EN UPPRÄKNING ÄR RÄTT SVAR HÄR, undantagsvis.** Egenskapen som
+# skiljer massenheten från längdenheten är att `kilometer` finns och ska undantas,
+# och det uttrycks naturligt som `kilo(?!meter)\w*`. Den formen är FÖRBJUDEN av
+# `test_ingen_term_gommer_en_alternation`, eftersom en lookahead bär `(`.
+#
+# Förbudet är inte i vägen av misstag: det finns för att en gren inuti en term
+# är ett lager isoleringsvakten inte når, vilket var lucka 34. En sluten mängd
+# böjningar är däremot något man KAN räkna upp, och varje böjning blir då en
+# egen term med en egen isolerande rad. Uppräkningen är alltså inte ett avsteg
+# från egenskapstänket utan dess pris i det här fallet.
 TROSKELTERMER = (
     r"1[\s.]?000",
     r"\bettusen\b",
     r"\btusen\w*\s*kilo\b",
-    r"\btusen\w*\s*kilogram\b",
+    r"\btusen\w*\s*kilos\b",
+    r"\btusen\w*\s*kilot\b",
     r"\btusen\w*\s*kilon\b",
+    r"\btusen\w*\s*kilona\b",
+    r"\btusen\w*\s*kilogram\b",
+    r"\btusen\w*\s*kilogrammen\b",
+    r"\btusen\w*\s*kilogrammet\b",
     r"\btusen\w*\s*kg\b",
     r"\b1\s*ton\b",
     r"\bett\s+ton\b",
@@ -312,13 +345,22 @@ FORFATTNINGSTERMER = (
     # *`kräv` stod här som `\w+` med motiveringen att stammen inte är ett ord.
     # Det var FALSKT: `kräv` är imperativ av `kräva`, och skärpningen tappade
     # formen "Kräv 1 000 kg". Fällt av §7-granskningen av skiva 33, varv 3.*
-    r"\bkräv\w*",
+    #
+    # **VÄNSTERGRÄNSEN FALLER I SKIVA 34**, så att `påkrävt` fångas. `kräv` är
+    # lika entydigt som `krav` på raden ovanför, och de behandlades olika bara
+    # för att stavningen skiljer dem åt. Det var lucka 32.
+    r"kräv\w*",
     r"föreskrift\w*",
     r"foreskrift\w*",
     r"bestämmels\w+",
     r"bestammels\w+",
     r"paragraf\w*",
-    r"lagstiftning\w*",
+    # `lagstift\w*` OCH INTE `lagstiftning\w*`: varv 2 mätte upp att
+    # `Lagstiftaren` läckte, alltså saknades agentformen. Den kortare stammen
+    # bär båda, och den längre är då en DÖD term som vakterna larmar på.
+    # `\w+`: den nakna stammen `lagstift` är ingen svensk ordform, alltså vore
+    # nollängdsalternativet ett lager som ingen rad kan pröva.
+    r"lagstift\w+",
     r"reglement\w+",
     # `regler` MED SINA EGNA BÖJNINGAR OCH INGA ANDRA. Substantivet `regler`
     # delar sträng både med verbet `reglera` och med sammansättningar där
@@ -335,25 +377,80 @@ FORFATTNINGSTERMER = (
     # inuti en term.
     r"regler\b",
     r"reglerna\b",
+    r"reglernas\b",
     r"reglering\w*",
     r"reglers\b",
     # `regel` behåller sin HÖGERgräns, som `regelbundet` gjorde lastbärande.
+    # **GENITIVFORMEN ÄR EN EGEN TERM för varje bestämd form.** `\blagens\b` och
+    # `reglernas\b` lades till i skiva 34, men `regelns` och `lagarnas` glömdes,
+    # alltså tillämpades egenskapen bara på de instanser fyndet räknade upp.
+    # Båda läckte hela vägen. Fällt av §7-granskningen av skiva 34, varv 1.
     r"regel\b",
     r"regeln\b",
+    r"regelns\b",
     # `lag` ÄR GENUINT TVETYDIGT och behåller därför båda gränserna. `lager`,
     # `underlag`, `uppslaget` och `lagt` fälldes av en gränslös lydelse. Värst av
     # alla är `lagar`: en verkstad LAGAR bilar. Bara den bestämda pluralformen
     # är säker.
     r"\blag\b",
     r"\blagen\b",
+    r"\blagens\b",
     r"\blagarna\b",
+    r"\blagarnas\b",
     r"\blagtext\w*",
-    r"\bvvfs\b",
+    # Fyra stammar som varv 2 mätte upp. **TRE AV DEM BEHÅLLER SIN
+    # VÄNSTERGRÄNS**, eftersom de uppmätta formerna står vid ordets början och
+    # ingen mätt form kräver att gränsen faller. Att släppa en gräns utan en rad
+    # som isolerar den är att bygga ett lager `test_en_SNAVAD_term_tappar_en_rad`
+    # inte kan se, alltså precis den otestbarhet vakterna finns för.
+    #
+    # `lagrum` är dessutom det enda av de fyra där en gränslös lydelse mäts fälla
+    # ett annat ord: `slagrum`. Mätt med `scripts/stamprov.py`.
+    r"\blagenlig\w*",
+    r"\blagändring\w*",
+    r"\blagrum\w*",
+    # **LUCKA 32 ÄR INTE STÄNGD, OCH DET ÄR MÄTT.** Nio former som repots första
+    # lydelse fångade föll bort när vänstergränsen rättades. De nio är åtgärdade
+    # här, liksom varv 1:s fyra och varv 2:s fyra av sex. Men EN ÖPPEN MÄNGD
+    # ÅTERSTÅR, och den går inte att uttrycka som en term.
+    #
+    # **`lag` ÄR GENUINT TVETYDIGT I BÅDA RIKTNINGARNA, och det är hela skälet.**
+    # `lagen\b` utan vänstergräns fäller `uppslagen`, `förslagen`, `avslagen`,
+    # `beslagen` och `utslagen`, och `uppslagen` är vad kedjan GÖR. `\blag\w*`
+    # utan högergräns fäller `lagar`, `lager`, `lagt` och `lagning`, alltså en
+    # verkstads vanligaste verb. Mätt med `scripts/stamprov.py`.
+    #
+    # Mängden bär `lag` i ANDRA ledet (`Vägtrafiklagen`, `Fordonslagen`), i
+    # FÖRSTA ledet (`Lagboken`, `Lagrådet`) och böjningar utanför de vitlistade
+    # (`reglerat`, `måsten`). Den står som LUCKA 39 i `docs/sparrar.md` med de
+    # mätta formerna uppräknade, och uppräkningen är aldrig gränsen.
+    #
+    # Enligt skiva 34:s DEL A: går formen inte att uttrycka som en term lämnas
+    # den öppen och mätt, och inget särfall byggs.
+    #
+    # `lagens` och `reglernas` står som EGNA termer och inte som `\blagen\w*`,
+    # eftersom `lagen` följt av vad som helst öppnar för `lagenlig` och liknande.
+    # Genitivformen är sluten och entydig.
+    #
+    # `laglig` och `lagstadga` är egna stammar, inte böjningar av `lag`, och är
+    # entydiga: inget verkstadsord bär dem.
+    # **VÄNSTERGRÄNSEN FALLER ÄVEN HÄR, och det ledet var inkonsekvent.**
+    # Kommentaren ovan säger att gränsen faller för de entydiga stammarna, och
+    # `laglig` och `lagstadga` beskrevs i samma andetag som entydiga. Ändå
+    # skrevs de med `\b`, alltså läckte `olagligt` och `olagliga` hela vägen
+    # genom `krav_pa_svaret`. Fällt av §7-granskningen av skiva 34, varv 1.
+    r"laglig\w*",
+    # `\w+`: den nakna stammen `lagstadga` är en infinitiv som inte förekommer
+    # i ett verkstadssvar, alltså vore den tomma böjningen ett otestbart lager.
+    # `laglig` och `regelverk` är däremot ord på egen hand och behåller `\w*`.
+    r"lagstadga\w+",
+    r"regelverk\w*",
+    r"\bvvfs\w*",
     r"§",
     r"\bmåste\b",
     r"\bmaste\b",
-    r"\btrafikverket\b",
-    r"\btransportstyrelsen\b",
+    r"\btrafikverket\w*",
+    r"\btransportstyrelsen\w*",
 )
 
 FORFATTNINGSORD = re.compile("|".join(FORFATTNINGSTERMER), flags=re.IGNORECASE)
@@ -483,13 +580,30 @@ def krav_pa_att_troskeln_inte_ar_forfattningstext(svar: str) -> None:
         )
 
 
+def krav_pa_ett_svar(svar: str) -> None:
+    """SPÄRR: ett tomt svar är inget utkast.
+
+    **DE TRE ANDRA SPÄRRARNA SÖKER EFTER SAKER, alltså släpper alla tre igenom
+    en tom sträng.** Följden var att ett tomt modellsvar blev ett godkänt
+    utkast: `blev_utkast` sant, `forslag` tomt, ingen spärr angiven. I vyn blev
+    det ett tomt textfält som gick att omdöma, och ett `forbattra` hade skrivit
+    ett par med en tom förlaga till `data/par.jsonl`, som generatorn läser som
+    få-exempel.
+
+    Uppmätt som en möjlig väg av §7-granskningen av skiva 34, varv 2.
+    """
+    if not svar.strip():
+        raise Sparrfalld("tomt-svar", "modellen svarade ingenting")
+
+
 def krav_pa_svaret(svar: str, forfragan: Forfragan) -> None:
-    """Alla tre spärrarna, i tur och ordning.
+    """Varje spärr på det genererade, i tur och ordning.
 
     **VAR OCH EN FÄLLER FÖR SIG.** Testen fäller dem en i taget och aldrig i par:
     skiva 27 mätte att en sammanslagen fällning ger RÖD och därmed falskt ÄKTA,
     alltså ett belägg för att båda bär när bara den ena gör det.
     """
+    krav_pa_ett_svar(svar)
     krav_pa_tal_med_kalla(svar, forfragan)
     krav_pa_fordonsfakta_ur_uppslag(svar, forfragan)
     krav_pa_att_troskeln_inte_ar_forfattningstext(svar)
@@ -652,12 +766,37 @@ def bygg_prompt(forfragan: Forfragan, exempel: list[dict]) -> str:
     return "\n".join(delar)
 
 
+def _bedomning(forfragan: Forfragan) -> str:
+    """Bedömningsraden, med tre lägen i stället för två.
+
+    **DET TREDJE LÄGET ÄR "INGEN BEDÖMNING GJORDES", och det saknades.** En
+    kategori som inte gatas av fordonsuppslaget har inget utfall, och `None`
+    föll då till samma text som ett MISSLYCKAT uppslag. Följden var att en
+    rekondbokning fick svaret att vi inte kunnat slå upp fordonet. Fällt av
+    kedjans provkörning i skiva 34.
+    """
+    if not forfragan.uppslag_gjordes:
+        return (
+            "ingen fordonsbedömning behövs för den här kategorin. Svara på det "
+            "kunden faktiskt frågar om."
+        )
+    return _utfallstext(forfragan.utfall, forfragan.uppslag is not None)
+
+
 def _underlag(forfragan: Forfragan) -> str:
     """Vad modellen VET, utskrivet. Allt annat är påhitt och faller på spärren."""
     rader = ["UNDERLAG. Detta är allt du vet. Allt annat får du inte påstå.\n"]
     rader.append(f"Kategori: {forfragan.kategori}")
 
-    if forfragan.uppslag is None:
+    if not forfragan.uppslag_gjordes:
+        # KATEGORIN GATAS INTE, alltså gjordes inget uppslag. Att skriva INGET
+        # här hade varit sant men vilselett: modellen svarade då att vi inte
+        # kunnat slå upp bilen, på en fråga som inte handlade om bilen.
+        rader.append(
+            "Fordonsuppslag: EJ AKTUELLT för den här kategorin. Nämn inte "
+            "bilens uppgifter, och säg INTE att vi försökt slå upp något."
+        )
+    elif forfragan.uppslag is None:
         rader.append(
             "Fordonsuppslag: INGET. Du vet ingenting om kundens bil. Nämn inte "
             "tjänstevikt, släpvagnsvikt eller draganordning."
@@ -670,9 +809,7 @@ def _underlag(forfragan: Forfragan) -> str:
             f"draganordning {'ja' if u.draganordning else 'nej'}."
         )
 
-    rader.append(
-        f"Bedömning: {_utfallstext(forfragan.utfall, forfragan.uppslag is not None)}"
-    )
+    rader.append(f"Bedömning: {_bedomning(forfragan)}")
     rader.append("Priser: INGA. Du har inga prisuppgifter alls.\n")
     return "\n".join(rader)
 
@@ -742,7 +879,7 @@ def _utfallstext(utfall: Utfall | None, har_uppslag: bool = True) -> str:
 
 def generera_utkast(klient, forfragan: Forfragan, modell: str = MODELL,
                     exempel: list[dict] | None = None) -> str:
-    """Ett svarsutkast, prövat mot alla tre spärrarna innan det returneras.
+    """Ett svarsutkast, prövat mot varje spärr innan det returneras.
 
     **KASTAR `Sparrfalld` I STÄLLET FÖR ATT RETURNERA EN FÄLLD TEXT.** Anroparen
     får då ett utkast eller ett skäl, aldrig något däremellan, och kan inte råka

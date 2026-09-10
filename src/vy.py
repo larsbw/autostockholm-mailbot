@@ -553,7 +553,9 @@ def rendera_referens(fall: Fall, index: int, antal: int) -> str:
     )
 
 
-def rendera_granskning(fall: Fall, forslag: str, sparr: str = "") -> str:
+def rendera_granskning(
+    fall: Fall, forslag: str, sparr: str = "", index: int = 0
+) -> str:
     """GRANSKNINGSLÄGE: förslag med fyra omdömen.
 
     **EN SPÄRRFÄLLD POST VISAR ALDRIG ETT TEXTFÄLT, oavsett läge.** Beslut av
@@ -564,6 +566,14 @@ def rendera_granskning(fall: Fall, forslag: str, sparr: str = "") -> str:
     annan post av samma kategori.
 
     Vyn ska inte lära handen den rörelsen.
+
+    **`index` MÅSTE MED I FORMULÄRETS `action`, och det ledet är fällt fram.**
+    Första lydelsen postade till `/omdome` utan index, och `_index_ur_vag` ger
+    då 0. Följden: stod Lars på post sju sparades omdömet på post NOLL, och var
+    omdömet `forbattra` skrev `spara_omdome` dessutom ett PAR ihop av FEL KUNDS
+    text och det redigerade svaret. `data/par.jsonl` är det generatorn läser som
+    få-exempel, alltså är det sändväg och inte statistik. Fällt av
+    §7-granskningen av skiva 34, varv 1.
     """
     huvud = (
         SIDHUVUD.format()
@@ -586,7 +596,7 @@ def rendera_granskning(fall: Fall, forslag: str, sparr: str = "") -> str:
         huvud
         + "<h2>Förslag</h2>"
         + f"<div class='mail'>{html.escape(forslag)}</div>"
-        + "<form method='post' action='/omdome'>"
+        + f"<form method='post' action='/omdome/{int(index)}'>"
         + "<textarea name='redigerad'></textarea><p>"
         + "".join(
             f"<button name='omdome' value='{v}'>{v}</button> "
@@ -634,13 +644,52 @@ def _navigering(index: int, antal: int) -> str:
 # ---------------------------------------------------------------- server
 
 
-def bygg_hanterare(fall: list[Fall], parfil: Path = PAR):
+@dataclass
+class Granskningsfall:
+    """Ett fall som kedjan har producerat ett förslag för.
+
+    **`kedja.till_granskningsfall` SÄTTER HÖGST ETT AV `forslag` OCH `sparr`**,
+    eftersom en `Kedjeutfall` bär högst ett av dem. Typen här UPPRÄTTHÅLLER det
+    inte, och det ska inte påstås att den gör det: en direkt konstruktion kan
+    sätta båda eller ingen.
+
+    *Här stod EXAKT ETT. `src/kedja.py` rättades till HÖGST ETT i samma varv,
+    med en kursiv not om att vyn hade skrivits om medan producenten behöll det
+    starkare påståendet. Det var spegelvänt: det var VYN som stod kvar. Fällt av
+    §7-granskningen av skiva 34, varv 3.*
+
+    Det som bär är `rendera_granskning`, som vägrar rendera ett textfält när
+    `sparr` är satt, och `_omdome`, som vägrar spara ett omdöme för en spärrad
+    post. Båda prövar `sparr` och struntar i `forslag`, alltså är en post med
+    båda satta lika säker som en fälld post.
+
+    *Här stod att exakt ett av dem ÄR satt, som om typen garanterade det. Fällt
+    av §7-granskningen av skiva 34, varv 1.*
+    """
+
+    fall: Fall
+    forslag: str = ""
+    sparr: str = ""
+
+
+def bygg_hanterare(
+    fall: list[Fall],
+    parfil: Path = PAR,
+    granskning: list[Granskningsfall] | None = None,
+    omdomesfil: Path = OMDOMEN,
+):
     """HTTP-hanteraren, med fallen inbakade.
 
     Servern binder till localhost i `starta`. Ingen inloggning byggs i den här
     skivan, och det är därför den inte får exponeras: vem som når porten når
     kundtexten.
+
+    **GRANSKNINGSLÄGET FICK SIN RUTT I SKIVA 34.** `rendera_granskning` och
+    `spara_omdome` fanns sedan skiva 27 men inget anropade dem, alltså var
+    granskningsläget en funktion utan väg in. Rutten är `/granskning/N` för att
+    läsa och `/omdome/N` för att spara.
     """
+    granskning = granskning or []
 
     class Hanterare(BaseHTTPRequestHandler):
         def _svara(self, kropp: str, kod: int = 200) -> None:
@@ -652,15 +701,42 @@ def bygg_hanterare(fall: list[Fall], parfil: Path = PAR):
             self.wfile.write(data)
 
         def do_GET(self) -> None:  # noqa: N802
+            if self.path.startswith("/granskning"):
+                self._granskning()
+                return
             if not fall:
                 self._svara(SIDHUVUD.format() + "<p>Inga fall.</p>" + SIDFOT)
                 return
             index = _index_ur_vag(self.path, len(fall))
             self._svara(rendera_referens(fall[index], index, len(fall)))
 
+        def _granskning(self) -> None:
+            if not granskning:
+                self._svara(SIDHUVUD.format() + "<p>Inga förslag.</p>" + SIDFOT)
+                return
+            index = _index_ur_vag(self.path, len(granskning))
+            post = granskning[index]
+            self._svara(
+                rendera_granskning(post.fall, post.forslag, post.sparr, index)
+                + f"<p><a href='/granskning/{index + 1}'>nästa</a></p>"
+            )
+
         def do_POST(self) -> None:  # noqa: N802
             langd = int(self.headers.get("Content-Length") or 0)
             falt = parse_qs(self.rfile.read(langd).decode("utf-8"))
+
+            if self.path.startswith("/omdome"):
+                self._omdome(falt)
+                return
+
+            # EN TOM `fall`-LISTA ÄR ETT RIMLIGT DRIFTLÄGE sedan skiva 34: vyn
+            # kan startas med bara granskningsfall. Utan raden blev varje POST
+            # mot referensrutten en `IndexError` med traceback i stderr, alltså
+            # ett fel som ser ut som en krasch i stället för ett svar.
+            if not fall:
+                self._svara(rendera_fel(ValueError("inga referensfall")), 400)
+                return
+
             index = _index_ur_vag(self.path, len(fall))
             try:
                 spara_referenssvar(
@@ -680,6 +756,59 @@ def bygg_hanterare(fall: list[Fall], parfil: Path = PAR):
                 + SIDFOT
             )
 
+        def _omdome(self, falt: dict) -> None:
+            """Sparar ett omdöme om ett förslag.
+
+            **EN SPÄRRAD POST HAR INGET OMDÖME ATT SPARA.** Renderingen visar
+            inget formulär för den, och den här raden vägrar även om någon
+            postar direkt mot rutten. §9.1: en fälld post är ett stopptecken,
+            och att kunna omdöma den vore att göra förbudet till ett klick.
+            """
+            if not granskning:
+                self._svara(rendera_fel(ValueError("inga förslag")), 400)
+                return
+
+            index = _skrivindex_ur_vag(self.path, len(granskning))
+            if index is None:
+                self._svara(
+                    rendera_fel(ValueError(
+                        "omdömet saknar en entydig post och sparas inte"
+                    )),
+                    400,
+                )
+                return
+
+            post = granskning[index]
+
+            if post.sparr:
+                self._svara(
+                    rendera_fel(ValueError(
+                        f"posten är spärrad av {post.sparr} och har inget omdöme"
+                    )),
+                    400,
+                )
+                return
+
+            try:
+                spara_omdome(
+                    post.fall,
+                    falt.get("omdome", [""])[0],
+                    falt.get("redigerad", [""])[0],
+                    omdomesfil=omdomesfil,
+                    parfil=parfil,
+                )
+            except ValueError as fel:
+                self._svara(rendera_fel(fel), 400)
+                return
+
+            nasta = min(index + 1, len(granskning) - 1)
+            self._svara(
+                SIDHUVUD.format()
+                + "<p>Omdöme sparat.</p>"
+                + f"<p><a href='/granskning/{nasta}'>nästa förslag</a></p>"
+                + SIDFOT
+            )
+
         def log_message(self, *_):  # noqa: D102
             # TYST. Standardloggen skriver sökvägen till stderr, och sökvägen
             # bär ett index och ingen kundtext, men servern ska inte skriva
@@ -690,18 +819,60 @@ def bygg_hanterare(fall: list[Fall], parfil: Path = PAR):
 
 
 def _index_ur_vag(vag: str, antal: int) -> int:
+    """Index för att BLÄDDRA. Klampar, eftersom en bläddring inte skriver."""
     sista = vag.rstrip("/").rsplit("/", 1)[-1]
     if sista.isdigit():
         return max(0, min(int(sista), antal - 1))
     return 0
 
 
-def starta(port: int = 8765, fall: list[Fall] | None = None) -> HTTPServer:
+def _skrivindex_ur_vag(vag: str, antal: int) -> int | None:
+    """Index för att SKRIVA. Klampar aldrig, utan avvisar.
+
+    **ATT KLAMPA ÄR RÄTT FÖR EN BLÄDDRING OCH FEL FÖR EN SKRIVNING**, och den
+    skillnaden är hela poängen med två funktioner. `_index_ur_vag` ger `0` för
+    en väg utan siffra och sista posten för ett för stort tal, alltså skulle ett
+    POST mot `/omdome` utan index tyst spara på post noll och `/omdome/99` tyst
+    spara på den sista. Är omdömet `forbattra` skriver `spara_omdome` dessutom
+    ett PAR till `data/par.jsonl`, som generatorn läser som få-exempel, alltså
+    ett par ihopsatt av FEL KUNDS text.
+
+    Varv 1 fällde att formuläret postade utan index och rättelsen lade index i
+    formulärets `action`. Det botade instansen och lämnade rutten som tog emot
+    den. **Egenskapen är att ingen skrivning får gälla en post som vägen inte
+    entydigt pekar ut**, och den bor här och inte i en `action`-sträng. Fällt av
+    §7-granskningen av skiva 34, varv 2.
+    """
+    # HELA vägen prövas, inte bara sista ledet. Ett `rsplit` hade godtagit
+    # `/omdome/0/../1`, alltså en väg som SER ut att peka på post noll och
+    # skriver på post ett. En skrivande rutt ska bara ta emot den form den
+    # själv genererar.
+    traff = re.fullmatch(r"/omdome/(\d+)", vag.rstrip("/"))
+    if traff is None:
+        return None
+
+    index = int(traff.group(1))
+    return index if 0 <= index < antal else None
+
+
+def starta(
+    port: int = 8765,
+    fall: list[Fall] | None = None,
+    granskning: list[Granskningsfall] | None = None,
+) -> HTTPServer:
     """Startar vyn på localhost.
 
     **SÄNDVÄGSSPÄRREN PRÖVAS HÄR, innan servern tar emot något.** Det är den
     enda platsen som garanterat körs före första begäran.
+
+    **`granskning` ÄR VÄGENS SLUTPUNKT, och den saknades.** Skiva 34 byggde
+    rutten `/granskning/N` men lämnade `starta` utan sätt att fylla den, alltså
+    renderade rutten alltid *"Inga förslag"* och ingen kunde nå ett utkast ur
+    kedjan. Rutten fanns men producenten saknades. Fällt av §7-granskningen av
+    skiva 34, varv 1.
     """
     krav_pa_sandvagsfrihet()
     fall = las_fall() if fall is None else fall
-    return HTTPServer(("127.0.0.1", port), bygg_hanterare(fall))
+    return HTTPServer(
+        ("127.0.0.1", port), bygg_hanterare(fall, granskning=granskning)
+    )

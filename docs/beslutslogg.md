@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.42.0 · **Uppdaterad:** 2026-09-10 · **Implementerar** CLAUDE.md §8
+**Version:** 0.45.0 · **Uppdaterad:** 2026-09-10 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -3560,7 +3560,369 @@ uttryckligen.
 
 ---
 
+## #59 — Skiva 33 godkänns, och DEL B AVVISAS SOM ORDER
+
+**Datum:** 2026-09-10 · **Berör:** #56, #58, lucka 30
+
+**Beslut av Lars i skiva 34.** Skiva 33 är GODKÄND utan DEL B.
+
+**DEL B avvisas som ORDER, inte som misslyckande.** Lars ordalydelse:
+
+> Din egenskap upphäver min instruktion: varje regel som gör en siffra intill
+> bokstäver ofarlig gör också en kvantitet intill bokstäver ofarlig. V50 och
+> ca10 har samma form, och skillnaden ligger i betydelsen.
+
+Det är en ovanlig post: en instruktion dras tillbaka därför att arbetet visade
+att den inte gick att utföra, och inte därför att arbetet var dåligt. Skillnaden
+hör hemma i loggen, så att nästa läsare inte tolkar tre återställda lydelser som
+tre misslyckanden.
+
+---
+
+## #60 — Lucka 30 lämnas MEDVETET öppen. Ett vägt beslut, inte ett förbiseende
+
+**Datum:** 2026-09-10 · **Berör:** lucka 30, `docs/sparrar.md`
+
+**Beslut av Lars i skiva 34.** Ingen egen skiva. Luckan stängs inte.
+
+### Avvägningen, med Lars skäl
+
+| Vad luckan kostar | Vad en åtgärd skulle kosta |
+| --- | --- |
+| Sex av sex fällningar i #57:s mätning är falska positiva | En betydelsebaserad regel, alltså den svåraste sorten |
+| Kostnaden är onödiga `utkast` | Tre lydelser har redan visat att formbaserade regler öppnar hål |
+| Ett svar som faller till `utkast` LÄSER Lars innan det går ut | Skiva 33 visade att varje försök kostade ett helt granskningsvarv |
+
+Lars formulering: **att bygga en betydelsebaserad regel för att slippa läsa sex
+mail är fel avvägning.**
+
+### Varför posten finns
+
+**En lucka som står öppen ser likadan ut vare sig den är avgjord eller
+förbisedd.** `docs/sparrar.md` bär luckor numrerade upp till 39, och utan den här posten
+hade nästa läsare inte kunnat skilja lucka 30 från de som ingen tagit ställning
+till. Posten är själva skillnaden.
+
+**Den säger också vad som INTE är beslutat:** att luckan är billig BERÖR att
+volymen är liten. Skulle a-traktorärendena mångdubblas ändras avvägningen, och då
+är det ett nytt beslut och inte en tillämpning av det här.
+
+---
+
+## #61 — Kedjan kopplad, och den fällde två fel som ingen enhetsprövning såg
+
+**Datum:** 2026-09-10 · **Berör:** `src/kedja.py`, `src/generera.py`,
+`src/vy.py`, `logg/beslut.jsonl`, `docs/roadmap.md`
+
+**Skiva 34 DEL B och C.** Generatorn, fordonsuppslaget och vyn fanns var för sig
+och ingenting anropade något annat. `src/kedja.py` är sömmen:
+
+    mail -> klassificering -> uppslag om a-traktor -> generering -> spärrar
+         -> utkast i vyn
+
+Anroparen skriver därefter en rad i `logg/beslut.jsonl`, med `logga_beslut`
+eller `logga_kallfel`, för VARJE utfall.
+
+*Här stod raden `och en rad i logg/beslut.jsonl oavsett utfall` som ett led i
+skissen. Två fel: `kor` loggar inte själv, utan lämnar det åt anroparen så att
+den går att köra i ett test utan att röra disken, och ett `Kallfel` lämnade
+ingen rad alls, alltså såg ett driftavbrott ut som ett ärende som aldrig kom in.
+`logga_kallfel` tillkom i varv 3. Fällt av §7-granskningen av skiva 34, varv 2.*
+
+**INGEN SÄNDNING.** `vy.krav_pa_sandvagsfrihet("src.kedja")` prövar hela
+importgrafen, elva moduler, och den prövningen är ett test.
+
+### Två fel som bara en KOPPLAD kedja kunde visa
+
+**1. Klassningen anropade PASS 1, upptäcktspasset.** Dess systemprompt säger
+ordagrant *"Använd INGEN lista. Hitta det namn som passar texten."* Varje
+a-traktormail fick därför ett påhittat namn: `offert på a-traktorombyggnad`,
+`konvertera till elbil`, `boka konvertering till epa-traktor`. Inget av dem står
+i taxonomin, alltså **utlöstes fordonsuppslagets grind aldrig**. Tio av tio
+ärenden hoppade över uppslaget.
+
+Produktionsklassningen är `ometikettera.ometikettera_en` med
+`bygg_system_pass2`, som väljer UR taxonomin och svarar `utanför listan` när
+inget passar. Efter bytet gatas a-traktor korrekt, mätt.
+
+**2. En kategori som inte gatas fick ett besked om ett uppslag.** En REKONDBOKNING
+besvarades med *"Vi har inte kunnat slå upp ditt fordon just nu"*. Vi hade inte
+försökt: kategorin gatas inte. `utfall=None` bar två betydelser, MISSLYCKAT och
+ALDRIG GJORT, och den andra saknades.
+
+`Forfragan` bär nu `uppslag_gjordes`, och `_bedomning` har tre lägen i stället för
+två. Förvalet är oförändrat för varje anropare som bara har de två gamla.
+
+**Ingen enhetsprövning kunde ha hittat något av dem.** Båda är fel i SÖMMEN: var
+del gör rätt sak, och felet uppstår i vad de skickar vidare till varandra. Det är
+skälet Lars gav för skivan, och utfallet bekräftar det.
+
+### Skillnaden mellan ett okänt fordon och en källa som är nere
+
+`Kallfel` skiljer dem, och `slag_upp`:s docstring skrev ut varför långt innan
+någon anropade den: en källa som är nere är inte samma sak som ett fordon utan
+uppgifter, och att översätta det ena till det andra gör ett driftavbrott osynligt.
+
+- `UppslagMisslyckades` → kedjan fortsätter, generatorn har ett eget läge.
+- Allt annat → `Kallfel`, kedjan stannar, inget utkast.
+
+### Vyns granskningsläge fick sin rutt
+
+`rendera_granskning` och `spara_omdome` fanns sedan skiva 27 men inget anropade
+dem. Rutten är `/granskning/N` och `/omdome/N`. **En spärrad post vägrar ta emot
+ett omdöme också vid ett direkt anrop mot rutten**, inte bara genom att sakna
+formulär: §9.1, en fälld post är ett stopptecken.
+
+**TRE FEL I RUTTEN, samtliga fällda av §7-granskningen varv 1:**
+
+| Fel | Följd |
+| --- | --- |
+| formuläret postade till `/omdome` utan index | varje omdöme sparades på post NOLL, och `forbattra` skrev ett PAR ihop av FEL KUNDS text |
+| hela rutten var otestad | `grep -rn "Granskningsfall" tests/` gav noll träffar, alltså var spärren mot spärrade poster obunden |
+| rutten hade ingen PRODUCENT | `/granskning/N` renderade alltid *"Inga förslag"*, eftersom inget lämnade en `Kedjeutfall` till vyn |
+
+**Det första är det allvarligaste:** `data/par.jsonl` är det generatorn läser som
+få-exempel, alltså är ett felkopplat par sändväg och inte statistik.
+`kedja.till_granskningsfall` är producenten, och `starta` tar nu emot
+granskningsfall.
+
+---
+
+## #62 — `logg/beslut.jsonl` finns, och den finns FÖRE skuggläget
+
+**Datum:** 2026-09-10 · **Berör:** `src/kedja.py`, `docs/roadmap.md`,
+§0 ramverksregel 4, §6
+
+**Skiva 34 DEL C.** Varje ärende som passerar kedjan loggas: kategori, hink,
+uppslagets utfall, vilken spärr som fällde, och om det blev ett utkast eller föll
+ur. Plus stegen, i ordning.
+
+**`docs/roadmap.md` säger att loggen ÄR underlaget för skuggläget.** Den ska
+alltså finnas innan skuggläget börjar, och det är den nu.
+
+### Två regler som är obrytbara och som binds var för sig
+
+**§0 RAMVERKSREGEL 4: append-only.** Filen öppnas bara i `a`-läge, och
+`test_beslutsloggen_ar_APPEND_ONLY` binder att en andra skrivning inte raderar
+den första. Raden finns därför att skillnaden mot `w` är en bokstav, och den
+bokstaven hade tystat hela underlaget utan att något annat test märkte det.
+
+**§6: ingen persondata.** Raden bär `avsandare_hash` och aldrig en adress, och
+den bär **ALDRIG utkastets text**. Utkastet innehåller kundens namn och
+bilmodell, och en logg som bär det blir en persondatafil som lever kvar. Det som
+loggas är att ett utkast blev till och hur långt det var.
+
+**SPÄRRENS SKÄL LOGGAS INTE, och det ledet är fällt fram.** Första lydelsen
+skrev `Sparrfalld.skal`, som byggs av strängar lyfta ORDAGRANT ur modellens svar.
+Skriver boten ut ett telefonnummer lyder skälet *"talet … kommer varken ur
+uppslaget eller ur config"* med numret inbakat, och `genererat-fordonsfaktum` bär
+på samma sätt ett ord ur utkastet. **Det hade redan hänt i den befintliga loggen
+när granskningen mätte den.**
+
+Det maskinläsbara som skuggläget behöver är VILKEN spärr som fällde, och det står
+i `sparr`. Fällt av §7-granskningen av skiva 34, varv 1.
+
+*Numret står BESKRIVET och inte utskrivet: `persondatakontroll` fällde det
+illustrativa exemplet i den här posten, vilket är precis vad spärren finns för.*
+
+`krav_pa_skrivbar_sokvag` gäller även den här loggen, alltså kan den inte skrivas
+utanför `data/` och `logg/`. **Fällningen av den raden är prövad och lämnade en
+artefakt:** utan spärren skrev testet faktiskt en fil till `src/`, vilket är
+precis vad spärren finns för. Filen togs bort för hand; `scripts/sparr-prova.sh`
+återställer källfilen men inte vad ett test hunnit skapa.
+
+---
+
+## #63 — Lucka 32 stängdes DELVIS, och resten är lucka 39
+
+**Skiva 34, varv 3.** Lucka 32 sades vara STÄNGD två gånger, i varv 1 och varv 2,
+och läckte båda gångerna. **Tredje gången stängs den inte, och det skrivs ut.**
+
+**Egenskapen är densamma hela vägen:** ett författningsord kan vara ANDRA ledet i
+en sammansättning, alltså måste vänstergränsen falla. Varje gång tillämpades den
+bara på de former ett fynd RÄKNADE UPP. Nio former i skiva 32, fyra till i varv 1,
+sex till i varv 2.
+
+**Varv 3 gör tillämpningen mätt i stället för uppräknad.** `scripts/stamprov.py`
+prövar en stam mot `data/par.jsonl` plus testfilernas versala konstanter, och
+därefter mot en handskriven riskordslista. Fyra av varv 2:s sex former gick att
+uttrycka som termer.
+
+*Verktyget prövade först fem stammar och utelämnade sju som faktiskt tappade sin
+vänstergräns i skivan, alltså gällde "mätt" en delmängd av det som ändrades.
+Riskordsprövningen saknades helt, så de två påståenden som citerade verktyget
+citerade det för motsatsen till vad det sade. Båda leden rättade i varv 3, fällda
+av §7-granskningen.*
+
+**RESTEN LÄMNAS ÖPPEN, och den är större än de två former som först skrevs in.**
+Mätt: `lag` läcker som ANDRA led (`Vägtrafiklagen`, `Fordonslagen`,
+`Körkortslagen`, `Ordningslagen`, `Trafikbrottslagen`), som FÖRSTA led
+(`Lagboken`, `Lagförslaget`, `Lagrådet`, `Lagsamlingen`) och i böjningar utanför
+de vitlistade (`reglerat`, `måsten`).
+
+**SKÄLET ÄR ATT `lag` ÄR GENUINT TVETYDIGT I BÅDA RIKTNINGARNA.** `lagen\b` utan
+vänstergräns fäller `uppslagen`, `förslagen`, `avslagen`, `beslagen` och
+`utslagen`, och **`uppslagen` är vad kedjan GÖR**. `\blag\w*` utan högergräns
+fäller `lagar`, `lager`, `lagt` och `lagning`, alltså en verkstads vanligaste
+verb. En spärr blind för sitt eget normalfall är värre än den lucka den stänger.
+
+**EN ENSKILD SAMMANSÄTTNING GÅR ATT SÄTTA**, till exempel `trafiklag\w*`. Det är
+en upprepad uppräkning och stänger inte mängden, och **frågan om den ändå är värd
+priset är Lars.**
+
+*Här stod att EN KLASS återstår, att den är sammansättningar vars andra led är
+`lagen`, att den bär två former, och att `lagen\b` är DEN ENDA lydelse som fångar
+dem. Alla fyra leden var falska. Fällt av §7-granskningen av skiva 34, varv 3,
+som är fjärde varvet i rad där avgränsningen dragits runt det ett fynd råkade
+räkna upp.*
+
+**Det följer Lars order ordagrant.** Skiva 34 DEL A: *"om formerna går att
+uttrycka som termer i en termtupel. Går de inte det: lämna dem öppna och mätta,
+och skriv ut varför. Bygg inget särfall."*
+
+**Luckan är bunden av kod och inte bara av text.** `TROSKEL_LUCKA_39` bär de två
+formerna som `xfail(strict=True)`, alltså blir raden RÖD den dag någon stänger
+luckan och tvingar fram att posten skrivs om.
+
+**EN GRÄNS SLÄPPS BARA NÄR EN RAD ISOLERAR ATT DEN FALLER.** Tre av de fyra nya
+termerna behöll sin vänstergräns, eftersom ingen mätt form krävde att den föll.
+Vakten `test_en_SNAVAD_term_tappar_en_rad` fällde mitt första försök, där jag
+släppte fyra gränser på en gång utan rader som prövade dem. Det är samma
+otestbarhet som lucka 38 handlar om, införd av rättelsen till lucka 32.
+
+---
+
+## #64 — En fjärde spärr: `tomt-svar`
+
+**Skiva 34, varv 3.** De tre befintliga spärrarna SÖKER EFTER SAKER, alltså
+släpper alla tre igenom en tom sträng. Ett tomt modellsvar blev därför ett
+godkänt utkast: `blev_utkast` sant, `forslag` tomt, ingen spärr angiven.
+
+**Kostnaden låg i vyn och i få-exemplen.** Ett tomt förslag renderades med
+textfält, alltså gick det att omdöma, och ett `forbattra` hade skrivit ett par
+med TOM FÖRLAGA till `data/par.jsonl`, som generatorn läser som få-exempel.
+
+Uppmätt som en möjlig väg av §7-granskningen av skiva 34, varv 2, som en följd av
+att påståendet *"exakt ett av `forslag` och `sparr` sätts"* prövades mot källan.
+Påståendet var falskt, och spärren gör det sant.
+
+---
+
+## #65 — Loggen bär också de ärenden som STOPPADES
+
+**Skiva 34, varv 3.** `kor` kastar `Kallfel` när källan sviker, och anroparen
+hoppade vidare. Ett nere-liggande biluppgifter.se lämnade alltså **ingen rad
+alls**, och i skuggläget ser det ut som ett ärende som aldrig kom in.
+
+**Det urholkade #62:s egen motivering.** Loggen ÄR underlaget för skuggläget, och
+skillnaden mellan *källan svek* och *inget ärende* är precis vad `Kallfel`
+byggdes för att bevara: ett felläst fält är inte ett saknat fordon, se #33.
+
+`logga_kallfel` skriver en rad med SAMMA fältuppsättning som en vanlig rad, så att
+skuggläget läser båda med samma kod i stället för att grena på radtyp. `kategori`,
+`hink`, `uppslag` och `sparr` är `None`, och `steg` bär ett enda steg, `källa`.
+
+**§6 GÄLLER DEN NYA RADEN LIKA HÅRT, och första lydelsen bröt mot den.**
+`detalj` bar `str(fel)`, och `Kallfel` byggs av `except Exception` runt
+**ANROPARENS** hämtfunktion, inte av strängar `src/fordonsuppslag.py` äger. En
+`ConnectionError` från requests lyder *"...Max retries exceeded with url:
+/fordon/…"*, alltså bär den ett REGISTRERINGSNUMMER, som §6 namnger som
+persondata och förbjuder i `logg/`.
+
+`Kallfel` bär nu `sort`, undantagets typnamn, och det är vad som loggas.
+Meddelandet finns kvar i undantaget för den som står vid terminalen, där det
+inte persisteras.
+
+*Testet som skulle binda detta asserterade att `arende.text` saknades i loggen.
+`logga_kallfel` läser aldrig `arende.text`, alltså var testet grönt även med
+`detalj` satt till tom sträng: vakuöst enligt §7.1. Båda leden fällda av
+§7-granskningen av skiva 34, varv 3, och rättade.*
+
+Fällt av §7-granskningen av skiva 34, varv 2, som också fällde att modulens
+flödesskiss påstod en rad *oavsett utfall*.
+
+---
+
+## #66 — Skiva 34 STOPPAS efter tre varv. Grinden är förbrukad
+
+**§7:s rad för SÄNDVÄG: tre varv, och vid kvarstående fynd stoppa och rapportera
+öppet.** Varv 1 gav sju blockerande fynd, varv 2 gav åtta, varv 3 gav åtta. Det
+här är inte ett godkännande.
+
+**VAD SOM ÄR RÄTTAT EFTER VARV 3, och skälet är att två regler gäller oberoende
+av grinden:**
+
+- **§6 är en bindande driftregel.** `logga_kallfel` skrev `str(fel)` till
+  `logg/beslut.jsonl`, och det bär ett registreringsnummer när requests kastar.
+  En persondataläcka i kod som körs väntar inte på nästa skiva. Se #65.
+- **§7: ETT KÄNT FALSKT PÅSTÅENDE RÄTTAS ALLTID, på alla tre nivåerna.** Varv 3
+  fällde bland annat fyra påståenden om *"tre spärrar"* efter att en fjärde
+  byggts, varav ett skrevs in i `logg/beslut.jsonl`, och hela motiveringen till
+  lucka 39, som var mätbart falsk. Se #63.
+
+**VAD SOM INTE ÄR RÄTTAT, och skälet är att grinden är förbrukad:**
+
+- **Lucka 40**, att `/referens/N` klampar precis som `/omdome` gjorde. Fixen är
+  känd och liten. Att göra en fjärde självmätt sändvägsändring efter förbrukad
+  grind är vad skiva 27 gjorde, och #53 skriver ut vad det kostade.
+- **Lucka 41**, att ett svar som bara är en hälsningsfras passerar varje spärr.
+- **Lucka 39** stängs inte. `trafiklag\w*` skulle fånga två av formerna, men det
+  är en upprepad uppräkning av en öppen mängd, och den avvägningen är Lars.
+
+**MÖNSTRET SOM BÄR HELA SKIVAN ÄR I10, och det upprepades i varje varv.**
+Egenskapen namngavs rätt och tillämpades på de instanser ett fynd RÄKNADE UPP.
+Lucka 32 i tre varv. `/omdome` rättad medan `/referens` stod kvar. Helprompten
+bunden för generatorn men inte för klassningen. `EXAKT ETT` rättat i en fil
+medan grannfilen bar samma mening.
+
+**Det som faktiskt bröt mönstret var inte en bättre uppräkning utan en MÄTNING**
+som gick att köra om: `scripts/stamprov.py`, regressionstabellen och
+isoleringsvakten. Vakterna fällde mina egna rättelser tre gånger under varv 3.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.45.0 — 2026-09-10
+
+**#66 tillkommer: skiva 34 STOPPAS.** Åtta fynd kvarstår efter tredje varvet, och
+§7:s rad för sändväg säger stoppa och rapportera öppet. Posten skiljer vad som
+rättats ändå, alltså §6-läckan och de kända falskheterna, från vad som lämnas
+öppet som lucka 40 och 41.
+
+**#63 och #65 rättade på plats, båda med kursiv not.** #63:s avgränsning av lucka
+39 var falsk i fyra led, #65:s §6-påstående i två. Båda rättelserna är gjorda mot
+en avläsning och inte mot minnet av fyndet.
+
+Ny post och rättade påståenden ⇒ MINOR.
+
+### 0.44.0 — 2026-09-10
+
+**Tre poster, #63 till #65, ur skiva 34:s tredje granskningsvarv.**
+
+**#63 säger att lucka 32 INTE stängdes**, vilket är en rättelse av vad #61 och
+`docs/sparrar.md` påstod. Två former återstår som lucka 39, öppen och mätt.
+
+**#64 och #65 är två spärrar respektive en logg som varv 2 mätte upp som hål.**
+Båda kom ur att ett PÅSTÅENDE prövades mot källan och visade sig falskt, inte ur
+att någon letade efter buggar. Det är §7.2:s självrapporteringsklausul som
+verkar.
+
+**Rättelser på plats i #60 och #61.** #61:s flödesskiss sade att en rad skrivs
+`oavsett utfall`, vilket var falskt i två led. #60 sade `trettioåtta luckor`,
+ett tal som inte gick att reproducera: filen bär tretton luckor med egen post och
+en numrering som når 39. Båda bär kursiv not respektive är omformulerade till det
+avläsbara.
+
+Nya poster ⇒ MINOR.
+
+### 0.43.0 — 2026-09-10
+
+**#59 till #62 tillkommer.** Skiva 33 godkänd och DEL B avvisad som order. Lucka
+30 lämnas medvetet öppen som ett vägt beslut. Kedjan kopplad, och den fällde två
+sömfel som ingen enhetsprövning kunde se. Beslutsloggen finns före skuggläget.
+
+Fyra nya poster ⇒ MINOR.
 
 ### 0.42.0 — 2026-09-10
 

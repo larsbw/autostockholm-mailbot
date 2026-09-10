@@ -85,6 +85,21 @@ def test_sandvagsspärren_faller_generatorn_om_den_importerar_en_sandvag(tmp_pat
 # ------------------------------------------- SPÄRR 1: tal ska ha en källa
 
 
+@pytest.mark.parametrize("svar", ["", "   ", "\n\n", "\t \n"])
+def test_ett_TOMT_svar_ar_INGET_utkast(svar):
+    """SPÄRR: de tre andra spärrarna SÖKER EFTER SAKER och släpper det tomma.
+
+    Följden var att ett tomt modellsvar blev ett godkänt utkast utan spärr:
+    `blev_utkast` sant och `forslag` tomt. I vyn blev det ett tomt textfält som
+    gick att omdöma, och ett `forbattra` hade skrivit ett par med tom förlaga
+    till `data/par.jsonl`, som generatorn läser som få-exempel.
+    """
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_svaret(svar, forfragan())
+
+    assert fel.value.sparr == "tomt-svar"
+
+
 def test_ett_pris_faller_alltid():
     """PRISER FINNS INTE ÄN, alltså faller varje svar som nämner ett.
 

@@ -801,3 +801,193 @@ def test_obesvarat_fall_far_tomma_falt_och_ingen_pahittad_hash(tmp_path):
 
 def test_urvalet_ar_tomt_utan_etikettfil(tmp_path):
     assert vy.las_fall(tmp_path / "finns-inte.jsonl", tmp_path / "par.jsonl") == []
+
+
+# ------------------------------------------------- GRANSKNINGSLÄGET, skiva 34
+#
+# `rendera_granskning` och `spara_omdome` fanns sedan skiva 27 men INGET
+# anropade dem, alltså var granskningsläget en funktion utan väg in. Skiva 34
+# gav det rutterna `/granskning/N` och `/omdome/N`, och §7-granskningen fällde
+# att hela rutten var otestad: `grep -rn "Granskningsfall" tests/` gav noll.
+
+
+def _granskningsfall(**andrat) -> vy.Granskningsfall:
+    grund = {"fall": ett_fall(), "forslag": "Hej, vi bokar in dig.", "sparr": ""}
+    grund.update(andrat)
+    return vy.Granskningsfall(**grund)
+
+
+class FejkHanterare:
+    """Kör en hanterare utan att binda en port.
+
+    Instansierar INTE `BaseHTTPRequestHandler`, som läser från en socket i sin
+    `__init__`. Metoderna anropas obundna med ett objekt som bär det de rör.
+    """
+
+    def __init__(self, hanterarklass, vag: str, kropp: str = ""):
+        self._klass = hanterarklass
+        self.path = vag
+        self.headers = {"Content-Length": str(len(kropp.encode("utf-8")))}
+        self.rfile = io.BytesIO(kropp.encode("utf-8"))
+        self.svar = ""
+        self.kod = 200
+
+    def _svara(self, kropp: str, kod: int = 200) -> None:
+        self.svar = kropp
+        self.kod = kod
+
+    # De privata hjälparna anropas obundna med fejken som `self`, precis som
+    # `do_GET` och `do_POST`. Utan raderna når anropen inte fram, eftersom
+    # fejken inte ärver hanterarklassen.
+    def _granskning(self) -> None:
+        self._klass._granskning(self)
+
+    def _omdome(self, falt: dict) -> None:
+        self._klass._omdome(self, falt)
+
+    def get(self) -> None:
+        self._klass.do_GET(self)
+
+    def post(self) -> None:
+        self._klass.do_POST(self)
+
+
+def test_granskningsrutten_visar_ratt_post():
+    """Index i vägen ska välja post, inte ignoreras."""
+    poster = [
+        _granskningsfall(fall=ett_fall(text="ETTAN"), forslag="svar ett"),
+        _granskningsfall(fall=ett_fall(text="TVÅAN"), forslag="svar två"),
+    ]
+    hanterare = vy.bygg_hanterare([], granskning=poster)
+
+    fejk = FejkHanterare(hanterare, "/granskning/1")
+    fejk.get()
+
+    assert "TVÅAN" in fejk.svar
+    assert "ETTAN" not in fejk.svar
+
+
+def test_formularet_postar_till_SAMMA_index_som_visas():
+    """§7-granskningen av skiva 34, varv 1: formuläret saknade index.
+
+    **Utan index sparades varje omdöme på post NOLL.** Var omdömet `forbattra`
+    skrev `spara_omdome` dessutom ett PAR ihop av FEL KUNDS text och det
+    redigerade svaret, och `data/par.jsonl` är det generatorn läser som
+    få-exempel. Alltså sändväg, inte statistik.
+    """
+    poster = [_granskningsfall(), _granskningsfall(), _granskningsfall()]
+    hanterare = vy.bygg_hanterare([], granskning=poster)
+
+    fejk = FejkHanterare(hanterare, "/granskning/2")
+    fejk.get()
+
+    assert "action='/omdome/2'" in fejk.svar
+
+
+def test_ett_omdome_sparas_pa_den_post_vagen_pekar_ut(tmp_path, monkeypatch):
+    """Samma fynd, prövat hela vägen genom POST och inte bara i renderingen."""
+    monkeypatch.setattr(vy, "ROT", tmp_path)
+    omdomesfil = tmp_path / "logg" / "omdomen.jsonl"
+    poster = [
+        _granskningsfall(fall=ett_fall(avsandare_hash="a" * 64)),
+        _granskningsfall(fall=ett_fall(avsandare_hash="b" * 64)),
+    ]
+    hanterare = vy.bygg_hanterare(
+        [], granskning=poster, omdomesfil=omdomesfil,
+        parfil=tmp_path / "data" / "par.jsonl",
+    )
+
+    fejk = FejkHanterare(hanterare, "/omdome/1", "omdome=godkann")
+    fejk.post()
+
+    post = json.loads(omdomesfil.read_text(encoding="utf-8"))
+    assert post["avsandare_hash"] == "b" * 64
+
+
+@pytest.mark.parametrize(
+    "vag",
+    [
+        "/omdome",
+        "/omdome/",
+        "/omdome/99",
+        "/omdome/-1",
+        "/omdome/1x",
+        "/omdome/0/../1",
+    ],
+)
+def test_ett_omdome_utan_ENTYDIG_post_sparas_INTE(vag, tmp_path, monkeypatch):
+    """SPÄRR: en skrivning klampar aldrig till en granne.
+
+    Varv 1 fällde att formuläret postade utan index, och rättelsen lade index i
+    formulärets `action`. Den botade instansen. **Rutten som tog emot posten
+    klampade fortfarande**, alltså sparades `/omdome` på post noll och
+    `/omdome/99` på den sista, precis som före rättelsen. Med `forbattra` skrivs
+    då ett par av FEL KUNDS text till `data/par.jsonl`, som generatorn läser.
+    Fällt av §7-granskningen av skiva 34, varv 2.
+    """
+    monkeypatch.setattr(vy, "ROT", tmp_path)
+    omdomesfil = tmp_path / "logg" / "omdomen.jsonl"
+    poster = [
+        _granskningsfall(fall=ett_fall(avsandare_hash="a" * 64)),
+        _granskningsfall(fall=ett_fall(avsandare_hash="b" * 64)),
+    ]
+    hanterare = vy.bygg_hanterare(
+        [], granskning=poster, omdomesfil=omdomesfil,
+        parfil=tmp_path / "data" / "par.jsonl",
+    )
+
+    fejk = FejkHanterare(hanterare, vag, "omdome=godkann")
+    fejk.post()
+
+    assert fejk.kod == 400, f"{vag} togs emot i stället för att avvisas"
+    assert not omdomesfil.exists(), f"{vag} skrev ett omdöme på en gissad post"
+
+
+def test_en_SPARRAD_post_vagrar_ta_emot_ett_omdome(tmp_path, monkeypatch):
+    """SPÄRR: §9.1, en fälld post är ett stopptecken.
+
+    Renderingen visar inget formulär för den, men den här raden gäller ÄVEN ett
+    direkt anrop mot rutten. Utan den vore förbudet bara en sak som inte syns.
+    """
+    monkeypatch.setattr(vy, "ROT", tmp_path)
+    omdomesfil = tmp_path / "logg" / "omdomen.jsonl"
+    poster = [_granskningsfall(forslag="", sparr="genererat-tal-har-kalla")]
+    hanterare = vy.bygg_hanterare(
+        [], granskning=poster, omdomesfil=omdomesfil,
+        parfil=tmp_path / "data" / "par.jsonl",
+    )
+
+    fejk = FejkHanterare(hanterare, "/omdome/0", "omdome=godkann")
+    fejk.post()
+
+    assert fejk.kod == 400
+    assert "spärrad" in fejk.svar
+    assert not omdomesfil.exists(), "inget fick skrivas"
+
+
+def test_en_POST_utan_referensfall_svarar_i_stallet_for_att_krascha():
+    """En tom `fall`-lista är ett rimligt driftläge sedan skiva 34.
+
+    Vyn kan startas med bara granskningsfall, och då blev varje POST mot
+    referensrutten en `IndexError` med traceback i stderr.
+    """
+    hanterare = vy.bygg_hanterare([], granskning=[_granskningsfall()])
+
+    fejk = FejkHanterare(hanterare, "/referens/0", "svar=x&utfall=gront")
+    fejk.post()
+
+    assert fejk.kod == 400
+    assert "inga referensfall" in fejk.svar
+
+
+def test_en_spärrad_post_visar_INGET_formular():
+    """NEGATIVKONTROLL till raden ovan, på renderingssidan."""
+    hanterare = vy.bygg_hanterare(
+        [], granskning=[_granskningsfall(forslag="", sparr="troskeln")]
+    )
+
+    fejk = FejkHanterare(hanterare, "/granskning/0")
+    fejk.get()
+
+    assert "<form" not in fejk.svar
+    assert "<textarea" not in fejk.svar

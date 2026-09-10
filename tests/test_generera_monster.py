@@ -165,6 +165,61 @@ TROSKEL_SKA_FALLA = [
     # lydelse skärpte termen till `\w+` med motiveringen att stammen inte är ett
     # ord, och tappade då den här formen.
     ("Kräv 1 000 kg av bilen.", GRANSBIL),
+    # skiva 34, LUCKA 32: HÖGERGRÄNSEN. Nio former som repots första lydelse
+    # (`927543d`) fångade och som föll bort när VÄNSTERgränsen rättades. Samma
+    # egenskap, andra änden av ordet.
+    #
+    # Raderna bär MEDVETET inget andra författningsord, så att var och en
+    # isolerar sin term.
+    ("Regelverket säger 1 000 kg.", GRANSBIL),
+    ("Transportstyrelsens gräns är 1 000 kg.", GRANSBIL),
+    ("Trafikverkets besked är 1 000 kg.", GRANSBIL),
+    ("Enligt lagens ordalydelse gäller 1 000 kg.", GRANSBIL),
+    ("Det är lagstadgat med 1 000 kg.", GRANSBIL),
+    ("Det är inte lagligt under 1 000 kg.", GRANSBIL),
+    ("Det är påkrävt med 1 000 kg.", GRANSBIL),
+    ("VVFS2003 anger 1 000 kg.", GRANSBIL),
+    ("Dessa reglernas innebörd är 1 000 kg.", GRANSBIL),
+    # Naken stam för de två termer vars grundform ÄR ett ord. Utan dem går
+    # `\w*` att snäva till `\w+` med grön svit, och då tappas just grundformen.
+    ("Bilen är laglig vid 1 000 kg.", GRANSBIL),
+    ("Ett regelverk anger 1 000 kg.", GRANSBIL),
+    # skiva 34, varv 1: FORMER SOM LÄCKTE TROTS ATT LUCKA 32 SADES VARA STÄNGD.
+    #
+    # Egenskapen var namngiven rätt i tre kommentarer och tillämpad bara på de
+    # nio former fyndet räknade upp. `laglig` och `lagstadga` beskrevs som
+    # entydiga men skrevs med vänstergräns, och genitiven lades till för `lagen`
+    # och `reglerna` men inte för `regeln` och `lagarna`.
+    ("Det är olagligt att dra 1 000 kg.", GRANSBIL),
+    ("Olagliga ombyggnader ger 1 000 kg.", GRANSBIL),
+    ("Lagarnas innebörd är 1 000 kg.", GRANSBIL),
+    ("Regelns innebörd är 1 000 kg.", GRANSBIL),
+    # skiva 34, VARV 2: fyra av sex former till, alla av samma klass som varv 1
+    # fällde. Stammen är andra ledet i en sammansättning, alltså måste
+    # vänstergränsen falla. Vilka stammar som TÅL det är mätt med
+    # `scripts/stamprov.py` och inte antaget.
+    #
+    # **DE TVÅ ÅTERSTÅENDE STÅR I `TROSKEL_LUCKA_39` och inte här**, eftersom de
+    # inte gick att uttrycka som en term. Se noten där.
+    ("Det är lagenligt vid 1 000 kg.", GRANSBIL),
+    ("Lagstiftaren anger 1 000 kg.", GRANSBIL),
+    ("Lagändringen anger 1 000 kg.", GRANSBIL),
+    ("Lagrummet anger 1 000 kg.", GRANSBIL),
+    # De NAKNA formerna. `test_en_SNAVAD_term_tappar_en_rad` fällde att
+    # nollängdsdelen i varje `\w*` var oprövad, alltså gick termen att snäva
+    # till `\w+` utan att någon rad slutade matcha. Alla tre är verkliga
+    # svenska ordformer, så lagret ska finnas OCH prövas.
+    ("Ett lagrum anger 1 000 kg.", GRANSBIL),
+    ("Lagändring anger 1 000 kg.", GRANSBIL),
+    ("Ombyggnaden är lagenlig vid 1 000 kg.", GRANSBIL),
+    # skiva 34, LUCKA 33: MASSENHETENS BÖJNINGAR. Fem former som `kilo\w*`
+    # fångade och som föll bort när enheten snävades för att inte fälla
+    # `kilometer`.
+    ("Kravet är tusen kilos.", UTAN_UPPSLAG),
+    ("Kravet är tusen kilot.", UTAN_UPPSLAG),
+    ("Kravet är tusen kilona.", UTAN_UPPSLAG),
+    ("Kravet är tusen kilogrammen.", UTAN_UPPSLAG),
+    ("Kravet är tusen kilogrammet.", UTAN_UPPSLAG),
     ("Kravet är tusentals kilogram.", UTAN_UPPSLAG),
     ("Kravet är tusentals kilon.", UTAN_UPPSLAG),
     ("Kravet är tusentals kg.", GRANSBIL),
@@ -235,6 +290,15 @@ FALLER_PA_TALSPARREN = {
     "Lagen kräver ETTUSEN kilo.",
     "Kravet är ett tusen kilo.",
     "Lagen kräver ett tusen kilogram.",
+    # `VVFS2003` bär ett ÅRTAL, och årtalet har ingen källa. Talspärren fäller
+    # därför raden innan tröskelspärren nås, och raden ska säga det.
+    #
+    # **RADEN BINDER INTE `\w*` PÅ `vvfs`, och det ska inte påstås.** Eftersom
+    # talspärren fäller oavsett vad `FORFATTNINGSORD` innehåller går termen att
+    # snäva tillbaka till `\bvvfs\b` med hela sviten grön, mätt. Det är en
+    # instans av lucka 38: vakterna når termer och optionalitet, inte
+    # ordgränser. Fällt av §7-granskningen av skiva 34, varv 1.
+    "VVFS2003 anger 1 000 kg.",
 }
 
 
@@ -255,6 +319,55 @@ def test_troskelformer_som_ska_falla(svar, fall):
     assert fangad.value.sparr == vantad, (
         f"{svar!r} fälldes av {fangad.value.sparr}, inte av {vantad}"
     )
+
+
+# LUCKA 39: sammansättningar med `lag`, i BÅDA leden. En ÖPPEN och MÄTT lucka,
+# inte en glömd. Skiva 34:s DEL A säger att en form som inte går att uttrycka
+# som en term i termtupeln lämnas öppen och mätt, och att inget särfall byggs.
+#
+# **`lag` ÄR GENUINT TVETYDIGT I BÅDA RIKTNINGARNA.** `lagen\b` utan
+# vänstergräns fäller `uppslagen`, `förslagen`, `avslagen`, `beslagen` och
+# `utslagen`, och `uppslagen` är vad kedjan GÖR. `\blag\w*` utan högergräns
+# fäller `lagar`, `lager`, `lagt` och `lagning`. Varje lydelse som når klassen
+# når också verkstadens egna ord.
+#
+# **UPPRÄKNINGEN NEDAN ÄR DE MÄTTA FORMERNA, ALDRIG GRÄNSEN.** Att lista dem är
+# vad som gör luckan synlig, inte vad som definierar den. Se `docs/sparrar.md`.
+#
+# **RADERNA ÄR `xfail(strict=True)` OCH INTE STRUKNA.** Det är samma val som
+# lucka 24:s rad ovan: en struken rad är en glömd lucka, medan en strikt xfail
+# blir RÖD den dag någon stänger luckan och därmed tvingar fram att noten skrivs
+# om. En kommentar hade inte gjort det.
+#
+# *Här stod två former och att klassen är sammansättningar vars ANDRA led är
+# `lagen`. Klassen bär minst fyra former i FÖRSTA ledet och två böjningsformer
+# till. Fällt av §7-granskningen av skiva 34, varv 3.*
+TROSKEL_LUCKA_39 = [
+    pytest.param(
+        svar,
+        GRANSBIL,
+        marks=pytest.mark.xfail(strict=True, reason=f"lucka 39, {klass}"),
+    )
+    for svar, klass in [
+        ("Vägtrafiklagen anger 1 000 kg.", "lag som andra led"),
+        ("Trafiklagen anger 1 000 kg.", "lag som andra led"),
+        ("Fordonslagen anger 1 000 kg.", "lag som andra led"),
+        ("Körkortslagen anger 1 000 kg.", "lag som andra led"),
+        ("Lagboken anger 1 000 kg.", "lag som första led"),
+        ("Lagförslaget anger 1 000 kg.", "lag som första led"),
+        ("Lagrådet anger 1 000 kg.", "lag som första led"),
+        ("Lagsamlingen anger 1 000 kg.", "lag som första led"),
+        ("Det är reglerat till 1 000 kg.", "böjning utanför vitlistan"),
+        ("Det är ett måsten med 1 000 kg.", "böjning utanför vitlistan"),
+    ]
+]
+
+
+@pytest.mark.parametrize("svar, fall", TROSKEL_LUCKA_39)
+def test_lucka_39_ar_OPPEN_och_MATT(svar, fall):
+    """Formen SKA falla och gör det inte. Luckan är mätt, inte glömd."""
+    with pytest.raises(Sparrfalld):
+        generera.krav_pa_svaret(svar, fall)
 
 
 @pytest.mark.parametrize("svar, fall", TROSKEL_SKA_PASSERA)

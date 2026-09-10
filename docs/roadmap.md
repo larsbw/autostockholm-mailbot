@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.14.0 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §10
+**Version:** 0.15.0 · **Uppdaterad:** 2026-09-10 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -748,6 +748,17 @@ av §7-granskningen av skiva 31, varv 1.*
 och läses. Klassificeringens träffsäkerhet mäts mot verkliga mail, och spärrarnas
 utfall granskas post för post.
 
+**KEDJAN OCH BESLUTSLOGGEN ÄR BYGGDA I SKIVA 34**, se `docs/beslutslogg.md` #61
+och #62. `src/kedja.py` binder ihop klassificering, fordonsuppslag, generering,
+spärrar och vy, och `kedja.logga_beslut` skriver raden. Loggen finns alltså
+FÖRE skuggläget, som fasen kräver.
+
+**`respond.py` FINNS INTE ÄN.** Kedjan tar ETT ärende och anropas i dag av
+`scripts/kedja-prov.py`. Det som återstår för fasen är hämtningen av inkommande
+mail ur brevlådan och en slinga över dem, alltså kopplingen till `src/mine.py`.
+Den kopplingen drar in `googleapiclient` och är därmed det första steg som INTE
+kan ligga under `vyn-har-ingen-sandvag`. Var gränsen ska gå är ett eget beslut.
+
 **Grind:** Lars beslutar att skuggläget upphör, efter att ha läst
 `logg/beslut.jsonl` och funnit klassificeringen och spärrutfallen godtagbara.
 Beslutet fattas per kategori, inte för boten som helhet.
@@ -765,6 +776,19 @@ visat dagsvolymen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.15.0 — 2026-09-10
+
+**Fas 6 bär nu vad som ÄR byggt och vad som återstår.** Skiva 34 kopplade kedjan
+och byggde beslutsloggen, alltså finns fasens underlag före fasen. Det som
+saknas är hämtningen av inkommande mail och en slinga över dem.
+
+**Raden om `vyn-har-ingen-sandvag` är ny och viktig:** kopplingen till
+`src/mine.py` drar in `googleapiclient` och blir det första steget som inte kan
+ligga under den spärren. Var gränsen ska gå skrivs ut som ett eget beslut i
+stället för att avgöras i förbigående.
+
+Ändrad fastext ⇒ MINOR.
 
 ### 0.14.0 — 2026-09-04
 

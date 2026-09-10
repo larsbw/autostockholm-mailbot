@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.11.5 · **Uppdaterad:** 2026-09-10 · **Speglar:** beslutslogg #58
+**Version:** 0.11.8 · **Uppdaterad:** 2026-09-10 · **Speglar:** beslutslogg #66
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -518,6 +518,61 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.11.8 — 2026-09-10
+
+**`Speglar` följer med till beslutslogg #66.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att stopposten lagts till.
+
+**§7:s tre granskningsvarv är OFÖRÄNDRADE.** #66 är en TILLÄMPNING av regeln och
+inte ett undantag: skivan stoppades därför att fynd kvarstod efter tre varv,
+vilket är precis vad tabellens rad för SÄNDVÄG föreskriver. Samma grund som
+0.11.5, som skrev in samma sak om #58.
+
+**§6 OCH §7:s rättelseplikt gäller oberoende av grinden, och posten visar vad
+det betyder i praktiken.** En persondataläcka i kod som körs, och ett känt falskt
+påstående, rättas även när grinden är förbrukad. Det som INTE rättas är
+kvarstående kodfynd, och de står som lucka 40 och 41 i `docs/sparrar.md`.
+
+**§0:s styrdokumentlista är oförändrad.**
+
+Ren synk ⇒ PATCH.
+
+### 0.11.7 — 2026-09-10
+
+**`Speglar` följer med till beslutslogg #65.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 34:s varv 3 lagt till tre
+poster.
+
+**§0:s styrdokumentlista är oförändrad.** Varvet skapade `scripts/stamprov.py`,
+alltså ett mätverktyg och inget styrdokument. Samma grund som 0.8.2 och 0.8.6: en
+mätning som bär ett styrdokuments påstående ska gå att räkna om, och §9 kräver
+att den ligger i ett committat skript.
+
+**Ingen regel i det här dokumentet är ändrad.** #63 lämnar en lucka öppen enligt
+en order som redan gäller, #64 är en spärr och #65 en loggrad.
+
+Ren synk ⇒ PATCH.
+
+### 0.11.6 — 2026-09-10
+
+**`Speglar` följer med till beslutslogg #62.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 34:s fyra poster lagts till.
+
+**§0:s styrdokumentlista är oförändrad.** Skiva 34 skapade `src/kedja.py`,
+`tests/test_kedja.py` och `scripts/kedja-prov.py`, alltså kod, test och ett
+provverktyg. Inget styrdokument.
+
+**§0:s RAMVERKSREGEL 4 fick sin första verkställande kod.** `logg/beslut.jsonl`
+har funnits i regeltexten sedan repots början och skrivs nu av
+`kedja.logga_beslut`, som bara öppnar filen i `a`-läge och binds av
+`test_beslutsloggen_ar_APPEND_ONLY`. Regeln är oförändrad; det som ändrats är
+att något faktiskt lyder den.
+
+**Ingen regel i det här dokumentet är ändrad.** #59 drar tillbaka en order, #60
+avgör en lucka, #61 och #62 är kod.
+
+Ren synk ⇒ PATCH.
 
 ### 0.11.5 — 2026-09-10
 
