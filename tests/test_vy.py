@@ -400,21 +400,26 @@ def test_servern_binder_bara_loopback():
         server.server_close()
 
 
-def test_starta_LAMNAR_VIDARE_varningen_till_hanteraren():
+def test_starta_LAMNAR_VIDARE_uppslagskallan_till_hanteraren():
     """`starta` är den enda vägen in i vyn för en körning, alltså den som räknas.
 
     Renderingen och `bygg_hanterare` prövas var för sig ovan. Utan den här raden
-    gick argumentet att strypa i `starta` med grön svit, alltså var det sista
-    ledet i genomkopplingen oprövat och varningen hade tyst försvunnit.
+    gick fältet att strypa i `starta` med grön svit, alltså var det sista ledet i
+    genomkopplingen oprövat och härkomsten hade tyst försvunnit.
+
+    *Raden hette `..._varningen_...` och prövade en `varning` över hela vyn. Den
+    parametern är struken i skiva 36: den kunde inte säga vilken post den gällde,
+    och när den skarpa källan kopplades in blev den dessutom utan producent.
+    Härkomsten bor nu per post.*
     """
     server = vy.starta(
-        port=0, fall=[], granskning=[_granskningsfall()],
-        varning="UPPSLAGET ÄR EN FIXTUR.",
+        port=0, fall=[],
+        granskning=[_granskningsfall(uppslagskalla="Uppslag mot biluppgifter.se")],
     )
     try:
         fejk = FejkHanterare(server.RequestHandlerClass, "/granskning/0")
         fejk.get()
-        assert "UPPSLAGET ÄR EN FIXTUR." in fejk.svar
+        assert "Uppslag mot biluppgifter.se" in fejk.svar
     finally:
         server.server_close()
 
@@ -618,7 +623,7 @@ def test_varje_strangparameter_till_renderarna_escapas():
     # Att uppräkningen inte tystnade. Blir `hoppa` någon gång för bred, eller
     # ändras signaturerna, ska testet falla i stället för att pröva noll
     # parametrar och rapportera grönt.
-    assert provade == ["forslag", "sparr", "varning"]
+    assert provade == ["forslag", "sparr", "uppslagskalla"]
 
 
 def test_felmeddelandet_escapas_innan_det_reflekteras():
@@ -994,6 +999,15 @@ def test_en_SPARRAD_post_vagrar_ta_emot_ett_omdome(tmp_path, monkeypatch):
         "/referens/1x",
         "/referens/0/../1",
         "/",
+        # LUCKA 42, skiva 36. De fyra formerna stod DOKUMENTERADE som avvisade i
+        # `src/vy.py` utan att någon rad band dem. En framtida `re.IGNORECASE`
+        # eller en urldekodning av `self.path` hade passerat med grön svit.
+        # Ett dokumenterat "detta sker inte" utan rad är samma sorts hål som ett
+        # vakuöst spärrtest, bara ett steg tidigare.
+        "/REFERENS/1",
+        "/referens/1?x=1",
+        "/referens/%31",
+        "/referens//1",
     ],
 )
 def test_ett_REFERENSSVAR_utan_ENTYDIG_post_sparas_INTE(vag, tmp_path, monkeypatch):
@@ -1056,43 +1070,109 @@ def test_ett_REFERENSSVAR_med_entydig_post_sparas(vag, tmp_path, monkeypatch):
     assert post["avsandare_hash"] == "b" * 64
 
 
-def test_en_VARNING_syns_i_granskningsvyn():
-    """Ett fixturuppslag ska synas DÄR utkastet läses, inte bara i stdout.
+def test_sparade_granskningsfall_kommer_tillbaka_ORORDA(tmp_path, monkeypatch):
+    """DEL D: samma utkast efter en omstart, inte ett nytt.
+
+    Ett referenssvar skrivet mot ett utkast som aldrig kommer tillbaka är inte
+    kopplat till något. Raden binder att varje fält överlever rundturen.
+    """
+    monkeypatch.setattr(vy, "ROT", tmp_path)
+    fil = tmp_path / "data" / "granskningsfall.jsonl"
+    fore = [
+        _granskningsfall(forslag="Hej, det löser vi.",
+                         uppslagskalla="Uppslag mot biluppgifter.se: lyckades"),
+        _granskningsfall(forslag="", sparr="genererat-tal-har-kalla",
+                         uppslagskalla="Inget uppslag: mailet bär inget regnr"),
+    ]
+
+    vy.spara_granskningsfall(fore, fil)
+    efter = vy.las_granskningsfall(fil)
+
+    assert efter == fore
+
+
+def test_en_ny_korning_ERSATTER_de_gamla_fallen(tmp_path, monkeypatch):
+    """Filen är ingen logg. Skärmen ersätts, den växer inte.
+
+    Raden finns för att skilja den här filen från `logg/beslut.jsonl`, som är
+    append-only enligt §0:s ramverksregel 4. Blandas de ihop får vyn dubbletter
+    ur två körningar och Lars läser samma mail två gånger.
+    """
+    monkeypatch.setattr(vy, "ROT", tmp_path)
+    fil = tmp_path / "data" / "granskningsfall.jsonl"
+
+    vy.spara_granskningsfall([_granskningsfall(), _granskningsfall()], fil)
+    vy.spara_granskningsfall([_granskningsfall(forslag="ny")], fil)
+
+    kvar = vy.las_granskningsfall(fil)
+    assert len(kvar) == 1
+    assert kvar[0].forslag == "ny"
+
+
+def test_granskningsfall_VAGRAR_skrivas_utanfor_data_och_logg(tmp_path, monkeypatch):
+    """SPÄRR: filen bär rå kundtext OCH utkastets text.
+
+    Samma spärr som `spara_referenssvar` vilar på. Skulle sökvägen peka i repot
+    hamnade kundtext i en katalog som pushas.
+    """
+    monkeypatch.setattr(vy, "ROT", tmp_path)
+
+    with pytest.raises(vy.Skrivfel):
+        vy.spara_granskningsfall([_granskningsfall()], tmp_path / "src" / "x.jsonl")
+
+
+def test_las_granskningsfall_utan_fil_ger_TOM_LISTA(tmp_path):
+    """Vyn svarar "Inga förslag" i båda fallen, alltså skiljs de inte åt."""
+    assert vy.las_granskningsfall(tmp_path / "finns" / "inte.jsonl") == []
+
+
+def test_uppslagskallan_syns_FORE_utkastet_i_granskningsvyn():
+    """Härkomsten ska synas DÄR utkastet läses, inte bara i stdout.
 
     Ett utkast som lyder *"Tjänstevikten är 980 kg"* ser ut som avläst
-    fordonsdata. `kedja-prov.py` bygger de talen ur registreringsnumrets sista
-    siffra, alltså är de påhitt om en verklig kunds bil. Terminalen rullar
-    vidare, men sidan lever kvar i en flik.
+    fordonsdata. Kommer talet ur `kedja-prov.py`:s fixtur är det ett påhitt om en
+    verklig kunds bil. Terminalen rullar vidare, men sidan lever kvar i en flik.
+
+    *Raden hette `test_en_VARNING_syns_i_granskningsvyn` och argumenterade om en
+    `varning` över hela vyn. Den parametern är struken ur hela repot, och kroppen
+    prövar härkomstraden. §7.1: döp om det till vad det faktiskt bevisar. Fällt
+    av §7-granskningen av skiva 36, varv 2.*
     """
     sida = vy.rendera_granskning(
-        ett_fall(), "Hej, ett förslag.", varning="UPPSLAGET ÄR EN FIXTUR."
+        ett_fall(), "Hej, ett förslag.",
+        uppslagskalla="Uppslag mot FIXTUR, konstruerad ur regnr: lyckades",
     )
 
-    assert "UPPSLAGET ÄR EN FIXTUR." in sida
-    assert "class='fixtur'" in sida
+    assert "FIXTUR" in sida
+    assert "class='kalla'" in sida
+    # HÄRKOMSTEN STÅR FÖRE UTKASTET. Läsaren ska veta vad talen är värda innan
+    # hen läser dem, inte efteråt.
+    assert sida.index("class='kalla'") < sida.index("Hej, ett förslag.")
 
 
-def test_utan_varning_ritas_ingen_ruta():
-    """NEGATIVKONTROLL: en tom varning får inte ge en tom gul ruta."""
+def test_utan_uppslagskalla_ritas_ingen_ruta():
+    """NEGATIVKONTROLL: ett tomt fält får inte ge en tom blå ruta."""
     sida = vy.rendera_granskning(ett_fall(), "Hej, ett förslag.")
 
-    assert "class='fixtur'" not in sida
+    assert "class='kalla'" not in sida
 
 
-def test_varningen_nar_hela_vagen_genom_bygg_hanterare():
+def test_uppslagskallan_nar_hela_vagen_genom_bygg_hanterare():
     """Raden ovan prövar renderingen. Den här prövar att den KOPPLAS in.
 
-    Utan den gick `varning` att strypa i `bygg_hanterare` med grön svit, alltså
-    var själva genomkopplingen oprövad.
+    Utan den gick fältet att strypa i `bygg_hanterare` med grön svit, alltså var
+    själva genomkopplingen oprövad. Fältet kommer ur POSTEN och inte ur ett
+    argument, vilket är skillnaden mot skiva 35:s `varning`: en post kan inte
+    glömmas bort för en enskild rendering.
     """
     hanterare = vy.bygg_hanterare(
-        [], granskning=[_granskningsfall()], varning="UPPSLAGET ÄR EN FIXTUR."
+        [], granskning=[_granskningsfall(uppslagskalla="Inget uppslag gjordes")]
     )
 
     fejk = FejkHanterare(hanterare, "/granskning/0")
     fejk.get()
 
-    assert "UPPSLAGET ÄR EN FIXTUR." in fejk.svar
+    assert "Inget uppslag gjordes" in fejk.svar
 
 
 def test_en_POST_utan_referensfall_svarar_i_stallet_for_att_krascha():

@@ -514,12 +514,59 @@ def _tillatna_tal(forfragan: Forfragan) -> set[str]:
         tillatna.add(str(forfragan.uppslag.tjanstevikt_kg))
         tillatna.add(str(forfragan.uppslag.slapvagnsvikt_kg))
 
+    # **BARA VÄRDENA, ALDRIG KOMMENTARERNA.** Raden läste tidigare hela filen
+    # och plockade tal ur `json.dumps(data)`. Skiva 36 gav `config/fakta.json`
+    # två kommentarnycklar som nämner `§7.2` och `§10`, och därmed blev 7 och 10
+    # TILLÅTNA TAL i ett utgående mail: "vi hör av oss inom 10 dagar" passerade
+    # spärren, uppmätt. Det bryter §0:s ramverksregel 3, som är obrytbar.
+    #
+    # En kommentar i en konfigurationsfil får aldrig kunna vidga en sändvägsspärr.
+    #
+    # **FÖRSTA RÄTTELSEN STÄNGDE BARA TOPPNIVÅN, och det räckte inte.** Den
+    # filtrerade `_`-nycklar och dumpade sedan hela dicten, alltså gick både
+    # NYCKELNAMN och NÄSTLADE kommentarer vidare: `{"ledtid_14_dagar": ...}` gav
+    # 14, och `{"a": {"_om": "se §7.2"}}` gav 7. Fällt av §7-granskningen av
+    # skiva 36, varv 2.
+    #
+    # `_varden_ur` plockar VÄRDEN och aldrig nycklar, hela vägen ned.
     for fil in (PRISER, FAKTA):
-        if fil.exists():
-            data = json.loads(fil.read_text(encoding="utf-8"))
-            tillatna.update(_tal_i(json.dumps(data, ensure_ascii=False)))
+        for varde in _varden_ur(las_konfig(fil)):
+            tillatna.update(_tal_i(varde))
 
     return tillatna
+
+
+def _varden_ur(data: object) -> list[str]:
+    """Varje VÄRDE i en konfigurationsstruktur, som text. Aldrig en nyckel.
+
+    **DEN HÄR FUNKTIONEN ÄR SÄNDVÄG.** Allt den returnerar blir tal boten får
+    skriva i ett kundmail, se `_tillatna_tal`.
+
+    Går ned genom dictar och listor. **`_`-nycklar hoppas över på VARJE nivå**,
+    inte bara den översta: en kommentar en nivå ned är lika mycket en kommentar.
+    Nyckelnamnen släpps aldrig igenom alls, eftersom ett namn är en etikett och
+    inte en avläsning: `ledtid_14_dagar` är inte en källa för talet 14.
+    """
+    if isinstance(data, dict):
+        varden = []
+        for namn, varde in data.items():
+            if str(namn).startswith("_"):
+                continue
+            varden.extend(_varden_ur(varde))
+        return varden
+
+    # **LISTGRENEN ÄR DEN SOM `config/priser.json` MEST SANNOLIKT BEHÖVER.** Ett
+    # prisregister per tjänst är en lista av objekt i JSON, och utan den här
+    # grenen faller listan igenom till `str(data)` nedan, alltså till REPR:EN av
+    # listan med varje nästlad `_`-kommentar inbakad. Då är hålet tillbaka.
+    if isinstance(data, (list, tuple)):
+        varden = []
+        for post in data:
+            varden.extend(_varden_ur(post))
+        return varden
+
+    text = str(data).strip()
+    return [text] if text else []
 
 
 def krav_pa_tal_med_kalla(svar: str, forfragan: Forfragan) -> None:
@@ -712,6 +759,20 @@ def _duger_som_exempel(par: dict) -> bool:
     return not FORBJUDNA_PRONOMEN.search(ut_text)
 
 
+# BOKNINGSBESKEDET, som promptregel 10 vilar på. Står som egen konstant för att
+# gå att binda ORDAGRANT, precis som `SYSTEM`. En ordlista över förbjudna ord
+# fångar de ord någon råkade tänka på; en likhet fångar varje ändring.
+#
+# **DET HÄR ÄR ETT PÅSTÅENDE OM AUTO STOCKHOLM, och rätt hemvist är
+# `config/fakta.json`.** Att det står här och inte där är en känd avvikelse, se
+# LUCKA 43 i `docs/sparrar.md`: filen är ett §10-stopp och Lars order gällde att
+# SKAPA den, inte att fylla den. Att flytta raden dit är hans beslut.
+BOKNINGSBESKED = (
+    "Bokningar: vi tar emot bokningar löpande och kommer överens om tid "
+    "med kunden. Du får bekräfta att det går att lösa. Du får INTE ange "
+    "någon tid, vecka, månad eller ledtid: den bestäms i kontakten."
+)
+
 SYSTEM = """Du skriver svarsutkast åt Auto Stockholm, en fristående verkstad i \
 Stockholm som bygger om bilar till a-traktor.
 
@@ -725,8 +786,7 @@ eller skriv om meningen.
 3. Skriv aldrig "friverkstad". Skriv "fristående verkstad".
 4. Nämn aldrig en konkurrent.
 5. ALDRIG ETT PRIS. Inte ett belopp, inte ett ungefärligt pris, inte "ring för \
-offert". Om kunden frågar vad det kostar: säg att en kollega återkommer med \
-prisuppgift.
+offert". Om kunden frågar vad det kostar: säg att VI återkommer med prisuppgift.
 6. ALDRIG ETT TAL som inte står i underlaget nedan. Inga vikter, inga ledtider, \
 inga antal du inte fått.
 7. Återge aldrig en lagtext eller en föreskrift sammanfattad. Säg inte att något \
@@ -734,6 +794,16 @@ inga antal du inte fått.
 8. Påstå aldrig något om vad Auto Stockholm har, erbjuder eller innehåller \
 utöver det som står i underlaget nedan. Inte vår hemsida, inte våra öppettider, \
 inte vårt lager, inte våra tjänster.
+9. INGA KOLLEGOR. Vi är en liten verkstad utan en organisation att hänvisa \
+vidare till. Skriv aldrig "en kollega", "vår tekniker", "vår säljare" eller \
+"en av våra". Det är VI som återkommer, VI som tittar på bilen, VI som hör av \
+oss.
+10. EN BOKNINGSFÖRFRÅGAN BESVARAS MED JA. Frågar kunden om vi kan ta emot bilen \
+en viss månad eller vecka, så svarar vi att det löser vi och ber dem höra av \
+sig så bestämmer vi tid. Hänvisa inte vidare och be dem inte återkomma senare.
+11. FRÅGA ALDRIG EFTER UPPGIFTER SOM REDAN STÅR I MAILET. Läs mailet först. \
+Står registreringsnumret där, fråga inte efter det. Frågan är rimlig bara när \
+uppgiften saknas.
 
 Skriv kort, konkret och vänligt. Svara på det kunden faktiskt frågar."""
 
@@ -810,8 +880,106 @@ def _underlag(forfragan: Forfragan) -> str:
         )
 
     rader.append(f"Bedömning: {_bedomning(forfragan)}")
-    rader.append("Priser: INGA. Du har inga prisuppgifter alls.\n")
+    rader.append("Priser: INGA. Du har inga prisuppgifter alls.")
+    # **BOKNINGSBESKEDET STÅR I UNDERLAGET, inte bara i regel 10.** Regel 8
+    # förbjuder påståenden om vad Auto Stockholm erbjuder UTÖVER underlaget, och
+    # att vi kan ta emot en bil i juni är ett sådant påstående. Regel 10 beordrar
+    # det. Motsägelsen löses genom att beskedet blir UNDERLAG, alltså något
+    # modellen VET, i stället för att två regler drar åt olika håll.
+    #
+    # Raden lovar en ÖVERENSKOMMELSE och FÖRBJUDER uttryckligen en tidsangivelse.
+    # Fällt av §7-granskningen av skiva 36, varv 1.
+    #
+    # *Här stod "ingen månad, ingen vecka och inget datum står här". Orden står
+    # bokstavligen i `BOKNINGSBESKED`, i förbudsledet. Meningen rättades i
+    # `docs/beslutslogg.md` #73 medan den stod kvar HÄR, alltså i sändvägskoden,
+    # känt falsk. Fällt av §7-granskningen av skiva 36, varv 3.*
+    rader.append(BOKNINGSBESKED)
+    rader.append(_faktarader())
     return "\n".join(rader)
+
+
+def las_konfig(fil: Path) -> object:
+    """En konfigurationsfils RÅA innehåll, eller `{}` om filen saknas.
+
+    Filtrerar ingenting. Det gör `_varden_ur` och `las_konfigvarden`, som är de
+    två som bär olika krav: sändvägens tal respektive promptens fakta.
+    """
+    if not fil.exists():
+        return {}
+
+    return json.loads(fil.read_text(encoding="utf-8"))
+
+
+def las_konfigvarden(fil: Path) -> dict:
+    """En konfigurationsfils VÄRDEN på toppnivå, utan kommentarer och tomma.
+
+    Används av `_faktarader` för att skriva ut fakta i prompten, alltså för det
+    modellen får LÄSA. Sändvägens tal går en annan väg, `_varden_ur`, som går
+    ned genom hela strukturen. **De två har olika krav och ska inte slås ihop:**
+    prompten vill ha namn och värde i par, spärren vill ha varje värde var det
+    än ligger.
+
+    **NYCKLAR SOM BÖRJAR MED `_` ÄR KOMMENTARER** och tas bort. JSON saknar
+    kommentarssyntax, och filerna behöver förklara för Lars vad de betyder,
+    eftersom han är den enda som får fylla dem (§10). En kommentar ska inte
+    hamna i prompten som ett faktum om oss.
+
+    *Här stod att kommentarernas tal annars blir TILLÅTNA TAL, med skiva 36:s
+    mätning som belägg. Den historien tillhör `_varden_ur`: den här funktionen
+    ligger inte på talspärrens väg och rör bara `config/fakta.json`. Ett
+    påstående lånat från grannfunktionen. Fällt av §7-granskningen av skiva 36,
+    varv 3.*
+
+    **ETT TOMT VÄRDE ÄR INTE ETT VÄRDE.** Det utelämnas, alltså når det aldrig
+    prompten och räknas aldrig som källa. Skillnaden mot att sakna nyckeln är
+    noll med flit: §0:s ramverksregel 3 säger att ett tal läses ur källa eller
+    utelämnas, och en tom sträng är inte en avläsning.
+
+    **EN FIL MED GILTIG JSON AV FEL TYP GER TOMT**, i stället för
+    `AttributeError`: en lista på toppnivån gör att inga fakta finns, vilket är
+    den säkra riktningen.
+
+    *Formuleringen sade först "en trasig konfigfil", vilket är bredare än koden.
+    Syntaktiskt trasig JSON kastar fortfarande `JSONDecodeError` ur `las_konfig`
+    och stoppar genereringen. Det är avsiktligt: en fil som inte går att tolka
+    är ett driftfel som ska synas, inte ett tomt faktaunderlag. Fällt av
+    §7-granskningen av skiva 36, varv 3.*
+    """
+    data = las_konfig(fil)
+    if not isinstance(data, dict):
+        return {}
+
+    return {n: v for n, v in data.items()
+            if not str(n).startswith("_") and str(v).strip()}
+
+
+def las_fakta(faktafil: Path | None = None) -> dict:
+    """`config/fakta.json`:s värden. Se `las_konfigvarden`."""
+    return las_konfigvarden(faktafil or FAKTA)
+
+
+def _faktarader(faktafil: Path | None = None) -> str:
+    """Fakta om oss som FÅR nämnas, eller beskedet att inga finns.
+
+    Raden skrivs ut i BÅDA fallen. Att tiga när filen är tom hade lämnat
+    modellen att gissa om den får skriva ett telefonnummer, och den åttonde
+    promptregeln säger att den inte får påstå något om oss utöver underlaget.
+    Här står det uttryckligen.
+    """
+    fakta = las_fakta(faktafil)
+    if not fakta:
+        return (
+            "Fakta om oss: INGA. Du har inget telefonnummer, inga öppettider "
+            "och inga ledtider. Skriv 'ring oss' eller 'hör av dig' utan "
+            "nummer, aldrig ett påhittat nummer.\n"
+        )
+
+    rader = "\n".join(f"  {namn}: {varde}" for namn, varde in fakta.items())
+    return (
+        "Fakta om oss, avlästa ur config/fakta.json. Dessa FÅR du skriva, "
+        f"ordagrant och oförändrade:\n{rader}\n"
+    )
 
 
 def _utfallstext(utfall: Utfall | None, har_uppslag: bool = True) -> str:

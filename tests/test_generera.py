@@ -85,6 +85,228 @@ def test_sandvagsspärren_faller_generatorn_om_den_importerar_en_sandvag(tmp_pat
 # ------------------------------------------- SPÄRR 1: tal ska ha en källa
 
 
+def test_UNDERLAGET_bar_faktaraden(tmp_path, monkeypatch):
+    """Att `_faktarader` finns räcker inte. Den ska KOPPLAS IN i underlaget.
+
+    **DETTA ÄR SAMMA HÅL SOM SKIVAN SJÄLV NAMNGAV FÖR `uppslagskalla`**, och det
+    lämnades öppet för DEL C i samma skiva: hela raden
+    `rader.append(_faktarader())` gick att radera med full svit grön, alltså band
+    de andra testen funktionens INNEHÅLL men aldrig att prompten får det.
+    `docs/incidentlogg.md` I10. Fällt av §7-granskningen av skiva 36, varv 1.
+    """
+    fil = tmp_path / "fakta.json"
+    fil.write_text('{"telefon": "08-000 00 00"}', encoding="utf-8")
+    monkeypatch.setattr(generera, "FAKTA", fil)
+
+    underlag = generera._underlag(forfragan())
+
+    assert "08-000 00 00" in underlag
+    assert "Fakta om oss" in underlag
+
+
+def test_UNDERLAGET_bar_bokningsbeskedet_som_REGEL_10_vilar_pa():
+    """Regel 10 beordrar det regel 8 förbjuder, om beskedet inte är underlag.
+
+    Regel 8: *"Påstå aldrig något om vad Auto Stockholm har, erbjuder eller
+    innehåller utöver det som står i underlaget nedan."* Regel 10: *"svarar vi
+    att det löser vi."* Att vi kan ta emot en bil är ett påstående om vad vi
+    erbjuder, alltså måste det STÅ i underlaget. Fällt av §7-granskningen av
+    skiva 36, varv 1.
+
+    **RADEN BINDS ORDAGRANT, och det ledet är fällt fram.** Första lydelsen
+    prövade en ORDLISTA, `("vecka ", "juni", "dagar", "månader")`, och den var
+    vakuös: raden gick att byta mot *"Vi har plats redan i mars, säg det till
+    kunden"* med hela testfilen grön. Listan var dessutom grön bara av ett
+    kommatecken, eftersom raden faktiskt innehåller `vecka,` och `månad `.
+
+    Samma form som `test_HELA_systemprompten_ar_bunden`: en ordlista fångar de
+    ord någon råkade tänka på, en likhet fångar varje ändring. Fällt av
+    §7-granskningen av skiva 36, varv 2.
+    """
+    underlag = generera._underlag(forfragan())
+
+    assert generera.BOKNINGSBESKED in underlag
+    assert generera.BOKNINGSBESKED == (
+        "Bokningar: vi tar emot bokningar löpande och kommer överens om tid "
+        "med kunden. Du får bekräfta att det går att lösa. Du får INTE ange "
+        "någon tid, vecka, månad eller ledtid: den bestäms i kontakten."
+    )
+
+
+def test_UNDERLAGET_sager_ifran_nar_fakta_SAKNAS(tmp_path, monkeypatch):
+    """Att tiga hade lämnat modellen att gissa om den får skriva ett nummer."""
+    monkeypatch.setattr(generera, "FAKTA", tmp_path / "finns-inte.json")
+
+    underlag = generera._underlag(forfragan())
+
+    assert "Fakta om oss: INGA" in underlag
+    assert "aldrig ett påhittat nummer" in underlag
+
+
+@pytest.mark.parametrize("filnamn", ["PRISER", "FAKTA"])
+def test_ett_NYCKELNAMN_ar_ALDRIG_en_talkalla(filnamn, tmp_path, monkeypatch):
+    """SPÄRR: ett namn är en etikett, inte en avläsning.
+
+    Första rättelsen filtrerade `_`-nycklar och dumpade sedan hela dicten, alltså
+    gick NYCKELNAMNEN med: `{"ledtid_14_dagar": ...}` gjorde 14 till ett tal
+    boten får skriva. Fällt av §7-granskningen av skiva 36, varv 2.
+
+    **BÅDA KONFIGFILERNA PRÖVAS.** `config/priser.json` hade ingen enda rad, och
+    det är den fil som mest sannolikt blir nästlad: ett prisregister per tjänst
+    är den naturliga formen.
+    """
+    fil = tmp_path / "konfig.json"
+    fil.write_text('{"ledtid_14_dagar": "snabbt"}', encoding="utf-8")
+    monkeypatch.setattr(generera, filnamn, fil)
+
+    assert "14" not in generera._tillatna_tal(forfragan())
+
+
+@pytest.mark.parametrize("filnamn", ["PRISER", "FAKTA"])
+def test_en_NASTLAD_kommentar_vidgar_ALDRIG_talsparren(filnamn, tmp_path, monkeypatch):
+    """SPÄRR: en kommentar en nivå ned är lika mycket en kommentar.
+
+    Första rättelsen prövade `_`-prefixet bara på toppnivån, alltså återuppstod
+    hålet ett steg ned. Fällt av §7-granskningen av skiva 36, varv 2.
+    """
+    fil = tmp_path / "konfig.json"
+    fil.write_text(
+        '{"a-traktor": {"_om": "se §7.2 och §10", "pris": 25000}}', encoding="utf-8"
+    )
+    monkeypatch.setattr(generera, filnamn, fil)
+
+    tillatna = generera._tillatna_tal(forfragan())
+
+    assert "7" not in tillatna
+    assert "10" not in tillatna
+    # NEGATIVKONTROLL i samma rad: det nästlade VÄRDET ska fortfarande fram.
+    assert "25000" in tillatna
+
+
+@pytest.mark.parametrize("filnamn", ["PRISER", "FAKTA"])
+def test_en_KOMMENTAR_i_en_LISTA_vidgar_ALDRIG_talsparren(filnamn, tmp_path, monkeypatch):
+    """SPÄRR: listgrenen i `_varden_ur`, som var OBUNDEN.
+
+    **`config/priser.json` BLIR MED STÖRSTA SANNOLIKHET EN LISTA** av objekt, ett
+    per tjänst. Utan listgrenen faller listan igenom till `str(data)`, alltså till
+    REPR:EN med varje nästlad `_`-kommentar inbakad, och hålet från varv 1 är
+    tillbaka en nivå djupare.
+
+    Grenen fungerade men ingen rad band den: fälld ensam var hela sviten grön,
+    alltså vakuös enligt §7.1. Fällt av §7-granskningen av skiva 36, varv 3.
+    """
+    fil = tmp_path / "konfig.json"
+    fil.write_text(
+        '{"tjanster": [{"_om": "se §7.2 och §10", "pris": 25000}]}',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(generera, filnamn, fil)
+
+    tillatna = generera._tillatna_tal(forfragan())
+
+    assert "7" not in tillatna
+    assert "10" not in tillatna
+    assert "25000" in tillatna
+
+
+def test_giltig_JSON_av_FEL_TYP_ger_INGA_fakta_i_stallet_for_krasch(tmp_path, monkeypatch):
+    """En fil som inte är ett objekt på toppnivån ska inte stoppa genereringen.
+
+    `las_konfigvarden` gjorde `data.items()` rakt av, alltså `AttributeError` på
+    en lista. Den säkra riktningen är att inga fakta finns.
+
+    *Raden hette `test_en_TRASIG_konfigfil_...`, vilket är bredare än vad den
+    prövar: syntaktiskt trasig JSON kastar fortfarande, och det är avsiktligt.
+    §7.1: döp om det till vad det faktiskt bevisar. Fällt av §7-granskningen av
+    skiva 36, varv 3.*
+    """
+    fil = tmp_path / "konfig.json"
+    fil.write_text('["en lista", 42]', encoding="utf-8")
+    monkeypatch.setattr(generera, "FAKTA", fil)
+
+    assert generera.las_fakta() == {}
+    assert "Fakta om oss: INGA" in generera._underlag(forfragan())
+
+
+def test_en_KOMMENTAR_i_konfig_vidgar_ALDRIG_talsparren(tmp_path, monkeypatch):
+    """SPÄRR: §0:s ramverksregel 3. En kommentar är ingen källa.
+
+    **DEN HÄR RADEN BÄR EN UPPMÄTT DEFEKT.** `config/fakta.json` fick i skiva 36
+    två kommentarnycklar som nämner `§7.2` och `CLAUDE.md §10`. `_tillatna_tal`
+    läste hela filen och plockade tal ur den, alltså blev 7 och 10 TILLÅTNA TAL:
+    *"vi hör av oss inom 10 dagar"* passerade spärren och hade kunnat gå till en
+    kund. Fällt av §7-granskningen av skiva 36, varv 1.
+    """
+    fil = tmp_path / "fakta.json"
+    fil.write_text(
+        '{"_om": "se §7.2 och CLAUDE.md §10", "telefon": ""}', encoding="utf-8"
+    )
+    monkeypatch.setattr(generera, "FAKTA", fil)
+
+    tillatna = generera._tillatna_tal(forfragan())
+
+    assert "7" not in tillatna
+    assert "10" not in tillatna
+
+    with pytest.raises(Sparrfalld):
+        generera.krav_pa_tal_med_kalla("Vi hör av oss inom 10 dagar.", forfragan())
+
+
+def test_ett_IFYLLT_konfigvarde_ger_FORTFARANDE_sitt_tal(tmp_path, monkeypatch):
+    """NEGATIVKONTROLL: filtret får inte stänga av källan.
+
+    Utan raden vore "returnera alltid tomt" en grön lösning på raden ovan, och
+    då hade Lars kunnat fylla filen utan att talet blev skrivbart.
+    """
+    fil = tmp_path / "fakta.json"
+    fil.write_text('{"_om": "kommentar", "ledtid_dagar": 14}', encoding="utf-8")
+    monkeypatch.setattr(generera, "FAKTA", fil)
+
+    assert "14" in generera._tillatna_tal(forfragan())
+
+
+def test_ett_TOMT_telefonvarde_nar_ALDRIG_prompten(tmp_path):
+    """SPÄRR: ett tomt värde är inte en avläsning.
+
+    `config/fakta.json` skapades i skiva 36 med `telefon: ""`, och Lars fyller
+    värdet. Fram till dess får modellen inte veta något nummer, alltså kan den
+    inte skriva ett. §0:s ramverksregel 3.
+    """
+    fil = tmp_path / "fakta.json"
+    fil.write_text('{"_om": "kommentar", "telefon": "   "}', encoding="utf-8")
+
+    assert generera.las_fakta(fil) == {}
+    assert "INGA" in generera._faktarader(fil)
+    assert "kommentar" not in generera._faktarader(fil)
+
+
+def test_ett_IFYLLT_telefonvarde_nar_prompten_ORDAGRANT(tmp_path):
+    """NEGATIVKONTROLL: fylls filen ska värdet fram, oförändrat.
+
+    Utan raden vore "returnera alltid tomt" en grön lösning, och Lars skulle
+    fylla filen utan verkan.
+    """
+    fil = tmp_path / "fakta.json"
+    fil.write_text('{"telefon": "08-000 00 00"}', encoding="utf-8")
+
+    rader = generera._faktarader(fil)
+    assert "08-000 00 00" in rader
+    assert "INGA" not in rader
+
+
+def test_faktafilen_i_repot_har_TOM_telefon():
+    """Binder att jag inte fyllt i ett nummer åt Lars.
+
+    §10 gör `config/fakta.json` till ett uttryckligt stopp. Skiva 36 skapade
+    filen på Lars order; att FYLLA den är hans beslut och inte mitt. Raden blir
+    röd den dag någon sätter ett värde, och då ska den dagen vara Lars val.
+    """
+    data = json.loads(generera.FAKTA.read_text(encoding="utf-8"))
+
+    assert data["telefon"] == "", "ett värde är infört utan Lars beslut"
+    assert generera.las_fakta() == {}
+
+
 @pytest.mark.parametrize("svar", ["", "   ", "\n\n", "\t \n"])
 def test_ett_TOMT_svar_ar_INGET_utkast(svar):
     """SPÄRR: de tre andra spärrarna SÖKER EFTER SAKER och släpper det tomma.
@@ -779,8 +1001,10 @@ REGLER_I_PROMPTEN = {
        "eller skriv om meningen.",
     3: 'Skriv aldrig "friverkstad". Skriv "fristående verkstad".',
     4: "Nämn aldrig en konkurrent.",
+    # SKIVA 36: "en kollega" är struket. Regeln var SJÄLV källan till formen
+    # regel 9 nu förbjuder, alltså föreskrev prompten det Lars invände mot.
     5: "ALDRIG ETT PRIS. Inte ett belopp, inte ett ungefärligt pris, inte "
-       '"ring för offert". Om kunden frågar vad det kostar: säg att en kollega '
+       '"ring för offert". Om kunden frågar vad det kostar: säg att VI '
        "återkommer med prisuppgift.",
     6: "ALDRIG ETT TAL som inte står i underlaget nedan. Inga vikter, inga "
        "ledtider, inga antal du inte fått.",
@@ -793,6 +1017,20 @@ REGLER_I_PROMPTEN = {
     8: "Påstå aldrig något om vad Auto Stockholm har, erbjuder eller innehåller "
        "utöver det som står i underlaget nedan. Inte vår hemsida, inte våra "
        "öppettider, inte vårt lager, inte våra tjänster.",
+    # SKIVA 36, LARS TRE INVÄNDNINGAR PÅ UTKASTEN I VYN. Alla tre är RÖST och
+    # inte fakta, alltså kunde ingen spärr fånga dem: ett svar som hänvisar till
+    # en kollega bryter mot ingen regel om tal eller fordonsfakta.
+    9: "INGA KOLLEGOR. Vi är en liten verkstad utan en organisation att hänvisa "
+       'vidare till. Skriv aldrig "en kollega", "vår tekniker", "vår säljare" '
+       'eller "en av våra". Det är VI som återkommer, VI som tittar på bilen, '
+       "VI som hör av oss.",
+    10: "EN BOKNINGSFÖRFRÅGAN BESVARAS MED JA. Frågar kunden om vi kan ta emot "
+        "bilen en viss månad eller vecka, så svarar vi att det löser vi och ber "
+        "dem höra av sig så bestämmer vi tid. Hänvisa inte vidare och be dem "
+        "inte återkomma senare.",
+    11: "FRÅGA ALDRIG EFTER UPPGIFTER SOM REDAN STÅR I MAILET. Läs mailet "
+        "först. Står registreringsnumret där, fråga inte efter det. Frågan är "
+        "rimlig bara när uppgiften saknas.",
 }
 
 

@@ -46,6 +46,12 @@ OMETIKETTERADE = ROT / "data" / "ometiketterade.jsonl"
 PAR = ROT / "data" / "par.jsonl"
 OMDOMEN = ROT / "logg" / "omdomen.jsonl"
 
+# GRANSKNINGSFALLEN, alltså utkasten vyn visar. Ligger i `data/` och INTE i
+# `logg/`, av två skäl som pekar åt samma håll: skiva 34 beslutade att
+# `logg/beslut.jsonl` aldrig bär utkastets text (#62), och `data/` är
+# gitignorerad och bär redan `par.jsonl` med rå kundtext.
+GRANSKNINGSFALL = ROT / "data" / "granskningsfall.jsonl"
+
 # Kategorierna vyn visar. DEL C i skiva 27: Lars ska kunna välja fall som täcker
 # de fyra utfallen, och a-traktor är den enda ärendetyp fas 4.5 gatar.
 A_TRAKTORETIKETTER = (
@@ -519,7 +525,7 @@ SIDHUVUD = """<!doctype html>
  .mail {{ background: #f6f6f6; padding: 1rem; white-space: pre-wrap; }}
  .etikett {{ color: #555; }}
  .sparr {{ background: #fee; border-left: 4px solid #c00; padding: 1rem; }}
- .fixtur {{ background: #ffd; border-left: 4px solid #a80; padding: .6rem 1rem; }}
+ .kalla {{ background: #eef; border-left: 4px solid #66a; padding: .6rem 1rem; }}
  textarea {{ width: 100%; height: 12rem; }}
  nav a {{ margin-right: 1rem; }}
 </style></head><body>
@@ -555,18 +561,22 @@ def rendera_referens(fall: Fall, index: int, antal: int) -> str:
 
 
 def rendera_granskning(
-    fall: Fall, forslag: str, sparr: str = "", index: int = 0, varning: str = ""
+    fall: Fall, forslag: str, sparr: str = "", index: int = 0,
+    uppslagskalla: str = "",
 ) -> str:
     """GRANSKNINGSLÄGE: förslag med fyra omdömen.
 
-    **`varning` SÄTTS NÄR UPPSLAGET INTE ÄR ÄKTA, och den raden är inte kosmetik.**
-    Ett utkast som lyder *"Tjänstevikten är 980 kg"* ser ut som avläst
-    fordonsdata. Kommer talet ur `kedja-prov.py`:s fixtur, som svarar utifrån
-    registreringsnumrets sista siffra, är det ett PÅHITT om en verklig kunds bil.
-    Skriptet skriver ut det i terminalen, men vyn är det Lars läser, och en
-    varning som bara står i stdout är ingen varning när sidan lever kvar i en
-    flik. Utan raden är skillnaden mellan fixtur och källa osynlig just där den
-    spelar roll.
+    **`uppslagskalla` ÄR INTE KOSMETIK.** Ett utkast som lyder *"Tjänstevikten är
+    980 kg"* ser ut som avläst fordonsdata. Kommer talet ur `kedja-prov.py`:s
+    fixtur, som svarar utifrån registreringsnumrets sista siffra, är det ett
+    PÅHITT om en verklig kunds bil. Skriptet skriver ut källan i terminalen, men
+    vyn är det Lars läser, och en varning som bara står i stdout är ingen varning
+    när sidan lever kvar i en flik.
+
+    *Skiva 35 satte i stället en `varning` över HELA vyn. Den kunde varken säga
+    vilken post den gällde eller skilja ett skarpt uppslag från ett uteblivet,
+    och när skiva 36 kopplade in den skarpa källan blev den dessutom utan
+    producent. Parametern är struken, och raden bor per post.*
 
     **EN SPÄRRFÄLLD POST VISAR ALDRIG ETT TEXTFÄLT, oavsett läge.** Beslut av
     Lars, `docs/beslutslogg.md` #40. §9.1 väger tyngre än bekvämligheten att
@@ -587,7 +597,10 @@ def rendera_granskning(
     """
     huvud = (
         SIDHUVUD.format()
-        + (f"<p class='fixtur'>{html.escape(varning)}</p>" if varning else "")
+        # HÄRKOMSTEN STÅR FÖRE MAILET, alltså före utkastet, och inte i en fot.
+        # Läsaren ska veta vad talen är värda innan hen läser dem.
+        + (f"<p class='kalla'>{html.escape(uppslagskalla)}</p>"
+           if uppslagskalla else "")
         + f"<p class='etikett'>{html.escape(fall.etikett)}</p>"
         + f"<div class='mail'>{html.escape(fall.text)}</div>"
     )
@@ -681,6 +694,84 @@ class Granskningsfall:
     fall: Fall
     forslag: str = ""
     sparr: str = ""
+    # HÄRKOMSTEN PER POST, inte per körning. Skiva 35 satte en varning på hela
+    # vyn, och den var trubbig av två skäl: den sade inte VILKEN post den gällde,
+    # och den kunde inte skilja ett skarpt uppslag från ett uteblivet. Lars
+    # invändning i skiva 36 var att en post spärrades i stället för att slås upp,
+    # alltså är det just den skillnaden som ska synas där utkastet läses.
+    uppslagskalla: str = ""
+
+
+def spara_granskningsfall(fall: list[Granskningsfall],
+                          fil: Path | None = None) -> Path:
+    """Skriver granskningsfallen så att vyn kan visa samma utkast igen.
+
+    **ERSÄTTER FILEN, till skillnad från vyns andra skrivningar.**
+
+    *Här stod "enda stället i repot som gör det". Obelagt och falskt: `grep -rn
+    "open(\"w\"\\|write_text" src scripts` ger flera träffar, bland andra
+    `src/mine.py` och `src/kategorisera.py`. §7.2 namnger "den enda" som en form
+    med full bevisbörda. Fällt av §7-granskningen av skiva 36, varv 3.*
+    `logg/beslut.jsonl` är append-only enligt §0:s ramverksregel 4, men det här
+    är ingen logg: det är den uppsättning fall vyn visar just nu. En körning
+    ersätter föregående körnings fall, precis som skärmen ersätts.
+
+    **SKÄLET ATT FILEN FINNS.** Varje omstart av vyn körde tidigare om tjugo
+    API-anrop och gav ANDRA utkast. Ett referenssvar skrivet mot ett utkast som
+    aldrig kommer tillbaka är inte kopplat till något. Beslut av Lars i skiva 36.
+
+    §6: filen bär rå kundtext och utkastets text, alltså hör den hemma under
+    `data/`, som är gitignorerad. `krav_pa_skrivbar_sokvag` binder det.
+    """
+    mal = fil or GRANSKNINGSFALL
+    krav_pa_skrivbar_sokvag(mal)
+
+    mal.parent.mkdir(parents=True, exist_ok=True)
+    with mal.open("w", encoding="utf-8") as ut:
+        for post in fall:
+            ut.write(json.dumps({
+                "etikett": post.fall.etikett,
+                "kalla": post.fall.kalla,
+                "text": post.fall.text,
+                "tidsstampel": post.fall.tidsstampel,
+                "avsandare_hash": post.fall.avsandare_hash,
+                "forslag": post.forslag,
+                "sparr": post.sparr,
+                "uppslagskalla": post.uppslagskalla,
+            }, ensure_ascii=False) + "\n")
+
+    return mal
+
+
+def las_granskningsfall(fil: Path | None = None) -> list[Granskningsfall]:
+    """Sparade granskningsfall, eller en tom lista om filen saknas.
+
+    Tom lista och ingen fil är samma sak för vyn, som svarar *"Inga förslag"* i
+    båda fallen. Att skilja dem åt hade krävt ett felläge som ingen kan åtgärda
+    på annat sätt än att köra kedjan.
+    """
+    kalla = fil or GRANSKNINGSFALL
+    if not kalla.exists():
+        return []
+
+    fall = []
+    for rad in kalla.read_text(encoding="utf-8").splitlines():
+        if not rad.strip():
+            continue
+        post = json.loads(rad)
+        fall.append(Granskningsfall(
+            fall=Fall(
+                etikett=post["etikett"],
+                kalla=post["kalla"],
+                text=post["text"],
+                tidsstampel=post["tidsstampel"],
+                avsandare_hash=post["avsandare_hash"],
+            ),
+            forslag=post.get("forslag", ""),
+            sparr=post.get("sparr", ""),
+            uppslagskalla=post.get("uppslagskalla", ""),
+        ))
+    return fall
 
 
 def bygg_hanterare(
@@ -688,7 +779,6 @@ def bygg_hanterare(
     parfil: Path = PAR,
     granskning: list[Granskningsfall] | None = None,
     omdomesfil: Path = OMDOMEN,
-    varning: str = "",
 ):
     """HTTP-hanteraren, med fallen inbakade.
 
@@ -730,7 +820,7 @@ def bygg_hanterare(
             post = granskning[index]
             self._svara(
                 rendera_granskning(post.fall, post.forslag, post.sparr, index,
-                                   varning=varning)
+                                   uppslagskalla=post.uppslagskalla)
                 + f"<p><a href='/granskning/{index + 1}'>nästa</a></p>"
             )
 
@@ -901,7 +991,6 @@ def starta(
     port: int = 8765,
     fall: list[Fall] | None = None,
     granskning: list[Granskningsfall] | None = None,
-    varning: str = "",
 ) -> HTTPServer:
     """Startar vyn på localhost.
 
@@ -918,5 +1007,5 @@ def starta(
     fall = las_fall() if fall is None else fall
     return HTTPServer(
         ("127.0.0.1", port),
-        bygg_hanterare(fall, granskning=granskning, varning=varning),
+        bygg_hanterare(fall, granskning=granskning),
     )

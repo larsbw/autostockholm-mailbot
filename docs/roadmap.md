@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.15.0 · **Uppdaterad:** 2026-09-10 · **Implementerar** CLAUDE.md §10
+**Version:** 0.15.1 · **Uppdaterad:** 2026-09-10 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -722,8 +722,12 @@ svaret följa frågan. `config/sparrar.yaml` finns fortfarande inte.
 
 **Vad som ÅTERSTÅR i fasen:**
 
-- `config/priser.json` och `config/fakta.json`, båda §10-stopp och alltså Lars
-  att upprätta.
+- `config/priser.json`, ett §10-stopp och alltså Lars att upprätta.
+- `config/fakta.json` FINNS sedan skiva 36, men är TOM: `telefon` har ett tomt
+  värde. Filen är skapad på Lars order, och att FYLLA den är hans beslut. Ett
+  tomt värde når aldrig prompten, alltså kan boten inte skriva numret.
+  `test_faktafilen_i_repot_har_TOM_telefon` binder det. Se
+  `docs/beslutslogg.md` #74.
 - `config/sparrar.yaml`, som fasen kräver och som fortfarande inte finns.
 - Mallarna ur Lars referenssvar i vyn, se fas 5.5. Generatorn använder paren som
   få-exempel och bygger inga mallar.
@@ -776,6 +780,21 @@ visat dagsvolymen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.15.1 — 2026-09-10
+
+**Fas 5:s ÅTERSTÅR-lista sade att `config/fakta.json` var kvar att upprätta.**
+Filen skapades i skiva 36 på Lars order, se `docs/beslutslogg.md` #74, alltså var
+raden känt falsk i den lista Lars läser för att veta vad som återstår.
+
+Raden är delad: `config/priser.json` återstår, `config/fakta.json` finns men är
+TOM. Skillnaden är hela poängen, eftersom ett tomt värde aldrig når prompten.
+
+**Fasbeskrivningen och grindregeln är oförändrade.** Att filerna UPPRÄTTAS i
+fasen är fortfarande sant, och att varje ändring i dem är ett §10-stopp gäller
+oförändrat.
+
+Rättat påstående ⇒ PATCH.
 
 ### 0.15.0 — 2026-09-10
 

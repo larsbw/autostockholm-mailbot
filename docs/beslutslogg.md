@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.47.0 · **Uppdaterad:** 2026-09-10 · **Implementerar** CLAUDE.md §8
+**Version:** 0.49.0 · **Uppdaterad:** 2026-09-10 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -4021,7 +4021,326 @@ lucka 40 fick i skiva 34, se #53.
 
 ---
 
+## #71 — Skiva 35 GODKÄND. Lucka 42 rättad
+
+**Lars beslut i skiva 36 DEL 0.** Skiva 35 godkänd som levererad, trots #70:s
+stopp. Godkännandet gäller en enskild skiva och är inte en ändring av §7, samma
+form som #67.
+
+**LUCKA 42 RÄTTAD.** Fyra rader i den befintliga parametriseringen, alltså exakt
+den åtgärd `docs/sparrar.md` skrev ut när luckan registrerades. Varje rad är
+prövad mot den framtida ändring den finns för, en i taget:
+
+| Rad | Fällning som gör den RÖD |
+| --- | --- |
+| `/REFERENS/1` | `re.IGNORECASE` i mönstret |
+| `/referens/%31` | `unquote` runt vägen |
+| `/referens/1?x=1` | `re.match` i stället för `re.fullmatch` |
+| `/referens//1` | `/+` i stället för `/` |
+
+**Ett dokumenterat "detta sker inte" utan rad är samma sorts hål som ett vakuöst
+spärrtest, bara ett steg tidigare.**
+
+---
+
+## #72 — Fixturen ut, biluppgifter.se in. Härkomsten står PER POST
+
+**Beslut av Lars i skiva 36 DEL A.** Vyn körde mot en fixtur som konstruerade
+vikter ur registreringsnumrets sista siffra. `_hamta_sidan` finns sedan skiva 29,
+och den skarpa begäran i skiva 30 gav status 200, se #44 och #48.
+
+**DETTA FÖRKLARAR TRE AV LARS INVÄNDNINGAR PÅ UTKASTEN.** Svaret *"det beror på
+vilken årsmodell"* är modellen som fabulerar en ursäkt för att den saknar fakta.
+En post spärrades av `genererat-tal-har-kalla` i stället för att slås upp.
+**Spärren var rätt; uppslaget uteblev.**
+
+**TAKTEN ÄR EN EGENSKAP OCH INTE EN BIEFFEKT.** `bygg_skarp_kalla` pausar mellan
+anropen. Modellanropen mellan uppslagen ger redan flera sekunder, men det är en
+bieffekt av vilken modell som körs, och byts den mot en snabbare försvinner
+pausen. Tjugo begäranden i följd mot en sida som inte är vår är något annat än en.
+
+**FIXTUREN ÄR KVAR SOM `--fixtur`, och det är inte lathet.** Den når `källan är
+nere` och `okänt fordon` på beställning, och de vägarna går inte att framkalla
+mot en källa som fungerar. `src.kedja` skiljer dem åt med flit, se #33.
+
+**DEN GULA RADEN ÄR ERSATT AV EN RAD PER POST.** Skiva 35:s varning gällde hela
+vyn och kunde varken säga vilken post den avsåg eller skilja ett skarpt uppslag
+från ett uteblivet. **`Granskningsfall.uppslagskalla` skiljer fyra GRENAR, och
+källan är en egenskap TVÄRS över dem:**
+
+| Gren | Vad raden säger |
+| --- | --- |
+| inget uppslag gjordes | kategorin gatar det inte |
+| misslyckades, inget regnr i mailet | vikter i utkastet saknar källa |
+| misslyckades, regnr fanns | uppslaget föll, med skälet |
+| lyckades | utfallet, grönt till rött |
+
+`biluppgifter.se` eller `FIXTUR` skrivs ut i de två sista grenarna, alltså där en
+källa faktiskt användes. Raden står FÖRE utkastet: läsaren ska veta vad talen är
+värda innan hen läser dem.
+
+*Här räknades "skarpt uppslag, fixturuppslag, uppslag som MISSLYCKADES, och mail
+UTAN registreringsnummer" som fyra fall. Uppräkningen utelämnade grenen INGET
+UPPSLAG GJORDES, som utlöses för varje icke-a-traktorärende, och blandade
+källan, som är ortogonal, med grenarna. Fällt av §7-granskningen av skiva 36,
+varv 1.*
+
+**`varning`-parametern är STRUKEN.** Den blev utan producent när härkomsten
+flyttade till posten, och en rutt utan producent är precis den defekt skiva 34
+fälldes för. §3: orphans som mina egna ändringar skapar städas.
+
+---
+
+## #73 — Rösten: tre regler ur Lars läsning av utkasten
+
+**Beslut av Lars i skiva 36 DEL B.** Tre invändningar, alla RÖST och inte fakta,
+alltså kunde ingen spärr fånga dem: ett svar som hänvisar till en kollega bryter
+mot ingen regel om tal eller fordonsfakta.
+
+**9. INGA KOLLEGOR.** Matte driver verkstaden själv. *"En kollega återkommer"*
+hittar på en organisation som inte finns. **Regel 5 var SJÄLV källan till formen**
+och föreskrev ordagrant *"säg att en kollega återkommer med prisuppgift"*, alltså
+följde modellen prompten. Regel 5 säger nu VI.
+
+**10. EN BOKNINGSFÖRFRÅGAN BESVARAS MED JA.** En kund som frågar om vi kan ta
+emot bilen i juni ska få ja, inte en hänvisning.
+
+**REGEL 10 BEORDRADE DET REGEL 8 FÖRBJUDER, och det ledet är fällt fram.** Regel
+8 säger *"Påstå aldrig något om vad Auto Stockholm har, erbjuder eller innehåller
+utöver det som står i underlaget nedan"*, och att vi kan ta emot en bil är ett
+sådant påstående. Underlaget bar det inte. Motsägelsen är löst genom att
+bokningsbeskedet blev UNDERLAG, alltså något modellen VET, i stället för att två
+regler drar åt olika håll. Raden lovar en ÖVERENSKOMMELSE och FÖRBJUDER
+uttryckligen en tidsangivelse. Fällt av §7-granskningen av skiva 36, varv 1.
+
+*Här stod att "ingen månad, ingen vecka och inget datum står där". Orden "vecka"
+och "månad" står bokstavligen i raden, i förbudsledet. Meningen var skriven mot
+avsikten och inte mot filen. Fällt av §7-granskningen av skiva 36, varv 2.*
+
+**RADEN ÄR ETT PÅSTÅENDE OM OSS SOM BOR I KOD, och det är en känd avvikelse.**
+Rätt hemvist är `config/fakta.json`, som är ett §10-stopp. Lars order gällde att
+SKAPA filen, inte att fylla den, alltså vore ett påstående där ett kringgående av
+stoppet. Registrerad som LUCKA 43 i `docs/sparrar.md`, och att flytta raden dit
+är Lars beslut. Uppmätt av §7-granskningen av skiva 36, varv 2.
+
+**11. FRÅGA INTE EFTER UPPGIFTER SOM REDAN STÅR I MAILET.** Formulärmailen bär
+fältraden `Registreringsnummer:` med ett icke-tomt värde i 78 av 78, och värdet
+tolkas som ett nummer i 77 av 78, avläst ur `docs/roadmap.md`. Frågan är rimlig
+bara när numret saknas.
+
+*Här stod att formulärmailen bär numret "i 78 av 78", vilket är fältets tal och
+inte värdets, och att mätningen gjordes i skiva 15, vilket inte går att belägga.
+`docs/roadmap.md` skiljer uttryckligen de två talen åt, och den skillnaden är
+hela poängen: den tråd som faller har ett ifyllt fält vars innehåll inte är ett
+nummer.*
+
+Prompten är bunden ordagrant sedan lucka 25, alltså följde testet med i samma
+ändring. Det är precis vad den bindningen finns för.
+
+---
+
+## #74 — `config/fakta.json` upprättad. TOM, och Lars fyller den
+
+**Beslut av Lars i skiva 36 DEL C.** Bokningssvaret ska kunna säga *"ring oss"*.
+Telefonnumret är ett faktum om Auto Stockholm, och §7.2 kräver en källa.
+
+**FILEN ÄR SKAPAD MED ETT TOMT VÄRDE, och det är inte en halvmesyr.** §10 gör
+varje ändring i `config/fakta.json` till ett uttryckligt stopp. Lars order var
+*"Skapa filen om den saknas, Lars fyller värdet"*, alltså är skapandet mitt och
+värdet hans.
+
+**ETT TOMT VÄRDE ÄR INTE ETT VÄRDE.** `las_konfigvarden` utelämnar det, alltså
+når det aldrig prompten, alltså kan modellen inte skriva det. Skillnaden mot att
+sakna nyckeln är noll med flit: §0:s ramverksregel 3 säger att ett tal läses ur
+källa eller utelämnas, och en tom sträng är ingen avläsning.
+
+**FILENS KOMMENTARER VIDGADE SPÄRREN, och det är skivans allvarligaste fynd.**
+Första lydelsen gav filen två `_`-nycklar som förklarar för Lars vad ett tomt
+värde betyder. `_tillatna_tal` läste HELA filen och plockade tal ur den, alltså
+gjorde strängarna `§7.2` och `CLAUDE.md §10` talen 7 och 10 TILLÅTNA i ett
+utgående mail. Uppmätt: *"vi hör av oss inom 10 dagar"* passerade spärren, och
+före skivan fälldes den. **Det bryter ramverksregel 3, som är obrytbar.**
+
+**`_varden_ur` ÄR DEN SOM BÄR SPÄRREN**, och den plockar VÄRDEN och aldrig
+nycklar, hela vägen ned genom dictar och listor, för BÅDA konfigfilerna. **En
+kommentar i en konfigurationsfil får aldrig kunna vidga en sändvägsspärr.**
+Fällt av §7-granskningen av skiva 36, varv 1.
+
+*Här stod att `las_konfigvarden` gör det, "för BÅDA konfigfilerna". Falskt: den
+funktionen anropas bara via `las_fakta` och rör aldrig `config/priser.json`. Den
+bär promptens fakta, inte spärrens tal. Samma felaktiga tillskrivning stod i
+funktionens egen docstring. Fällt av §7-granskningen av skiva 36, varv 3.*
+
+**INKOPPLINGEN I PROMPTEN VAR OBUNDEN, och det är samma hål skivan själv
+namngav.** Raden `rader.append(_faktarader())` gick att radera med full svit
+grön: testen band funktionernas innehåll men aldrig att `_underlag` anropar dem.
+Skivan skrev ordagrant *"Att funktionen finns räcker inte. Den ska KOPPLAS in"*
+om `uppslagskalla` och lämnade sedan DEL C med precis den defekten.
+`docs/incidentlogg.md` I10.
+
+**UNDERLAGET SÄGER IFRÅN I BÅDA LÄGENA.** Är filen tom står det *"Fakta om oss:
+INGA … skriv 'ring oss' utan nummer, aldrig ett påhittat nummer"*. Att tiga hade
+lämnat modellen att gissa om den får skriva ett nummer.
+
+`test_faktafilen_i_repot_har_TOM_telefon` binder att jag inte fyllt i ett värde åt
+Lars. Raden blir röd den dag någon gör det, och då ska den dagen vara hans val.
+
+---
+
+## #75 — Utkasten sparas i `data/`, och en omkörning är ett uttryckligt val
+
+**Beslut av Lars i skiva 36 DEL D.** Varje omstart av vyn körde om tjugo
+API-anrop och gav ANDRA utkast. **Ett referenssvar skrivet mot ett utkast som
+aldrig kommer tillbaka är inte kopplat till något.**
+
+**`data/granskningsfall.jsonl` OCH INTE `logg/beslut.jsonl`.** Skiva 34:s beslut
+att loggen aldrig bär utkastets text STÅR, se #62. `data/` är gitignorerad och
+bär redan `par.jsonl` med rå kundtext, alltså är den rätt plats.
+`krav_pa_skrivbar_sokvag` binder det.
+
+**FILEN ERSÄTTS, den växer inte**, och skillnaden mot loggen är avsiktlig: det
+här är den uppsättning fall vyn visar just nu, inte en historik. Blandades de
+ihop fick vyn dubbletter ur två körningar.
+
+*Lydelsen hedgade med "för den här sortens data" och överlever därför, men
+`src/vy.py` bar samma mening utan hedge och den var falsk. Rättad där. Flera
+moduler öppnar filer i `w`-läge.*
+
+**KOMMANDOT BÄR VALET.** `--vy` ENSAMT läser sparade fall och kostar ingenting.
+Med `--kor --vy` visas körningen ur minnet; fallen sparas ändå. `--kor`
+kör kedjan och ersätter dem. Utan flagga gör skriptet ingenting och skriver ut
+vad de två kostar. Förut var en omkörning vad som hände när servern startade om.
+
+---
+
+## #76 — Skiva 36 STOPPAS efter tre varv. Fynden låg i KOD den här gången
+
+**§7:s rad för SÄNDVÄG: tre varv, och vid kvarstående fynd stoppa och rapportera
+öppet.** Varv 1 gav tio blockerande fynd, varv 2 nio, varv 3 sex.
+
+**SKILLNADEN MOT SKIVA 35 ÄR VAR FYNDEN LÅG.** Där låg samtliga i text. Här låg
+fyra i kod i varv 1, tre i varv 2 och ett i varv 3, och det allvarligaste rörde
+§0:s ramverksregel 3, som är obrytbar.
+
+### Det allvarligaste, i tre lager
+
+**En KOMMENTAR i en konfigurationsfil vidgade en sändvägsspärr.**
+`config/fakta.json` skapades i DEL C med två `_`-nycklar som förklarar för Lars
+vad ett tomt värde betyder. Strängarna nämner `§7.2` och `CLAUDE.md §10`.
+`_tillatna_tal` läste hela filen, alltså blev **7 och 10 tillåtna tal i ett
+utgående mail**: *"vi hör av oss inom 10 dagar"* passerade spärren, och före
+skivan fälldes den.
+
+**Filen som skapades för att GE talen en källa blev vägen runt kravet på källa.**
+
+Rättelsen tog tre varv, och varje varv fällde föregående:
+
+| Varv | Vad som återstod |
+| --- | --- |
+| 1 | Hålet upptäckt och rättat med ett filter på toppnivån |
+| 2 | Filtret dumpade fortfarande NYCKELNAMN, och `_`-nycklar en nivå ned slapp igenom. `config/priser.json` hade ingen bindande rad alls |
+| 3 | Listgrenen i `_varden_ur` var VAKUÖS, och `config/priser.json` blir med största sannolikhet just en lista |
+
+**Ingen av de tjugo serverade utkasten bar 7 eller 10**, avläst ur
+`data/granskningsfall.jsonl`. Hålet var öppet men gav inget utfall.
+
+### Mönstret, och att det höll i sig
+
+`docs/incidentlogg.md` I10 för fjärde skivan i rad. Varv 2 fann tre fynd i varv
+1:s rättelsetext, varv 3 fann fyra i varv 2:s.
+
+**Den renaste illustrationen är B3 i varv 3.** Skivan skrev själv en kursiv not i
+#73 om att meningen *"ingen månad, ingen vecka och inget datum står där"* är
+falsk, och lät sedan meningen stå kvar ordagrant i `src/generera.py`. Rättelsen
+gjordes på den plats fyndet namngav, och inte på systerplatsen.
+
+### Vad som rättades ändå
+
+**§0:s ramverksregel 3 är obrytbar, och §7:s rättelseplikt gäller oberoende av
+grinden.** Varje fynd ur varv 3 är rättat: listgrenen bunden, tre falska
+påståenden om koden rättade med kursiv not, ett tal ommätt som skrivits upp
+aritmetiskt i stället för mätt, och två testnamn omdöpta till vad de bevisar.
+
+**Samtliga fällda-rad-tabeller som vilar på `src/vy.py` eller `src/generera.py`
+är ommätta**, tre gånger under skivan, eftersom varje varv lade till test.
+
+### Vad som INTE rättades
+
+**Lucka 43:** bokningsbeskedet är ett påstående om Auto Stockholm som bor i kod.
+Rätt hemvist är `config/fakta.json`, som är ett §10-stopp där Lars order gällde
+att SKAPA filen och inte att fylla den. Att flytta raden dit är hans beslut.
+
+**Lucka 29** står öppen som förut, nu med den här instansen namngiven.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.49.0 — 2026-09-10
+
+**#76 tillkommer: skiva 36 STOPPAS efter tre varv.** Posten skriver ut att
+fynden den här gången låg i KOD, till skillnad från skiva 35, och att det
+allvarligaste rörde §0:s ramverksregel 3.
+
+**Rättelser på plats i #74 och #75**, båda med kursiv not: `las_konfigvarden`
+tillskrevs talspärrens roll som den inte har, och *"enda stället i repot"* var
+obelagt i `src/vy.py`.
+
+*Den här posten skrevs först med en bash-rad som bar backticks, och skalet åt upp
+båda filnamnen. §9 förbjuder expansioner i kommandoraden av precis det skälet.
+Rättat med `Edit`.*
+
+Ny post och rättade påståenden ⇒ MINOR.
+
+### 0.48.0 — 2026-09-10
+
+**Fem poster, #71 till #75, ur skiva 36.** #71 är Lars beslut på skiva 35, de
+fyra övriga är hans order i DEL A till D.
+
+**#72 KOPPLAR IN SKARP TRAFIK MOT TREDJE PART.** Fram till skiva 36 var en enda
+begäran godkänd, i skiva 30. Posten skriver ut takten som en egenskap hos
+skriptet och inte som en bieffekt av modellanropens längd.
+
+**#74 ÄR ETT §10-STOPP SOM DELVIS UTFÖRDES.** Filen är skapad, värdet är Lars.
+Att skapandet var beställt och fyllandet inte var det står i posten, och ett test
+binder att jag inte fyllt i något.
+
+**Rättelse på plats i #73**, med kursiv not: talet "78 av 78" gällde FÄLTET, inte
+värdet, och tillskrevs fel skiva. `docs/roadmap.md` skiljer de två åt.
+
+**VARV 1 GAV FYND I KOD, och det bryter mönstret från skiva 35, där varje fynd
+låg i text.** Rättade på plats i #72, #73 och #74, var och en med kursiv not:
+
+| Fynd | Var |
+| --- | --- |
+| Kommentarer i `config/fakta.json` vidgade en sändvägsspärr, ramverksregel 3 | #74 |
+| `_faktarader`:s inkoppling i prompten var obunden | #74 |
+| Regel 10 beordrade det regel 8 förbjuder | #73 |
+| `skarp` hade ett förval som PÅSTOD riktig fordonsdata | #72 |
+| Uppräkningen "fyra fall" utelämnade en gren och blandade in källan | #72 |
+
+**Det första är det allvarligaste i hela skivan:** boten fick skriva *"inom 10
+dagar"* i ett kundmail, av en kommentar jag själv skrev in.
+
+**VARV 2 FÄLLDE ATT DEN RÄTTELSEN BARA STÄNGDE TOPPNIVÅN**, och att tre andra
+rättelser bar nya fel. Det är `docs/incidentlogg.md` I10 igen:
+
+| Fynd i varv 2 | Var |
+| --- | --- |
+| Nyckelnamn och nästlade kommentarer nådde fortfarande talspärren | #74 |
+| `config/priser.json` hade ingen enda bindande rad | #74 |
+| Bokningsbeskedets test prövade en ORDLISTA och var vakuöst | #73 |
+| Bokningsbeskedet är ett påstående om oss som bor i kod | #73, LUCKA 43 |
+| Påståendet att SAMTLIGA fällda-rad-tabeller var ommätta | 0.36.0 |
+
+**En processräkning är struken ur den här posten.** Den sade hur många fynd varv
+1 gav, vilket är en räkning av ett arbetsförlopp och inte går att verifiera mot
+repot. Tabellen ovan och den nedan redovisar per post i stället.
+
+*0.47.0-posten bär samma form, "Arton fynd, samtliga i text". Den är committad
+och står oförändrad som historik enligt 0.3.1; den här raden är noteringen.*
+
+Nya poster ⇒ MINOR.
 
 ### 0.47.0 — 2026-09-10
 

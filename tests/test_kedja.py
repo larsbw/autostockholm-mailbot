@@ -374,7 +374,7 @@ def test_vagen_slutar_i_vyn():
         ar, klient=klient, hamta=hamta_gront, hinkar=HINKAR,
         taxonomi=TAXONOMI, exempel=[],
     )
-    granskningsfall = kedja.till_granskningsfall(ar, utfall)
+    granskningsfall = kedja.till_granskningsfall(ar, utfall, skarp=True)
 
     # Vägen prövas HELA vägen fram till renderad sida, och inte bara till att
     # en hanterare gick att bygga. `assert hanterare is not None` stod här och
@@ -407,7 +407,7 @@ def test_ett_SPARRAT_utfall_blir_ett_sparrat_granskningsfall():
         ar, klient=klient, hamta=hamta_gront, hinkar=HINKAR,
         taxonomi=TAXONOMI, exempel=[],
     )
-    granskningsfall = kedja.till_granskningsfall(ar, utfall)
+    granskningsfall = kedja.till_granskningsfall(ar, utfall, skarp=True)
 
     assert granskningsfall.sparr == "genererat-tal-har-kalla"
     assert granskningsfall.forslag == ""
@@ -492,6 +492,125 @@ def test_loggen_bar_det_lars_bad_om(tmp_path, monkeypatch):
     assert post["sparr"] == "genererat-tal-har-kalla"
     assert post["blev_utkast"] is False
     assert post["hink"] == "auto"
+
+
+def test_provskriptet_lamnar_vidare_sin_EGNA_kallflagga():
+    """Skriptet ska skicka VARIABELN `skarp`, aldrig en literal.
+
+    *Raden hette `..._vilken_kalla_det_anvande` och sammanfattades som att
+    härkomsten aldrig kan påstå fel källa. Den band bara att argumentet FINNS:
+    `skarp=True` hårdkodat passerade grönt, och då renderar en `--fixtur`-körning
+    "Uppslag mot biluppgifter.se" ovanför konstruerade vikter. §7.1 ger två
+    utvägar, döp om eller gör äkta, och den här raden gör båda. Fällt av
+    §7-granskningen av skiva 36, varv 2.*
+
+    **INGEN TESTFIL RÖR `scripts/kedja-prov.py`**, alltså band ingenting att det
+    faktiskt skickar `skarp`. Ett bortglömt argument hade renderat *"Uppslag mot
+    biluppgifter.se"* ovanför vikter konstruerade ur ett registreringsnummer.
+
+    Första skyddet är att `skarp` saknar förval, alltså blir det `TypeError` i
+    stället för en lögn. Den här raden är det andra: den läser KÄLLTEXTEN, precis
+    som `krav_pa_sandvagsfrihet` gör, och fäller om anropet slutar bära
+    argumentet. Fällt av §7-granskningen av skiva 36, varv 1.
+    """
+    kalla = (kedja.ROT / "scripts" / "kedja-prov.py").read_text(encoding="utf-8")
+
+    assert "till_granskningsfall(" in kalla
+    for stycke in kalla.split("till_granskningsfall(")[1:]:
+        anropet = stycke.split(")")[0] + stycke.split(")")[1][:40]
+        assert "skarp=skarp" in anropet, (
+            "kedja-prov.py anropar till_granskningsfall utan att lämna vidare "
+            f"sin egen kallflagga: {anropet.strip()!r}. En literal här gör att "
+            "vyn kan påstå fel källa."
+        )
+
+    # Och att flaggan HÄRLEDS UR `--fixtur` i stället för att sättas en gång för
+    # alla. Utan raden vore `skarp = True` överst i filen grönt.
+    #
+    # *Här stod att raden binder att flaggan "FAKTISKT följer valet av
+    # hämtning". Det gör den inte: `hamta`-raden går att invertera med grön
+    # svit, och då renderar en `--fixtur`-körning "Uppslag mot biluppgifter.se".
+    # Två rader som båda läser `args.fixtur` är inte samma sak som en koppling
+    # mellan dem. Fällt av §7-granskningen av skiva 36, varv 3.*
+    assert "skarp = not args.fixtur" in kalla
+    assert "bygg_fixturkalla() if args.fixtur else bygg_skarp_kalla()" in kalla
+
+
+def test_till_granskningsfall_FYLLER_uppslagskallan():
+    """Att funktionen finns räcker inte. Den ska KOPPLAS in.
+
+    Utan raden gick `uppslagskalla=...` att byta mot en tom sträng i
+    `till_granskningsfall` med hela sviten grön, alltså band de tre raderna nedan
+    bara funktionens INNEHÅLL och inte att vyn får det. Fältet hade tyst
+    försvunnit och sidan visat ingen härkomst alls.
+
+    Uppmätt av §7.1-prövningen av skiva 36.
+    """
+    utfall = Kedjeutfall(
+        kategori="fråga om a-traktorkonvertering", hink="auto", utkast="Hej.",
+        steg=(Steg("uppslag", "lyckades", "gront"),),
+    )
+
+    skarpt = kedja.till_granskningsfall(arende(regnr="ABC123"), utfall, skarp=True)
+    fixtur = kedja.till_granskningsfall(
+        arende(regnr="ABC123"), utfall, skarp=False)
+
+    assert "biluppgifter.se" in skarpt.uppslagskalla
+    assert "FIXTUR" in fixtur.uppslagskalla
+
+
+def test_uppslagskallan_skiljer_SKARPT_fran_FIXTUR():
+    """Raden läses bredvid ett utkast som kan bära vikter.
+
+    Skillnaden mellan en avläst tjänstevikt och en konstruerad syns inte i
+    texten, alltså måste den stå bredvid den.
+    """
+    utfall = Kedjeutfall(
+        kategori="fråga om a-traktorkonvertering", hink="auto", utkast="Hej.",
+        steg=(Steg("uppslag", "lyckades", "gront"),),
+    )
+
+    assert "biluppgifter.se" in kedja.uppslagskalla(
+        arende(regnr="ABC123"), utfall, skarp=True)
+    assert "FIXTUR" in kedja.uppslagskalla(
+        arende(regnr="ABC123"), utfall, skarp=False)
+
+
+def test_uppslagskallan_skiljer_SAKNAT_REGNR_fran_MISSLYCKAT_UPPSLAG():
+    """Lars invändning i skiva 36 gällde precis den här skillnaden.
+
+    En post spärrades av `genererat-tal-har-kalla` i stället för att slås upp.
+    Spärren var rätt; uppslaget uteblev. Ett mail utan registreringsnummer och
+    ett uppslag som föll ser likadana ut i utkastet, och läsaren ska kunna se
+    vilket det var utan att gissa.
+    """
+    utfall = Kedjeutfall(
+        kategori="fråga om a-traktorkonvertering", hink="auto", utkast="Hej.",
+        steg=(Steg("uppslag", "misslyckades", "registreringsnummer saknas"),),
+    )
+
+    utan = kedja.uppslagskalla(arende(regnr=None), utfall, skarp=True)
+    med = kedja.uppslagskalla(arende(regnr="ABC123"), utfall, skarp=True)
+
+    assert "BÄR INGET REGISTRERINGSNUMMER" in utan
+    assert "MISSLYCKADES" in med
+    assert utan != med
+
+
+def test_uppslagskallan_sager_ifran_nar_INGET_UPPSLAG_GJORDES():
+    """En kategori som inte gatas ska inte se ut som ett misslyckat uppslag.
+
+    Samma skillnad som `_bedomning`:s tredje läge finns för, se skiva 34.
+    """
+    utfall = Kedjeutfall(
+        kategori="boka däckbyte", hink="utkast", utkast="Hej.",
+        steg=(Steg("uppslag", "hoppades över", "kategorin gatas inte"),),
+    )
+
+    text = kedja.uppslagskalla(arende(), utfall, skarp=True)
+
+    assert "Inget uppslag gjordes" in text
+    assert "MISSLYCKADES" not in text
 
 
 def test_ett_KALLFEL_lamnar_ocksa_en_rad(tmp_path, monkeypatch):

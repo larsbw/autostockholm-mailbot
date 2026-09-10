@@ -260,7 +260,41 @@ def _hink_for(etikett: str, hinkar: dict) -> str:
     return hinkar.get("standardhink", "utkast")
 
 
-def till_granskningsfall(arende: Arende, utfall: Kedjeutfall) -> Granskningsfall:
+def uppslagskalla(arende: Arende, utfall: Kedjeutfall, *, skarp: bool) -> str:
+    """Vad som FAKTISKT hände med uppslaget för DEN HÄR posten.
+
+    **RADEN LÄSES BREDVID ETT UTKAST SOM KAN INNEHÅLLA VIKTER**, och skillnaden
+    mellan en avläst tjänstevikt och en konstruerad är inte synlig i texten.
+    Skiva 35 satte en varning på hela vyn; den sade varken vilken post den gällde
+    eller om uppslaget lyckats. Lars invändning i skiva 36 var att en post
+    spärrades i stället för att slås upp, alltså är det just den skillnaden som
+    ska stå här.
+
+    `skarp` kommer från anroparen och inte från utfallet, eftersom utfallet ser
+    likadant ut oavsett källa. Det är hela poängen med raden.
+    """
+    kalla = "biluppgifter.se" if skarp else "FIXTUR, konstruerad ur regnr"
+
+    steg = {s.namn: s for s in utfall.steg}.get("uppslag")
+    if steg is None or steg.utfall == "hoppades över":
+        return "Inget uppslag gjordes: kategorin gatar det inte."
+
+    if steg.utfall == "misslyckades":
+        if not arende.regnr:
+            return (
+                "Inget uppslag: MAILET BÄR INGET REGISTRERINGSNUMMER. "
+                "Vikter i utkastet nedan saknar källa."
+            )
+        return (
+            f"Uppslag mot {kalla} MISSLYCKADES ({steg.detalj}). "
+            "Vikter i utkastet nedan saknar källa."
+        )
+
+    return f"Uppslag mot {kalla}: {steg.utfall}, utfall {steg.detalj}."
+
+
+def till_granskningsfall(arende: Arende, utfall: Kedjeutfall,
+                         *, skarp: bool) -> Granskningsfall:
     """Kedjans utfall som ett fall vyn kan visa. **VÄGENS SLUTPUNKT.**
 
     Utan den här funktionen slutade vägen i en `Kedjeutfall` som ingen kunde
@@ -287,6 +321,13 @@ def till_granskningsfall(arende: Arende, utfall: Kedjeutfall) -> Granskningsfall
 
     Vad som däremot håller: en post med `sparr` satt får inget textfält av
     `rendera_granskning`, alltså går ett fällt förslag inte att omdöma.
+
+    **`skarp` HAR INGET FÖRVAL, och det är samma skäl som `kor`:s `hamta`.** Ett
+    förval hade PÅSTÅTT riktig fordonsdata för den som glömmer argumentet, alltså
+    hade härkomstraden ljugit i den farliga riktningen: *"Uppslag mot
+    biluppgifter.se"* ovanför vikter konstruerade ur ett registreringsnummer.
+    Utan förval kastar Python i stället, och det syns. Fällt av §7-granskningen
+    av skiva 36, varv 1.
     """
     return Granskningsfall(
         fall=Fall(
@@ -298,6 +339,7 @@ def till_granskningsfall(arende: Arende, utfall: Kedjeutfall) -> Granskningsfall
         ),
         forslag=utfall.utkast or "",
         sparr=utfall.sparr or "",
+        uppslagskalla=uppslagskalla(arende, utfall, skarp=skarp),
     )
 
 

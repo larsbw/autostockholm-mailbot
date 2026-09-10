@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.11.10 · **Uppdaterad:** 2026-09-10 · **Speglar:** beslutslogg #70
+**Version:** 0.11.12 · **Uppdaterad:** 2026-09-10 · **Speglar:** beslutslogg #76
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -518,6 +518,63 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.11.12 — 2026-09-10
+
+**`Speglar` följer med till beslutslogg #76.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att stopposten lagts till.
+
+**§7:s tre granskningsvarv är OFÖRÄNDRADE.** #76 är en TILLÄMPNING: skiva 36
+stoppades därför att fynd kvarstod efter tre varv. Samma grund som 0.11.5,
+0.11.8 och 0.11.10.
+
+**§0:s RAMVERKSREGEL 3 BRÖTS AV DEN HÄR SKIVAN, och det ska stå här.** En
+kommentar i `config/fakta.json` gjorde talen 7 och 10 tillåtna i ett utgående
+mail. Regeln är obrytbar och koden bröt den; hålet var öppet mellan DEL C och
+varv 1:s rättelse, och tre varv krävdes för att stänga det helt. Ingen regel är
+ändrad. Det som ändrats är att en fil regeln vilar på nu filtreras av
+`generera._varden_ur`, som plockar VÄRDEN och aldrig nycklar, hela vägen ned.
+
+**Lärdomen hör hemma i regeltexten först när Lars vill ha den där.** Den skulle
+lyda ungefär: en konfigurationsfil som är källa för en spärr får inte bära
+kommentarer i samma namnrymd som sina värden. Jag skriver inte in den i §0 eller
+§7.2 på eget bevåg, se §8.
+
+**§9 BRÖTS AV MIG i det här passet**, och det är utskrivet i
+`docs/beslutslogg.md` 0.49.0: en bash-rad bar backticks, skalet expanderade dem,
+och två filnamn försvann ur en appendixpost. Regeln är oförändrad och fångade
+felet exakt som den finns för.
+
+**§0:s styrdokumentlista är oförändrad.**
+
+Ren synk ⇒ PATCH.
+
+### 0.11.11 — 2026-09-10
+
+**`Speglar` följer med till beslutslogg #75.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 36:s fem poster lagts till.
+
+**§0:s STYRDOKUMENTLISTA ÄR OFÖRÄNDRAD, men en fil den namnger FINNS NU.**
+`config/fakta.json` har stått i §7.2 och §10 sedan 0.2.0 utan att existera. Den
+är upprättad i skiva 36 på Lars order, och den är TOM: `telefon` har ett tomt
+värde och Lars fyller det. Regeltexten är oförändrad; det som ändrats är att
+filen regeln pekar på finns.
+
+**§10:s STOPPRAD OM `config/fakta.json` GÄLLER OFÖRÄNDRAT.** Ordern var *"skapa
+filen om den saknas, Lars fyller värdet"*, alltså var skapandet beställt och
+fyllandet inte. `test_faktafilen_i_repot_har_TOM_telefon` binder att jag inte
+fyllt i något, och den blir röd den dag någon gör det.
+
+**§0:s ramverksregel 3 fick en verkställande rad till.** `las_fakta` utelämnar
+ett tomt värde, alltså når det aldrig prompten och modellen kan inte skriva det.
+En tom sträng är ingen avläsning.
+
+**§11:s röstregler fick tre motsvarigheter i prompten**, ur Lars läsning av
+utkasten i vyn: inga kollegor, bokningsförfrågan besvaras med ja, och fråga inte
+efter uppgifter som redan står i mailet. Se `docs/beslutslogg.md` #73. §11 är
+OFÖRÄNDRAD: reglerna bor i prompten, inte här.
+
+Ren synk och en fil som §0 redan namngav ⇒ PATCH.
 
 ### 0.11.10 — 2026-09-10
 
