@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.15.1 · **Uppdaterad:** 2026-09-10 · **Implementerar** CLAUDE.md §10
+**Version:** 0.15.2 · **Uppdaterad:** 2026-09-11 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -723,11 +723,12 @@ svaret följa frågan. `config/sparrar.yaml` finns fortfarande inte.
 **Vad som ÅTERSTÅR i fasen:**
 
 - `config/priser.json`, ett §10-stopp och alltså Lars att upprätta.
-- `config/fakta.json` FINNS sedan skiva 36, men är TOM: `telefon` har ett tomt
-  värde. Filen är skapad på Lars order, och att FYLLA den är hans beslut. Ett
-  tomt värde når aldrig prompten, alltså kan boten inte skriva numret.
+- `config/fakta.json` FINNS sedan skiva 36 och bär sedan skiva 37 posten
+  `bokningar`, flyttad dit av Lars §10-beslut. **`telefon` är fortfarande TOM.**
+  Att FYLLA en post är Lars beslut, och ett tomt värde når aldrig prompten,
+  alltså kan boten inte skriva numret.
   `test_faktafilen_i_repot_har_TOM_telefon` binder det. Se
-  `docs/beslutslogg.md` #74.
+  `docs/beslutslogg.md` #74 och #77.
 - `config/sparrar.yaml`, som fasen kräver och som fortfarande inte finns.
 - Mallarna ur Lars referenssvar i vyn, se fas 5.5. Generatorn använder paren som
   få-exempel och bygger inga mallar.
@@ -780,6 +781,23 @@ visat dagsvolymen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.15.2 — 2026-09-11
+
+**Samma rad blev falsk igen, av nästa skiva.** 0.15.1 rättade att fas 5:s
+ÅTERSTÅR-lista sade att `config/fakta.json` var kvar att upprätta. Skiva 37
+flyttade bokningsbeskedet dit på Lars §10-beslut, och då blev den rättade
+lydelsen, *"finns men är TOM"*, i sin tur falsk.
+
+**Filen bär nu posten `bokningar`. `telefon` är fortfarande tom.** Raden skiljer
+de två, eftersom skillnaden är hela poängen: ett tomt värde når aldrig prompten.
+
+*Att raden faller två skivor i rad är värt att notera. En ÅTERSTÅR-lista som
+beskriver en fils INNEHÅLL föråldras av varje ändring i filen. Att i stället
+peka på `docs/beslutslogg.md` och låta posten där bära innehållet vore
+stabilare, men det är en omskrivning av fasen och inte en rättelse.*
+
+Rättat påstående ⇒ PATCH.
 
 ### 0.15.1 — 2026-09-10
 

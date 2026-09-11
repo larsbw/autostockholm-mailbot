@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.37.0 · **Uppdaterad:** 2026-09-10 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.39.0 · **Uppdaterad:** 2026-09-11 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -2891,28 +2891,151 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   mätte att formuleringen överlevt i `docs/sparrar.md` efter att den strukits i
   `src/generera.py`.*
 
-- **Lucka 43. BOKNINGSBESKEDET ÄR ETT PÅSTÅENDE OM OSS SOM BOR I KOD. ÖPPEN, OCH
-  DET ÄR ETT §10-VAL.** `src/generera.py::BOKNINGSBESKED` skriver in i prompten
-  att *"vi tar emot bokningar löpande och kommer överens om tid med kunden"*.
+- **Lucka 47. KLASSIFICERAREN FLYTTADE SAMMA TRÅD MELLAN `utkast` OCH `auto`.
+  ÖPPEN, MÄTT, OCH LARS ATT AVGÖRA.** Skiva 36 körde samma tjugo mail två
+  gånger. Ett ärende fick `boka a-traktorkonvertering` i den ena körningen och
+  `fråga om a-traktorkonvertering` i den andra, och det flyttade tråden mellan
+  hinkarna.
 
-  **Det är precis vad lucka 29 handlar om:** ett svar får inte påstå något om
-  Auto Stockholm som inte kommer ur `config/` eller ur uppslaget. Rätt hemvist är
-  `config/fakta.json`.
+  **`fråga om a-traktorkonvertering` ÄR DEN ENDA KATEGORIN I `auto`**, avläst ur
+  `config/kategorier.yaml`. Hinken är gränsen mellan att en människa läser först
+  och att mailet får gå ut, §0:s ramverksregel 1, och den gränsen visade sig
+  icke-deterministisk för samma inkommande text.
 
-  **VARFÖR DET INTE FLYTTADES DIT.** Filen är ett §10-stopp. Lars order i skiva
-  36 var *"skapa filen om den saknas, Lars fyller värdet"*, alltså gällde
-  beställningen att SKAPA filen och inte att fylla den. Att skriva in ett
-  påstående där själv vore att gå runt stoppet, och det är den frestelse §9.1
-  namnger i sin sändvägsform.
+  **DET ÄR INTE ETT FEL I KLASSIFICERAREN.** De två kategorierna ligger nära
+  varandra, och ett mail som både frågar och vill boka kan rimligen hamna i
+  endera. **Det nya är att grannkategorier har OLIKA HINKAR**, alltså att en
+  rimlig tvekan blir en skillnad i om ett mail får skickas.
 
-  **VARFÖR RADEN ÄNDÅ FINNS.** Promptregel 10 är Lars uttryckliga order i samma
-  skiva, och utan beskedet i underlaget BEORDRAR den vad regel 8 förbjuder. Av
-  två fel är det mindre att påståendet är synligt, bundet ordagrant av ett test,
-  och registrerat här.
+  **VAD SOM STÄNGER LUCKAN.** Lars val mellan tre vägar, uppräknade i
+  `docs/beslutslogg.md` #79. Att flytta en kategori är ett §10-stopp och
+  ramverksregel 2 förbjuder att kod gör det. Uppmätt av §7-granskningen av
+  skiva 37, varv 3, ur data som legat i loggen sedan skiva 36.
 
-  **VAD SOM STÄNGER LUCKAN.** Lars flyttar raden till `config/fakta.json`. Då är
-  källan grindad, `_faktarader` skriver ut den, och `BOKNINGSBESKED` kan strykas.
-  Uppmätt och registrerad av §7-granskningen av skiva 36, varv 2.
+- **Lucka 46. ETT TIDSLÖFTE FÄLLS AV INGEN SPÄRR. ÖPPEN OCH MÄTT.**
+  Avläst i skiva 37: *"Hej, det löser vi. Vi tar in bilen i juni och är klara
+  till midsommar."* passerar samtliga fyra spärrar i `krav_pa_svaret`.
+
+  **SKÄLET ÄR ATT INGEN AV DEM LETAR EFTER TID**, spärr för spärr:
+
+  | Spärr | Varför den inte fäller |
+  | --- | --- |
+  | `tomt-svar` | svaret är inte tomt |
+  | `genererat-tal-har-kalla` | `TAL_I_TEXT` kräver siffror, `TAL_I_ORD` en multiplikand som `tusen` eller `hundra`, `PRISORD` en prisform |
+  | `genererat-fordonsfaktum` | `FORDONSTERMER` bär vikt- och dragkroksord, inte `bil` i största allmänhet |
+  | `troskeln-som-forfattningstext` | kräver BÅDE ett tröskeltal och ett författningsord |
+
+  *Här räknades fyra REGEXAR upp som om de vore de fyra spärrarna. Tre av dem
+  ligger i samma spärr, och två spärrar nämndes inte alls. Slutsatsen stod, men
+  belägget täckte inte påståendet. Fällt av §7-granskningen av skiva 37, varv 3.*
+
+  **DET SOM HINDRAR ETT TIDSLÖFTE ÄR PROMPTREGLER**, framför allt regel 10, och
+  en promptregel är ingen spärr: den är en instruktion modellen kan avvika från.
+  Regelns TEXT är bunden ordagrant av `test_varje_regel_star_ORDAGRANT`, alltså
+  är det bundet att regeln STÅR DÄR, inte att ett tidslöfte fälls.
+
+  *Här stod "DET ENDA SOM HINDRAR". Regel 6 fäller varje tidsangivelse med
+  siffra, som `vecka 24`, och regel 8 förbjuder påståenden om vad vi erbjuder
+  utöver underlaget. §7.2 räknar "den enda" som ett påstående med full
+  bevisbörda. Fällt av §7-granskningen av skiva 37, varv 3.*
+
+  **VARFÖR DET RÄKNAS SOM EN LUCKA.** §7 skriver ut att *"ett mail som lovar en
+  tid vi inte kan hålla är en sändvägsdefekt även om koden är felfri"*. Skiva 37
+  flyttade förbudet från ett faktum tillbaka till en promptregel, vilket är
+  rätt riktning, men det gjorde aldrig förbudet till kod.
+
+  **VAD SOM STÄNGER LUCKAN.** En spärr i `krav_pa_svaret`:s form, med en
+  uppräkning av månader, veckodagar och helger, plus rader i regressionstabellen
+  och en negativkontroll för svar som nämner tid utan att lova någon, som *"vi
+  kommer överens om tid"*. Uppmätt av §7-granskningen av skiva 37, varv 2.
+
+- **Lucka 45. VARJE ICKE-KOMMENTARVÄRDE I `config/fakta.json` ÄR EN TALKÄLLA.
+  ÖPPEN, OCH RISKEN VÄXTE I SKIVA 37.**
+
+  Filen är numera TVÅ saker: promptens faktakälla via `_faktarader`, och
+  talspärrens källa via `_varden_ur`. Varje värde vars nyckel inte börjar med
+  `_` vidgar `_tillatna_tal`.
+
+  **FILEN VAR TÄNKT FÖR TAL SOM SKA VARA SKRIVBARA**, alltså telefonnummer,
+  öppettider och ledtider, och för dem är kopplingen rätt: talet ÄR källan. Skiva
+  37 lade in `bokningar`, som är en POLICYTEXT. Den bär inget tal i dag, avläst,
+  men formen är ny: nästa policyrad kan bära ett, till exempel *"inom tre dagar"*,
+  och då blir talet skrivbart utan att någon valde det. Det är §0:s ramverksregel
+  3, alltså samma hål skiva 36 stängde, öppnat från andra hållet.
+
+  *Här stod att det "var ofarligt så länge filen BAR telefonnummer och ledtider".
+  Filen har aldrig burit något av det: `git log` ger en enda commit, och där är
+  `telefon` tom. Bisatsen beskrev ett tillstånd som aldrig funnits och bar hela
+  riskargumentet. Fällt av §7-granskningen av skiva 37, varv 2.*
+
+  **VAD SOM STÄNGER LUCKAN.** Antingen att policytexter får en egen namnrymd som
+  `_varden_ur` hoppar över, eller att `_tillatna_tal` läser en uttrycklig
+  talsektion i stället för varje värde. Båda är §10-beslut, eftersom de ändrar
+  vad filen betyder. Uppmätt av §7-granskningen av skiva 37, varv 1.
+
+- **Lucka 44. ETT FÄLT STÅR PÅ SIDAN OCH TOLKAS INTE. ÖPPEN OCH MÄTT.**
+  `Draganordning` har på minst en sida värdet `Ja Kula`, alltså ja plus
+  kopplingstyp. `biluppgifter._ja_nej` kräver exakt `ja` eller `nej`, ger `None`
+  för allt annat, och då utelämnas nyckeln och `_kontrollera` fäller.
+
+  **DEN ÄR DYRARE ÄN DEN SER UT.** `utvardera` ger GRÖNT bara när
+  `draganordning` är sann. I skiva 37:s stickprov på sex sidor BÄR fem fältet,
+  och av dessa fem visar **exakt en** en dragkrok. Det är den enda parsern
+  avvisar. Mätt: med `Ja Kula` tolkat som ja blir utfallet `gront`. Stickprovets
+  enda möjliga GRÖNT föll alltså på formen.
+
+  *Här stod "av sex fordon har exakt ett en dragkrok". Den sjätte sidan bär inte
+  fältet, alltså är dess status OKÄND och inte nej. Fällt av §7-granskningen av
+  skiva 37, varv 1.*
+
+  **VARFÖR DEN INTE ÄR RÄTTAD.** Skiva 37 DEL B: ingen ändring i uppslaget. Det
+  är sändväg, och den naturliga lydelsen, att godta ett värde som BÖRJAR med
+  `ja`, är inte gratis: `_ja_nej`:s docstring skriver ut att ett tredje värde
+  betyder att vi inte vet, och att tolka `Okänd` som `Nej` vore ett påstående om
+  att dragkrok saknas. En prefixregel måste visa att den inte öppnar den vägen.
+
+  **VAD SOM STÄNGER LUCKAN.** Lars beslut om hur `_ja_nej` ska läsa ett värde med
+  efterled, plus rader i regressionstabellen för `Ja`, `Nej`, `Ja Kula`, `Okänd`
+  och tomt. Se `docs/beslutslogg.md` #78.
+
+- **Lucka 43. STÄNGD I SKIVA 37 på Lars §10-beslut.** Bokningsbeskedet är
+  flyttat till `config/fakta.json`, konstanten i `src/generera.py` är borttagen,
+  och beskedet når prompten via `_faktarader`. Lucka 29:s krav är därmed uppfyllt
+  för just det påståendet. Lars skrev ut att det var rätt att inte skriva in det
+  själv: filen är ett §10-stopp.
+
+  **TVÅ REGRESSIONER SOM FLYTTEN INFÖRDE, båda rättade i samma skiva.**
+
+  `_faktarader`:s rubrik sade *"Dessa FÅR du skriva, ordagrant och
+  oförändrade"*, vilket är rätt för ett telefonnummer och fel för en policytext.
+
+  **Värre: FÖRBUDET MOT ATT LOVA EN TID FÖRSVANN.** Beskedet bar ledet *"Du får
+  INTE ange någon tid, vecka, månad eller ledtid"* som en INSTRUKTION till
+  modellen. Flyttat till `config/fakta.json` blev det ett FAKTUM i första person
+  plural, och rubriken bad dessutom modellen skriva med egna ord. Efter flytten
+  fanns ingen rad i prompten som förbjöd en tidsangivelse: regel 6 fångar tal,
+  och *"i juni"* är inget tal. **En flytt får inte försvaga en spärr.** Förbudet
+  ligger nu i promptregel 10, bundet ordagrant, och `config/fakta.json` bär bara
+  FAKTUMET. Fällt av §7-granskningen av skiva 37, varv 1.
+
+  *Nedan står lucka 43:s ursprungliga lydelse som HISTORIK. Den beskriver läget
+  när luckan var öppen och är inte en öppen lucka.*
+
+  > **BOKNINGSBESKEDET ÄR ETT PÅSTÅENDE OM OSS SOM BOR I KOD.**
+  > `src/generera.py::BOKNINGSBESKED` skrev in i prompten att *"vi tar emot
+  > bokningar löpande och kommer överens om tid med kunden"*.
+  >
+  > Det är precis vad lucka 29 handlar om: ett svar får inte påstå något om Auto
+  > Stockholm som inte kommer ur `config/` eller ur uppslaget.
+  >
+  > VARFÖR DET INTE FLYTTADES DIT I SKIVA 36. Filen är ett §10-stopp. Lars order
+  > var *"skapa filen om den saknas, Lars fyller värdet"*, alltså gällde
+  > beställningen att SKAPA filen och inte att fylla den. Att skriva in ett
+  > påstående där själv vore att gå runt stoppet, och det är den frestelse §9.1
+  > namnger i sin sändvägsform.
+  >
+  > VAD SOM STÄNGER LUCKAN. Lars flyttar raden till `config/fakta.json`.
+  > Uppmätt och registrerad av §7-granskningen av skiva 36, varv 2.
 
 - **Lucka 42. STÄNGD I SKIVA 36 på Lars order.** Fyra rader i den befintliga
   parametriseringen, alltså exakt den åtgärd posten skrev ut. **Varje rad är
@@ -3813,13 +3936,23 @@ Formen upptäcktes i skiva 31:s provkörning. Ett rött svar innehöll:
   `genererat-tal-har-kalla`: källa eller utelämnande, ingen tredje kategori. Båda
   filerna är §10-stopp och ändras bara av Lars.
 
-- **EN NY INSTANS I SKIVA 36, och den är hårdkodad.** `src/generera.py::
-  BOKNINGSBESKED` skriver in i prompten att vi tar emot bokningar löpande. Det är
-  ett påstående om Auto Stockholm som inte kommer ur `config/`, alltså exakt den
-  här luckans form, och det är infört AV en rättelse som skulle lösa en annan
-  motsägelse. Det står som LUCKA 43 med skälet utskrivet, och att flytta det till
-  `config/fakta.json` är Lars beslut. Uppmätt av §7-granskningen av skiva 36,
-  varv 2.
+- **EN NY INSTANS I SKIVA 36, och den var hårdkodad.** `src/generera.py::
+  BOKNINGSBESKED` SKREV in i prompten att vi tar emot bokningar löpande. Det var
+  ett påstående om Auto Stockholm som inte kom ur `config/`, alltså exakt den
+  här luckans form, och det infördes AV en rättelse som skulle lösa en annan
+  motsägelse. Det stod som LUCKA 43 med skälet utskrivet. Uppmätt av
+  §7-granskningen av skiva 36, varv 2.
+
+  *Meningen stod i PRESENS om en konstant som inte finns kvar. Att beskriva
+  borttagen kod som om den körde är samma form som den här filen fällde i skiva
+  36, när en formulering överlevde här efter att den strukits i
+  `src/generera.py`. Fällt av §7-granskningen av skiva 37, varv 1.*
+
+  **INSTANSEN ÄR ÅTGÄRDAD I SKIVA 37.** Lars flyttade beskedet till
+  `config/fakta.json` med ett §10-beslut, och konstanten är borttagen ur koden.
+  **Luckan i stort står kvar öppen:** ingen spärr kräver ännu att varje påstående
+  om verkstaden har en post i `config/`, alltså är det här en åtgärdad instans och
+  inte en stängd lucka.
 
 - **VARFÖR INGEN SPÄRR BYGGS I SKIVA 32.** Lars ordning, ordagrant:
 
@@ -3890,6 +4023,65 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.39.0 — 2026-09-11
+
+**Skiva 37 STOPPAD efter tre varv**, se `docs/beslutslogg.md` #80.
+
+**LUCKA 46 OCH 47 tillkom i varv 2 och 3.** Lucka 46: ingen spärr fäller ett
+tidslöfte, och en promptregel är ingen spärr. Lucka 47: klassificeraren flyttade
+samma tråd mellan `utkast` och `auto`, alltså över gränsen för om ett mail får
+gå ut. Den andra är Lars att avgöra.
+
+**BÅDA RUBRIKERNA I PROMPTENS UNDERLAG ÄR NU BUNDNA ORDAGRANT.**
+`UNDERLAGSRUBRIK` bar samma falskhet som `FAKTARUBRIK` fälldes för och var
+dessutom vakuös: en lydelse som bad modellen påstå mer om oss passerade hela
+testfilen.
+
+*Den här posten skrevs först med en bash-rad som bar backticks, och skalet åt upp
+fem filnamn och kodreferenser. Samma §9-fel som skiva 36 gjorde, i samma form.
+Rättat med `Edit`.*
+
+Två nya luckor ⇒ MINOR.
+
+### 0.38.0 — 2026-09-11
+
+**Skiva 37. LUCKA 43 STÄNGD av Lars §10-beslut. LUCKA 44, 45, 46 och 47 tillkommer.**
+
+Bokningsbeskedet är flyttat till den grindade källan och konstanten är borttagen
+ur koden. Lucka 29:s post skiljer nu en ÅTGÄRDAD INSTANS från en stängd lucka:
+ingen spärr kräver ännu att varje påstående om verkstaden har en post i
+`config/`.
+
+**FLYTTEN FÖRSVAGADE FÖRST EN SPÄRR, och det är rättat.** Beskedets förbud mot
+att lova en tid var en INSTRUKTION till modellen. Flyttat till en faktakälla
+blev det ett faktum i första person, och ingen rad i prompten förbjöd längre en
+tidsangivelse. Förbudet ligger nu i promptregel 10, bundet ordagrant. Fällt av
+§7-granskningen av skiva 37, varv 1.
+
+**Lucka 44 är mätt och dyr.** Ett fält står på sidan och tolkas inte, och det
+kostade stickprovets enda möjliga GRÖNT. Se `docs/beslutslogg.md` #78.
+
+**Lucka 45 är en följd av flytten.** `config/fakta.json` är nu både promptens
+faktakälla och talspärrens källa, och den bär sin första POLICYTEXT. Nästa
+policyrad med en siffra i vidgar `_tillatna_tal` utan att någon valde det.
+
+**LUCKA 46 ÄR DEN TYNGSTA, och den kom ur en rättelse som såg klar ut.** Varv 1
+flyttade förbudet mot att lova en tid tillbaka till promptregel 10 och kallade
+saken rättad. **En promptregel är ingen spärr:** regelns text är bunden, inte
+dess verkan. Avläst passerar *"vi tar in bilen i juni"* samtliga fyra spärrar i
+`krav_pa_svaret`.
+
+**FAKTABLOCKETS RAM ÄR NU BUNDEN ORDAGRANT.** Rubriken är sändvägstext och var
+obunden: en lydelse som bad modellen hitta på mer om oss passerade hela sviten,
+eftersom testet bara sökte efter delsträngen `Fakta om oss`. Samma hål som lucka
+25 stängde för `SYSTEM`, ett lager upp.
+
+**§10-TRIPWIREN ÄR ÅTERSTÄLLD.** Skiva 37 bytte `las_fakta() == {}` mot en
+kontroll av enbart `telefon`, och då gick en NY post i den grindade filen in med
+grön svit. Hela nyckelmängden binds nu.
+
+Stängd lucka och tre nya luckor ⇒ MINOR.
 
 ### 0.37.0 — 2026-09-10
 

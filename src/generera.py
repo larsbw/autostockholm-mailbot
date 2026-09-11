@@ -759,19 +759,13 @@ def _duger_som_exempel(par: dict) -> bool:
     return not FORBJUDNA_PRONOMEN.search(ut_text)
 
 
-# BOKNINGSBESKEDET, som promptregel 10 vilar på. Står som egen konstant för att
-# gå att binda ORDAGRANT, precis som `SYSTEM`. En ordlista över förbjudna ord
-# fångar de ord någon råkade tänka på; en likhet fångar varje ändring.
+# **BOKNINGSBESKEDET LIGGER I `config/fakta.json` SEDAN SKIVA 37.** Det var en
+# konstant här, alltså ett påstående om Auto Stockholm som bodde i kod, vilket är
+# lucka 29:s form och stod som LUCKA 43. Lars flyttade det med ett §10-beslut och
+# stängde luckan. Källan är nu grindad, och `_faktarader` skriver ut den.
 #
-# **DET HÄR ÄR ETT PÅSTÅENDE OM AUTO STOCKHOLM, och rätt hemvist är
-# `config/fakta.json`.** Att det står här och inte där är en känd avvikelse, se
-# LUCKA 43 i `docs/sparrar.md`: filen är ett §10-stopp och Lars order gällde att
-# SKAPA den, inte att fylla den. Att flytta raden dit är hans beslut.
-BOKNINGSBESKED = (
-    "Bokningar: vi tar emot bokningar löpande och kommer överens om tid "
-    "med kunden. Du får bekräfta att det går att lösa. Du får INTE ange "
-    "någon tid, vecka, månad eller ledtid: den bestäms i kontakten."
-)
+# Att konstanten är BORTA och inte bara oanvänd är §3: en orphan som mina egna
+# ändringar skapade städas.
 
 SYSTEM = """Du skriver svarsutkast åt Auto Stockholm, en fristående verkstad i \
 Stockholm som bygger om bilar till a-traktor.
@@ -800,7 +794,9 @@ vidare till. Skriv aldrig "en kollega", "vår tekniker", "vår säljare" eller \
 oss.
 10. EN BOKNINGSFÖRFRÅGAN BESVARAS MED JA. Frågar kunden om vi kan ta emot bilen \
 en viss månad eller vecka, så svarar vi att det löser vi och ber dem höra av \
-sig så bestämmer vi tid. Hänvisa inte vidare och be dem inte återkomma senare.
+sig så bestämmer vi tid. Hänvisa inte vidare och be dem inte återkomma senare. \
+LOVA ALDRIG EN TID: ingen vecka, ingen månad, inget datum och ingen ledtid. \
+Tiden bestäms i kontakten, aldrig i det här mailet.
 11. FRÅGA ALDRIG EFTER UPPGIFTER SOM REDAN STÅR I MAILET. Läs mailet först. \
 Står registreringsnumret där, fråga inte efter det. Frågan är rimlig bara när \
 uppgiften saknas.
@@ -855,7 +851,7 @@ def _bedomning(forfragan: Forfragan) -> str:
 
 def _underlag(forfragan: Forfragan) -> str:
     """Vad modellen VET, utskrivet. Allt annat är påhitt och faller på spärren."""
-    rader = ["UNDERLAG. Detta är allt du vet. Allt annat får du inte påstå.\n"]
+    rader = [UNDERLAGSRUBRIK]
     rader.append(f"Kategori: {forfragan.kategori}")
 
     if not forfragan.uppslag_gjordes:
@@ -881,20 +877,12 @@ def _underlag(forfragan: Forfragan) -> str:
 
     rader.append(f"Bedömning: {_bedomning(forfragan)}")
     rader.append("Priser: INGA. Du har inga prisuppgifter alls.")
-    # **BOKNINGSBESKEDET STÅR I UNDERLAGET, inte bara i regel 10.** Regel 8
-    # förbjuder påståenden om vad Auto Stockholm erbjuder UTÖVER underlaget, och
-    # att vi kan ta emot en bil i juni är ett sådant påstående. Regel 10 beordrar
-    # det. Motsägelsen löses genom att beskedet blir UNDERLAG, alltså något
-    # modellen VET, i stället för att två regler drar åt olika håll.
-    #
-    # Raden lovar en ÖVERENSKOMMELSE och FÖRBJUDER uttryckligen en tidsangivelse.
-    # Fällt av §7-granskningen av skiva 36, varv 1.
-    #
-    # *Här stod "ingen månad, ingen vecka och inget datum står här". Orden står
-    # bokstavligen i `BOKNINGSBESKED`, i förbudsledet. Meningen rättades i
-    # `docs/beslutslogg.md` #73 medan den stod kvar HÄR, alltså i sändvägskoden,
-    # känt falsk. Fällt av §7-granskningen av skiva 36, varv 3.*
-    rader.append(BOKNINGSBESKED)
+    # **BOKNINGSBESKEDET KOMMER NU VIA `_faktarader`**, alltså ur
+    # `config/fakta.json`. Regel 8 förbjuder påståenden om vad Auto Stockholm
+    # erbjuder UTÖVER underlaget, och att vi kan ta emot en bil är ett sådant
+    # påstående. Regel 10 beordrar det. Motsägelsen är löst genom att beskedet
+    # står i den §10-grindade källan, alltså där lucka 29 kräver att fakta om oss
+    # bor. Lars beslut i skiva 37, lucka 43 stängd.
     rader.append(_faktarader())
     return "\n".join(rader)
 
@@ -959,6 +947,45 @@ def las_fakta(faktafil: Path | None = None) -> dict:
     return las_konfigvarden(faktafil or FAKTA)
 
 
+# UNDERLAGETS RUBRIK. Egen konstant av samma skäl som faktablockets ram.
+#
+# **RADEN BAR SAMMA FALSKHET SOM `FAKTARUBRIK` FÄLLDES FÖR, och den stod kvar
+# hundra rader upp i samma funktion.** Den löd *"Detta är allt du vet. Allt annat
+# får du inte påstå."* `SYSTEM` kallar oss en fristående verkstad som bygger om
+# bilar till a-traktor, regel 9 kallar oss en liten verkstad utan organisation,
+# och få-exemplen är faktiska tidigare svar fulla av påståenden om oss. Modellen
+# vet alltså mer än underlaget, och raden är dessutom den FÖRSTA den läser i
+# blocket.
+#
+# **DEN VAR OCKSÅ VAKUÖS.** En lydelse som bad modellen påstå mer om oss
+# passerade hela testfilen. `Priser: INGA` två rader ned var bunden; just den rad
+# som bar falskheten var det inte. Fällt av §7-granskningen av skiva 37, varv 3.
+UNDERLAGSRUBRIK = (
+    "UNDERLAG. Det här är vad du vet om det HÄR ärendet. Fyll inte i något som "
+    "saknas, och gissa aldrig ett värde.\n"
+)
+
+# FAKTABLOCKETS RAM, som egna konstanter för att gå att binda ORDAGRANT.
+#
+# **RUBRIKEN ÄR SÄNDVÄGSTEXT OCH VAR OBUNDEN.** En lydelse som uttryckligen bad
+# modellen hitta på mer om oss passerade hela sviten, eftersom testet bara sökte
+# efter delsträngen `Fakta om oss`. Det är samma hål som lucka 25 stängde för
+# `SYSTEM`, flyttat ett lager. Fällt av §7-granskningen av skiva 37, varv 2.
+#
+# **RUBRIKEN SÄGER INTE "det ENDA du vet om oss", och det ledet var falskt.**
+# `SYSTEM` kallar oss en fristående verkstad i Stockholm som bygger om bilar till
+# a-traktor, regel 9 säger att vi är en liten verkstad utan organisation, och
+# få-exemplen är faktiska tidigare svar fulla av påståenden om oss. Rubriken
+# säger i stället vad som gäller för TILLÄGG.
+FAKTARUBRIK = (
+    "Fakta om oss, avlästa ur config/fakta.json. Utöver det som redan står i "
+    "reglerna ovan får du inte påstå något om Auto Stockholm som inte står "
+    "här:\n"
+)
+
+FAKTAFOT = "Varje TAL här återges ordagrant och ändras aldrig.\n"
+
+
 def _faktarader(faktafil: Path | None = None) -> str:
     """Fakta om oss som FÅR nämnas, eller beskedet att inga finns.
 
@@ -976,10 +1003,7 @@ def _faktarader(faktafil: Path | None = None) -> str:
         )
 
     rader = "\n".join(f"  {namn}: {varde}" for namn, varde in fakta.items())
-    return (
-        "Fakta om oss, avlästa ur config/fakta.json. Dessa FÅR du skriva, "
-        f"ordagrant och oförändrade:\n{rader}\n"
-    )
+    return FAKTARUBRIK + f"{rader}\n" + FAKTAFOT
 
 
 def _utfallstext(utfall: Utfall | None, har_uppslag: bool = True) -> str:

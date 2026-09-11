@@ -1,5 +1,6 @@
 {
   "_om_filen": "Fakta om Auto Stockholm som får stå i ett utgående mail. §7.2: varje tal är avläst ur en källa eller utelämnat, och den här filen ÄR källan. Ändras bara av Lars uttryckliga beslut, CLAUDE.md §10.",
   "_tomt_varde_betyder": "Ett tomt värde utelämnas ur prompten. Modellen får då inte veta talet, och kan därför inte skriva det. Det är avsiktligt och inte ett fel: hellre ett svar utan nummer än ett påhittat nummer.",
+  "bokningar": "vi tar emot bokningar löpande och kommer överens om tid med kunden",
   "telefon": ""
 }

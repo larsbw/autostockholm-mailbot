@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.11.12 · **Uppdaterad:** 2026-09-10 · **Speglar:** beslutslogg #76
+**Version:** 0.11.14 · **Uppdaterad:** 2026-09-11 · **Speglar:** beslutslogg #80
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -518,6 +518,55 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.11.14 — 2026-09-11
+
+**`Speglar` följer med till beslutslogg #80.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att stopposten lagts till.
+
+**§7:s tre granskningsvarv är OFÖRÄNDRADE.** #80 är en TILLÄMPNING: skiva 37
+stoppades därför att fynd kvarstod efter tre varv.
+
+**§0:s RAMVERKSREGEL 1 FICK EN MÄTT SPÄNNING, och den är Lars att avgöra.**
+Regeln säger att inget mail skickas vars kategori inte står i `auto`. Skiva 37
+mätte att klassificeraren flyttade samma tråd mellan `utkast` och `auto` mellan
+två körningar, alltså att gränsen regeln vilar på är icke-deterministisk för
+samma text. Regeln är oförändrad; det som är nytt är att vi vet det. Se
+`docs/beslutslogg.md` #79 och LUCKA 47.
+
+**§9 BRÖTS AV MIG IGEN, i samma form som i skiva 36.** En bash-rad bar
+backticks, skalet expanderade dem, och fem kodreferenser försvann ur en
+appendixpost i `docs/sparrar.md`. Regeln är oförändrad och fångade felet. Att det
+skedde två skivor i rad står här därför att en upprepad överträdelse av samma
+regel är en annan sorts uppgift än en engångs.
+
+**§0:s styrdokumentlista är oförändrad.**
+
+Ren synk ⇒ PATCH.
+
+### 0.11.13 — 2026-09-11
+
+**`Speglar` följer med till beslutslogg #78.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 37:s två poster lagts till.
+
+**§0:s styrdokumentlista är oförändrad.** Skiva 37 skapade
+`scripts/faltdiagnos.py`, alltså ett mätverktyg och inget styrdokument. Samma
+grund som 0.8.2, 0.8.6 och 0.11.7: en mätning som bär ett styrdokuments
+påstående ska gå att räkna om, och §9 kräver att den ligger i ett committat
+skript.
+
+**§10:s STOPPRAD OM `config/fakta.json` HEDRADES, och det gav utdelning.** Lars
+skrev i skiva 37 ut att det var rätt att inte skriva in bokningsbeskedet själv i
+skiva 36. Han flyttade det med ett eget beslut, och lucka 43 är stängd.
+
+**`telefon` ÄR FORTFARANDE TOM.** Briefen bar platshållaren `[LARS FYLLER I]`
+oifylld. Ett tomt värde utelämnas ur prompten, alltså kan boten inte skriva ett
+nummer, och `test_faktafilen_i_repot_har_TOM_telefon` binder det.
+
+**Ingen regel i det här dokumentet är ändrad.** #77 är Lars beslut, #78 är en
+mätning.
+
+Ren synk ⇒ PATCH.
 
 ### 0.11.12 — 2026-09-10
 

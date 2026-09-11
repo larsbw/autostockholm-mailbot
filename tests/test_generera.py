@@ -85,6 +85,74 @@ def test_sandvagsspärren_faller_generatorn_om_den_importerar_en_sandvag(tmp_pat
 # ------------------------------------------- SPÄRR 1: tal ska ha en källa
 
 
+def test_FAKTABLOCKETS_ram_ar_bunden_ORDAGRANT():
+    """Rubriken är sändvägstext, och den var obunden.
+
+    **EN LYDELSE SOM BAD MODELLEN HITTA PÅ MER OM OSS PASSERADE HELA SVITEN.**
+    Testet sökte bara efter delsträngen `Fakta om oss`, alltså band det att
+    blocket FANNS och inget om vad det sade. Det är lucka 25:s hål, flyttat ett
+    lager upp. Fällt av §7-granskningen av skiva 37, varv 2.
+
+    Samma form som `test_HELA_systemprompten_ar_bunden`: en likhet fångar varje
+    ändring, en delsträng fångar de ord någon råkade tänka på.
+    """
+    assert generera.FAKTARUBRIK == (
+        "Fakta om oss, avlästa ur config/fakta.json. Utöver det som redan står "
+        "i reglerna ovan får du inte påstå något om Auto Stockholm som inte "
+        "står här:\n"
+    )
+    assert generera.FAKTAFOT == (
+        "Varje TAL här återges ordagrant och ändras aldrig.\n"
+    )
+
+    # Och att blocket FAKTISKT byggs av dem, alltså att ramen inte går att
+    # kringgå genom att skriva om `_faktarader`:s kropp.
+    block = generera._faktarader()
+    assert block.startswith(generera.FAKTARUBRIK)
+    assert block.endswith(generera.FAKTAFOT)
+
+
+def test_UNDERLAGETS_rubrik_ar_bunden_ORDAGRANT():
+    """Underlagets FÖRSTA rad var vakuös och bar en känd falskhet.
+
+    Den löd *"Detta är allt du vet. Allt annat får du inte påstå."* Det är
+    ordagrant det led som fälldes i `FAKTARUBRIK`, och det stod kvar hundra rader
+    upp i samma funktion. En lydelse som bad modellen påstå mer om oss passerade
+    hela testfilen, medan grannraden `Priser: INGA` var bunden.
+
+    Fällt av §7-granskningen av skiva 37, varv 3.
+    """
+    assert generera.UNDERLAGSRUBRIK == (
+        "UNDERLAG. Det här är vad du vet om det HÄR ärendet. Fyll inte i något "
+        "som saknas, och gissa aldrig ett värde.\n"
+    )
+    assert generera._underlag(forfragan()).startswith(generera.UNDERLAGSRUBRIK)
+
+    # Och att den inte påstår sig vara allt modellen vet om OSS. Tre andra
+    # källor bär påståenden om Auto Stockholm, se raden nedan.
+    assert "allt du vet" not in generera.UNDERLAGSRUBRIK.lower()
+
+
+def test_TRE_ANDRA_kallor_bar_pastaenden_om_oss():
+    """Skälet till att ingen rubrik får säga "allt du vet om oss".
+
+    *Raden hette `test_RUBRIKEN_pastar_inte_att_den_ar_ALLT_modellen_vet` och
+    bestod av `"ENDA du vet" not in FAKTARUBRIK`. Den band frånvaron av en
+    LITERAL FRAS, inte egenskapen i sitt namn: en omformulering med samma
+    innebörd passerade grönt. §7.1 ger två utvägar, döp om eller gör äkta. Det
+    som faktiskt skyddar är ordagrant-bindningen i testet ovan, och den här
+    raden redovisar PREMISSEN den vilar på. Fällt av §7-granskningen av skiva
+    37, varv 3.*
+
+    Premissen: prompten bär påståenden om Auto Stockholm på tre ställen utöver
+    `config/fakta.json`. Slutar något av dem gälla ska den här raden bli röd, så
+    att rubrikernas formulering vägs om.
+    """
+    assert "fristående verkstad i Stockholm" in generera.SYSTEM
+    assert "bygger om bilar till a-traktor" in generera.SYSTEM
+    assert "liten verkstad utan en organisation" in generera.SYSTEM
+
+
 def test_UNDERLAGET_bar_faktaraden(tmp_path, monkeypatch):
     """Att `_faktarader` finns räcker inte. Den ska KOPPLAS IN i underlaget.
 
@@ -113,24 +181,30 @@ def test_UNDERLAGET_bar_bokningsbeskedet_som_REGEL_10_vilar_pa():
     erbjuder, alltså måste det STÅ i underlaget. Fällt av §7-granskningen av
     skiva 36, varv 1.
 
-    **RADEN BINDS ORDAGRANT, och det ledet är fällt fram.** Första lydelsen
-    prövade en ORDLISTA, `("vecka ", "juni", "dagar", "månader")`, och den var
-    vakuös: raden gick att byta mot *"Vi har plats redan i mars, säg det till
-    kunden"* med hela testfilen grön. Listan var dessutom grön bara av ett
-    kommatecken, eftersom raden faktiskt innehåller `vecka,` och `månad `.
+    **BESKEDET BOR I `config/fakta.json` SEDAN SKIVA 37**, på Lars §10-beslut,
+    och kommer in via `_faktarader`. Raden binder därför att FILEN bär beskedet
+    och att underlaget får det ORDAGRANT. Det var lucka 43, och den är stängd.
 
-    Samma form som `test_HELA_systemprompten_ar_bunden`: en ordlista fångar de
-    ord någon råkade tänka på, en likhet fångar varje ändring. Fällt av
-    §7-granskningen av skiva 36, varv 2.
+    **FÖRBUDET MOT ATT LOVA EN TID PRÖVAS INTE HÄR LÄNGRE, och det är avsiktligt.**
+    Det är en instruktion till modellen och bor i promptregel 10, bunden av
+    `test_varje_regel_star_ORDAGRANT`. Att söka efter det i ett FAKTUM var vad
+    som gjorde att flytten kunde försvaga spärren utan att något blev rött.
+
+    *Här stod rubriken "RADEN BINDS ORDAGRANT" kvar efter att likheten mot
+    `BOKNINGSBESKED` ersatts av delsträngskontroller. Docstringen beskrev alltså
+    en bindning testet inte hade. Fällt av §7-granskningen av skiva 37, varv 1.*
+
+    *En rad som räknade skivans delsträngsfällor stod här och är struken: en
+    räkning av instanser av ett mönster i ett arbetsförlopp går inte att
+    verifiera mot repot, §7.2. Fällt av §7-granskningen av skiva 37, varv 2.*
     """
     underlag = generera._underlag(forfragan())
+    fakta = generera.las_fakta()
 
-    assert generera.BOKNINGSBESKED in underlag
-    assert generera.BOKNINGSBESKED == (
-        "Bokningar: vi tar emot bokningar löpande och kommer överens om tid "
-        "med kunden. Du får bekräfta att det går att lösa. Du får INTE ange "
-        "någon tid, vecka, månad eller ledtid: den bestäms i kontakten."
-    )
+    assert "bokningar" in fakta, "config/fakta.json bär inget bokningsbesked"
+    # ORDAGRANT, inte som delsträng av en omskrivning: det underlaget bär ska
+    # vara filens värde tecken för tecken.
+    assert f"  bokningar: {fakta['bokningar']}" in underlag
 
 
 def test_UNDERLAGET_sager_ifran_nar_fakta_SAKNAS(tmp_path, monkeypatch):
@@ -304,7 +378,23 @@ def test_faktafilen_i_repot_har_TOM_telefon():
     data = json.loads(generera.FAKTA.read_text(encoding="utf-8"))
 
     assert data["telefon"] == "", "ett värde är infört utan Lars beslut"
-    assert generera.las_fakta() == {}
+
+    # **HELA NYCKELMÄNGDEN BINDS, inte bara `telefon`.** HEAD band
+    # `las_fakta() == {}`, alltså att ingen post med värde fanns alls. Skiva 37
+    # bytte det mot en kontroll av enbart `telefon`, och då gick en NY post in
+    # med grön svit. Filen är ett §10-stopp: varje post ska kräva ett medvetet
+    # beslut, och den här raden är tripwiren. Fällt av §7-granskningen av
+    # skiva 37, varv 2.
+    assert set(generera.las_fakta()) == {"bokningar"}, (
+        "config/fakta.json har fått eller tappat en post. Filen är ett "
+        "§10-stopp: ändra den här raden bara när Lars har beslutat ändringen."
+    )
+
+    # Och att det tomma värdet FAKTISKT utelämnas, alltså aldrig når prompten.
+    # RADEN prövas, inte strängen: rubriken innehåller ordet "telefonnummer",
+    # så en delsträngskontroll hade varit grön av fel skäl.
+    rader = [r.strip() for r in generera._faktarader().splitlines()]
+    assert not [r for r in rader if r.startswith("telefon:")]
 
 
 @pytest.mark.parametrize("svar", ["", "   ", "\n\n", "\t \n"])
@@ -1024,10 +1114,18 @@ REGLER_I_PROMPTEN = {
        'vidare till. Skriv aldrig "en kollega", "vår tekniker", "vår säljare" '
        'eller "en av våra". Det är VI som återkommer, VI som tittar på bilen, '
        "VI som hör av oss.",
+    # SKIVA 37: förbudet mot att lova en tid är TILLBAKA I PROMPTEN. Det bodde i
+    # `BOKNINGSBESKED` som en instruktion till modellen, och när beskedet
+    # flyttades till `config/fakta.json` blev instruktionen ett FAKTUM i första
+    # person under en rubrik som bad modellen skriva med egna ord. Ingen rad
+    # förbjöd då längre en tidsangivelse: regel 6 fångar tal, och "i juni" är
+    # inget tal. En flytt får inte försvaga en spärr.
     10: "EN BOKNINGSFÖRFRÅGAN BESVARAS MED JA. Frågar kunden om vi kan ta emot "
         "bilen en viss månad eller vecka, så svarar vi att det löser vi och ber "
         "dem höra av sig så bestämmer vi tid. Hänvisa inte vidare och be dem "
-        "inte återkomma senare.",
+        "inte återkomma senare. LOVA ALDRIG EN TID: ingen vecka, ingen månad, "
+        "inget datum och ingen ledtid. Tiden bestäms i kontakten, aldrig i det "
+        "här mailet.",
     11: "FRÅGA ALDRIG EFTER UPPGIFTER SOM REDAN STÅR I MAILET. Läs mailet "
         "först. Står registreringsnumret där, fråga inte efter det. Frågan är "
         "rimlig bara när uppgiften saknas.",

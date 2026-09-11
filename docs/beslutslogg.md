@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.49.0 · **Uppdaterad:** 2026-09-10 · **Implementerar** CLAUDE.md §8
+**Version:** 0.51.0 · **Uppdaterad:** 2026-09-11 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -4274,7 +4274,357 @@ att SKAPA filen och inte att fylla den. Att flytta raden dit är hans beslut.
 
 ---
 
+## #77 — Skiva 36 GODKÄND. Bokningsbeskedet flyttat, lucka 43 stängd
+
+**Lars beslut i skiva 37 DEL 0.** Skiva 36 godkänd som levererad trots #76:s
+stopp. Godkännandet gäller en enskild skiva och är inte en ändring av §7, samma
+form som #67 och #71.
+
+**BOKNINGSBESKEDET FLYTTAT TILL `config/fakta.json`**, på Lars uttryckliga
+§10-beslut. Konstanten `BOKNINGSBESKED` i `src/generera.py` är BORTTAGEN, inte
+bara oanvänd, och beskedet når prompten via `_faktarader`. **Lucka 43 är
+stängd**, och lucka 29:s krav är uppfyllt för just det påståendet: fakta om oss
+kommer nu ur `config/`.
+
+**Lars skrev ut att det var rätt att inte skriva in det själv.** §10 gör filen
+till ett stopp, och ordern i skiva 36 gällde att SKAPA den.
+
+**`telefon` ÄR FORTFARANDE TOM.** Briefen bär platshållaren `[LARS FYLLER I]`
+oifylld, alltså kom inget värde. Ingen siffra är påhittad.
+`test_faktafilen_i_repot_har_TOM_telefon` binder det.
+
+**TVÅ REGRESSIONER SOM FLYTTEN INFÖRDE, båda rättade i samma skiva.**
+
+**Den första är den allvarliga: FÖRBUDET MOT ATT LOVA EN TID FÖRSVANN.**
+Beskedet bar ledet *"Du får INTE ange någon tid, vecka, månad eller ledtid"* som
+en INSTRUKTION till modellen. Flyttat till `config/fakta.json` blev det ett
+FAKTUM i första person plural, under en rubrik som dessutom bad modellen skriva
+med egna ord. **Efter flytten fanns ingen rad i prompten som förbjöd en
+tidsangivelse:** regel 6 fångar tal, och *"i juni"* är inget tal. Förbudet ligger
+nu i promptregel 10, bundet ordagrant av
+`test_varje_regel_star_ORDAGRANT`, och filen bär bara FAKTUMET.
+
+**En flytt får inte försvaga en spärr**, och den här gjorde det tills granskningen
+fällde den. Fällt av §7-granskningen av skiva 37, varv 1.
+
+**Den andra: `_faktarader`:s rubrik.** Den löd *"Dessa FÅR du skriva, ordagrant
+och oförändrade"*, vilket är rätt för ett telefonnummer och fel för en
+policytext. Rubriken säger nu att filen är det ENDA modellen vet om oss, och att
+varje TAL återges ordagrant.
+
+*Första lydelsen motiverade ändringen med att modellen "hade klistrat in hela
+meningen i mailet". Det är en omätt hypotes om modellbeteende, framställd som en
+konstaterad regression. Den verkliga grunden är att en rubrik för en faktakälla
+måste fungera för både ett tal och en text.*
+
+**`config/fakta.json` ÄNDRADES FÖRST UTÖVER BESLUTET, och det är återställt.**
+Utöver den beställda posten skrevs filens två kommentarnycklar om, diakriterna
+ströks ur dem, och en tredje kommentarnyckel lades till. §10 gör VARJE ändring i
+filen till ett stopp, och §3 säger rör bara det du måste. Kommentarerna är
+återställda ordagrant till sin committade lydelse. Fällt av §7-granskningen av
+skiva 37, varv 1.
+
+---
+
+## #78 — Varför uppslaget aldrig ger grönt eller rött. MÄTT, inte gissat
+
+**Skiva 37 DEL A, på Lars order.** Skiva 36 gjorde femton skarpa uppslag PER
+KÖRNING och körde två gånger, alltså trettio, och noll av dem gav grönt eller
+rött. Tre hypoteser prövades. **Ingen av dem var hela svaret, och en fjärde
+orsak fanns som ingen hade räknat med.**
+
+*Här stod "femton skarpa uppslag i skiva 36" utan "per körning", medan samma post
+två stycken ned skriver att kedjan kördes två gånger. §7.2: talets underlag
+ändrades i en grannmening, alltså räknades talet som oläst och skulle ha följt
+med. Fällt av §7-granskningen av skiva 37, varv 2.*
+
+### Metod och kostnad
+
+Sex begäran, taket Lars satte, verkställt av `TAK` i `scripts/faltdiagnos.py` och
+inte av avsikt. De råa sidorna sparades UTANFÖR repot; de bär ägaruppgifter (§6).
+
+**EN KUMULATIV STRYPNING ÄR UTESLUTEN, och det gick utan en enda begäran.**
+Skiva 36 körde kedjan två gånger, med start 16:45:00 och 18:02:47. Båda
+körningarna bär **tjugo ärenden**.
+
+**GRÄNSEN MOT DET AVBRUTNA FÖRSÖKET SKRIVS UT**, så att mätningen går att
+reproducera: `logg/beslut.jsonl` bär en rad `16:44:27` med samma avsändarhash och
+samma klassificering som raden `16:45:00`. Den är ett avbrutet första försök och
+räknas inte. Fönstret 16:44:27–16:47:33 bär alltså tjugoen rader, och tjugo av
+dem är körningen. Utskrivet efter §7-granskningen av skiva 37, varv 3.
+
+**UPPSLAGSSTEGET GAV IDENTISKT UTFALL FÖR SAMTLIGA TJUGO**, både `utfall` och
+`detalj`. Lyckandena låg på exakt samma
+platser i båda: ärende **2, 5, 11, 12, 15 och 19** av tjugo, räknat från ett. En
+kumulativ strypning ger varierande utfall och försämring mot slutet; här lyckades
+ärende nitton, som är ett av de femton med uppslag, i båda körningarna.
+
+*Här stod först "tretton ärenden fanns i båda körningarna, och samtliga tretton
+gav IDENTISKT utfall", och sedan i rättelsen att tretton var antalet identiska i
+ALLA fält och att sju skilde sig. **Även den rättelsen var falsk.** Mätt:
+sex hela poster är identiska och fjorton skiljer sig, medan uppslagssteget är
+identiskt i tjugo av tjugo.*
+
+*Här stod också att variationen ligger "uteslutande nedströms uppslaget, i
+generatorn och talspärren". **Det är falskt, och det döljer skivans enda
+sändvägsrelevanta observation:** klassificeringen, som körs UPPSTRÖMS uppslaget,
+varierade för ett ärende, och det flyttade tråden mellan `utkast` och `auto`. Se
+#79. Meningen skrevs mot minnet av var variation brukar ligga, inte mot loggen.
+Fällt av §7-granskningen av skiva 37, varv 3.*
+
+*Positionerna skrevs först som 1, 4, 10, 11, 14 och 18 "av tjugo", vilket är
+NOLLBASERADE index presenterade som ordningstal. Det artonde uppslaget
+misslyckades. Här stod också att det sista uppslaget LYCKADES i båda: loggen
+säger `misslyckades`, med `svaret saknar draganordning`. Fällt av
+§7-granskningen av skiva 37, varv 1 och varv 2.*
+
+**VAD ARGUMENTET INTE UTESLUTER, och det ska stå.** Identiskt utfall över två
+körningar utesluter en kumulativ, hastighetsbaserad strypning. Det utesluter
+INTE en deterministisk begränsning per fordon, en strypning bunden till klient
+eller IP med längre fönster än de sjuttiofem minuter som skilde körningarna,
+eller en mellanliggande cache som serverar samma reducerade sida båda gångerna.
+
+**DET SOM FAKTISKT AVLIVAR HYPOTES 2 ÄR SIDDATAN, inte tvåkörningsargumentet.**
+En sida saknar hela släpvagnsavsnittet, och en annan bär `Släpvagnsvikt
+obromsad` men ingen bromsad siffra. Det är registerinnehåll och inte ett strypt
+svar. Tvåkörningsargumentet är ett stöd, inte beviset.
+
+Den omhämtning briefen bad om gjordes inte: budgeten räckte inte till både den
+och Lars urval på tre plus tre.
+
+### Utfallet, avläst ur sex sidor
+
+| Fält över sex sidor | Antal |
+| --- | --- |
+| lästes | 14 |
+| SAKNAS på sidan | 3 |
+| STÅR på sidan men tolkas inte | 1 |
+
+**HYPOTES 3 BÄR TRE AV FYRA FALL.** En sida saknar hela släpvagnsavsnittet. En
+annan bär `Släpvagnsvikt obromsad` men ingen bromsad siffra, alltså har fordonet
+ingen bromsad släpvagnsvikt i registret. Det är ett riktigt registerfaktum och
+inte ett fel.
+
+**HYPOTES 1 STÖDS INTE.** Ordet `logga in` står på VARJE sida, också de tre som
+gav alla tre fälten, alltså är det sidans navigering och inte en vägg. Samma
+utloggade hämtare får fullständigt svar för hälften av fordonen, och en
+inloggningsvägg hade strypt likadant för alla. **Kvarstående osäkerhet:** att ett
+INLOGGAT läge skulle visa MER går inte att utesluta utan ett konto.
+
+### Den fjärde orsaken, som ingen listade
+
+**ETT FÄLT STÅR PÅ SIDAN OCH TOLKAS INTE.** `Draganordning` har värdet
+`Ja Kula`, alltså ja plus kopplingstyp. `biluppgifter._ja_nej` kräver exakt `ja`
+eller `nej` och ger `None` för allt annat, vilket gör att nyckeln utelämnas och
+`_kontrollera` fäller.
+
+**DET ÄR DEN DYRASTE AV DE FYRA, och det går att räkna ut varför.** `utvardera`
+ger GRÖNT bara när `draganordning` är sann. Fem av de sex sidorna BÄR fältet, och
+av dessa fem visar **exakt en** en dragkrok. Det är den enda parsern avvisar.
+Avläst: med `Ja Kula` tolkat som ja blir utfallet `gront`.
+
+*Här stod "av de sex fordonen har exakt ett en dragkrok". Den sjätte sidan bär
+inte fältet alls, alltså är dess dragkroksstatus OKÄND och inte `nej`. Att räkna
+den som ett nej är ett registerpåstående om ett fordon vars sida saknar
+uppgiften, och talet bär kostnadsargumentet. Fällt av §7-granskningen av skiva
+37, varv 1.*
+
+### Varför OKLART dominerar, och varför det är RÄTT
+
+De tre sidor som lästes fullständigt bär alla `Draganordning: Nej`. `utvardera`
+ger då GRÖNT bara vid dragkrok, RÖTT bara när fordonet failar §42:s
+lämplighetsvillkor, GULT bara med ett kundbesked, och annars **OKLART**. Alla tre
+klarade viktvillkoret, alltså inte RÖTT, och inget besked finns, alltså OKLART.
+
+**Kedjan samlar aldrig in ett `besked`.** Utan det är GRÖNT bara nåbart via en
+registrerad dragkrok, och GULT inte alls. Det är skiva 12:s beslut, se #24, och
+förvalet OKLART är medvetet försiktigt.
+
+**RÖTT i tidigare körningar kom ur FIXTUREN**, inte ur registret.
+
+### Vad som INTE ändrades
+
+**Ingenting i uppslaget.** DEL B: `fordonsfakta-ur-uppslag` gör rätt när den
+vägrar påstå något om ett saknat fält. Att lära `_ja_nej` läsa `Ja Kula` är en
+sändvägsändring och Lars beslut, registrerad som LUCKA 44.
+
+---
+
+## #79 — Klassificeraren flyttade samma tråd mellan `utkast` och `auto`
+
+**Uppmätt av §7-granskningen av skiva 37, varv 3, ur data som legat i loggen
+sedan skiva 36.** Ingen letade efter det, och skiva 37:s egen rättelsetext
+förnekade uttryckligen att det fanns.
+
+**VAD SOM MÄTTES.** Skiva 36 körde samma tjugo mail två gånger. Ett ärende fick
+`boka a-traktorkonvertering` i den ena körningen och `fråga om
+a-traktorkonvertering` i den andra. **Det flyttade tråden från hinken `utkast`
+till hinken `auto`.**
+
+| | körning 1, 16:45 | körning 2, 18:03 |
+| --- | --- | --- |
+| kategori | `boka a-traktorkonvertering` | `fråga om a-traktorkonvertering` |
+| hink | `utkast` | **`auto`** |
+
+**VARFÖR DET ÄR STÖRRE ÄN DE ANDRA FYNDEN I SKIVAN.** `config/kategorier.yaml`
+har **en enda** kategori i `auto`, och det är `fråga om a-traktorkonvertering`.
+§0:s ramverksregel 1 säger att inget mail skickas vars kategori inte står i
+`auto`. Hinken är alltså gränsen mellan *"en människa läser först"* och *"mailet
+får gå ut"*, och den gränsen visade sig vara **icke-deterministisk för samma
+inkommande text**.
+
+**VAD DET INTE ÄR.** Ingen har skickat något: kedjan saknar sändväg, och
+`vyn-har-ingen-sandvag` prövas mot hela importgrafen. Det här är ett fynd om vad
+som HADE kunnat gå ut i skuggläget, alltså precis det skuggläget finns för att
+mäta.
+
+**VAD DET INTE HELLER ÄR: ett fel i klassificeraren.** De två kategorierna ligger
+nära varandra i sak, och ett mail som både frågar och vill boka kan rimligen
+hamna i endera. §7 skriver ut att klassificering är sändväg, men den säger inte
+att den ska vara deterministisk. **Det som är nytt är att kategoriernas HINKAR
+skiljer sig**, alltså att en rimlig tvekan mellan två namn blir en skillnad i om
+ett mail får skickas.
+
+**INGET ÄNDRAS I DEN HÄR SKIVAN.** Skiva 37 är stoppad efter tre varv, och ett
+ingrepp i hinkarna är ett §10-stopp: `config/kategorier.yaml` ändras bara av Lars
+uttryckliga beslut, och ramverksregel 2 säger att ingen kategori flyttas till
+`auto` av kod.
+
+**FRÅGAN TILL LARS, och den är hans ensam.** Ska en kategori få stå i `auto` när
+en grannkategori med nästan samma innebörd står i `utkast`? Tre vägar, ingen
+vald här:
+
+1. Flytta `fråga om a-traktorkonvertering` till `utkast` tills skuggläget mätt
+   hur ofta gränsen vandrar. Då är `auto` tom, vilket är det säkra läget.
+2. Behålla hinken och mäta vandringen i skuggläget först, eftersom ingenting
+   skickas ännu.
+3. Kräva att klassificeringen är stabil över två körningar innan ett ärende får
+   hinken `auto`. Det är en ny spärr och en egen skiva.
+
+Registrerad som LUCKA 47 i `docs/sparrar.md`.
+
+---
+
+## #80 — Skiva 37 STOPPAS efter tre varv. Mätningen står, texten om den föll
+
+**§7:s rad för SÄNDVÄG: tre varv, och vid kvarstående fynd stoppa och
+rapportera öppet.** Varv 1 gav tio blockerande fynd, varv 2 tio, varv 3 två.
+
+**DEL A:s SLUTSATS STÅR OFÖRÄNDRAD GENOM ALLA TRE VARVEN.** Fjorton fält lästes,
+tre saknas på sidan, ett står men tolkas inte. `Ja Kula` är den fjärde orsaken
+och den kostade stickprovets enda möjliga GRÖNT. Varje siffra i den tabellen har
+reproducerats av tre oberoende granskningar. **Det som föll var texten OM
+mätningen, aldrig mätningen.**
+
+### Mönstret, och var det slog
+
+Varv 2 fann fem fynd i varv 1:s rättelser. Varv 3 fann två i varv 2:s. Det är
+`docs/incidentlogg.md` I10, femte skivan i rad.
+
+**DE TVÅ FARLIGASTE VAR RÄTTELSER SOM SÅG KLARA UT:**
+
+| Vad jag rapporterade | Vad som faktiskt gällde |
+| --- | --- |
+| *"Förbudet mot att lova en tid är tillbaka i regel 10, alltså rättat"* | En promptregel är ingen spärr. Regelns TEXT är bunden, inte dess verkan. Ett tidslöfte passerar alla fyra spärrar, avläst. LUCKA 46 |
+| *"Variationen ligger uteslutande nedströms uppslaget"* | Klassificeringen varierade, UPPSTRÖMS, och flyttade en tråd mellan `utkast` och `auto`. Se #79 |
+
+**Det andra är det som gör skivan värd mer än sin diagnos.** Fyndet låg i loggen
+sedan skiva 36, ingen letade efter det, och min egen rättelsetext förnekade att
+det fanns. En granskare hittade det genom att pröva meningen mot källan i stället
+för mot fyndet den svarade på, vilket är precis vad §7 föreskriver.
+
+### Vad som rättades ändå
+
+§0:s ramverksregler och §7:s rättelseplikt gäller oberoende av grinden. Varje
+fynd ur varv 3 är rättat: `_underlag`:s rubrik bar samma falskhet som `FAKTARUBRIK`
+fälldes för och var dessutom vakuös, och båda rubrikerna är nu egna konstanter
+bundna ordagrant.
+
+### Vad som INTE rättades
+
+**Lucka 44**, att `_ja_nej` inte läser `Ja Kula`. DEL B förbjöd ändringar i
+uppslaget, och en prefixregel är inte gratis.
+
+**Lucka 45, 46 och 47** står öppna och mätta. Lucka 47 är Lars att avgöra: den
+rör §10 och ramverksregel 2.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.51.0 — 2026-09-11
+
+**Två poster till, #79 och #80, ur skiva 37:s tredje granskningsvarv.**
+
+**#79 är skivans tyngsta fynd och kom fram sist.** Klassificeraren flyttade samma
+tråd mellan `utkast` och `auto` mellan två körningar. Det låg i loggen sedan
+skiva 36, och #78:s egen rättelsetext förnekade att det fanns.
+
+**#80 stoppar skivan.** DEL A:s mätning står oförändrad genom tre varv; det som
+föll var texten om den.
+
+**Rättelser på plats i #78**, med kursiv not: påståendet om var variationen låg,
+och gränsen mot det avbrutna första försöket i loggen.
+
+Nya poster ⇒ MINOR.
+
+### 0.50.0 — 2026-09-11
+
+**Två poster, #77 och #78, ur skiva 37.**
+
+**#77 är Lars beslut:** skiva 36 godkänd, bokningsbeskedet flyttat till den
+grindade källan, lucka 43 stängd. **Telefonvärdet är FORTFARANDE TOMT**, eftersom
+briefen bar en oifylld platshållare. Ingen siffra är påhittad.
+
+**#78 är en MÄTNING och inget beslut.** Sex begäran, taket Lars satte. Ingen av
+de tre hypoteserna var hela svaret, och en fjärde orsak fanns som ingen hade
+räknat med: ett fält står på sidan och tolkas inte.
+
+**En KUMULATIV hypotes 2 uteslöts utan en enda begäran**, ur data som redan
+fanns. Vad argumentet INTE utesluter står utskrivet i posten.
+
+**VARV 1 GAV FYND I BÅDA DELARNA.** Rättade på plats där de satt, i #77, #78 och
+`scripts/faltdiagnos.py`:
+
+| Fynd | Var |
+| --- | --- |
+| Förbudet mot att lova en tid försvann i flytten | #77 |
+| `config/fakta.json` ändrades utöver Lars beslut | #77 |
+| *"tretton ärenden"* var tjugo, och tretton var en överensstämmelsegrad | #78 |
+| *"sista uppslaget lyckades"* — loggen säger motsatsen | #78 |
+| *"exakt ett av sex har dragkrok"* räknade en sida som saknar fältet | #78 |
+| Taket räknade uppslag och inte begäran | `scripts/faltdiagnos.py` |
+| *"54 procent"* gick inte att räkna om | `scripts/faltdiagnos.py` |
+
+*Den här posten skrevs först utan diakriter, för att jag byggde den med en
+bash-rad och ville undvika skalproblem. Resultatet var att den post Lars läser om
+ett §10-stopp stod på stympad svenska medan posterna ovanför bar korrekt. Det är
+formatering som följer av mitt verktygsval och inte av innehållet. Omskriven med
+`Edit`. Fällt av §7-granskningen av skiva 37, varv 1.*
+
+**VARV 2 GAV TIO FYND TILL. Flera av dem satt i varv 1:s egna rättelser, och tabellen namnger var och en i stället för att summera dem.**
+
+| Fynd | Var |
+| --- | --- |
+| `_faktarader`:s nya rubrik var falsk om prompten den ligger i | `src/generera.py` |
+| Samma rubrik var OBUNDEN: en lydelse som bad modellen hitta på mer om oss passerade sviten | `src/generera.py`, `tests/test_generera.py` |
+| §10-tripwiren försvagades: en obesluten post i den grindade filen gick in grön | `tests/test_generera.py` |
+| Rättelsens egna tal var också fel: sex identiska hela poster, inte tretton | #78 |
+| Positionerna var nollbaserade index skrivna som ordningstal | #78 |
+| Lucka 45 beskrev ett tillstånd filen aldrig haft | `docs/sparrar.md` |
+| Processräkning av skivans egna delsträngsfällor | `tests/test_generera.py` |
+| *"femton skarpa uppslag"* mot två körningar i samma post | #78 |
+| Självrapporten om rättelsernas FORM stämde inte mot källan | 0.50.0 |
+| Inget i koden fäller ett tidslöfte, och ingen lucka sade det | LUCKA 46 |
+
+**DET TYNGSTA ÄR LUCKA 46, och den kom ur en rättelse som såg klar ut.** Varv 1
+flyttade förbudet mot att lova en tid tillbaka till promptregel 10 och kallade
+saken rättad. En promptregel är ingen spärr: regelns TEXT är bunden, inte dess
+verkan. Avläst passerar *"vi tar in bilen i juni"* samtliga fyra spärrar. §7
+skriver ut att ett mail som lovar en tid är en sändvägsdefekt även när koden är
+felfri.
+
+Nya poster ⇒ MINOR.
 
 ### 0.49.0 — 2026-09-10
 
