@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.41.0 · **Uppdaterad:** 2026-09-11 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.42.0 · **Uppdaterad:** 2026-09-11 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -958,7 +958,7 @@ utskriven, eftersom det ena är en ändring och det andra ett dokumentfel.
 | 8 | Lager 3, schemat prövas inte: `if delar.scheme.lower() != FORVANTAT_SCHEMA:` blir `if False:` | RÖD | 1 |
 | 9 | Lager 3, värdnamnet prövas inte: `if _vard(delar.netloc) != FORVANTAD_VARD:` blir `if False:` | RÖD | 3 |
 | 10 | Lager 4, `_tal` `fullmatch` blir `search` | RÖD | 12 |
-| 11 | Lager 4, `_ja_nej` förval `None` blir `False` | RÖD | 10 |
+| 11 | Lager 4, `_ja_nej` förval `None` blir `False` | RÖD | 48 |
 | 12 | Lager 4, `.strip()` före matchningen borttagen | RÖD | 3 |
 | 13 | Lager 4, rimligheten godtas alltid: `if MIN_VIKT_KG <= varde <= MAX_VIKT_KG:` blir `if True:` | RÖD | 6 |
 | 14 | Parsern, `if tagg in HOPPAS_OVER:` blir `if False:` | RÖD | 8 |
@@ -973,6 +973,24 @@ utskriven, eftersom det ena är en ändring och det andra ett dokumentfel.
 | 23 | **NY i skiva 25.** Egenskapen, utsträckningen: `if not egen_sluttagg:` i `_varde_bar_markup` blir `if False:` | RÖD | 2 |
 | 24 | **NY i skiva 25.** Egenskapen godtar ALLT: jämförelsen `unescape(...) != samlad` blir `return False` | RÖD | 15 |
 | 25 | **NY i skiva 25.** Egenskapen godtar INGET: samma jämförelse blir `==` i stället för `!=` | RÖD | 115 |
+
+**RAD 11 ÄR OMMÄTT I SKIVA 39, och bara den.** Talet var 10 och är 48, avläst ur
+`scripts/sparr-prova.sh --fil src/biluppgifter.py --ersatt '894=    return False'
+-- tests/test_biluppgifter.py -q`.
+
+*Kommandot angav rad 887, som är en KOMMENTARRAD. Den mutationen gör `_ja_nej`
+till ett ovillkorligt `return False` för allt, inklusive `ja`, och ger `51
+failed, 219 passed`, alltså varken talet i tabellen eller den mutation raden
+beskriver. Orsaken är att varv 2 lade in en kursiv not i docstringen ovanför,
+vilket sköt ned varje kodrad under den, och radnumret i prosan lästes aldrig om.
+Samma mekanism som §7 namnger om appendixposter. Talet 48 är oförändrat och
+korrekt. Fällt av §7-granskningen av skiva 39, varv 3.*
+
+Skälet att just den raden mäts om är att skiva 39 skrev om `_ja_nej`, alltså är
+det radens EGET underlag som ändrats och inte bara baslinjen under den. §7.2:
+kravet utlöses när talets underlag ändras. Tabellens övriga tal står kvar mot
+baslinjen 214 som posten redan skriver ut, och den driften är inte den här
+skivans att stänga.
 
 **LAGER 1 OCH 2 ÄR INTE REDUNDANTA, och rad 3 visar det.** 8 + 25 är 33, alltså
 exakt additivt: dubbelfällningen fäller precis unionen och inget maskeras. Förr
@@ -2980,42 +2998,40 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   kommer överens om tid"*. Uppmätt av §7-granskningen av skiva 37, varv 2.
 
 - **Lucka 48. `_ja_nej` SKILJER INTE KOPPLINGSTYP FRÅN ETT EFTERLED SOM BETYDER
-  MOTSATSEN. ÖPPEN OCH MÄTT.**
+  MOTSATSEN. STÄNGD I SKIVA 39 på Lars beslut: EFTERLED TOLKAS INTE ALLS.**
 
-  Villkoret i `src/biluppgifter.py` är ORDANTAL och TECKENKLASS: `ja` ensamt,
-  eller `ja` plus ett efterled där `str.isalpha()` är sant. Uppmätt med
+  Villkoret var ORDANTAL och TECKENKLASS: `ja` ensamt, eller `ja` plus ett
+  efterled där `str.isalpha()` är sant. Uppmätt i skiva 38 varv 3 med
   `.venv/bin/python -c` mot `biluppgifter._ja_nej`:
 
-  | Värde | Utfall |
-  | --- | --- |
-  | `Ja Kula` | `True`, och det är formen luckan 44 stängdes för |
-  | `Ja avmonterad` | `True` |
-  | `Ja borttagen` | `True` |
-  | `Ja saknas` | `True` |
-  | `Ja nej` | `True` |
+  | Värde | Utfall DÅ | Utfall NU |
+  | --- | --- | --- |
+  | `Ja Kula` | `True`, formen lucka 44 stängdes för | `None` |
+  | `Ja avmonterad` | `True` | `None` |
+  | `Ja borttagen` | `True` | `None` |
+  | `Ja saknas` | `True` | `None` |
+  | `Ja nej` | `True` | `None` |
 
-  **VARFÖR DET ÄR SÄNDVÄG.** `fordonsuppslag.utvardera` når GRÖNT så snart
+  **VARFÖR DET VAR SÄNDVÄG.** `fordonsuppslag.utvardera` når GRÖNT så snart
   `draganordning` är sann, utan att fråga kunden. `fordonsuppslag.slag_upp`
   skriver att en omonterad dragkrok och en monterad men oregistrerad ser likadana
   ut i registret, vilket är hela skälet till att förvalet är OKLART. Ett efterled
-  som antyder att kroken är borta hör till det fallet, och regeln släpper igenom
-  det.
+  som antyder att kroken är borta hörde till det fallet, och regeln släppte
+  igenom det: ett fordon UTAN dragkrok gick till GRÖNT.
 
-  **INGEN SIDA I STICKPROVET SKRIVER ETT SÅDANT EFTERLED.** De sex sparade
-  sidorna bär `Nej` fyra gånger, `Ja Kula` en gång, och saknar fältet på en.
-  Risken är alltså formens, inte en observerad händelse.
+  **INGEN SIDA I STICKPROVET SKREV ETT SÅDANT EFTERLED.** De sex sparade sidorna
+  bär `Nej` fyra gånger, `Ja Kula` en gång, och saknar fältet på en. Risken var
+  formens, inte en observerad händelse. Luckan stängdes ändå, eftersom
+  riktningen på felet var fel och modulen är byggd för att hellre falla än gissa.
 
-  **VARFÖR DEN INTE ÄR RÄTTAD.** Fyndet gjordes i varv 3, med grinden förbrukad.
-  §7:s rad för SÄNDVÄG säger stoppa och rapportera öppet, och en fjärde
-  självmätt ändring i samma regel är precis vad den raden finns för att hindra.
-  Varv 1 och varv 2 ändrade var sin gren och införde var sitt nytt fel.
+  **VAD SOM STÄNGDE LUCKAN: den andra av de två vägarna.** Efterled ger `None`,
+  alltså OKLART. Den första vägen, en uppräkning av observerade kopplingstyper,
+  valdes bort därför att den kräver fler sidor än sex för att veta vilka typer
+  som förekommer, och de sidorna finns inte.
 
-  **VAD SOM STÄNGER LUCKAN.** Antingen en uppräkning av observerade
-  kopplingstyper, alltså att efterledet måste stå i en lista och inte bara vara
-  bokstäver, eller att efterledet gör värdet OKLART i stället för `True` så att
-  `Ja Kula` faller till utkast igen. Det andra återöppnar lucka 44. Valet är
-  Lars, och det vilar på hur många kopplingstyper sidan faktiskt använder, vilket
-  sex sidor inte räcker för att avgöra.
+  **PRISET ÄR ATT LUCKA 44 ÅTERÖPPNAS**, och det är utskrivet i Lars beslut.
+  `Ja Kula` faller till utkast igen. Se posten för lucka 44 och
+  `docs/beslutslogg.md` #86.
 
   **HUR MÖNSTRET SER UT.** Varv 2 fällde `Ja, avmonterad` och rättelsen band
   KOMMATECKNET: tabellraden skriver ut det själv, *"kommatecken i första
@@ -3047,22 +3063,58 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   talsektion i stället för varje värde. Båda är §10-beslut, eftersom de ändrar
   vad filen betyder. Uppmätt av §7-granskningen av skiva 37, varv 1.
 
-- **Lucka 44. STÄNGD I SKIVA 38 på Lars beslut.** `_ja_nej` läser nu FÖRSTA
-  ORDET, alltså `Ja Kula` och varje annan kopplingstyp. Se
-  `docs/beslutslogg.md` #83.
+- **Lucka 44. ÅTERÖPPNAD I SKIVA 39 på Lars beslut, och priset är valt.**
+  `_ja_nej` kräver åter `ja` eller `nej` BART. `Ja Kula` ger `None`, nyckeln
+  utelämnas, `_kontrollera` fäller, och stickprovets enda möjliga GRÖNT blir ett
+  utkast utan bedömning. Se `docs/beslutslogg.md` #86.
 
-  **REGELN LÄSER ETT ORD OCH INTE ETT PREFIX**, och den skillnaden är bunden:
-  `Jacobsen` och `Ja/Nej` står i regressionstabellen och ger `None`. En
-  prefixregel hade gjort båda till ett ja.
+  *Här stod "stickprovets enda fordon med registrerad dragkrok". Det är tredje
+  lydelsen av en sats som strukits två gånger, i skiva 37 varv 1 och skiva 38
+  varv 2: den sjätte sidan bär inte fältet, alltså är dess status OKÄND och inte
+  nej, och tillägget "registrerad" rör inte den orsaken. Fällt av
+  §7-granskningen av skiva 39, varv 3.*
+
+  **LUCKAN ÄR ÖPPEN MED FLIT OCH INTE AV FÖRBISEENDE**, och det är skillnaden
+  mot hur den stod i skiva 37. Då var den en oavsiktlig följd av en regel ingen
+  hade prövat. Nu är den den mätta kostnaden för att stänga lucka 48.
+
+  **SKÄLET ÄR ATT EFTERLEDET INTE GÅR ATT TOLKA.** `Ja Kula` och `Ja avmonterad`
+  har samma form. En regel som godtar den ena godtar den andra, eftersom
+  villkoret är ordantal och teckenklass och aldrig betydelse. `slag_upp` skriver
+  redan att en omonterad dragkrok och en monterad men oregistrerad ser likadana
+  ut i registret, vilket är hela skälet till att förvalet är OKLART. `Ja Kula`
+  hör hemma i samma osäkerhet: sidan säger att något står REGISTRERAT, inte att
+  det sitter på bilen.
+
+  **VAD SOM STÄNGER LUCKAN.** En uppräkning av observerade kopplingstyper, så
+  att efterledet måste stå i en lista. Den kräver fler sidor än sex för att veta
+  vilka typer som förekommer, och de sidorna finns inte. Luckan står alltså
+  öppen tills materialet finns, inte tills någon kommer på en bättre regel.
 
   **NEJ-SIDAN KRÄVER EXAKT `nej`.** `Nej.`, `Nej tack` och `Nej, uppgift saknas`
-  ger alla `None` och faller till utkast.
+  ger alla `None` och faller till utkast. Det COMMITTADE slutläget är detsamma
+  före skiva 38 och efter skiva 39.
 
-  **ASYMMETRIN FÖLJER AV MÄTNINGEN OCH INTE AV EN TEORI OM VILKET FEL SOM ÄR
-  VÄRST.** Sidan skriver ja MED efterled, `Ja Kula`, och skriver nej ENSAMT. De
-  sex sparade sidorna i skiva 37:s stickprov bär `Nej` fyra gånger, `Ja Kula` en
-  gång, och saknar fältet på en. Ja-sidan behövde alltså vidgas och nej-sidan
-  inte. Ingen sida i stickprovet skriver nej med efterled.
+  *Här stod att nej-sidan är "oförändrad genom HELA skiva 38 och 39". Det är
+  samma sats som skiva 38 varv 1 fällde, och den noten står 26 rader längre ned
+  i den här posten: under skivans gång vidgades nej-sidan, och `Nej, uppgift
+  saknas` gav `False`. Det är slutläget som är oförändrat, inte förloppet. Fällt
+  av §7-granskningen av skiva 39, varv 3.*
+
+  **REGELN ÄR BETEENDEMÄSSIGT IDENTISK MED DEN I `f5d26d6`**, alltså den som
+  gällde före skiva 38. Vad de två skivorna lämnar är inte en ny gräns utan ett
+  BELÄGG för den gamla: regressionstabellen, negativkontrollen, och
+  fällningstabellen nedan.
+
+  *Här stod "STÄNGD I SKIVA 38 på Lars beslut. `_ja_nej` läser nu FÖRSTA ORDET".
+  Den lydelsen var dessutom fälld i skiva 38 varv 2 och överlevde här, vilket
+  varv 3 rättade en gång redan. Nu är den borta av en annan orsak: regeln den
+  beskrev finns inte.*
+
+  *Här stod också att ASYMMETRIN FÖLJER AV MÄTNINGEN, att sidan skriver ja med
+  efterled och nej ensamt, och att ja-sidan därför behövde vidgas. Mätningen står
+  kvar och är oförändrad; slutsatsen gör det inte. Att sidan skriver `Ja Kula`
+  säger vad sidan skriver, inte att vi kan tolka det.*
 
   *Här stod att skälet är RIKTNINGEN PÅ FELET: att ett felläst ja är "synligt
   för kunden, som känner sin egen bil", medan bara ett felläst nej blir ett
@@ -3078,34 +3130,83 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   fällning som återställde den strikta nej-sidan var GRÖN. Fällt av
   §7-granskningen av skiva 38, varv 1.*
 
+  **FÄLLNINGSTABELLEN ÄR HELT OMKÖRD I SKIVA 39**, eftersom regeln den mätte inte
+  finns kvar. SJU fällningar: tre per gren, plus en som återinför skiva 38:s
+  villkor ordagrant. Alla neutraliserade och alla med `scripts/sparr-prova.sh`.
+  Varje återställning kvitterad med *"sha256 identisk"* och *"git diff identisk
+  med utgångsdiffen"*.
+
+  *Här stod "Sex fällningar, tre per gren". Det var sant om tabellen som den såg
+  ut innan varv 1:s rättelse lade en sjunde rad ÖVERST, och falskt tre rader
+  ovanför tabellen efteråt. Det är den mekanism §7 namnger: en post som läggs
+  överst föråldrar räkningen över sig i samma skrivning. Fällt av
+  §7-granskningen av skiva 39, varv 2.*
+
   | Fälld rad | Utfall | Form |
   | --- | --- | --- |
-  | **nej-sidan VIDGAD till att läsa första ordet** | RÖD, `5 failed, 262 passed` | neutraliserad |
-  | nej-sidan vidgad till PREFIX, `rensat.startswith("nej")` | RÖD, `13 failed, 254 passed` | neutraliserad |
-  | nej-grenen satt till `if False:` | RÖD, `37 failed, 230 passed` | neutraliserad |
-  | **ja-sidan vidgad: efterledsvillkoret borttaget** | RÖD, `2 failed, 265 passed` | neutraliserad |
-  | ja-sidan vidgad till PREFIX, `rensat.startswith("ja")` | RÖD, `7 failed, 260 passed` | neutraliserad |
+  | **SKIVA 38:s EXAKTA VILLKOR återinfört**, ordantal och teckenklass | RÖD, `8 failed, 262 passed` | neutraliserad |
+  | ja-grenen VIDGAD till första ordet, `rensat.split()[:1] == ["ja"]` | RÖD, `10 failed, 260 passed` | neutraliserad |
+  | ja-grenen vidgad till PREFIX, `rensat.startswith("ja")` | RÖD, `15 failed, 255 passed` | neutraliserad |
+  | ja-grenen satt till `if False:` | RÖD, `5 failed, 265 passed` | neutraliserad |
+  | nej-grenen VIDGAD till första ordet, `rensat.split()[:1] == ["nej"]` | RÖD, `5 failed, 265 passed` | neutraliserad |
+  | nej-grenen vidgad till PREFIX, `rensat.startswith("nej")` | RÖD, `13 failed, 257 passed` | neutraliserad |
+  | nej-grenen satt till `if False:` | RÖD, `37 failed, 233 passed` | neutraliserad |
 
-  Mot `tests/test_biluppgifter.py`, som bar 267 test vid mätningen.
+  Mot `tests/test_biluppgifter.py`, som bar 270 test vid mätningen, avläst ur
+  `--collect-only -q`.
 
-  *De två sista talen var `7 failed, 260 passed` och `11 failed, 256 passed`.
-  Det första var rad 5:s utfall skrivet på rad 4, det andra hörde inte till
-  någon fällning alls. Varv 2 lade till tabellrader, vilket ändrade underlaget
-  för samtliga fem tal, och bara de tre nej-raderna kördes om. §7.2: VID
-  OMSKRIVNING RÄKNAS TALET SOM OLÄST. Båda är omkörda i varv 3 och står nu som
-  de mättes. Fällt av §7-granskningen av skiva 38, varv 3.*
+  **FÖRSTA RADEN ÄR DEN SOM BÄR SKIVANS BESLUT**, och bara den. Den återinför
+  skiva 38:s villkor ORDAGRANT, alltså `ord_[:1] == ["ja"]` med både
+  ordantalsledet och `isalpha()`. Att den är RÖD är det som hindrar att just den
+  gränsen glider tillbaka.
 
-  **DE TVÅ FETA RADERNA ÄR SKIVANS EGNA MISSTAG, var och en fälld av de rader
-  som tillkom när den upptäcktes.**
+  *Den raden saknades, och i stället stod att fällning 2 "återinför exakt skiva
+  38:s gräns". Det är falskt: fällning 2 saknar båda leden och är alltså STRIKT
+  VIDARE än skiva 38:s regel, vilket syns på att den fäller `ja men avmonterad`
+  och `Ja (borttagen)`, som skiva 38 gav `None`. Tabellen bevisade därmed att en
+  vidare gräns är röd, inte att skiva 38:s gräns är det. Fällt av
+  §7-granskningen av skiva 39, varv 1.*
 
-  Den första fäller att nej-sidan läser första ordet, vilket varv 1 fann att den
-  gjorde utan att något band det. Den fjärde fäller att ja-sidan tar vilket
-  efterled som helst, vilket varv 2 fann: `Ja, avmonterad` blev då `True` och
-  därmed GRÖNT, förbi det OKLART som finns just för att en avmonterad krok ser
-  likadan ut i registret.
+  **DE TVÅ RADERNA SKILJER SIG MED TVÅ TEST**, `8 failed` mot `10 failed`, och
+  det är precis `ja men avmonterad` och `Ja (borttagen)`.
+
+  `test_ett_JA_MED_KOPPLINGSTYP_faller_till_UTKAST` ligger bland de röda i BÅDA,
+  alltså är den raden inte vakuös mot någondera gränsen.
 
   **Båda prefixraderna finns för att skilja ORD från TECKENFÖLJD**, på var sin
   sida. Utan dem hade `Jacobsen`, `Ja/Nej` och `Nejlika` passerat.
+
+  **DE TRE SOM SKIVA 38 SLÄPPTE IGENOM STÅR NU I TABELLEN SOM EGNA RADER.** `Ja
+  avmonterad`, `Ja borttagen` och `Ja saknas` gav alla `True`, alltså hade ett
+  fordon UTAN dragkrok gått till GRÖNT.
+
+  **VAD DE TRE FAKTISKT BÄR.** Fällningen med skiva 38:s exakta villkor ger åtta
+  röda, och de fördelar sig så här, avläst ur `FAILED`-raderna:
+
+  | Röd rad | Vad den säger |
+  | --- | --- |
+  | `Ja Kula`, `Ja Krok`, `Ja Kulhandske`, `ja kula` | ett värde blev `True` av sin KOPPLINGSTYP, alltså lucka 44:s pris |
+  | `Ja avmonterad`, `Ja borttagen`, `Ja saknas` | ett värde blev `True` fast efterledet betyder MOTSATSEN |
+  | `test_ett_JA_MED_KOPPLINGSTYP_faller_till_UTKAST` | konsekvensen hela vägen |
+
+  De tre nya raderna är alltså inte det som gör fällningen röd, den vore röd på
+  fem rader utan dem. De är det som gör att tabellen kan SKILJA ett felaktigt
+  grönt som beror på kopplingstyp från ett som beror på ett efterled med motsatt
+  betydelse. Det är den skillnaden Lars beslut vilar på.
+
+  *Här stod att de är tillagda "just för att fällning 1 ska ha något att falla
+  på". Falskt, och rättelsens första lydelse skrev i stället att skiva 38:s
+  villkor "utan dem inte hade haft något att falla på alls", vilket är samma fel
+  en gång till: fem röda återstår. Fällt av §7-granskningen av skiva 39 varv 1,
+  och av en omkörning under rättelsen.*
+
+  *Här stod skiva 38:s femradiga tabell, mätt mot den regel som nu är borttagen.
+  Den är bevarad ordagrant i den här filens 0.42.0-post.*
+
+  *Noten sade först att tabellen redovisas i `docs/beslutslogg.md` #83 och i
+  0.40.0- och 0.41.0-posterna. Ingen av dem bär en tabell, och tre av de fem
+  talen fanns inte längre någonstans i `docs/`. Fällt av §7-granskningen av
+  skiva 39, varv 2.*
 
   **Negativkontroll:** `test_ett_TREDJE_varde_blir_ALDRIG_Nej`, skild från
   tabellen med flit. Tabellen prövar att varje form ger RÄTT svar; den här att
@@ -4174,6 +4275,71 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.42.0 — 2026-09-11
+
+**LUCKA 48 STÄNGD, LUCKA 44 ÅTERÖPPNAD.** Lars beslut i skiva 39, VÄG 2: ett
+efterled ger `None`. Båda luckposterna är vända, och lucka 48:s mätningstabell
+bär nu en kolumn för utfallet då och en för utfallet nu, båda avlästa ur en
+körning mot `biluppgifter._ja_nej`.
+
+**LUCKA 44 ÄR ÖPPEN MED FLIT, och posten skriver ut skillnaden mot hur den stod i
+skiva 37.** Då var den en oavsiktlig följd av en regel ingen hade prövat. Nu är
+den den mätta kostnaden för att stänga lucka 48. Vad som stänger den är fler
+sidor, inte en bättre regel.
+
+**FÄLLNINGSTABELLEN I LUCKA 44 ÄR HELT UTBYTT.** Skiva 38:s fem rader mätte en
+regel som inte finns kvar. Den nya har sju, tre per gren plus en som återinför
+skiva 38:s villkor ORDAGRANT, alla RÖDA och alla neutraliserade.
+
+**SKIVA 38:s FEM RADER BEVARAS HÄR, ORDAGRANT UR `35f0aab`**, eftersom en
+committad mätning inte får försvinna av att den mätta regeln byts ut. Talen
+gäller skiva 38:s regel och en svit som bar 267 test:
+
+| Fälld rad | Utfall | Form |
+| --- | --- | --- |
+| **nej-sidan VIDGAD till att läsa första ordet** | RÖD, `5 failed, 262 passed` | neutraliserad |
+| nej-sidan vidgad till PREFIX, `rensat.startswith("nej")` | RÖD, `13 failed, 254 passed` | neutraliserad |
+| nej-grenen satt till `if False:` | RÖD, `37 failed, 230 passed` | neutraliserad |
+| **ja-sidan vidgad: efterledsvillkoret borttaget** | RÖD, `2 failed, 265 passed` | neutraliserad |
+| ja-sidan vidgad till PREFIX, `rensat.startswith("ja")` | RÖD, `7 failed, 260 passed` | neutraliserad |
+
+*Här stod att tabellen "står kvar som historik i 0.40.0 och 0.41.0". Falskt:
+ingen av de posterna bär en tabell, och bara två av de fem talen nämns där, som
+rättelsenot. Tre committade mätningar hade alltså raderats ur `docs/` under ett
+påstående om att de var bevarade. Fällt av §7-granskningen av skiva 39, varv 2.*
+
+**DEN FÖRSTA RADEN BÄR BESLUTET**, `8 failed, 262 passed`, och den är den enda
+som återinför skiva 38:s villkor med både ordantalsledet och `isalpha()`.
+`test_ett_JA_MED_KOPPLINGSTYP_faller_till_UTKAST` ligger bland dess röda, alltså
+är raden inte vakuös i §7.1:s mening.
+
+*Den raden saknades i första lydelsen, som i stället påstod att en VIDARE
+mutation, `rensat.split()[:1] == ["ja"]`, återinför "exakt" skiva 38:s gräns.
+Den fäller två test till, `ja men avmonterad` och `Ja (borttagen)`, som skiva 38
+gav `None`. Fällt av §7-granskningen av skiva 39, varv 1.*
+
+**EN SLUTSATS ÄR STRUKEN UR LUCKA 44 MEDAN DESS MÄTNING STÅR KVAR.** Posten sade
+att asymmetrin följer av mätningen, alltså att sidan skriver ja med efterled och
+nej ensamt, och att ja-sidan därför behövde vidgas. Mätningen är oförändrad.
+Slutsatsen är det inte: att sidan skriver `Ja Kula` säger vad sidan skriver, inte
+att vi kan tolka det.
+
+**RAD 11 I `fordonsfakta-ur-sida`:s MUTATIONSTABELL ÄR OMMÄTT, från 10 till 48.**
+Den mäter `_ja_nej`:s förval, alltså den funktion skiva 39 skrev om, så det är
+radens eget underlag som ändrats och inte bara baslinjen under den. Tabellens
+övriga tal står kvar mot baslinjen 214, som posten redan skriver ut.
+
+**VARV 3 FÄLLDE FYRA TEXTFYND I DEN HÄR FILEN OCH I BESLUTSLOGGEN**, alla
+rättade med kursiv not på plats: ett radnummer i rad 11:s belägg som pekade på en
+kommentarrad, en sats om att nej-sidan var oförändrad "genom hela skiva 38", en
+tredje lydelse av den redan två gånger strukna satsen om stickprovets enda
+fordon, och `utvardera`-satsen i `docs/beslutslogg.md` #83.
+
+**RÄTTELSERNA ÄR SJÄLVMÄTTA.** Grinden var förbrukad, och ingen granskare har
+läst dem.
+
+Vänd lucka och omkörd tabell ⇒ MINOR.
 
 ### 0.41.0 — 2026-09-11
 

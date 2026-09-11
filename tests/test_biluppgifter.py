@@ -357,7 +357,7 @@ def test_bara_blanktecken_fore_enheten_ger_none(varde):
     assert _tal(varde) is None
 
 
-# REGRESSIONSTABELL FÖR `_ja_nej`, skiva 38, lucka 44.
+# REGRESSIONSTABELL FÖR `_ja_nej`, skiva 38, vänd i skiva 39. LUCKA 44 ÖPPEN.
 #
 # **VARJE FORM SIDAN FAKTISKT ANVÄNDER STÅR HÄR.** Avläst ur skiva 37:s
 # stickprov på sex sparade sidor: `Nej` på fyra, `Ja Kula` på en, fältet saknas
@@ -365,6 +365,20 @@ def test_bara_blanktecken_fore_enheten_ger_none(varde):
 #
 # Resten är former regeln MÅSTE klara av utan att ha setts: andra
 # kopplingstyper, versaler, blanktecken, skiljetecken, och tredje värden.
+#
+# **EFTERLEDSRADERNA VÄNDES I SKIVA 39 FRÅN `True` TILL `None`**, på Lars beslut
+# om lucka 48, se `docs/beslutslogg.md` #86. Exakt vad som skedde, avläst ur
+# `git diff` mot 35f0aab:
+#
+#   FYRA rader bytte väntevärde: `Ja Kula`, `Ja Krok`, `Ja Kulhandske`, `ja kula`
+#   TVÅ av dem bytte också skäl: `Ja Krok` och `Ja Kulhandske`, till
+#     "annan kopplingstyp, samma osäkerhet", eftersom det gamla skälet
+#     motiverade att de gick igenom
+#   TRE rader tillkom: `Ja avmonterad`, `Ja borttagen`, `Ja saknas`
+#   NOLL rader togs bort
+#
+# *Här stod "Tabellen är i övrigt oförändrad: samma värden, samma skäl". Det var
+# falskt om diffen i båda leden. Fällt av §7-granskningen av skiva 39, varv 1.*
 JA_NEJ_TABELL = [
     # (värde, väntat, varför raden finns)
     ("Ja", True, "grundformen"),
@@ -372,23 +386,32 @@ JA_NEJ_TABELL = [
     ("ja", True, "gemener"),
     ("NEJ", False, "versaler"),
     ("  Ja  ", True, "omgivande blanktecken"),
-    # AVLÄST PÅ SIDAN. Den här raden är hela skälet till att regeln ändrades:
-    # den föll till None och kostade stickprovets enda möjliga GRÖNT.
-    ("Ja Kula", True, "AVLÄST PÅ SIDAN 2026-09-11, ja plus kopplingstyp"),
-    ("Ja Krok", True, "annan kopplingstyp"),
-    ("Ja Kulhandske", True, "annan kopplingstyp"),
-    ("ja kula", True, "kopplingstyp i gemener"),
+    # AVLÄST PÅ SIDAN, OCH DEN FALLER MED FLIT. Raden bär lucka 44: sidans enda
+    # ja-form ger `None`, alltså blir stickprovets enda möjliga GRÖNT ett utkast.
+    # Priset är valt, se `_ja_nej`:s docstring.
+    ("Ja Kula", None, "AVLÄST PÅ SIDAN 2026-09-11, ja plus kopplingstyp"),
+    ("Ja Krok", None, "annan kopplingstyp, samma osäkerhet"),
+    ("Ja Kulhandske", None, "annan kopplingstyp, samma osäkerhet"),
+    ("ja kula", None, "kopplingstyp i gemener"),
     # SKILJETECKEN TÅLS INTE PÅ NÅGONDERA SIDAN. Formen står inte i stickprovet,
     # och varje vidgning av ja-sidan är en möjlig väg förbi förvalet OKLART.
     ("Ja.", None, "skiljetecken är ingen observerad form"),
     ("Ja,", None, "skiljetecken är ingen observerad form"),
     (".ja", None, "ledande skiljetecken"),
-    # JA MED MER ÄN ETT EFTERLED, eller ett efterled som inte är bokstäver.
-    # `utvardera` ger GRÖNT direkt vid draganordning, alltså förbi OKLART, och
-    # ett värde som antyder att kroken är borta får inte bli ett grönt.
+    # EFTERLED SOM BETYDER MOTSATSEN TILL EN KOPPLINGSTYP. De här raderna gav
+    # `None` även under skiva 38:s regel, men bara därför att de bröt mot
+    # ordantal eller teckenklass. Nu faller de på samma grund som `Ja Kula`, och
+    # det är hela skälet till att efterled inte tolkas: regeln kunde aldrig
+    # skilja dem åt.
     ("ja men avmonterad", None, "tre ord, alltså inte sidans form"),
     ("Ja (borttagen)", None, "efterled som inte är bokstäver"),
     ("Ja, avmonterad", None, "kommatecken i första ordet"),
+    # DE TRE SOM SKIVA 38 SLÄPPTE IGENOM. Varje rad är ett fordon UTAN dragkrok
+    # som hade gått till GRÖNT: villkoret var ordantal och teckenklass, aldrig
+    # betydelse. De står här som spärr mot att gränsen vidgas tillbaka.
+    ("Ja avmonterad", None, "SKIVA 38 GAV True. Fordon utan krok till GRÖNT"),
+    ("Ja borttagen", None, "SKIVA 38 GAV True"),
+    ("Ja saknas", None, "SKIVA 38 GAV True"),
     # NEJ-SIDAN ÄR STRIKT, och de här raderna är hela beviset för det.
     # Ett nej med efterled är en form vi inte känner, och ett felläst nej blir
     # ett PÅSTÅENDE om att dragkrok saknas i ett utgående mail.
@@ -1128,30 +1151,61 @@ def test_okant_draganordningsvarde_faller_till_utkast(varde):
     Ett `Okänd` som tolkades som `Nej` hade gett ett svar som PÅSTÅR att
     dragkrok saknas. Det är just det påstående förvalet OKLART finns för.
 
-    *`Ja tack` stod här som ett tredje värde. Skiva 38 lät `_ja_nej` läsa FÖRSTA
-    ORDET, och då är `Ja tack` ett ja. Raden är utbytt mot `Uppgift saknas`, som
-    är ett tredje värde också under den nya regeln. Att byta den var nödvändigt
-    och inte en uppmjukning: klassen den vaktar prövas fortfarande, och
+    *`Ja tack` stod här som ett tredje värde. Skiva 38 lät `_ja_nej` godta `ja`
+    plus ett bokstavsefterled, och då är `Ja tack` ett ja. Raden byttes mot
+    `Uppgift saknas`, som är ett tredje värde under varje lydelse regeln haft.
+    Klassen den vaktar prövas fortfarande, och
     `test_ett_TREDJE_varde_blir_ALDRIG_Nej` binder den hårdare än förut.*
+
+    *Noten sade tidigare att skiva 38 lät regeln "läsa FÖRSTA ORDET". Den
+    lydelsen fälldes i skiva 38 varv 2, och överlevde här. Varv 3 strök den ur
+    `docs/beslutslogg.md` #83:s rubrik, ur #83:s appendixpost och ur
+    `docs/sparrar.md` 0.40.0, alltså ur de poster som bär beslutet, men inte ur
+    den här filen. Under skiva 39:s regel är `Ja tack` åter ett tredje värde,
+    alltså hade raden kunnat gå tillbaka; den står kvar därför att Lars skrev
+    INGET ANNAT I SKIVAN. Fällt av §7-granskningen av skiva 39, varv 1.*
+
+    *Noten räknade först ställena till "fyra". Varje uppräkning i repot namnger
+    tre, och talet var inte avläst ur någon av dem. En rättelsenot som själv bär
+    ett obelagt tal, §7.2. Ställena är nu namngivna i stället för räknade. Fällt
+    av §7-granskningen av skiva 39, varv 2.*
     """
     assert utfallet_av(
         sida_med(draganordning=varde)
     ) == "svaret saknar draganordning"
 
 
-def test_ett_JA_MED_KOPPLINGSTYP_gar_hela_vagen_till_GRONT():
-    """LUCKA 44, hela vägen: sidans form ska ge ett utfall och inte ett utkast.
+def test_ett_JA_MED_KOPPLINGSTYP_faller_till_UTKAST():
+    """LUCKA 44, hela vägen: sidans ja-form ska INTE nå ett utfall.
 
-    **DET HÄR ÄR SKIVANS SKÄL.** `Ja Kula` föll till `None`, nyckeln utelämnades,
-    `_kontrollera` fällde, och stickprovets enda fordon med dragkrok blev ett
-    utkast utan bedömning. Raden binder att formen nu når fram, inte bara att
-    `_ja_nej` returnerar `True`.
+    **LUCKAN ÄR ÖPPEN MED FLIT, och den här raden är beviset.** `Ja Kula` faller
+    till `None`, nyckeln utelämnas, `_kontrollera` fäller, och stickprovets enda
+    möjliga GRÖNT blir ett utkast utan bedömning. Lars beslut i skiva 39 DEL 0,
+    se `docs/beslutslogg.md` #86.
+
+    *Här stod "stickprovets enda fordon med registrerad dragkrok", vilket är
+    tredje lydelsen av en sats som strukits i skiva 37 varv 1 och skiva 38 varv
+    2. Den sjätte sidan bär inte fältet, alltså är dess status OKÄND. Fällt av
+    §7-granskningen av skiva 39, varv 3.*
+
+    **SKÄLET ÄR ATT EFTERLEDET INTE GÅR ATT TOLKA.** `Ja Kula` och `Ja
+    avmonterad` har samma form, och en regel som godtar den ena godtar den andra:
+    skiva 38:s villkor var ordantal och teckenklass, aldrig betydelse. Då gick
+    fordon UTAN dragkrok till GRÖNT, och riktningen på felet är fel.
+
+    **Raden binder hela vägen och inte bara `_ja_nej`.** `utfallet_av` kör från
+    sidans kropp till `slag_upp` och KASTAR om ett värde kommer ut, alltså blir
+    raden röd både om `_ja_nej` börjar svara `True` igen och om nyckeln börjar
+    nå fram på någon annan väg. Att `utvardera` aldrig anropas är just följden:
+    uppslaget fälls före den.
+
+    *Raden hette `..._gar_hela_vagen_till_GRONT` och band motsatsen. Den vändes
+    i skiva 39 tillsammans med tabellens efterledsrader.*
     """
-    hamta = biluppgifter_hamtning(oppna=svarar(sida_med(draganordning="Ja Kula")))
-    uppslag = fordonsuppslag.slag_upp(REGNR, hamta=hamta)
-
-    assert uppslag.draganordning is True
-    assert fordonsuppslag.utvardera(uppslag) is fordonsuppslag.Utfall.GRONT
+    assert _ja_nej("Ja Kula") is None
+    assert utfallet_av(
+        sida_med(draganordning="Ja Kula")
+    ) == "svaret saknar draganordning"
 
 
 # --- 5: fältet helt borttaget -----------------------------------------------

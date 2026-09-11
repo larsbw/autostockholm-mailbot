@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.53.0 · **Uppdaterad:** 2026-09-11 · **Implementerar** CLAUDE.md §8
+**Version:** 0.54.0 · **Uppdaterad:** 2026-09-11 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -4648,7 +4648,12 @@ bli ja av ordet `ja`. Båda formerna står i regressionstabellen just därför.
 
 **ETT TREDJE VÄRDE BLIR ALDRIG `Nej`, och det är hela skälet till att regeln inte
 var gratis.** Endast ordet `nej` ger `False`. `Okänd`, `Uppgift saknas` och tomt
-ger `None`, nyckeln utelämnas, och `utvardera` faller till OKLART.
+ger `None`, nyckeln utelämnas, och `fordonsuppslag._kontrollera` KASTAR
+`UppslagMisslyckades("svaret saknar draganordning")`.
+*Här stod att `utvardera` "faller till OKLART". Den anropas aldrig i det fallet:
+`src/fordonsuppslag.py` kastar på rad 279 och konstruerar `Uppslag` först på rad
+281. Satsen rättades i `src/biluppgifter.py` av skiva 39 varv 2 och stod kvar
+här. Fällt av §7-granskningen av skiva 39, varv 3.*
 `test_ett_TREDJE_varde_blir_ALDRIG_Nej` är negativkontrollen, skild från tabellen
 med flit: tabellen prövar att varje form ger RÄTT svar, negativkontrollen att en
 hel KLASS aldrig ger ett visst svar.
@@ -4770,7 +4775,125 @@ stämde inte, och `config/fakta.json` är orörd med `"telefon": ""`. Se #82.
 
 ---
 
+## #86 — Lucka 48 stängd: ETT EFTERLED GER OKLART. Lucka 44 återöppnad
+
+**Lars beslut i skiva 39 DEL 0, VÄG 2.** `_ja_nej` godtar `ja` ensamt och `nej`
+ensamt. `ja` plus vad som helst ger `None`.
+
+**SKÄLET ÄR RIKTNINGEN PÅ FELET.** Skiva 38:s regel gav `Ja avmonterad`, `Ja
+borttagen` och `Ja saknas` alla `True`, alltså gick ett fordon utan dragkrok till
+GRÖNT. Modulen är byggd för att hellre falla än gissa, och där gissade den
+jakande.
+
+**LUCKA 44 ÅTERÖPPNAS, OCH LARS SKRIVER UT ATT DET ÄR RÄTT PRIS.** `slag_upp`
+skriver redan att en omonterad dragkrok och en monterad men oregistrerad ser
+likadana ut i registret, vilket är skälet till att förvalet är OKLART. `Ja Kula`
+hör hemma i samma osäkerhet.
+
+**EN UPPRÄKNING AV KOPPLINGSTYPER VALDES BORT.** Den kräver fler sidor än sex för
+att veta vilka typer som förekommer, och de sidorna finns inte.
+
+**REGELN ÄR BETEENDEMÄSSIGT IDENTISK MED DEN I `f5d26d6`**, alltså den som gällde
+före skiva 38, avläst ur `git show f5d26d6:src/biluppgifter.py`: samma
+`.strip().lower()`, samma två exakta jämförelser. Det ska stå rakt ut, eftersom
+en läsare annars tror att två skivor byggde en ny gräns.
+
+**VAD DE TVÅ SKIVORNA FAKTISKT LÄMNAR ÄR BELÄGGET, inte gränsen.** Före skiva 38
+fanns regeln utan att någon hade prövat vad den släpper igenom. Nu finns en
+regressionstabell med 32 rader, en negativkontroll, och en fällningstabell med
+SJU rader. Talen är avlästa ur `--collect-only -q` respektive
+`scripts/sparr-prova.sh`.
+
+**REGRESSIONSTABELLEN STÅR, MED EFTERLEDSRADERNA VÄNDA.** `Ja Kula`, `Ja Krok`,
+`Ja Kulhandske` och `ja kula` gick från `True` till `None`. Tre rader tillkom:
+`Ja avmonterad`, `Ja borttagen` och `Ja saknas`, alltså precis de former skiva 38
+släppte igenom. Ingen rad togs bort.
+
+**TVÅ SKÄL ÄNDRADES OCKSÅ**, `Ja Krok` och `Ja Kulhandske`, till *"annan
+kopplingstyp, samma osäkerhet"*. Det gamla skälet motiverade att de gick igenom.
+
+*Här stod "samma värden, samma skäl per rad, motsatt gräns". Skälen var inte
+samma. Fällt av §7-granskningen av skiva 39, varv 1.*
+
+**`Okänd` BLIR FORTFARANDE ALDRIG `Nej`.** `test_ett_TREDJE_varde_blir_ALDRIG_Nej`
+är oförändrad och fortfarande äkta: en fällning som vidgar nej-grenen till
+första ordet gör den röd på `Nej tack`, `Nej Kula` och `nej men avmonterad`.
+
+**ETT TEST VÄNDES OCH BYTTE NAMN.**
+`test_ett_JA_MED_KOPPLINGSTYP_gar_hela_vagen_till_GRONT` heter nu
+`..._faller_till_UTKAST` och asserar att `slag_upp` kastar *"svaret saknar
+draganordning"*. Den första asserten jag skrev antog att uppslaget returnerar ett
+objekt med `draganordning is None`; en körning visade att det i stället kastar
+`UppslagMisslyckades`. Raden är skriven mot körningen och inte mot antagandet.
+
+**GRANSKNINGENS UTFALL, UTSKRIVET: VARV 3 UNDERKÄNDE.** Tre varv, och vart och
+ett fällde fynd. Grinden är förbrukad.
+
+**KODEN GODKÄNDES I SAMTLIGA TRE VARV.** Regeln är två exakta jämförelser, och
+varje varv mätte att ingenting slinker igenom i jakande riktning. Inget
+kodfynd kvarstår, till skillnad från skiva 38, där lucka 48 lämnades öppen.
+
+**DE KVARSTÅENDE FYNDEN LÅG ALLA I PROSA, och de är rättade eftersom §7 kräver
+det oberoende av grinden.** Fyra stycken i varv 3:
+
+| Fynd | Vad som var falskt |
+| --- | --- |
+| radnumret i rad 11:s belägg | kommandot angav 887, en KOMMENTARRAD, som ger `51 failed` och en annan mutation. Förvalet ligger på 894. Talet 48 var rätt |
+| "nej-sidan oförändrad genom HELA skiva 38" | samma sats som skiva 38 varv 1 fällde, 26 rader ovanför noten om den. Det är SLUTLÄGET som är oförändrat |
+| "stickprovets enda fordon med registrerad dragkrok" | tredje lydelsen av en sats struken i skiva 37 varv 1 och skiva 38 varv 2 |
+| `utvardera` "faller till OKLART" i #83 | rättad i `src/biluppgifter.py` av varv 2 och kvarstående här |
+
+**RÄTTELSERNA ÄR SJÄLVMÄTTA OCH INTE OBERODENDE GRANSKADE.** Ingen granskare har
+läst dem. Det står här därför att en läsare annars tar tre godkända varv som att
+allt i skivan är prövat.
+
+**TRE AV VARV 3:s FYRA FYND VAR INFÖRDA AV TIDIGARE VARVS RÄTTELSER**, och två av
+dem av samma mekanism: en rad lades till OVANFÖR något som räknade eller
+numrerade det som stod under. Varv 1 lade en tabellrad överst och gjorde "sex
+fällningar" falskt; varv 2 lade en kursiv not i en docstring och sköt ned den
+kodrad ett belägg pekade på. §7 namnger den mekanismen för appendixposter, och
+den gäller uppenbarligen tabeller och docstringar också.
+
+**FÄLLNINGSTABELLEN ÄR HELT OMKÖRD**, eftersom regeln den mätte inte finns kvar.
+SJU fällningar, tre per gren plus en som återinför skiva 38:s villkor ordagrant,
+alla RÖDA. Skiva 38:s femradiga tabell är bevarad ordagrant i `docs/sparrar.md`
+0.42.0.
+
+*Här stod "Sex fällningar", vilket var sant innan varv 1 lade till raden med
+skiva 38:s exakta villkor och falskt efteråt. Här stod också att skiva 38:s
+tabell står kvar i 0.40.0 och 0.41.0; ingen av de posterna bär en tabell, och
+tre av de fem talen fanns inte längre någonstans i `docs/`. Fällt av
+§7-granskningen av skiva 39, varv 2.*
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.54.0 — 2026-09-11
+
+**#86 tillkommer: lucka 48 stängd på Lars beslut, lucka 44 återöppnad.** Ett
+efterled ger `None`. Beslutet är hans, priset är utskrivet i det, och båda
+luckposterna i `docs/sparrar.md` är vända därefter.
+
+**#85:s RUBRIK OCH BRÖDTEXT STÅR OFÖRÄNDRADE.** Den säger "lucka 48 öppen, lucka
+44 stängd", vilket var sant när posten skrevs och är historik nu. Samma grund som
+0.3.2 och 0.4.0 drar: en committad post rättas bara när den var FALSK när den
+skrevs, inte när världen har gått vidare. #86 är det som beskriver nuläget.
+
+**DE FEM TALEN I #85:s TABELL ÖVER VARV 3:s FYND ÄR OFÖRÄNDRADE.** Ingen av dem
+rörs av den här skivan.
+
+**VARV 3 UNDERKÄNDE, OCH DET STÅR I #86.** Fyra textfynd, tre av dem införda av
+varv 1:s och varv 2:s rättelser. Alla fyra rättade, självmätt och utan
+granskare, enligt §7:s rättelseplikt. Koden godkändes i samtliga tre varv och
+inget kodfynd kvarstår.
+
+**#83 FICK EN KURSIV NOT PÅ PLATS.** Den påstod att `utvardera` faller till
+OKLART när nyckeln utelämnas; `src/fordonsuppslag.py` kastar innan `Uppslag`
+konstrueras. Posten var alltså FALSK när den skrevs, vilket är villkoret för att
+rätta en committad post på plats, till skillnad från 0.54.0:s rad om #85.
+
+Ny post ⇒ MINOR.
 
 ### 0.53.0 — 2026-09-11
 

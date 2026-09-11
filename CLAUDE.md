@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.12.1 · **Uppdaterad:** 2026-09-11 · **Speglar:** beslutslogg #85
+**Version:** 0.12.2 · **Uppdaterad:** 2026-09-11 · **Speglar:** beslutslogg #86
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -518,6 +518,26 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.12.2 — 2026-09-11
+
+**`Speglar` följer med till beslutslogg #86.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 39:s post lagts till.
+
+**§0:s ramverksregel 3 fick en tillämpning i den riktning den finns för.** #86
+låter ett värde falla till OKLART hellre än att tolkas, alltså utelämnas
+uppgiften när den inte går att läsa säkert. Regeln talar om tal och inte om
+dragkrokar, så detta är en analogi och ingen regeländring: den skrivs ut här
+därför att 0.11.5 noterade när regel 3 stoppade en leverans, och det här är
+samma hållning tillämpad av ett beslut i stället för av en spärr.
+
+**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
+är tom sedan 0.12.0. Skiva 39 rör vad ett uppslag PÅSTÅR om en bil, inte om ett
+mail får gå ut.
+
+**§0:s styrdokumentlista är oförändrad.** Skiva 39 skapade ingen ny fil.
+
+**Ingen regel i det här dokumentet är ändrad** ⇒ PATCH.
 
 ### 0.12.1 — 2026-09-11
 
