@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.51.0 · **Uppdaterad:** 2026-09-11 · **Implementerar** CLAUDE.md §8
+**Version:** 0.53.0 · **Uppdaterad:** 2026-09-11 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -4550,7 +4550,305 @@ rör §10 och ramverksregel 2.
 
 ---
 
+## #81 — `auto` BLIR TOM. Lucka 47 stängd av Lars
+
+**Lars beslut i skiva 38 DEL 0.** `fråga om a-traktorkonvertering` flyttas från
+`auto` till `utkast`. **`auto` är därmed tom.**
+
+### Skälet, med Lars ord
+
+**Ingen kategori kan stå i `auto` när en grannkategori med nästan samma innebörd
+står i `utkast`.** Skiva 17:s hinktilldelning var Lars, och den lade två
+kategorier som klassificeraren inte kan skilja åt i olika hinkar.
+
+**FELET ÄR TILLDELNINGEN, INTE KLASSIFICERAREN.** Att `boka
+a-traktorkonvertering` och `fråga om a-traktorkonvertering` ibland byter plats
+för samma text är rimligt: ett mail kan både fråga och vilja boka. Det orimliga
+var att den tvekan avgjorde om ett mail får gå ut.
+
+### Alternativet som avvisas
+
+**Att kräva stabil klassificering över två körningar.** Lars avvisar det: det
+dubblar API-kostnaden för att lappa en gräns som ändå är otydlig.
+
+### När `auto` fylls igen
+
+**EFTER SKUGGLÄGET**, när det mätt hur ofta klassificeraren vacklar mellan
+grannkategorier. **Befordran ska vila på mätning.**
+
+### Hur fyndet kom fram, och varför det ska stå
+
+**Det låg i `logg/beslut.jsonl` sedan skiva 36.** Två körningar av samma tjugo
+mail, och ett ärende bytte hink mellan dem. Ingen letade efter det, och skiva
+37:s egen rättelsetext skrev uttryckligen att variationen låg *"uteslutande
+nedströms uppslaget"*.
+
+**En granskare fann det genom att pröva en mening mot KÄLLAN i stället för mot
+fyndet den svarade på.** Det är §7:s RÄTTELSETEXT GRANSKAS SOM NY TEXT, tillämpad
+precis som den är skriven, och den här gången gav den ett fynd som var större än
+det den prövade.
+
+---
+
+## #82 — Telefonnumret KONTROLLERADES och stämde inte. Inget skrevs in
+
+**Skiva 38 DEL A.** Lars angav ett nummer för `config/fakta.json` och skrev
+att han inte hade numret belagt, med ordern att kontrollera det mot
+autostockholm.se först och inte skriva något om det inte stämde.
+
+**DET STÄMMER INTE.** Avläst 2026-09-11 med två begäran, mot `autostockholm.se`
+och `autostockholm.se/kontakta-oss/`:
+
+| Vad som söktes | Utfall |
+| --- | --- |
+| `tel:`-länkar | inga, på någondera sidan |
+| tal på svensk telefonform | **ett enda**, identiskt på båda sidorna |
+| samma riktnummer som Lars angav | **nej** |
+| Lars siffergrupper någonstans på sidorna | noll |
+
+**INGET AV DE TVÅ NUMREN SKRIVS HÄR.** Numret på sidan är ett mobilnummer knutet
+till en namngiven person. Numret Lars angav står inte på verkstadens sidor,
+alltså är dess innehavare okänd, och ett nummer vars innehavare är okänd hör
+ännu mindre hemma i ett dokument som pushas.
+
+*Första lydelsen skrev ut Lars nummer i klartext, tre stycken ovanför sin egen
+motivering till varför det andra numret inte får skrivas. `persondatakontroll`
+fångade det inte: dess mönster täcker mobilformat, och en tyst kontroll är inget
+belägg. Fällt av §7-granskningen av skiva 38, varv 2.*
+
+§6 säger att persondata aldrig förekommer i `docs/` eller i något som pushas.
+Samma hantering som skiva 30 gav registreringsnumret. Lars har fått båda numren
+i rapporten, som ligger i gitignorerade `scratchpad/`.
+
+**`telefon` står alltså kvar TOM**, och `test_faktafilen_i_repot_har_TOM_telefon`
+binder det.
+
+**EN SPÄNNING SOM DEN HÄR KONTROLLEN BLOTTADE.** `config/fakta.json` är avsedd
+att bära telefonnumret, och `scripts/persondatakontroll.py` bevakar `config/`.
+Fylls posten kommer kontrollen sannolikt att fälla den, och det är rätt beteende
+för en spärr som inte kan veta vems nummer det är. **Frågan är Lars:** ska
+numret stå i `config/fakta.json`, eller ska `TILLATNA` i persondatakontrollen
+bära ett uttryckligt undantag för verkstadens eget publicerade nummer? Ingen av
+vägarna tas här.
+
+---
+
+## #83 — Lucka 44 stängd. `_ja_nej` godtar `ja` plus ETT bokstavsefterled
+
+*Rubriken löd "`_ja_nej` läser FÖRSTA ORDET". Den lydelsen fälldes i varv 2, och
+rubriken rättas i stället för att stå kvar falsk: en rubrik citeras vidare. Se
+den kursiva noten under VAD SOM VIDGADES.*
+
+**Lars beslut i skiva 38 DEL B.** Stickprovets enda möjliga GRÖNT föll på att
+`Draganordning` bar `Ja Kula`, alltså ja plus kopplingstyp.
+
+**REGELN LÄSER ETT ORD, INTE ETT PREFIX.** `varde.startswith("ja")` hade gjort
+`Jacobsen` och `Ja/Nej` till ett ja. Första ordet kräver en ordgräns och kan bara
+bli ja av ordet `ja`. Båda formerna står i regressionstabellen just därför.
+
+**ETT TREDJE VÄRDE BLIR ALDRIG `Nej`, och det är hela skälet till att regeln inte
+var gratis.** Endast ordet `nej` ger `False`. `Okänd`, `Uppgift saknas` och tomt
+ger `None`, nyckeln utelämnas, och `utvardera` faller till OKLART.
+`test_ett_TREDJE_varde_blir_ALDRIG_Nej` är negativkontrollen, skild från tabellen
+med flit: tabellen prövar att varje form ger RÄTT svar, negativkontrollen att en
+hel KLASS aldrig ger ett visst svar.
+
+**EN RAD I EN BEFINTLIG TABELL BYTTES, och det ska sägas rakt ut.** `Ja tack`
+stod som ett tredje värde och är under den nya regeln ett ja. Raden är utbytt mot
+`Uppgift saknas`. Klassen den vaktade prövas fortfarande, och hårdare än förut.
+
+**VAD SOM VIDGADES.** Ja-sidan, från exakt `ja` till `ja` ensamt eller `ja` plus
+ETT efterled som är bara bokstäver. **Nej-sidan kräver EXAKT `nej`.**
+
+**ASYMMETRIN FÖLJER AV MÄTNINGEN.** Sidan skriver ja med efterled, `Ja Kula`, och
+nej ensamt: skiva 37:s sex sparade sidor bär `Nej` fyra gånger, `Ja Kula` en
+gång, och saknar fältet på en.
+
+*Här stod "varje värde vars första ord är `ja`", vilket är falskt om koden: `ja
+men avmonterad` har `ja` som första ord och ger `None`. Här stod också att
+asymmetrin "gör vidgningen säker", vilket vilade på ett obelagt antagande om
+kundbeteende och på att bara ett felläst nej blir ett påstående i underlaget.
+Det andra ledet är falskt: `src/generera.py:875` skriver båda riktningarna som
+faktum. Fällt av §7-granskningen av skiva 38, varv 2 för koden och varv 3 här.*
+
+**VILLKORET ÄR ORDANTAL OCH TECKENKLASS, INTE BETYDELSE.** `Ja avmonterad`
+uppfyller det och blir ett GRÖNT, förbi förvalet OKLART. Ingen sida i stickprovet
+skriver ett sådant efterled, men regeln hindrar det inte. Registrerat som LUCKA
+48 i `docs/sparrar.md`, öppen. Grinden var förbrukad när fyndet gjordes, och en
+fjärde självmätt ändring i sändvägsregeln görs inte: §7:s rad för SÄNDVÄG säger
+stoppa och rapportera öppet.
+
+**ASYMMETRIN VAR FÖRST BARA PÅSTÅDD, INTE BYGGD, och det är skivans allvarligaste
+fynd.** Ordsplitten låg före BÅDA grenarna, alltså gav `Nej.`, `Nej tack` och
+`Nej, uppgift saknas` alla `False`. Under den gamla regeln gav de `None`, nyckeln
+utelämnades och ärendet föll till utkast utan påstående.
+
+**Det är en sändvägsförsvagning och inte en detalj.** `src/generera.py` skriver
+`draganordning nej` i underlaget för `False`, alltså hade ett felläst nej blivit
+ett faktum i ett utgående mail, vilket är precis det `utvardera`:s förval OKLART
+finns för att undvika.
+
+**FLERA DOKUMENT PÅSTOD ATT NEJ-SIDAN VAR OFÖRÄNDRAD, OCH INGENTING BAND DEN.** En
+fällning som återställde den strikta nej-sidan var GRÖN mot hela sviten, alltså
+var påståendet vakuöst i §7.1:s mening. Fällt av §7-granskningen av skiva 38,
+varv 1.
+
+**Mönstret är `docs/incidentlogg.md` I10, och det är värt att säga rakt ut:**
+egenskapen namngavs rätt, *"regeln läser ett ORD och inte ett prefix"*, och
+prövades bara på den instans fyndet räknade upp. Nej-sidan följde med i samma rad
+utan att någon tittade på den.
+
+---
+
+## #84 — Lucka 46 registrerad, inte byggd
+
+**Lars order i skiva 38 DEL C.** Ett tidslöfte fälls av ingen kod.
+
+**MÄTNINGEN STÅR KVAR EFTER SKIVA 38:s ÄNDRINGAR**, omkörd: *"Hej, det löser vi.
+Vi tar in bilen i juni och är klara till midsommar."* passerar samtliga fyra
+spärrar i `krav_pa_svaret`.
+
+**EN PROMPTREGEL ÄR INGEN SPÄRR.** Regel 10:s TEXT är bunden ordagrant av
+`test_varje_regel_star_ORDAGRANT`, alltså är det bundet att regeln står där, inte
+att ett tidslöfte fälls.
+
+**Luckan registrerades redan i skiva 37**, med mätningen och med en tabell över
+varför var och en av de fyra spärrarna inte fäller. DEL C krävde ingen ny
+registrering, och ingen gjordes: att skriva posten två gånger hade gjort den
+svårare att lita på, inte lättare.
+
+**Ingenting byggdes**, enligt ordern.
+
+---
+
+## #85 — Skiva 38 STOPPAD efter tre varv. Lucka 48 öppen, lucka 44 stängd
+
+**§7:s rad för SÄNDVÄG, tillämpad och inte frångången:** fynd kvarstod efter tre
+varv, alltså stoppa och rapportera öppet. Samma form som #53, #58, #66, #70, #76
+och #80.
+
+**VAD SOM KVARSTÅR ÄR EN SAK: LUCKA 48.** `_ja_nej` godtar `ja` plus vilket
+bokstavsefterled som helst, alltså också `Ja avmonterad`, som når GRÖNT förbi
+förvalet OKLART. Registrerad i `docs/sparrar.md` med mätningen. Ingen sida i
+skiva 37:s stickprov skriver ett sådant efterled, så risken är formens och inte
+en observerad händelse.
+
+**VARFÖR DEN INTE RÄTTADES I EN FJÄRDE OMGÅNG.** Varv 1 rättade nej-sidan och
+vidgade ja-sidan i samma skrivning. Varv 2 rättade ja-sidan genom att binda
+KOMMATECKNET i `Ja, avmonterad` i stället för egenskapen. En tredje självmätt
+ändring i samma regel, utan granskare kvar, är precis vad grinden finns för att
+hindra. Vägen vidare står i luckposten och är Lars val, eftersom båda
+alternativen kostar något: en typlista kräver fler sidor än sex, och ett OKLART
+på efterled återöppnar lucka 44.
+
+**VAD SOM ÄNDÅ RÄTTADES, och med vilket stöd.** §7 skriver ut att ett känt
+falskt påstående alltid rättas, på alla tre nivåerna. Varv 3 fällde sex
+textfynd, varav fem införda av varv 2:s egna rättelser, och samtliga är rättade:
+
+| Fynd | Vad som var falskt |
+| --- | --- |
+| `_ja_nej` "läser FÖRSTA ORDET" | lydelsen fälldes i varv 2 och överlevde i #83:s rubrik, i #83:s appendixpost och i `docs/sparrar.md` 0.40.0 |
+| asymmetrins skäl | ett obelagt antagande om kundbeteende, plus att bara nej blir ett faktum i underlaget. `src/generera.py:875` skriver båda riktningarna |
+| två tal i fällningstabellen | ja-radernas utfall var `7 failed, 260` skrivet på fel rad, och `11 failed, 256` som inte hörde till någon fällning. Omkörda: `2 failed, 265` och `7 failed, 260` |
+| baslinjestycket | en omskrivning i varv 2 lade in "tabellens tal hör till 231-baslinjen", motsagt av fyra ställen som säger 214 |
+| noten om blockcitaten | en mening om tre stycken, sann om inget av dem. Lucka 42:s föregående lydelse var SANN och gjordes falsk |
+| radantalet i regressionstabellen | självrapporterat 31, uppmätt 29 med `--collect-only -q` |
+
+**MÖNSTRET ÄR `docs/incidentlogg.md` I10, tre varv i rad.** Egenskapen namnges
+rätt och prövas bara på de instanser fyndet räknade upp. Det som faktiskt binder
+i det här repot är sådant som går att KÖRA: regressionstabeller, fällningar med
+`scripts/sparr-prova.sh`, negativkontroller. Textpåståenden som ingen körning
+binder överlever hur många varv som helst, och fem av varv 3:s sex fynd är just
+sådana.
+
+**INGET ÄR SKEPPAT UTAN ATT STATUSEN STÅR UTSKRIVEN.** Rättelserna ovan är
+SJÄLVMÄTTA och inte oberoende granskade, eftersom grinden var förbrukad när de
+gjordes. Talen i tabellen ovan är däremot avlästa ur körningar i varv 3.
+
+**DEL A står oförändrad:** telefonnumret kontrollerades mot autostockholm.se,
+stämde inte, och `config/fakta.json` är orörd med `"telefon": ""`. Se #82.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.53.0 — 2026-09-11
+
+**#85 tillkommer: skiva 38 STOPPAD efter tre varv.** Ett fynd kvarstår, lucka 48,
+och det är den enda oåtgärdade saken. §7:s rad för SÄNDVÄG är tillämpad och inte
+frångången.
+
+**SEX TEXTFYND RÄTTADES ÄNDÅ, fem av dem införda av varv 2:s egna rättelser.**
+§7 skriver ut att ett känt falskt påstående alltid rättas, på alla tre nivåerna.
+De är uppräknade per post i #85 med vad som var falskt i var och en.
+
+**TVÅ AV RÄTTELSERNA LIGGER I DEN HÄR APPENDIXPOSTEN.** 0.52.0 skrev att regeln
+godtar "precis sidans två mätta former och ingenting mer", vilket är falskt, och
+dess varvtabell saknade varv 3. Båda är rättade på plats med kursiv not, enligt
+det undantag huvudet bär: ett känt falskt påstående stryks på plats och
+strykningen redovisas i en ny versionspost. Det här är den posten.
+
+**#83:s RUBRIK ÄR ÄNDRAD**, från "`_ja_nej` läser FÖRSTA ORDET" till vad regeln
+gör. Rubriker citeras vidare, och den lydelsen var fälld redan i varv 2.
+Postens NUMMER är oförändrat, så append-only-ordningen står: numren återanvänds
+aldrig, och ingen post är borttagen.
+
+**TVÅ TAL I `docs/sparrar.md`:s FÄLLNINGSTABELL VAR OBELAGDA OCH ÄR OMKÖRDA.**
+`2 failed, 265 passed` och `7 failed, 260 passed`, avlästa ur
+`scripts/sparr-prova.sh` i varv 3. Det ena av de gamla talen var rad 5:s utfall
+skrivet på rad 4, det andra hörde inte till någon fällning.
+
+Ny post ⇒ MINOR.
+
+### 0.52.0 — 2026-09-11
+
+**Fyra poster, #81 till #84, ur skiva 38.**
+
+**#81 är Lars beslut och skivans tyngsta:** `auto` blir tom. Posten bär hans skäl
+ordagrant, det avvisade alternativet, och villkoret för när hinken fylls igen.
+Den skriver också ut hur fyndet kom fram, eftersom sättet är en del av lärdomen.
+
+**#82 är en KONTROLL som föll ut negativt, och det är ett utfall och inte ett
+misslyckande.** Numret Lars angav står inte på sidan. Inget skrevs in.
+
+**#83 stänger lucka 44.** Vidgningen är asymmetrisk: ja-sidan godtar `ja` plus
+ett bokstavsefterled, nej-sidan är oförändrad. *Här stod "ja-sidan läser första
+ordet", tolv rader över den mening i samma post som säger "`ja` plus ett enda
+bokstavsord". Posten motsade sig själv. Fällt av §7-granskningen av skiva 38,
+varv 3.*
+
+**#84 registrerar ingenting nytt**, och posten säger varför: lucka 46 var redan
+registrerad med mätningen i skiva 37, och att skriva den två gånger hade gjort
+den svårare att lita på.
+
+**TVÅ GRANSKNINGSVARV, OCH BÅDA FÄLLDE SAMMA KLASS AV FEL I `_ja_nej`:** en
+vidgning som var större än texten beskrev.
+
+| Varv | Vad som vidgades utan att sägas |
+| --- | --- |
+| 1 | NEJ-sidan. `Nej, uppgift saknas` blev `False`, alltså ett påstående om att dragkrok saknas |
+| 2 | JA-sidan. `Ja, avmonterad` blev `True`, alltså GRÖNT förbi förvalet OKLART |
+| 3 | JA-sidan igen. `Ja avmonterad` UTAN komma blev `True`. Varv 2 band kommatecknet, inte egenskapen |
+
+*Tabellen bar två rader och stycket under sa att regeln godtar "precis sidans två
+mätta former och ingenting mer". Det är falskt: villkoret är ordantal och
+teckenklass, så varje bokstavsefterled passerar. Fällt av §7-granskningen av
+skiva 38, varv 3, och registrerat som lucka 48.*
+
+**Regeln godtar `nej` exakt, `ja` ensamt, och `ja` plus ett efterled av bara
+bokstäver.** Fem fällningar binder gränserna, två per sida plus nej-grenen som
+helhet. Vad som INTE är bundet är att efterledet är en kopplingstyp, och det är
+lucka 48.
+
+**Varv 2 fällde också att jag återinförde en formulering som redan fällts.**
+*"Av de sex sidorna var det den ENDA med dragkrok"* ströks i skiva 37 varv 1 och
+skrevs in igen i `src/biluppgifter.py`:s docstring. Rättad med kursiv not.
+
+**Och att den här posten skrev ut Lars telefonnummer i klartext**, tre stycken
+ovanför sin egen motivering till varför det andra numret inte får skrivas.
+`persondatakontroll` var tyst, eftersom dess mönster täcker mobilformat.
+
+Nya poster ⇒ MINOR.
 
 ### 0.51.0 — 2026-09-11
 

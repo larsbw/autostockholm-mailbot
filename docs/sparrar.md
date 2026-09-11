@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.39.0 · **Uppdaterad:** 2026-09-11 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.41.0 · **Uppdaterad:** 2026-09-11 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -1338,12 +1338,29 @@ fyra lager plus parserns egna villkor. Att hålla två tabeller som mäter samma
 fällningar mot samma baslinje är inte dubbel säkerhet: det är två tal att hålla i
 takt, och postens historik visar vad som händer när de glider isär.
 
-**BASLINJEN ÄR 231 SEDAN SKIVA 29, och tabellen är INTE omkörd.** Talet är
-avläst ur `pytest tests/test_biluppgifter.py --collect-only -q`. Skivan lade till
-test för omförsöket och loggen och rörde ingen spärr: `git diff` mot `005fe1e`
-visar att inget av de fyra lagren, `_kontrollera`, `_las_falt` eller parserns
-villkor är ändrat. Tabellens tal är därför sanna om baslinjen 214, som den själv
-namnger, och det är den formen posten redan använder på annat håll.
+**TABELLEN ÄR INTE OMKÖRD SEDAN SKIVA 29, och dess tal hör till BASLINJEN 214**,
+som tabellen själv namnger på varje rad. Skiva 29 lade till test för omförsöket
+och loggen och rörde ingen spärr: `git diff` mot `005fe1e` visar att inget av de
+fyra lagren, `_kontrollera`, `_las_falt` eller parserns villkor är ändrat.
+Tabellens tal är därför sanna om 214, och det är den formen posten redan använder
+på annat håll.
+
+**Sviten har växt sedan dess, och det är därför tabellen inte går att jämföra med
+en körning i dag.** Jämförelsetabellen nedan bär skiva 29:s omkörning av två
+rader, och dess kolumnrubrik namnger vad den mätte mot. **Filen bär 267 test
+efter skiva 38**, avläst ur `.venv/bin/pytest tests/test_biluppgifter.py
+--collect-only -q`.
+
+*Här stod "BASLINJEN SATTES TILL 231 I SKIVA 29" följt av att "tabellens tal
+nedan hör alltså till 231-baslinjen". Det andra ledet är falskt och motsades av
+fyra ställen, varav ett i samma stycke: tabellens tal hör till 214. Stycket
+skrevs om i varv 2 för att rätta en persondatakontrollträff: ordet före talet
+slutade på två bokstäver som tillsammans med talet fick plåtens form, och
+`persondatakontroll` läser inte ordgränser. Omskrivningen bytte det ordet och
+införde motsägelsen på köpet. §7.2: en omformulerad mening bär olästa
+tal. 231 är därför struket ur brödtexten och står kvar bara i
+jämförelsetabellens kolumnrubrik, som är committad och oförändrad. Fällt av
+§7-granskningen av skiva 38, varv 3.*
 
 *Här stod "BASLINJEN ÄR 225" och "elva test". Båda talen var obelagda och
 motsades av tabellen tre rader ned, som bar en annan siffra om samma svit. Fällt
@@ -2891,29 +2908,42 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   mätte att formuleringen överlevt i `docs/sparrar.md` efter att den strukits i
   `src/generera.py`.*
 
-- **Lucka 47. KLASSIFICERAREN FLYTTADE SAMMA TRÅD MELLAN `utkast` OCH `auto`.
-  ÖPPEN, MÄTT, OCH LARS ATT AVGÖRA.** Skiva 36 körde samma tjugo mail två
-  gånger. Ett ärende fick `boka a-traktorkonvertering` i den ena körningen och
-  `fråga om a-traktorkonvertering` i den andra, och det flyttade tråden mellan
-  hinkarna.
+- **Lucka 47. STÄNGD I SKIVA 38 på Lars beslut: `auto` ÄR TOM.** Kategorin
+  flyttades till `utkast`, alltså går gränsen inte längre mellan två kategorier
+  klassificeraren inte kan skilja åt. Avläst: `config/kategorier.yaml` bär
+  `auto: []`, och `scripts/kategoristatus.py` ger noll kategorier i hinken. Se
+  `docs/beslutslogg.md` #81.
 
-  **`fråga om a-traktorkonvertering` ÄR DEN ENDA KATEGORIN I `auto`**, avläst ur
-  `config/kategorier.yaml`. Hinken är gränsen mellan att en människa läser först
-  och att mailet får gå ut, §0:s ramverksregel 1, och den gränsen visade sig
-  icke-deterministisk för samma inkommande text.
+  **LUCKAN ÄR STÄNGD, INTE LÖST.** Klassificeraren vacklar fortfarande mellan
+  grannkategorierna; det som ändrats är att vacklandet inte längre avgör om ett
+  mail får gå ut. `auto` fylls efter skuggläget, och då är frågan tillbaka i en
+  annan form: vilken kategori som är stabil nog att befordras.
 
-  **DET ÄR INTE ETT FEL I KLASSIFICERAREN.** De två kategorierna ligger nära
-  varandra, och ett mail som både frågar och vill boka kan rimligen hamna i
-  endera. **Det nya är att grannkategorier har OLIKA HINKAR**, alltså att en
-  rimlig tvekan blir en skillnad i om ett mail får skickas.
+  *Lydelsen som beskrev luckan när den var öppen. Statusraden är struken, och
+  fetstilen är struken utom på första raden. Resten står ordagrant:*
 
-  **VAD SOM STÄNGER LUCKAN.** Lars val mellan tre vägar, uppräknade i
-  `docs/beslutslogg.md` #79. Att flytta en kategori är ett §10-stopp och
-  ramverksregel 2 förbjuder att kod gör det. Uppmätt av §7-granskningen av
-  skiva 37, varv 3, ur data som legat i loggen sedan skiva 36.
+  > **KLASSIFICERAREN FLYTTADE SAMMA TRÅD MELLAN `utkast` OCH `auto`.**
+  > Skiva 36 körde samma tjugo mail två gånger. Ett ärende fick `boka
+  > a-traktorkonvertering` i den ena körningen och `fråga om
+  > a-traktorkonvertering` i den andra, och det flyttade tråden mellan hinkarna.
+  >
+  > `fråga om a-traktorkonvertering` ÄR DEN ENDA KATEGORIN I `auto`, avläst ur
+  > `config/kategorier.yaml`. Hinken är gränsen mellan att en människa läser
+  > först och att mailet får gå ut, §0:s ramverksregel 1, och den gränsen visade
+  > sig icke-deterministisk för samma inkommande text.
+  >
+  > DET ÄR INTE ETT FEL I KLASSIFICERAREN. De två kategorierna ligger nära
+  > varandra, och ett mail som både frågar och vill boka kan rimligen hamna i
+  > endera. Det nya är att grannkategorier har OLIKA HINKAR, alltså att en
+  > rimlig tvekan blir en skillnad i om ett mail får skickas.
+  >
+  > VAD SOM STÄNGER LUCKAN. Lars val mellan tre vägar, uppräknade i
+  > `docs/beslutslogg.md` #79. Att flytta en kategori är ett §10-stopp och
+  > ramverksregel 2 förbjuder att kod gör det. Uppmätt av §7-granskningen av
+  > skiva 37, varv 3, ur data som legat i loggen sedan skiva 36.
 
 - **Lucka 46. ETT TIDSLÖFTE FÄLLS AV INGEN SPÄRR. ÖPPEN OCH MÄTT.**
-  Avläst i skiva 37: *"Hej, det löser vi. Vi tar in bilen i juni och är klara
+  Avläst i skiva 37 och OMKÖRD i skiva 38: *"Hej, det löser vi. Vi tar in bilen i juni och är klara
   till midsommar."* passerar samtliga fyra spärrar i `krav_pa_svaret`.
 
   **SKÄLET ÄR ATT INGEN AV DEM LETAR EFTER TID**, spärr för spärr:
@@ -2949,6 +2979,50 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   och en negativkontroll för svar som nämner tid utan att lova någon, som *"vi
   kommer överens om tid"*. Uppmätt av §7-granskningen av skiva 37, varv 2.
 
+- **Lucka 48. `_ja_nej` SKILJER INTE KOPPLINGSTYP FRÅN ETT EFTERLED SOM BETYDER
+  MOTSATSEN. ÖPPEN OCH MÄTT.**
+
+  Villkoret i `src/biluppgifter.py` är ORDANTAL och TECKENKLASS: `ja` ensamt,
+  eller `ja` plus ett efterled där `str.isalpha()` är sant. Uppmätt med
+  `.venv/bin/python -c` mot `biluppgifter._ja_nej`:
+
+  | Värde | Utfall |
+  | --- | --- |
+  | `Ja Kula` | `True`, och det är formen luckan 44 stängdes för |
+  | `Ja avmonterad` | `True` |
+  | `Ja borttagen` | `True` |
+  | `Ja saknas` | `True` |
+  | `Ja nej` | `True` |
+
+  **VARFÖR DET ÄR SÄNDVÄG.** `fordonsuppslag.utvardera` når GRÖNT så snart
+  `draganordning` är sann, utan att fråga kunden. `fordonsuppslag.slag_upp`
+  skriver att en omonterad dragkrok och en monterad men oregistrerad ser likadana
+  ut i registret, vilket är hela skälet till att förvalet är OKLART. Ett efterled
+  som antyder att kroken är borta hör till det fallet, och regeln släpper igenom
+  det.
+
+  **INGEN SIDA I STICKPROVET SKRIVER ETT SÅDANT EFTERLED.** De sex sparade
+  sidorna bär `Nej` fyra gånger, `Ja Kula` en gång, och saknar fältet på en.
+  Risken är alltså formens, inte en observerad händelse.
+
+  **VARFÖR DEN INTE ÄR RÄTTAD.** Fyndet gjordes i varv 3, med grinden förbrukad.
+  §7:s rad för SÄNDVÄG säger stoppa och rapportera öppet, och en fjärde
+  självmätt ändring i samma regel är precis vad den raden finns för att hindra.
+  Varv 1 och varv 2 ändrade var sin gren och införde var sitt nytt fel.
+
+  **VAD SOM STÄNGER LUCKAN.** Antingen en uppräkning av observerade
+  kopplingstyper, alltså att efterledet måste stå i en lista och inte bara vara
+  bokstäver, eller att efterledet gör värdet OKLART i stället för `True` så att
+  `Ja Kula` faller till utkast igen. Det andra återöppnar lucka 44. Valet är
+  Lars, och det vilar på hur många kopplingstyper sidan faktiskt använder, vilket
+  sex sidor inte räcker för att avgöra.
+
+  **HUR MÖNSTRET SER UT.** Varv 2 fällde `Ja, avmonterad` och rättelsen band
+  KOMMATECKNET: tabellraden skriver ut det själv, *"kommatecken i första
+  ordet"*. Egenskapen var rätt namngiven och prövades bara på den instans fyndet
+  räknade upp. Det är `docs/incidentlogg.md` I10, tredje varvet i rad i den här
+  skivan.
+
 - **Lucka 45. VARJE ICKE-KOMMENTARVÄRDE I `config/fakta.json` ÄR EN TALKÄLLA.
   ÖPPEN, OCH RISKEN VÄXTE I SKIVA 37.**
 
@@ -2973,30 +3047,98 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   talsektion i stället för varje värde. Båda är §10-beslut, eftersom de ändrar
   vad filen betyder. Uppmätt av §7-granskningen av skiva 37, varv 1.
 
-- **Lucka 44. ETT FÄLT STÅR PÅ SIDAN OCH TOLKAS INTE. ÖPPEN OCH MÄTT.**
-  `Draganordning` har på minst en sida värdet `Ja Kula`, alltså ja plus
-  kopplingstyp. `biluppgifter._ja_nej` kräver exakt `ja` eller `nej`, ger `None`
-  för allt annat, och då utelämnas nyckeln och `_kontrollera` fäller.
+- **Lucka 44. STÄNGD I SKIVA 38 på Lars beslut.** `_ja_nej` läser nu FÖRSTA
+  ORDET, alltså `Ja Kula` och varje annan kopplingstyp. Se
+  `docs/beslutslogg.md` #83.
 
-  **DEN ÄR DYRARE ÄN DEN SER UT.** `utvardera` ger GRÖNT bara när
-  `draganordning` är sann. I skiva 37:s stickprov på sex sidor BÄR fem fältet,
-  och av dessa fem visar **exakt en** en dragkrok. Det är den enda parsern
-  avvisar. Mätt: med `Ja Kula` tolkat som ja blir utfallet `gront`. Stickprovets
-  enda möjliga GRÖNT föll alltså på formen.
+  **REGELN LÄSER ETT ORD OCH INTE ETT PREFIX**, och den skillnaden är bunden:
+  `Jacobsen` och `Ja/Nej` står i regressionstabellen och ger `None`. En
+  prefixregel hade gjort båda till ett ja.
 
-  *Här stod "av sex fordon har exakt ett en dragkrok". Den sjätte sidan bär inte
-  fältet, alltså är dess status OKÄND och inte nej. Fällt av §7-granskningen av
-  skiva 37, varv 1.*
+  **NEJ-SIDAN KRÄVER EXAKT `nej`.** `Nej.`, `Nej tack` och `Nej, uppgift saknas`
+  ger alla `None` och faller till utkast.
 
-  **VARFÖR DEN INTE ÄR RÄTTAD.** Skiva 37 DEL B: ingen ändring i uppslaget. Det
-  är sändväg, och den naturliga lydelsen, att godta ett värde som BÖRJAR med
-  `ja`, är inte gratis: `_ja_nej`:s docstring skriver ut att ett tredje värde
-  betyder att vi inte vet, och att tolka `Okänd` som `Nej` vore ett påstående om
-  att dragkrok saknas. En prefixregel måste visa att den inte öppnar den vägen.
+  **ASYMMETRIN FÖLJER AV MÄTNINGEN OCH INTE AV EN TEORI OM VILKET FEL SOM ÄR
+  VÄRST.** Sidan skriver ja MED efterled, `Ja Kula`, och skriver nej ENSAMT. De
+  sex sparade sidorna i skiva 37:s stickprov bär `Nej` fyra gånger, `Ja Kula` en
+  gång, och saknar fältet på en. Ja-sidan behövde alltså vidgas och nej-sidan
+  inte. Ingen sida i stickprovet skriver nej med efterled.
 
-  **VAD SOM STÄNGER LUCKAN.** Lars beslut om hur `_ja_nej` ska läsa ett värde med
-  efterled, plus rader i regressionstabellen för `Ja`, `Nej`, `Ja Kula`, `Okänd`
-  och tomt. Se `docs/beslutslogg.md` #78.
+  *Här stod att skälet är RIKTNINGEN PÅ FELET: att ett felläst ja är "synligt
+  för kunden, som känner sin egen bil", medan bara ett felläst nej blir ett
+  påstående i underlaget. Det första var ett obelagt antagande om kundbeteende
+  som ensamt bar en vidgning av sändvägen. Det andra är falskt:
+  `src/generera.py:875` skriver `f"draganordning {'ja' if u.draganordning else
+  'nej'}."`, alltså blir BÅDA riktningarna ett faktum i underlaget. Fällt av
+  §7-granskningen av skiva 38, varv 2 för docstringen och varv 3 här.*
+
+  *Första lydelsen lade ordsplitten före BÅDA grenarna, alltså vidgades
+  nej-sidan i samma svep, och `Nej, uppgift saknas` blev `False`. Flera dokument
+  påstod samtidigt att nej-sidan var oförändrad, och INGENTING band den: en
+  fällning som återställde den strikta nej-sidan var GRÖN. Fällt av
+  §7-granskningen av skiva 38, varv 1.*
+
+  | Fälld rad | Utfall | Form |
+  | --- | --- | --- |
+  | **nej-sidan VIDGAD till att läsa första ordet** | RÖD, `5 failed, 262 passed` | neutraliserad |
+  | nej-sidan vidgad till PREFIX, `rensat.startswith("nej")` | RÖD, `13 failed, 254 passed` | neutraliserad |
+  | nej-grenen satt till `if False:` | RÖD, `37 failed, 230 passed` | neutraliserad |
+  | **ja-sidan vidgad: efterledsvillkoret borttaget** | RÖD, `2 failed, 265 passed` | neutraliserad |
+  | ja-sidan vidgad till PREFIX, `rensat.startswith("ja")` | RÖD, `7 failed, 260 passed` | neutraliserad |
+
+  Mot `tests/test_biluppgifter.py`, som bar 267 test vid mätningen.
+
+  *De två sista talen var `7 failed, 260 passed` och `11 failed, 256 passed`.
+  Det första var rad 5:s utfall skrivet på rad 4, det andra hörde inte till
+  någon fällning alls. Varv 2 lade till tabellrader, vilket ändrade underlaget
+  för samtliga fem tal, och bara de tre nej-raderna kördes om. §7.2: VID
+  OMSKRIVNING RÄKNAS TALET SOM OLÄST. Båda är omkörda i varv 3 och står nu som
+  de mättes. Fällt av §7-granskningen av skiva 38, varv 3.*
+
+  **DE TVÅ FETA RADERNA ÄR SKIVANS EGNA MISSTAG, var och en fälld av de rader
+  som tillkom när den upptäcktes.**
+
+  Den första fäller att nej-sidan läser första ordet, vilket varv 1 fann att den
+  gjorde utan att något band det. Den fjärde fäller att ja-sidan tar vilket
+  efterled som helst, vilket varv 2 fann: `Ja, avmonterad` blev då `True` och
+  därmed GRÖNT, förbi det OKLART som finns just för att en avmonterad krok ser
+  likadan ut i registret.
+
+  **Båda prefixraderna finns för att skilja ORD från TECKENFÖLJD**, på var sin
+  sida. Utan dem hade `Jacobsen`, `Ja/Nej` och `Nejlika` passerat.
+
+  **Negativkontroll:** `test_ett_TREDJE_varde_blir_ALDRIG_Nej`, skild från
+  tabellen med flit. Tabellen prövar att varje form ger RÄTT svar; den här att
+  en hel KLASS aldrig ger `False`. En framtida tabellrad med fel väntevärde
+  fångas därför ändå.
+
+  *Lydelsen som beskrev luckan när den var öppen. Statusraden är struken, resten
+  står ordagrant, fetstilen inbegripen:*
+
+  > **ETT FÄLT STÅR PÅ SIDAN OCH TOLKAS INTE.**
+  > `Draganordning` har på minst en sida värdet `Ja Kula`, alltså ja plus
+  > kopplingstyp. `biluppgifter._ja_nej` kräver exakt `ja` eller `nej`, ger `None`
+  > för allt annat, och då utelämnas nyckeln och `_kontrollera` fäller.
+  >
+  > **DEN ÄR DYRARE ÄN DEN SER UT.** `utvardera` ger GRÖNT bara när
+  > `draganordning` är sann. I skiva 37:s stickprov på sex sidor BÄR fem fältet,
+  > och av dessa fem visar **exakt en** en dragkrok. Det är den enda parsern
+  > avvisar. Mätt: med `Ja Kula` tolkat som ja blir utfallet `gront`. Stickprovets
+  > enda möjliga GRÖNT föll alltså på formen.
+  >
+  > *Här stod "av sex fordon har exakt ett en dragkrok". Den sjätte sidan bär inte
+  > fältet, alltså är dess status OKÄND och inte nej. Fällt av §7-granskningen av
+  > skiva 37, varv 1.*
+  >
+  > **VARFÖR DEN INTE ÄR RÄTTAD.** Skiva 37 DEL B: ingen ändring i uppslaget. Det
+  > är sändväg, och den naturliga lydelsen, att godta ett värde som BÖRJAR med
+  > `ja`, är inte gratis: `_ja_nej`:s docstring skriver ut att ett tredje värde
+  > betyder att vi inte vet, och att tolka `Okänd` som `Nej` vore ett påstående om
+  > att dragkrok saknas. En prefixregel måste visa att den inte öppnar den vägen.
+  >
+  > **VAD SOM STÄNGER LUCKAN.** Lars beslut om hur `_ja_nej` ska läsa ett värde med
+  > efterled, plus rader i regressionstabellen för `Ja`, `Nej`, `Ja Kula`, `Okänd`
+  > och tomt. Se `docs/beslutslogg.md` #78.
 
 - **Lucka 43. STÄNGD I SKIVA 37 på Lars §10-beslut.** Bokningsbeskedet är
   flyttat till `config/fakta.json`, konstanten i `src/generera.py` är borttagen,
@@ -3059,7 +3201,16 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   Andra försöket importerade i uttrycket, så att spärren slutade spärra medan
   sviten fortfarande körde.
 
-  *Ursprunglig lydelse, som beskrev luckan när den var öppen:*
+  *Lydelsen som beskrev luckan när den var öppen följer nedan. Till skillnad från
+  lucka 44 och 47 står den INTE som blockcitat, utan som listposten själv, och
+  den bär både sin fetstil och frasen "som den registrerades" i rubriken.*
+
+  *Här stod att statusraden och fetstilen var strukna. Ingetdera är gjort här:
+  posten bär fyra fetstilta löp och ingen struken statusrad. Den föregående
+  lydelsen, "Ursprunglig lydelse, som beskrev luckan när den var öppen", var
+  SANN, och rättelsen gjorde den falsk. En mening skrevs om tre platser utan att
+  prövas mot någon av dem, vilket är §7:s EN RÄTTELSE I TAGET överträdd i samma
+  skrivning. Fällt av §7-granskningen av skiva 38, varv 3.*
 
 - **Lucka 42, som den registrerades. FYRA DOKUMENTERADE AVVISNINGAR SOM INGEN RAD
   BINDER.** `src/vy.py` skriver ut att `/REFERENS/1`, `/referens/1?x=1`,
@@ -4023,6 +4174,77 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.41.0 — 2026-09-11
+
+**LUCKA 48 REGISTRERAS, ÖPPEN.** `_ja_nej` skiljer inte kopplingstypen i `Ja
+Kula` från ett efterled som betyder motsatsen: villkoret är ordantal och
+teckenklass, så `Ja avmonterad` blir `True` och når GRÖNT förbi förvalet OKLART.
+Uppmätt i varv 3 med `.venv/bin/python -c` mot funktionen, fem värden i
+luckposten. Ingen sida i skiva 37:s stickprov skriver ett sådant efterled.
+
+**DEN BYGGS INTE I SKIVA 38.** Grinden var förbrukad när fyndet gjordes, och varv
+1 och varv 2 ändrade var sin gren i samma funktion och införde var sitt nytt fel.
+Vägen vidare är Lars val, se `docs/beslutslogg.md` #85.
+
+**TVÅ TAL I LUCKA 44:s FÄLLNINGSTABELL ÄR OMKÖRDA OCH RÄTTADE.** Ja-radernas
+utfall var `7 failed, 260 passed` skrivet på fel rad och `11 failed, 256 passed`
+som inte hörde till någon fällning. De står nu som `2 failed, 265 passed`
+respektive `7 failed, 260 passed`, avlästa ur `scripts/sparr-prova.sh`. Orsaken
+är §7.2:s omskrivningsregel: varv 2 lade till tabellrader, vilket ändrade
+underlaget för alla fem tal, och bara de tre nej-raderna kördes om.
+
+**MOTIVERINGEN TILL ASYMMETRIN ÄR UTBYTT.** Lucka 44 bar att skälet är
+"riktningen på felet", alltså att ett felläst ja är synligt för kunden och att
+bara ett felläst nej blir ett påstående i underlaget. Det första var ett obelagt
+antagande om kundbeteende som ensamt bar en vidgning av sändvägen. Det andra är
+falskt: `src/generera.py:875` skriver båda riktningarna som faktum. Asymmetrin
+följer i stället av mätningen, alltså av att sidan skriver ja med efterled och
+nej ensamt.
+
+**"LÄSER FÖRSTA ORDET" ÄR STRUKET UR 0.40.0:s SAMMANFATTNING.** Lydelsen fälldes
+i varv 2 och överlevde här, i `docs/beslutslogg.md` #83:s rubrik och i #83:s
+appendixpost.
+
+**BASLINJESTYCKET I `_galler_fordonet`-POSTEN ÄR RÄTTAT.** En omskrivning i varv
+2, gjord för att undvika en persondatakontrollträff där ordet före talet slutade
+på två bokstäver som gav plåtens form, lade in att tabellens tal hör till
+231-baslinjen. Fyra ställen säger 214, varav ett i samma stycke. 231 står nu bara kvar i jämförelsetabellens kolumnrubrik, som är
+committad och oförändrad.
+
+**NOTEN OM BLOCKCITATEN ÄR SKRIVEN PER PLATS.** En och samma mening hade satts in
+på tre ställen och var sann om inget av dem: lucka 47 behåller fetstilen på
+första raden, lucka 44 behåller all sin fetstil, och lucka 42 är inget blockcitat
+alls utan listposten själv. Lucka 42:s föregående lydelse var SANN, och
+rättelsen gjorde den falsk. Det är §7:s EN RÄTTELSE I TAGET, överträdd i samma
+skrivning som regeln finns för.
+
+Ny lucka och rättade tal ⇒ MINOR.
+
+### 0.40.0 — 2026-09-11
+
+**Skiva 38. LUCKA 44 STÄNGD, lucka 47 stängd av Lars beslut om hinken.**
+
+**Lucka 44:** `_ja_nej` godtar nu `ja` ensamt eller `ja` plus ETT efterled av
+bara bokstäver, alltså `Ja Kula`. Regeln läser ORD och inte prefix, och den
+skillnaden är bunden av två rader i regressionstabellen. Nej-sidan kräver EXAKT
+`nej`. Villkoret är ordantal och teckenklass och inte betydelse, så `Ja
+avmonterad` passerar också: det är LUCKA 48. Se `docs/beslutslogg.md` #83.
+
+*Här stod att regeln "läser FÖRSTA ORDET". Den lydelsen fälldes i varv 2, efter
+att den gjort `Ja, avmonterad` till ett GRÖNT, och `src/biluppgifter.py` skriver
+ut att den är fälld. Den överlevde här, i #83:s rubrik och i #83:s appendixpost,
+alltså i just de poster som bär beslutet. Fällt av §7-granskningen av skiva 38,
+varv 3.*
+
+**Lucka 47:** `auto` är tom. Kategorin flyttad till `utkast` på Lars beslut, se
+#81. Luckan stängs av att gränsen inte längre går mellan två kategorier
+klassificeraren inte kan skilja åt.
+
+**Lucka 46 är oförändrad och byggdes INTE**, enligt Lars order i DEL C.
+Mätningen är omkörd efter skivans ändringar och står kvar.
+
+Stängda luckor ⇒ MINOR.
 
 ### 0.39.0 — 2026-09-11
 

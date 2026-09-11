@@ -355,23 +355,102 @@ def test_bara_blanktecken_fore_enheten_ger_none(varde):
     `test_varde_med_omgivande_blanktecken_lases`, och den fällningen är RÖD.
     """
     assert _tal(varde) is None
+
+
+# REGRESSIONSTABELL FÖR `_ja_nej`, skiva 38, lucka 44.
+#
+# **VARJE FORM SIDAN FAKTISKT ANVÄNDER STÅR HÄR.** Avläst ur skiva 37:s
+# stickprov på sex sparade sidor: `Nej` på fyra, `Ja Kula` på en, fältet saknas
+# på en. Inga andra former förekom.
+#
+# Resten är former regeln MÅSTE klara av utan att ha setts: andra
+# kopplingstyper, versaler, blanktecken, skiljetecken, och tredje värden.
+JA_NEJ_TABELL = [
+    # (värde, väntat, varför raden finns)
+    ("Ja", True, "grundformen"),
+    ("Nej", False, "grundformen, och enda formen i tabellen som ger False"),
+    ("ja", True, "gemener"),
+    ("NEJ", False, "versaler"),
+    ("  Ja  ", True, "omgivande blanktecken"),
+    # AVLÄST PÅ SIDAN. Den här raden är hela skälet till att regeln ändrades:
+    # den föll till None och kostade stickprovets enda möjliga GRÖNT.
+    ("Ja Kula", True, "AVLÄST PÅ SIDAN 2026-09-11, ja plus kopplingstyp"),
+    ("Ja Krok", True, "annan kopplingstyp"),
+    ("Ja Kulhandske", True, "annan kopplingstyp"),
+    ("ja kula", True, "kopplingstyp i gemener"),
+    # SKILJETECKEN TÅLS INTE PÅ NÅGONDERA SIDAN. Formen står inte i stickprovet,
+    # och varje vidgning av ja-sidan är en möjlig väg förbi förvalet OKLART.
+    ("Ja.", None, "skiljetecken är ingen observerad form"),
+    ("Ja,", None, "skiljetecken är ingen observerad form"),
+    (".ja", None, "ledande skiljetecken"),
+    # JA MED MER ÄN ETT EFTERLED, eller ett efterled som inte är bokstäver.
+    # `utvardera` ger GRÖNT direkt vid draganordning, alltså förbi OKLART, och
+    # ett värde som antyder att kroken är borta får inte bli ett grönt.
+    ("ja men avmonterad", None, "tre ord, alltså inte sidans form"),
+    ("Ja (borttagen)", None, "efterled som inte är bokstäver"),
+    ("Ja, avmonterad", None, "kommatecken i första ordet"),
+    # NEJ-SIDAN ÄR STRIKT, och de här raderna är hela beviset för det.
+    # Ett nej med efterled är en form vi inte känner, och ett felläst nej blir
+    # ett PÅSTÅENDE om att dragkrok saknas i ett utgående mail.
+    ("Nej.", None, "NEJ-sidan tål INTE skiljetecken"),
+    ("Nej,", None, "NEJ-sidan tål INTE skiljetecken"),
+    ("Nej tack", None, "nej med efterled är en okänd form"),
+    ("Nej, uppgift saknas", None, "nej med efterled är en okänd form"),
+    ("Nej Kula", None, "motsägelsefullt, alltså okänt"),
+    # TREDJE VÄRDEN. Inget av dem får bli False, och inget av dem får bli True.
+    ("Okänd", None, "TREDJE VÄRDE, får ALDRIG bli Nej"),
+    ("", None, "tomt"),
+    ("   ", None, "bara blanktecken"),
+    ("Uppgift saknas", None, "tredje värde i två ord"),
+    ("1", None, "siffra"),
+    ("true", None, "engelsk bool"),
+    # FORMER SOM EN PREFIXREGEL HADE MISSTOLKAT. De står här för att binda att
+    # regeln läser ett ORD och inte en teckenföljd.
+    ("Jacobsen", None, "börjar med ja men är inte ordet ja"),
+    ("Ja/Nej", None, "två ord utan blanksteg, alltså inte ordet ja"),
+    ("Nejlika", None, "börjar med nej men är inte ordet nej"),
+]
+
+
+@pytest.mark.parametrize(("varde", "vantat", "varfor"), JA_NEJ_TABELL)
+def test_ja_nej_tabellen(varde, vantat, varfor):
+    """LAGER 4. Varje form regeln ska klara, med skälet utskrivet per rad."""
+    assert _ja_nej(varde) is vantat, f"{varde!r}: {varfor}"
+
+
 @pytest.mark.parametrize(
-    ("varde", "vantat"), [("Ja", True), ("Nej", False), ("ja", True), ("NEJ", False)]
+    "varde",
+    ["Okänd", "", "   ", "Uppgift saknas", "1", "true", "Jacobsen", "Ja/Nej",
+     # NEJ MED EFTERLED ÄR SKIVANS EGEN LÄRDOM. Första lydelsen lade ordsplitten
+     # före BÅDA grenarna, och de flesta av raderna nedan gav då `False`.
+     #
+     # *Här stod att de var åtta och att SAMTLIGA gav `False`. De är sju, och
+     # `Nej/Ja` gav `None` även under den lydelsen, eftersom `/` inte låg i
+     # `strip`-mängden. Ett tal och ett "samtliga" i samma bisats, i den fil som
+     # är negativkontrollen. Fällt av §7-granskningen av skiva 38, varv 2.*
+     "Nej.", "Nej,", "Nej tack", "Nej, uppgift saknas", "Nej Kula",
+     "nej men avmonterad", "Nej/Ja"],
 )
-def test_ja_och_nej_lases(varde, vantat):
-    """LAGER 4. Sidan skriver `Ja` och `Nej`."""
-    assert _ja_nej(varde) is vantat
+def test_ett_TREDJE_varde_blir_ALDRIG_Nej(varde):
+    """NEGATIVKONTROLL för det enda som gör regeln farlig att vidga.
 
+    **ETT `Okänd` SOM BLEV `Nej` HADE PÅSTÅTT ATT DRAGKROK SAKNAS**, vilket är
+    precis det påstående `utvardera`:s förval OKLART finns för att undvika.
+    `src/generera.py` skriver `draganordning nej` i underlaget för `False`,
+    alltså blir ett felläst nej ett faktum i ett utgående mail.
 
-@pytest.mark.parametrize("varde", ["Okänd", "", "Ja tack", "1", "true"])
-def test_annat_an_ja_eller_nej_ger_none(varde):
-    """LAGER 4. Ett tredje värde betyder VET INTE, aldrig `Nej`.
+    **RADEN BINDER NU ÄVEN NEJ MED EFTERLED, och det ledet saknades.** Skiva 38
+    vidgade ja-sidan till att läsa första ordet och vidgade nej-sidan i samma
+    rad, utan att märka det. Testet påstod i sin docstring att det band
+    motsatsen. En fällning som återställde den strikta nej-sidan var GRÖN, alltså
+    var påståendet vakuöst i §7.1:s mening. Fällt av §7-granskningen av skiva 38,
+    varv 1.
 
-    Ett `Okänd` som tolkades som `Nej` hade gett ett svar som PÅSTÅR att dragkrok
-    saknas, vilket är precis det påstående `utvardera`:s förval OKLART finns för
-    att undvika.
+    Raden är skild från tabellen ovan med flit: tabellen prövar att varje form
+    ger RÄTT svar, den här att en hel KLASS aldrig ger ett visst svar. En
+    framtida tabellrad med fel väntevärde fångas därför ändå.
     """
-    assert _ja_nej(varde) is None
+    assert _ja_nej(varde) is not False
 
 
 def test_otolkbart_varde_utelamnar_nyckeln_och_spparren_faller():
@@ -1042,16 +1121,37 @@ def test_okant_vardeformat_faller_till_utkast(varde):
     ) == "svaret saknar slapvagnsvikt_kg"
 
 
-@pytest.mark.parametrize("varde", ["Okänd", "Ja tack", "", "1", "-"])
+@pytest.mark.parametrize("varde", ["Okänd", "Uppgift saknas", "", "1", "-"])
 def test_okant_draganordningsvarde_faller_till_utkast(varde):
     """FALL 4 för draganordningen, som inte är ett tal.
 
     Ett `Okänd` som tolkades som `Nej` hade gett ett svar som PÅSTÅR att
     dragkrok saknas. Det är just det påstående förvalet OKLART finns för.
+
+    *`Ja tack` stod här som ett tredje värde. Skiva 38 lät `_ja_nej` läsa FÖRSTA
+    ORDET, och då är `Ja tack` ett ja. Raden är utbytt mot `Uppgift saknas`, som
+    är ett tredje värde också under den nya regeln. Att byta den var nödvändigt
+    och inte en uppmjukning: klassen den vaktar prövas fortfarande, och
+    `test_ett_TREDJE_varde_blir_ALDRIG_Nej` binder den hårdare än förut.*
     """
     assert utfallet_av(
         sida_med(draganordning=varde)
     ) == "svaret saknar draganordning"
+
+
+def test_ett_JA_MED_KOPPLINGSTYP_gar_hela_vagen_till_GRONT():
+    """LUCKA 44, hela vägen: sidans form ska ge ett utfall och inte ett utkast.
+
+    **DET HÄR ÄR SKIVANS SKÄL.** `Ja Kula` föll till `None`, nyckeln utelämnades,
+    `_kontrollera` fällde, och stickprovets enda fordon med dragkrok blev ett
+    utkast utan bedömning. Raden binder att formen nu når fram, inte bara att
+    `_ja_nej` returnerar `True`.
+    """
+    hamta = biluppgifter_hamtning(oppna=svarar(sida_med(draganordning="Ja Kula")))
+    uppslag = fordonsuppslag.slag_upp(REGNR, hamta=hamta)
+
+    assert uppslag.draganordning is True
+    assert fordonsuppslag.utvardera(uppslag) is fordonsuppslag.Utfall.GRONT
 
 
 # --- 5: fältet helt borttaget -----------------------------------------------

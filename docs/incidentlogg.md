@@ -1,6 +1,6 @@
 # Incidentlogg
 
-**Version:** 0.11.1 · **Uppdaterad:** 2026-09-04 · **Implementerar** CLAUDE.md §0
+**Version:** 0.13.0 · **Uppdaterad:** 2026-09-11 · **Implementerar** CLAUDE.md §0
 
 Varje regel som bärs av en incident bor här. Dokumentet finns för att förlagornas
 styrka är att en härdad regel namnger det fel som skapade den. En regel utan
@@ -703,7 +703,7 @@ skrivas om till en kontroll vi inte har.*
 
 ## I10 — Regeln om rättelsetext upptäcker varje gång och förebygger aldrig
 
-**Uppmätt i:** skiva 23, 24 och 25 · **Berör:** CLAUDE.md §7 RÄTTELSETEXT
+**Uppmätt i:** skiva 23, 24, 25 och 38 · **Berör:** CLAUDE.md §7 RÄTTELSETEXT
 GRANSKAS SOM NY TEXT och EN RÄTTELSE I TAGET, `docs/beslutslogg.md` #36
 
 **Vad som hände. I skiva 23, 24 och 25 bar RÄTTELSEN nästa fynd.** Var för sig,
@@ -722,6 +722,26 @@ med den committade källan för varje:
   Den sade att ett brutet invariant får ett snitt att kasta; `'abcdef'[None:3]`
   ger `'abc'`. Varv 3 fällde att en processräkning som en not påstod var struken
   låg kvar sju rader från noten.
+
+- **Skiva 38**, stoppad, se `docs/beslutslogg.md` #85. Tre varv i rad fällde
+  `biluppgifter._ja_nej`, och varje rättelse band den instans fyndet räknade upp
+  i stället för egenskapen:
+
+  | Varv | Fyndet | Vad rättelsen band |
+  | --- | --- | --- |
+  | 1 | ordsplitten låg före båda grenarna, `Nej, uppgift saknas` blev `False` | nej-grenen gjordes strikt: rätt, och samma skrivning vidgade ja-sidan |
+  | 2 | `Ja, avmonterad` blev `True`, alltså GRÖNT förbi OKLART | KOMMATECKNET. Tabellraden skriver ut det själv: *"kommatecken i första ordet"* |
+  | 3 | `Ja avmonterad` UTAN komma blev `True` | ingenting. Grinden var förbrukad, luckan registrerades som lucka 48 |
+
+  **Det nya i den här instansen är att varv 3:s fynd är varv 2:s fynd, oförändrat
+  i sak.** Egenskapen namngavs rätt i båda varven, i docstringen och i
+  luckposten, och prövades båda gångerna bara på det värde fyndet citerade.
+
+  **Fem av varv 3:s sex textfynd var införda av varv 2:s rättelser.** Det som
+  skilde dem från koden var att INGEN KÖRNING band dem: ett tal i en
+  fällningstabell, en baslinje, en rubrik, en not om tre blockcitat. De tre
+  nej-raderna i samma tabell kördes om och stämde, eftersom en fällning är
+  körbar.
 
 **MÖNSTRET ÄR ATT RÄTTELSEN BÄR FYNDET, INTE ATT FYNDET ÄR TEXT.** Skiva 24 är
 motexemplet som gör skillnaden tydlig: där var rättelsen kod, och den gjorde om
@@ -827,7 +847,115 @@ räkneraden läst: `0 fynd över 0 filer` är inget svar.
 
 ---
 
+## I12 — Backticks i en bash-rad åt kodreferenser ur två dokument, två skivor i rad
+
+**Vad som hände, båda gångerna.** En appendixpost skrevs genom att mata in hela
+texten som ett Python-uttryck på en bash-rad. Texten bar `` `backticks` `` runt
+filnamn och kodreferenser, som markdown kräver. Zsh expanderade dem som
+kommandosubstitution, kommandona fanns inte, och det som skrevs till filen var
+posten **utan** referenserna.
+
+| Skiva | Fil | Vad som försvann |
+| --- | --- | --- |
+| 36 | `docs/beslutslogg.md` 0.49.0 | två filnamn |
+| 37 | `docs/sparrar.md` 0.39.0 | fem filnamn och kodreferenser |
+
+I båda fallen upptäcktes det av att jag läste tillbaka filen direkt efteråt, och
+i båda fallen rättades posten med `Edit`.
+
+**EN TREDJE INSTANS, OCH DEN KOM EFTER ATT DEN HÄR POSTEN SKRIVITS.** I samma
+pass, med I12 redan på plats i filen, använde jag en **heredoc** för att markera
+ett stycke i `docs/sparrar.md` som blockcitat. §9 förbjuder heredocs i samma
+mening som den förbjuder backticks. Utdatan blev rätt, och regeln var ändå bruten.
+
+**DET ÄR MÖNSTRETS KÄRNA, tydligare än de två första.** Jag valde heredocen
+just för att undvika backticks, alltså åtgärdade jag den instans jag hade i
+huvudet och bytte till en annan förbjuden konstruktion i samma förbudsmening. Det
+är `docs/incidentlogg.md` I10:s form, tillämpad på mig själv: egenskapen namngavs
+rätt och tillämpades på den instans fyndet räknade upp.
+
+**Åtgärden blir därför inte "undvik backticks" utan en enda rad:** en markdowntext
+som ska in i en fil passerar aldrig ett skal, oavsett vilken skalkonstruktion som
+frestar.
+
+**VARFÖR DET ÄR ETT MÖNSTER OCH INTE TVÅ HÄNDELSER.** Formen är densamma, orsaken
+är densamma, och den andra gången hade den första redan skrivits ut i CLAUDE.md
+**0.11.12**. Att veta om felet hindrade det inte, vilket är själva definitionen på
+ett mönster värt en egen post. Lars beslut i skiva 38.
+
+*Här stod 0.11.14 på två ställen. Den posten ÄR redovisningen av den andra
+gången och kan därför inte ha burit noteringen innan den inträffade. 0.11.12 är
+skiva 36:s post och bär den första. Pekaren bär postens hela motivering, alltså
+är den ingen utsmyckning. Fällt av §7-granskningen av skiva 38, varv 1.*
+
+**DEN UTLÖSANDE OMSTÄNDIGHETEN ÄR SPECIFIK, och det är den som gör mönstret
+förutsägbart.** Felet uppstår när jag skriver en LÅNG text som ska in mitt i en
+fil, och väljer en bash-rad för att slippa läsa in filen först. Tre saker gäller
+då samtidigt:
+
+1. Texten är prosa med markdown, alltså full av backticks.
+2. Målet är en insättning mitt i filen, inte ett tillägg, så `Write` känns fel.
+3. Raden blir lång, och jag läser den som Python och inte som skal.
+
+**§9 FÖRBJUDER DET REDAN, ORDAGRANT:** *"inga expansioner (`$(…)`, backticks,
+`$VAR`)"*. Regeln behöver inte ändras. Det som fattades var att koppla förbudet
+till den situation där jag faktiskt bryter mot det.
+
+**ÅTGÄRDEN ÄR ETT VERKTYGSVAL OCH INGEN NY REGEL.** En insättning mitt i en fil
+görs med `Edit`, som tar texten som ett argument och aldrig genom ett skal.
+`Edit` kräver att jag läst filen först, vilket är en kostnad, och den kostnaden
+är precis vad jag försökte slippa båda gångerna.
+
+**Vad som INTE följer.** Att bash ska undvikas. Mätningar, svitkörningar och
+mutationsprövningar hör hemma där. Det är TEXT MED MARKDOWN som aldrig ska passera
+ett skal.
+
+*Formen är besläktad med I10: regeln fanns, den var läst, och den upptäckte
+felet i efterhand i stället för att hindra det. Skillnaden är att I10 handlar om
+en granskningsregel och den här om ett verktygsval, alltså något som går att
+avgöra innan raden skrivs.*
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.13.0 — 2026-09-11
+
+**I10 FÅR SKIVA 38 SOM FJÄRDE INSTANS**, och den är den tydligaste hittills: tre
+granskningsvarv i rad fällde samma funktion, `biluppgifter._ja_nej`, och varv 3:s
+fynd är varv 2:s fynd oförändrat i sak. Varv 2 band kommatecknet i `Ja,
+avmonterad` i stället för egenskapen, alltså gav `Ja avmonterad` utan komma
+fortfarande `True`.
+
+**Posten får också en observation som de tre första instanserna inte bar:** vad
+som skilde varv 3:s kvarstående textfynd från de rättelser som höll var om något
+KUNDE KÖRAS. Tre fällningsrader i samma tabell kördes om och stämde; de två som
+inte kördes om bar obelagda tal, och fyra andra fynd låg i påståenden som ingen
+körning binder.
+
+**Rubrikraden `Uppmätt i` är ändrad** från "skiva 23, 24 och 25" till att också
+bära 38.
+
+**Åtgärdsraden är oförändrad: ingen.** Posten föreslår fortfarande ingen
+skärpning, och den fjärde instansen ändrar inte det. Den stärker i stället
+förväntan posten redan formulerar.
+
+Ny instans i en befintlig post ⇒ MINOR.
+
+### 0.12.0 — 2026-09-11
+
+**I12 tillkommer: backticks i en bash-rad, två skivor i rad.** Lars beslut i
+skiva 38 att skriva in det som ett MÖNSTER och inte som två händelser.
+
+**Skälet till att posten finns är att den andra gången kom EFTER att den första
+skrivits ut.** CLAUDE.md 0.11.12 bar redan noteringen när felet upprepades. En
+regel som är läst och ändå bryts hör hemma här, inte i en versionspost.
+
+**Ingen regel ändras.** §9 förbjuder expansioner ordagrant. Det som saknades var
+kopplingen mellan förbudet och den situation där det bryts: en lång markdowntext
+som ska in mitt i en fil.
+
+Ny post ⇒ MINOR.
 
 ### 0.11.1 — 2026-09-04
 

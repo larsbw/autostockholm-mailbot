@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.11.14 · **Uppdaterad:** 2026-09-11 · **Speglar:** beslutslogg #80
+**Version:** 0.12.1 · **Uppdaterad:** 2026-09-11 · **Speglar:** beslutslogg #85
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -518,6 +518,67 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.12.1 — 2026-09-11
+
+**`Speglar` följer med till beslutslogg #85.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 38:s stoppost lagts till.
+
+**§7:s tre granskningsvarv är OFÖRÄNDRADE, och #85 är en tillämpning av dem.**
+Skivan stoppades därför att ett fynd kvarstod efter tre varv, vilket är precis
+vad tabellens rad för SÄNDVÄG föreskriver. Raden står här av samma skäl som i
+0.9.4 och 0.11.4: en läsare av CLAUDE.md ska inte behöva härleda ett undantag ur
+beslutsloggen, och det finns inget undantag att härleda.
+
+**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
+är tom sedan 0.12.0. Lucka 48 rör vad ett uppslag PÅSTÅR om en bil, inte om ett
+mail får gå ut, och ingen kategori har flyttats.
+
+**§0:s styrdokumentlista är oförändrad.** Varv 3 skapade ingen ny fil.
+
+**Ingen regel i det här dokumentet är ändrad** ⇒ PATCH, till skillnad från
+0.12.0 som ändrade vad ramverksregel 1 släpper igenom.
+
+### 0.12.0 — 2026-09-11
+
+**`Speglar` följer med till beslutslogg #84.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 38:s fyra poster lagts till.
+
+**§0:s RAMVERKSREGEL 1 HAR INGET ATT VERKA PÅ: `auto` ÄR TOM.** Lars beslut i
+skiva 38, se `docs/beslutslogg.md` #81. Regeln säger att inget mail skickas vars
+kategori inte står i `auto`, och med en tom hink betyder det att inget mail får
+skickas automatiskt alls. **Det är det säkra läget och det avsedda.**
+
+`auto` fylls efter skuggläget, när det mätt hur ofta klassificeraren vacklar
+mellan grannkategorier. Ramverksregel 2 gäller oförändrat: ingen kategori flyttas
+dit av kod.
+
+**Regeltexten är OFÖRÄNDRAD.** Det som ändrats är innehållet i den fil regeln
+pekar på, och det är ett §10-beslut av Lars.
+
+**MINOR OCH INTE PATCH.** Den här posten ändrar vad §0:s ramverksregel 1 FAKTISKT
+tillåter, från en kategori till ingen, och det är en beteendeändring som en
+läsare av CLAUDE.md ska se utan att härleda den ur beslutsloggen.
+
+**0.11.11 ÄR DEN NÄRMASTE ANALOGIN OCH SATTES TILL PATCH**, och skillnaden ska
+sägas ut. Där tillkom `config/fakta.json` på Lars §10-beslut, alltså gick en fil
+från att inte finnas till att finnas TOM. Ramverksregel 3:s tillåtna mängd var
+oförändrad: en tom fil är ingen källa. Här går den tillåtna mängden i regel 1
+från ett till noll, alltså ändras vad regeln släpper igenom.
+
+*Här stod i stället "Tidigare poster med tom diff i regeltexten har varit rena
+synkar". Det är en mening som kategoriserar sin egen omgivning, vilket 0.3.1
+infördes för att stoppa, och den utelämnade dessutom 0.11.11. Fällt av
+§7-granskningen av skiva 38, varv 2.*
+
+**§9 BRÖTS AV MIG EN TREDJE GÅNG, och den här gången efter att jag skrivit
+incidentposten om det.** `docs/incidentlogg.md` I12 bär mönstret. Jag använde en
+heredoc för att slippa backticks, alltså bytte jag en förbjuden konstruktion mot
+en annan i samma förbudsmening. Regeln är oförändrad.
+
+**§0:s styrdokumentlista är oförändrad.** Skiva 38 skapade ingen ny fil.
+
+Ändrat vad ramverksregel 1 tillåter ⇒ MINOR.
 
 ### 0.11.14 — 2026-09-11
 

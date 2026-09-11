@@ -18,8 +18,18 @@ standardhink: utkast
 
 # Kriteriet: minst tio par med svar, och att svaret inte beror på en bedömning
 # i verkstaden.
-auto:
-  - fråga om a-traktorkonvertering
+#
+# TOM SEDAN SKIVA 38, på Lars beslut. Se docs/beslutslogg.md #81.
+#
+# `fråga om a-traktorkonvertering` stod här och flyttades till `utkast`. Skälet
+# är inte kategorin utan GRANNSKAPET: `boka a-traktorkonvertering` har nästan
+# samma innebörd och stod i `utkast`, och klassificeraren gav samma tråd olika
+# kategori i två körningar. Hinken är gränsen för om ett mail får gå ut, och den
+# gränsen får inte hänga på en skillnad klassificeraren inte kan göra.
+#
+# AUTO FYLLS EFTER SKUGGLÄGET, när det mätt hur ofta klassificeraren vacklar
+# mellan grannkategorier. Befordran ska vila på mätning.
+auto: []
 
 # Går aldrig ut automatiskt.
 aldrig:

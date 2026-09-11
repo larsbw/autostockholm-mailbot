@@ -822,19 +822,88 @@ def _krav_pa_rimlighet(nyckel: str, varde: int) -> None:
 
 
 def _ja_nej(varde: str) -> bool | None:
-    """`Ja` eller `Nej` som bool. Allt annat ger `None`.
+    """SIDANS TVÅ FORMER som bool. Allt annat ger `None`.
 
-    Sidan skriver ut `Nej` för ett fordon utan draganordning, avläst 2026-09-02.
-    Ett tredje värde, eller ett tomt, betyder att vi inte vet, och då ska
-    nyckeln utelämnas. Ett `Okänd` som tolkades som `Nej` hade gett ett svar som
-    påstår att dragkrok saknas, vilket är just det påstående `utvardera`:s
-    förval OKLART finns för att undvika.
+    **REGELN FÖLJER MÄTNINGEN OCH INGET ANNAT.** Avläst 2026-09-11 ur skiva 37:s
+    stickprov på sex sidor: `Nej` fyra gånger, `Ja Kula` en gång, fältet saknas
+    på en. Två former, och regeln godtar precis dem:
+
+      `nej`            exakt, bortsett från versaler och omgivande blanktecken
+      `ja`             ensamt
+      `ja <ord>`       ett enda efterled av bara bokstäver, typiskt
+                       kopplingstypen. Villkoret är ordantal och teckenklass,
+                       inte betydelse, se LUCKA 48.
+
+    **TIDIGARE KRÄVDES EXAKT `ja`, OCH DET KOSTADE ETT GRÖNT.** `Ja Kula` föll
+    till `None`, nyckeln utelämnades, `_kontrollera` fällde, och ärendet blev ett
+    utkast utan bedömning. Det var stickprovets enda möjliga GRÖNT. Se
+    `docs/beslutslogg.md` #78 och LUCKA 44.
+
+    *Här stod att det var "den ENDA med dragkrok av de sex sidorna". Den sjätte
+    sidan bär inte fältet, alltså är dess status OKÄND och inte nej. Exakt den
+    satsen fälldes i skiva 37 varv 1 och återinfördes här. Fällt av
+    §7-granskningen av skiva 38, varv 2.*
+
+    **ETT ORD, INTE ETT PREFIX.** `varde.startswith("ja")` hade gjort `Jacobsen`
+    och `Ja/Nej` till ett ja. Ordgränsen är det som hindrar det.
+
+    **ETT ENDA EFTERLED, OCH DET MÅSTE VARA BOKSTÄVER.** `ja men avmonterad`
+    (tre ord), `Ja (borttagen)` (icke-bokstäver) och `Ja, avmonterad`
+    (kommatecken i första ordet) ger `None`.
+
+    **VILLKORET ÄR ORDANTAL OCH TECKENKLASS, INTE BETYDELSE, och det ska sägas
+    rakt ut.** `Ja avmonterad` och `Ja borttagen` uppfyller det och ger `True`.
+    Regeln kan alltså inte skilja kopplingstypen från ett efterled som betyder
+    motsatsen. **Det är LUCKA 48, öppen och mätt.**
+
+    Varför det ändå inte är fritt fram: `fordonsuppslag.slag_upp` skriver att en
+    omonterad dragkrok och en monterad men oregistrerad ser likadana ut i
+    registret, och `utvardera` når GRÖNT utan att fråga så snart `draganordning`
+    är sann. Ett efterled som antyder att kroken är borta hör alltså till det
+    fall förvalet OKLART finns för. Sidan skriver inga sådana efterled i
+    stickprovet, men regeln hindrar dem inte.
+
+    *En andra lydelse läste första ordet och struntade i resten, alltså gav
+    `Ja, avmonterad` ett GRÖNT. Rättelsen band KOMMATECKNET och inte egenskapen:
+    `Ja avmonterad` utan komma gav fortfarande `True`. Fällt av §7-granskningen
+    av skiva 38, varv 2 och varv 3.*
+
+    **NEJ-SIDAN TAR INGET EFTERLED ALLS.** `Nej tack`, `Nej,` och
+    `Nej, uppgift saknas` ger `None`. Sidan skriver `Nej` bart i samtliga fyra
+    observationer, alltså är ett nej med efterled en form vi inte känner.
+
+    **ASYMMETRIN FÖLJER AV MÄTNINGEN, inte av en teori om vilket fel som är
+    värst.** Ja förekommer med efterled på sidan, nej gör det inte. Båda
+    riktningarna blir för övrigt ett faktum i promptunderlaget: `src/generera.py`
+    skriver `draganordning ja` respektive `nej`.
+
+    *Här stod att ett felläst ja är "fel men synligt: kunden vet om sin egen
+    bil", och att asymmetrin i konsekvens låg där. Det första var ett obelagt
+    påstående om kundbeteende som ensamt bar en vidgning av sändvägen, det andra
+    falskt: båda riktningarna skrivs in i underlaget. Fällt av §7-granskningen av
+    skiva 38, varv 2.*
+
+    *En första lydelse lade ordsplitten före BÅDA grenarna, alltså vidgades
+    nej-sidan i samma svep och `Nej, uppgift saknas` blev `False`. Flera dokument
+    påstod samtidigt att nej-sidan var oförändrad, och ingenting band den. Fällt
+    av §7-granskningen av skiva 38, varv 1.*
+
+    **ETT TREDJE VÄRDE BLIR ALDRIG `Nej`.** `Okänd`, `Uppgift saknas` och en tom
+    sträng ger `None`, nyckeln utelämnas, och `utvardera` faller till OKLART.
     """
     rensat = varde.strip().lower()
-    if rensat == "ja":
-        return True
+
     if rensat == "nej":
         return False
+
+    # JA ENSAMT, ELLER JA PLUS ETT ENDA BOKSTAVSORD. Det är sidans form, och
+    # ingenting mer. `Ja Kula` går igenom; `ja men avmonterad`, `Ja (borttagen)`
+    # och `Ja, avmonterad` gör det inte.
+    ord_ = rensat.split()
+    if ord_[:1] == ["ja"] and (len(ord_) == 1 or
+                               (len(ord_) == 2 and ord_[1].isalpha())):
+        return True
+
     return None
 
 

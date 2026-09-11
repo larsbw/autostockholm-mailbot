@@ -54,9 +54,37 @@ def test_standardhinken_ar_en_giltig_hink(hinkar):
     assert hinkar["standardhink"] in HINKAR
 
 
-def test_auto_bar_bara_lars_beslutade_kategori(hinkar):
-    """Ramverksregel 2: ingen kategori flyttas till auto av kod."""
-    assert hinkar["auto"] == ["fråga om a-traktorkonvertering"]
+def test_auto_ar_TOM(hinkar):
+    """Ramverksregel 2: ingen kategori flyttas till auto av kod.
+
+    **`auto` ÄR TOM SEDAN SKIVA 38, på Lars beslut.** `fråga om
+    a-traktorkonvertering` stod här tills skiva 37 mätte att klassificeraren gav
+    samma tråd den kategorin i en körning och grannkategorin `boka
+    a-traktorkonvertering` i en annan. Grannen stod i `utkast`, alltså hängde
+    gränsen för om ett mail får gå ut på en skillnad klassificeraren inte kan
+    göra. Se `docs/beslutslogg.md` #81.
+
+    **RADEN ÄR TRIPWIREN FÖR RAMVERKSREGEL 2.** Blir den röd har någon lagt en
+    kategori i `auto`, och det får bara ske på Lars uttryckliga beslut efter
+    skuggläget. Att den är röd är alltså inte ett fel i sig; det är en fråga om
+    vem som gjorde ändringen och varför.
+    """
+    assert hinkar["auto"] == [], (
+        "en kategori står i auto. Ramverksregel 2: bara Lars uttryckliga "
+        "beslut får flytta dit, och #81 säger att det ska vila på skuggläget."
+    )
+
+
+def test_a_traktorfragan_hamnar_i_UTKAST(hinkar):
+    """Att kategorin FÖLL UR auto räcker inte. Den ska hamna rätt.
+
+    Kategorin står inte i någon hink, alltså faller den till `standardhink`.
+    Raden binder att standardhinken är `utkast` och inte något annat, eftersom
+    hela flytten är meningslös om standardhinken en dag blir `auto`.
+    """
+    assert hinkar["standardhink"] == "utkast"
+    assert "fråga om a-traktorkonvertering" not in hinkar["auto"]
+    assert "fråga om a-traktorkonvertering" not in hinkar["aldrig"]
 
 
 def test_varje_namn_ar_en_verklig_etikett(hinkar):
