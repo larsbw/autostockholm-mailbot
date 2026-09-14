@@ -104,6 +104,19 @@ class Forfragan:
     uppslag: Uppslag | None = None
     uppslag_gjordes: bool = True
 
+    # VILKA FRÅNVAROPÅSTÅENDEN SOM ÄR BELAGDA. Skiva 40 DEL B.
+    #
+    # **TOM MÄNGD ÄR DET SÄKRA FÖRVALET, och det är avsiktligt.** En anropare
+    # som inte vet något om registrets luckor ska inte kunna låta boten påstå
+    # att en uppgift saknas. Varje namn här är ett faktum boten FÅR säga saknas,
+    # därför att sidan bevisligen inte bär det.
+    #
+    # Namnen är `dragvikt` och `draganordning`, se `FRANVAROFAKTA`. De sätts av
+    # `src/kedja.py` ur `biluppgifter.falt_med_status` och
+    # `biluppgifter.dragviktslage`, alltså ur en MÄTNING av sidan och aldrig ur
+    # ett antagande om varför ett uppslag gick fel.
+    franvaro_far_pastas: frozenset[str] = frozenset()
+
 
 # ------------------------------------------------------------------ DEL C
 
@@ -613,6 +626,97 @@ def krav_pa_fordonsfakta_ur_uppslag(svar: str, forfragan: Forfragan) -> None:
         )
 
 
+# FAKTA BOTEN KAN PÅSTÅ SAKNAS, med de ord den faktiskt använder om dem.
+#
+# **ORDEN ÄR AVLÄSTA UR UTFALL, inte uppfunna.** `dragvikt` står i det utkast
+# Lars fällde i skiva 40: *"då den saknar dragvikt"*. Resten är samma storhet
+# under sidans och kundernas namn.
+FRANVAROFAKTA = {
+    "dragvikt": r"dragvikt(?:er|en)?|släpvagnsvikt(?:er|en)?|släpvikt(?:er|en)?",
+    "draganordning": r"draganordning(?:ar|en)?|dragkrok(?:ar|en)?",
+}
+
+# ORD SOM PÅSTÅR ATT NÅGOT INTE FINNS.
+#
+# **`utan` STÅR MED OCH ÄR DEN LURIGASTE.** *"en bil utan dragvikt"* påstår
+# frånvaro lika bestämt som *"saknar dragvikt"*, men innehåller varken `inte`
+# eller `saknar`.
+#
+# **`inte ... någon` ÄR SVENSKANS VANLIGASTE NEKADE EXISTENS, och den saknades
+# i en första lydelse.** *"Vi kan tyvärr inte se någon släpvagnsvikt"* slank
+# igenom: `ingen` står i listan, men `någon` efter ett `inte` är en annan
+# teckenföljd. Uppmätt under bygget, inte i efterhand.
+#
+# **BARA `inte` DUGER INTE SOM ORD.** Det står i var tredje artig mening, och
+# *"det är inte något problem, dragvikten räcker"* är inget frånvaropåstående.
+# Därför krävs ett `någ`-ord efter, inom ett kort avstånd.
+FRANVAROORD = (
+    r"saknar|saknas|utan|ingen|inget|inga|inte finns|finns inte|har inte"
+    r"|inte[^.!?]{0,20}?någ\w+"
+)
+
+# BAKLÄNGESRIKTNINGEN HAR EN SNÄVARE ORDMÄNGD, och skälet är uppmätt.
+#
+# `Dragvikten saknas i registret` är ett frånvaropåstående. `Dragvikten är 2000
+# kg, så det är inte något problem` är det inte, men med hela `FRANVAROORD` i
+# baklängesriktningen fälldes den, mätt under bygget. Ett `inte något` EFTER ett
+# faktum negerar något annat än faktumet.
+#
+# Framlängesriktningen behåller hela mängden: där står nekandet FÖRE ordet, och
+# `utan dragvikt` och `inte se någon släpvagnsvikt` är båda äkta.
+FRANVAROORD_EFTER = r"saknas|saknar"
+
+# HUR LÅNGT MELLAN FRÅNVAROORDET OCH FAKTUMET. Måttet är tecken inom SAMMA
+# mening: `[^.!?]` slutar vid meningsslut, alltså kan spärren inte koppla ihop
+# ett `saknar` i en mening med ett `dragvikt` i nästa.
+_AVSTAND = r"[^.!?]{0,80}?"
+
+FRANVAROPASTAENDE = {
+    namn: re.compile(
+        # BÅDA RIKTNINGARNA. `saknar dragvikt` och `dragvikt saknas` är samma
+        # påstående, och en spärr som bara tog den ena hade fällts av den andra.
+        rf"(?:(?:{FRANVAROORD}){_AVSTAND}(?:{ord_})"
+        rf"|(?:{ord_}){_AVSTAND}(?:{FRANVAROORD_EFTER}))",
+        re.IGNORECASE,
+    )
+    for namn, ord_ in FRANVAROFAKTA.items()
+}
+
+
+def krav_pa_belagt_franvaropastaende(svar: str, forfragan: Forfragan) -> None:
+    """SPÄRR: ett påstående om att en uppgift SAKNAS måste vara belagt.
+
+    **RAMVERKSREGEL 3 BRÖTS AV DEN HÄR KLASSEN, och den syntes inte.** Ett
+    fordon vars sida saknade `Släpvagnsvikt` fick svaret *"Tyvärr går denna bil
+    inte att bygga om till A-traktor då den saknar dragvikt"*, samtidigt som
+    härkomstraden sade att uppslaget MISSLYCKADES. Boten gav ett negativt besked
+    om ett fält den just rapporterat att den inte kunde läsa.
+
+    **VARFÖR `genererat-fordonsfaktum` INTE FÅNGADE DET.** Den spärren prövar
+    VÄRDEN: ett tal eller ett citerat fordonsfaktum. *"saknar dragvikt"* är
+    varken. Ett påstående om FRÅNVARO bär inget värde att pröva, och därför fanns
+    hela klassen utanför spärrens räckvidd.
+
+    **VAD SOM GÖR PÅSTÅENDET BELAGT.** Bara att sidan bevisligen inte bär
+    fältet, alltså `Faltstatus.SAKNAS_PA_SIDAN` respektive
+    `Dragviktslage.REGISTRET_SAKNAR`. Biluppgifter renderar bara fält som har ett
+    värde, så en frånvarande etikett ÄR ett registerfaktum. Se skiva 40 DEL A och
+    `docs/beslutslogg.md` #87.
+
+    **TRE LÄGEN SOM ALLA SER LIKADANA UT I ETT MISSLYCKAT UPPSLAG är alltså
+    skilda här:** registret saknar uppgiften, uppgiften finns i en form vi inte
+    kan bedöma mot, och parsern föll. Bara det första får sägas.
+    """
+    for namn, monster in FRANVAROPASTAENDE.items():
+        traff = monster.search(svar)
+        if traff and namn not in forfragan.franvaro_far_pastas:
+            raise Sparrfalld(
+                "pastaende-om-franvaro",
+                f"svaret påstår att {namn} saknas, och det är inte belagt att "
+                f"registret saknar uppgiften",
+            )
+
+
 def krav_pa_att_troskeln_inte_ar_forfattningstext(svar: str) -> None:
     """SPÄRR: tröskeln 1 000 kg får inte återges som en sammanfattad föreskrift.
 
@@ -653,6 +757,7 @@ def krav_pa_svaret(svar: str, forfragan: Forfragan) -> None:
     krav_pa_ett_svar(svar)
     krav_pa_tal_med_kalla(svar, forfragan)
     krav_pa_fordonsfakta_ur_uppslag(svar, forfragan)
+    krav_pa_belagt_franvaropastaende(svar, forfragan)
     krav_pa_att_troskeln_inte_ar_forfattningstext(svar)
 
 

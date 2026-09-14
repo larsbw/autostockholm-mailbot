@@ -209,12 +209,92 @@ def _skriv_vad_sidorna_bar(rader_per_sida) -> None:
         print(f"  {antal}  {etikett}{markering}")
 
 
+def _skriv_vardeformer(rader_per_sida) -> None:
+    """Vilka DISTINKTA värden bär varje fält? Underlag för parservalet.
+
+    **FORMEN AVGÖR PARSERN, och den ska mätas och inte gissas.** `Fyrhjulsdrift`
+    kan vara `Ja`/`Nej` eller en text; `Status` och `Kaross` är text;
+    `Passagerare` och `Fordonsår / Modellår` är tal med olika rimliga intervall.
+    Utan den här avläsningen väljs parser på antagande, vilket är precis den
+    klass av fel skivan handlar om.
+
+    **DISTINKTA VÄRDEN, INTE PER SIDA.** Utdatan säger vilka former som
+    förekommer, aldrig vilket fordon som bär vilken. Fälten är fordonsdata och
+    inte ägaruppgifter, men kopplingen fordon-till-värde behövs inte för att
+    välja parser, och då skrivs den inte ut. §6.
+    """
+    print("\nDISTINKTA VÄRDEN PER FÄLT, sorterade. Ingen koppling till sida.\n")
+    for etikett in ETIKETTER + SLAPVIKTSFORMER:
+        varden = sorted({rader[etikett] for rader in rader_per_sida
+                         if etikett in rader})
+        if not varden:
+            print(f"  {etikett}: finns inte på någon sida")
+            continue
+        print(f"  {etikett}: " + " | ".join(repr(v) for v in varden))
+
+
+def _skriv_utfallen(sidor) -> None:
+    """Kör DEL A:s `falt_med_status` och `dragviktslage` mot de sparade sidorna.
+
+    **PRÖVAR KODEN MOT VERKLIGHETEN, inte mot en fixtur.** Fixturen är skriven
+    av samma hand som koden och delar därför dess antaganden. De sex sidorna gör
+    det inte.
+    """
+    from src import biluppgifter
+
+    print("\nDEL A MOT DE SPARADE SIDORNA. Utfall per fält.\n")
+
+    nycklar = (list(biluppgifter.EXAKT_ETIKETT)
+               + list(biluppgifter.OVRIGA_ETIKETT)
+               + list(biluppgifter.SLAPVIKT_ALTERNATIV))
+
+    print("| Fält | " + " | ".join(
+        f.stem.replace("sida-", "") for f in sidor) + " |")
+    print("| --- |" + " --- |" * len(sidor))
+
+    per_sida = [biluppgifter.falt_med_status(f.read_text(encoding="utf-8"))
+                for f in sidor]
+
+    kort = {biluppgifter.Faltstatus.LAST: "läst",
+            biluppgifter.Faltstatus.SAKNAS_PA_SIDAN: "SAKNAS",
+            biluppgifter.Faltstatus.TOLKAS_EJ: "TOLKAS EJ"}
+
+    for nyckel in nycklar:
+        rutor = [kort[falt[nyckel].status] for falt in per_sida]
+        print(f"| {nyckel} | " + " | ".join(rutor) + " |")
+
+    print("\nDRAGVIKTSLÄGE PER SIDA, alltså DEL B:s indata:\n")
+    for fil, falt in zip(sidor, per_sida):
+        lage = biluppgifter.dragviktslage(falt)
+        print(f"  {fil.stem.replace('sida-', 'sida ')}: {lage.name}  ({lage.value})")
+
+
 def main() -> int:
     argp = argparse.ArgumentParser()
     argp.add_argument("--katalog", required=True,
                       help="katalogen med sida-NN.html, UTANFÖR repot")
+    argp.add_argument("--visa-varden", action="store_true",
+                      help="skriv distinkta värden per fält, för parservalet")
+    argp.add_argument("--utfall", action="store_true",
+                      help="kör DEL A:s statusar och dragviktsläge mot sidorna")
     args = argp.parse_args()
-    return _inventera(Path(args.katalog).resolve())
+    katalog = Path(args.katalog).resolve()
+
+    sidor = sorted(katalog.glob("sida-*.html"))
+    if not sidor and (args.visa_varden or args.utfall):
+        print(f"inga sparade sidor i {katalog}")
+        return 1
+
+    if args.visa_varden:
+        _skriv_vardeformer(
+            [_etikettrader(f.read_text(encoding="utf-8")) for f in sidor])
+        return 0
+
+    if args.utfall:
+        _skriv_utfallen(sidor)
+        return 0
+
+    return _inventera(katalog)
 
 
 if __name__ == "__main__":

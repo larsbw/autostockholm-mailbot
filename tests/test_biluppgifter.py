@@ -61,14 +61,21 @@ import pytest
 from src import biluppgifter, fordonsuppslag
 from src.biluppgifter import (
     EXAKT_ETIKETT,
+    Dragviktslage,
+    Faltstatus,
     Hamtningsfel,
+    _arsparet,
     _galler_fordonet,
     _hamta_sidan,
     _ja_nej,
     _las_falt,
     _lasaren,
+    _passagerare,
     _tal,
+    _text,
     biluppgifter_hamtning,
+    dragviktslage,
+    falt_med_status,
 )
 from src.fordonsuppslag import UppslagMisslyckades, Utfall
 
@@ -2771,3 +2778,233 @@ def test_nastlad_overhoppning_tar_slut_pa_ratt_stalle():
 
     hamta = biluppgifter_hamtning(oppna=svarar(sidan))
     assert fordonsuppslag.slag_upp(REGNR, hamta=hamta).slapvagnsvikt_kg == 2400
+
+
+# --- SKIVA 40 DEL A: tre utfall per fält -------------------------------------
+
+
+def test_ett_FALT_SOM_SAKNAS_ar_inte_ett_falt_som_inte_gar_att_tolka():
+    """SKIVANS HELA SKÄL, i en rad.
+
+    De två gav samma sak före skiva 40, en utelämnad nyckel, och därmed samma
+    besked nedströms. `SAKNAS_PA_SIDAN` är ett registerfaktum boten FÅR säga;
+    `TOLKAS_EJ` är vårt eget fel och får aldrig sägas.
+    """
+    saknas = falt_med_status(sida_med(slapvagnsvikt=None))
+    otolkbar = falt_med_status(sida_med(slapvagnsvikt="ungefär 2 ton"))
+
+    assert saknas["slapvagnsvikt_kg"].status is Faltstatus.SAKNAS_PA_SIDAN
+    assert otolkbar["slapvagnsvikt_kg"].status is Faltstatus.TOLKAS_EJ
+
+    # OCH DE ÄR OSKILJAKTIGA I `_las_falt`, vilket är det som rättas.
+    assert "slapvagnsvikt_kg" not in _las_falt(sida_med(slapvagnsvikt=None))
+    assert "slapvagnsvikt_kg" not in _las_falt(
+        sida_med(slapvagnsvikt="ungefär 2 ton"))
+
+
+def test_ett_last_falt_bar_sitt_varde():
+    falt = falt_med_status(sida_med())
+    assert falt["tjanstevikt_kg"].status is Faltstatus.LAST
+    assert falt["tjanstevikt_kg"].varde == 2140
+
+
+@pytest.mark.parametrize(
+    ("nyckel", "etikett", "varde", "vantat"),
+    [
+        ("kaross", "Kaross", "Halvkombi", "Halvkombi"),
+        ("kaross", "Kaross", "Ombyggd Bil", "Ombyggd Bil"),
+        ("fyrhjulsdrift", "Fyrhjulsdrift", "Ja", True),
+        ("fyrhjulsdrift", "Fyrhjulsdrift", "Nej", False),
+        ("totalvikt_kg", "Totalvikt", "2510 kg", 2510),
+        ("passagerare_utover_forare", "Passagerare", "3 st + förare", 3),
+        ("arsmodell", "Fordonsår / Modellår", "2010 / 2011", (2010, 2011)),
+        ("status", "Status", "Avställd", "Avställd"),
+        ("status", "Status", "I Trafik", "I Trafik"),
+        ("slap_totalvikt_b", "Släp totalvikt (B)",
+         "Max 1105 kg (Teoretisk)", "Max 1105 kg (Teoretisk)"),
+        ("slap_totalvikt_bplus", "Släp totalvikt (B+)",
+         "Max 2185 kg (Teoretisk)", "Max 2185 kg (Teoretisk)"),
+    ],
+)
+def test_de_nya_falten_lases_i_sidans_faktiska_former(nyckel, etikett, varde,
+                                                      vantat):
+    """VARJE FORM ÄR AVLÄST UR STICKPROVET, inte påhittad.
+
+    Formerna kommer ur `scripts/faltinventering.py --visa-varden` över de sex
+    sparade sidorna, körd 2026-09-14. En form som inte står på sidan hör inte
+    hemma här: då mäter raden vår fantasi och inte källan.
+    """
+    falt = falt_med_status(sida_med(extra=rad(etikett, varde)))
+    assert falt[nyckel].status is Faltstatus.LAST
+    assert falt[nyckel].varde == vantat
+
+
+@pytest.mark.parametrize(
+    ("nyckel", "etikett", "varde"),
+    [
+        ("passagerare_utover_forare", "Passagerare", "3"),
+        ("passagerare_utover_forare", "Passagerare", "tre st + förare"),
+        ("arsmodell", "Fordonsår / Modellår", "2010"),
+        ("arsmodell", "Fordonsår / Modellår", "10 / 11"),
+        ("kaross", "Kaross", "   "),
+        ("totalvikt_kg", "Totalvikt", "Max 2510 kg (Teoretisk)"),
+        ("fyrhjulsdrift", "Fyrhjulsdrift", "Ja fyrhjulsdrift"),
+    ],
+)
+def test_en_form_vi_inte_kanner_blir_TOLKAS_EJ_och_aldrig_SAKNAS(nyckel,
+                                                                 etikett,
+                                                                 varde):
+    """NEGATIVKONTROLL FÖR SKIVANS FARLIGA RIKTNING.
+
+    Ett fält som STÅR på sidan men inte går att läsa får aldrig rapporteras som
+    saknat, eftersom `SAKNAS_PA_SIDAN` är det utfall boten får uttala sig om.
+    Raden prövar att hela KLASSEN faller åt rätt håll, till skillnad från
+    tabellen ovan som prövar att varje enskild form ger RÄTT svar.
+    """
+    falt = falt_med_status(sida_med(extra=rad(etikett, varde)))
+    assert falt[nyckel].status is not Faltstatus.SAKNAS_PA_SIDAN
+    assert falt[nyckel].status is Faltstatus.TOLKAS_EJ
+
+
+def test_den_obromsade_lases_ur_fixturens_egen_rad():
+    """DEN OBROMSADE STÅR REDAN I `sida_med()`, alltså läses den där.
+
+    Raden kan inte ligga i tabellen ovan: ett `extra` med samma etikett gör den
+    TVETYDIG, och då blir fältet `TOLKAS_EJ` med rätta. Det var precis vad ett
+    första försök gav, vilket är spärren som gör sitt arbete och inte ett fel.
+    """
+    falt = falt_med_status(sida_med())
+    assert falt["slapvagnsvikt_obromsad_kg"].status is Faltstatus.LAST
+    assert falt["slapvagnsvikt_obromsad_kg"].varde == 750
+
+
+def test_ett_falt_som_inte_star_pa_sidan_blir_SAKNAS_och_aldrig_TOLKAS_EJ():
+    """Spegelvänd negativkontroll. `sida_med()` bär inget av de nya fälten."""
+    falt = falt_med_status(sida_med())
+    for nyckel in ("kaross", "fyrhjulsdrift", "totalvikt_kg",
+                   "passagerare_utover_forare", "arsmodell", "status"):
+        assert falt[nyckel].status is Faltstatus.SAKNAS_PA_SIDAN, nyckel
+
+
+# --- SKIVA 40 DEL A: gatande fält kastar, övriga rapporterar -----------------
+
+
+def test_en_tvetydig_GATANDE_etikett_kastar_som_forut():
+    """SPÄRRLAGRET ÄR OFÖRÄNDRAT för de tre fält som gatar §42-bedömningen."""
+    sidan = sida_med(extra=rad("Tjänstevikt", "1800 kg"))
+    with pytest.raises(Hamtningsfel, match="tvetydigt"):
+        falt_med_status(sidan)
+
+
+def test_en_tvetydig_OVRIG_etikett_kastar_INTE_utan_rapporteras():
+    """**SKILLNADEN ÄR AVSIKTLIG.** Att `Kaross` står två gånger ska inte fälla
+    ett uppslag som svarar på en dragviktsfråga. Fältet blir `TOLKAS_EJ`, alltså
+    det utfall som säger att vi inte kan stå för uppgiften.
+    """
+    sidan = sida_med(extra=rad("Kaross", "Halvkombi") + rad("Kaross", "Sedan"))
+    falt = falt_med_status(sidan)
+
+    assert falt["kaross"].status is Faltstatus.TOLKAS_EJ
+    # OCH RESTEN AV UPPSLAGET ÖVERLEVER, vilket är hela poängen.
+    assert falt["tjanstevikt_kg"].status is Faltstatus.LAST
+
+
+# --- SKIVA 40 DEL A: dragviktens fyra lägen ----------------------------------
+
+
+OBROMSAD_RAD = rad("Släpvagnsvikt obromsad", "750 kg")
+KORKORT_B_RAD = rad("Släp totalvikt (B)", "Max 1105 kg (Teoretisk)")
+
+
+def test_dragvikt_LAST_nar_den_bromsade_star_dar():
+    assert dragviktslage(falt_med_status(sida_med())) is Dragviktslage.LAST
+
+
+def test_dragvikt_REGISTRET_SAKNAR_nar_INGEN_av_de_fyra_formerna_finns():
+    """UTFALL 1. Det ENDA läge där boten får säga att registret saknar uppgift.
+
+    `sida_med(slapvagnsvikt=None)` tar bort både den bromsade och den
+    obromsade, se hjälparens docstring, och ingen körkortsrad läggs till.
+    """
+    falt = falt_med_status(sida_med(slapvagnsvikt=None))
+    assert dragviktslage(falt) is Dragviktslage.REGISTRET_SAKNAR
+
+
+@pytest.mark.parametrize("annan_form", [OBROMSAD_RAD, KORKORT_B_RAD])
+def test_dragvikt_ANNAN_FORM_nar_bromsad_saknas_men_annan_star_dar(annan_form):
+    """UTFALL 4, LARS BESLUT I SKIVA 40.
+
+    Uppgiften FINNS, i en form vi inte kan bedöma §42 punkt 2 mot. Boten får
+    varken säga att registret saknar uppgift eller ge ett besked.
+
+    **UPPMÄTT PÅ ETT VERKLIGT FORDON.** Sida 04 i skiva 37:s stickprov bär
+    obromsad och båda körkortsraderna men ingen bromsad släpvagnsvikt. Se
+    `docs/beslutslogg.md` #87.
+    """
+    falt = falt_med_status(sida_med(slapvagnsvikt=None, extra=annan_form))
+    assert dragviktslage(falt) is Dragviktslage.ANNAN_FORM
+
+
+def test_dragvikt_TOLKAS_EJ_gar_fore_ANNAN_FORM():
+    """ORDNINGEN I `dragviktslage`, och den är inte godtycklig.
+
+    Ett fält vi inte kunde läsa är VÅRT fel oavsett vad sidan bär i övrigt. Att
+    svara `ANNAN_FORM` hade bytt ut ett eget fel mot en egenskap hos registret.
+    """
+    falt = falt_med_status(sida_med(slapvagnsvikt="ungefär 2 ton"))
+    assert falt["slapvagnsvikt_obromsad_kg"].status is Faltstatus.LAST
+    assert dragviktslage(falt) is Dragviktslage.TOLKAS_EJ
+
+
+def test_en_OTOLKBAR_alternativ_form_racker_for_ANNAN_FORM():
+    """NÄRVARO RÄCKER, VÄRDET SPELAR INGEN ROLL.
+
+    En alternativ form som står på sidan men inte går att tolka visar ändå att
+    registret BÄR en uppgift. Raden binder att `dragviktslage` läser STATUS och
+    inte värde, alltså att den inte tyst kräver ett läsbart tal.
+    """
+    otolkbar = rad("Släpvagnsvikt obromsad", "ungefär 700")
+    falt = falt_med_status(sida_med(slapvagnsvikt=None, extra=otolkbar))
+
+    assert falt["slapvagnsvikt_obromsad_kg"].status is Faltstatus.TOLKAS_EJ
+    assert dragviktslage(falt) is Dragviktslage.ANNAN_FORM
+
+
+# --- SKIVA 40 DEL A: parsrarna var för sig -----------------------------------
+
+
+@pytest.mark.parametrize(
+    ("varde", "vantat"),
+    [("3 st + förare", 3), ("4 st + förare", 4), ("10 st + förare", 10),
+     ("3 st+förare", 3), ("3 ST + FÖRARE", 3),
+     ("3", None), ("3 st", None), ("förare", None), ("", None),
+     ("3 st + förare och hund", None)],
+)
+def test_passagerare_lasar_sidans_form(varde, vantat):
+    assert _passagerare(varde) == vantat
+
+
+@pytest.mark.parametrize(
+    ("varde", "vantat"),
+    [("2010 / 2010", (2010, 2010)), ("2010 / 2011", (2010, 2011)),
+     ("2010/2011", (2010, 2011)),
+     ("2010", None), ("2010 / 11", None), ("", None),
+     ("2010 / 2011 / 2012", None)],
+)
+def test_arsparet_lasar_bada_talen(varde, vantat):
+    """BÅDA TALEN LÄSES. Att plocka bara det ena hade varit ett tyst val mellan
+    två tal som sidan skriver ut som ett par, och de skiljer sig i stickprovet.
+    """
+    assert _arsparet(varde) == vantat
+
+
+@pytest.mark.parametrize(
+    ("varde", "vantat"),
+    [("Halvkombi", "Halvkombi"), ("  Sedan  ", "Sedan"),
+     ("", None), ("   ", None)],
+)
+def test_text_ger_None_for_tomt(varde, vantat):
+    """Ett tomt värde är inget värde. Etiketten stod där, alltså är fältet
+    `TOLKAS_EJ` och inte saknat.
+    """
+    assert _text(varde) == vantat

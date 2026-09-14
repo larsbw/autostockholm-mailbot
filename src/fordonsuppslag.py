@@ -64,11 +64,26 @@ class UppslagMisslyckades(Exception):
     Bärs som undantag och inte som ett returvärde, därför att ett misslyckat
     uppslag ALDRIG får förväxlas med ett lyckat. Ett returnerat `None` som
     någon glömmer pröva blir tyst; det här blir högljutt.
+
+    **UNDANTAGET BÄR SIDANS FÄLTSTATUSAR. Skiva 40 DEL A, och det är inte en
+    bekvämlighet.** Den information DEL B:s spärr behöver, alltså om registret
+    saknar en uppgift eller om vi inte kunde läsa den, finns PRECIS i de fall
+    uppslaget misslyckas. Ett lyckat uppslag har per definition alla tre fälten.
+    Bärs den inte här når den aldrig fram, och då kan generatorn bara veta ATT
+    något gick fel, aldrig VAD.
+
+    `faltstatus` och `dragviktslage` är `None` när hämtningen inte lämnade
+    några, alltså för varje annan hämtare än `biluppgifter_hamtning`. Ett
+    okänt läge är då just okänt, och DEL B:s spärr håller: en tom mängd
+    tillåter inga frånvaropåståenden alls.
     """
 
-    def __init__(self, skal: str) -> None:
+    def __init__(self, skal: str, *, faltstatus: dict | None = None,
+                 dragviktslage: str | None = None) -> None:
         super().__init__(skal)
         self.skal = skal
+        self.faltstatus = faltstatus
+        self.dragviktslage = dragviktslage
 
 
 def _krav_pa_vikt(varde: object, falt: str) -> None:
@@ -269,14 +284,23 @@ def _kontrollera(svar: object) -> Uppslag:
     if not isinstance(svar, Mapping):
         raise UppslagMisslyckades("hämtningen gav inget svar")
 
+    # METADATAN UR HÄMTNINGEN, om den lämnade någon. Skiva 40 DEL A.
+    #
+    # **HÄMTAS FÖRE NYCKELLAGREN, eftersom det är DE som kastar.** Varje kast
+    # nedan ska bära statusarna, annars vet generatorn bara att något gick fel.
+    meta = {
+        "faltstatus": svar.get("_faltstatus"),
+        "dragviktslage": svar.get("_dragviktslage"),
+    }
+
     if not _bar_nyckel(svar, "tjanstevikt_kg"):
-        raise UppslagMisslyckades("svaret saknar tjanstevikt_kg")
+        raise UppslagMisslyckades("svaret saknar tjanstevikt_kg", **meta)
 
     if not _bar_nyckel(svar, "slapvagnsvikt_kg"):
-        raise UppslagMisslyckades("svaret saknar slapvagnsvikt_kg")
+        raise UppslagMisslyckades("svaret saknar slapvagnsvikt_kg", **meta)
 
     if not _bar_nyckel(svar, "draganordning"):
-        raise UppslagMisslyckades("svaret saknar draganordning")
+        raise UppslagMisslyckades("svaret saknar draganordning", **meta)
 
     return Uppslag(
         tjanstevikt_kg=svar["tjanstevikt_kg"],

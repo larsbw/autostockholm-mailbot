@@ -1431,3 +1431,120 @@ def test_generatorn_skriver_aldrig_om_ett_fallt_svar():
         )
 
     assert len(anrop) == 1
+
+
+# --- SKIVA 40 DEL B: påståenden om frånvaro ----------------------------------
+
+
+DET_FALLDA_UTKASTET = (
+    "Tyvärr går denna bil inte att bygga om till A-traktor då den saknar "
+    "dragvikt."
+)
+
+
+def test_DET_FALLDA_UTKASTET_sparras_nar_franvaron_inte_ar_belagd():
+    """SKIVA 40:s UTLÖSANDE FALL, ordagrant ur Lars körning.
+
+    Boten gav ett negativt besked om ett fält härkomstraden i samma vy sade att
+    den inte kunnat läsa. Det är §0:s ramverksregel 3 i dess andra riktning: ett
+    påstående utan källa, fast om en FRÅNVARO i stället för ett tal.
+    """
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_svaret(DET_FALLDA_UTKASTET, forfragan())
+
+    assert fel.value.sparr == "pastaende-om-franvaro"
+
+
+def test_DET_FALLDA_UTKASTET_slapps_igenom_nar_registret_bevisligen_saknar():
+    """SPEGELVÄNT, och det är hela skälet till att DEL A byggdes först.
+
+    Saknas uppgiften i registret är frånvaron ett FAKTUM om bilen, och då får
+    boten säga det. Utan DEL A:s uppdelning hade spärren behövt välja mellan att
+    blockera ett sant besked och att släppa igenom ett osant.
+    """
+    generera.krav_pa_svaret(
+        DET_FALLDA_UTKASTET,
+        forfragan(franvaro_far_pastas=frozenset({"dragvikt"})),
+    )
+
+
+def test_GENERERAT_FORDONSFAKTUM_fangade_INTE_det_fallda_utkastet():
+    """VARFÖR EN NY SPÄRR BEHÖVDES, bevisat och inte påstått.
+
+    Den befintliga spärren prövar VÄRDEN: ett tal eller ett citerat fordonsord.
+    *"saknar dragvikt"* är varken, alltså låg hela klassen utanför dess
+    räckvidd. Raden blir röd den dag någon tror att den gamla spärren räckte.
+    """
+    generera.krav_pa_fordonsfakta_ur_uppslag(DET_FALLDA_UTKASTET, forfragan())
+    generera.krav_pa_tal_med_kalla(DET_FALLDA_UTKASTET, forfragan())
+
+
+@pytest.mark.parametrize(
+    "svar",
+    [
+        "Tyvärr saknar bilen dragvikt.",
+        "Bilen saknar registrerad draganordning.",
+        "Det är en bil utan dragkrok.",
+        "Dragvikten saknas i registret.",
+        "Vi kan tyvärr inte se någon släpvagnsvikt.",
+        "Registret har ingen uppgift om draganordning.",
+        "Din bil har tyvärr ingen dragvikt registrerad.",
+    ],
+)
+def test_varje_form_av_franvaropastaende_sparras(svar):
+    """FORMERNA ÄR SPRÅKETS, inte en uppräkning av det modellen råkat skriva.
+
+    **BÅDA RIKTNINGARNA STÅR HÄR**, `saknar dragvikt` och `dragvikten saknas`,
+    eftersom en spärr som bara tog den ena hade fällts av den andra.
+    """
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_belagt_franvaropastaende(svar, forfragan())
+    assert fel.value.sparr == "pastaende-om-franvaro"
+
+
+@pytest.mark.parametrize(
+    "svar",
+    [
+        "Din bil har en dragvikt på 2000 kg.",
+        "Dragvikten är 2000 kg, så det är inte något problem.",
+        "Vi saknar just nu en tid. Dragvikten är 2000 kg.",
+        "Vi behöver veta om bilen har dragkrok.",
+        "Vi kan montera en dragkrok om det behövs.",
+        "Vi saknar tyvärr tider den veckan.",
+        "",
+    ],
+)
+def test_ett_svar_som_INTE_pastar_franvaro_slapps_igenom(svar):
+    """NEGATIVKONTROLL. En spärr som fäller allt skyddar ingenting.
+
+    **TVÅ RADER ÄR UPPMÄTTA FALSKA TRÄFFAR från bygget.** *"Dragvikten är 2000
+    kg, så det är inte något problem"* fälldes av en första lydelse där
+    baklängesriktningen bar hela ordmängden. *"Vi saknar just nu en tid.
+    Dragvikten är 2000 kg"* prövar att spärren inte kopplar ihop två meningar.
+
+    **DEN FEMTE RADEN ÄR DEL F:s FORMULERING.** Att vi kan montera en dragkrok
+    om det behövs säger samma sak som ett frånvaropåstående utan att påstå något
+    om just den här bilen, och den måste gå igenom.
+    """
+    generera.krav_pa_belagt_franvaropastaende(svar, forfragan())
+
+
+def test_ett_belagt_dragviktspastaende_slapper_INTE_igenom_draganordning():
+    """MÄNGDEN ÄR PER FAKTUM, inte en generell dispens.
+
+    Att registret saknar dragviktsuppgift säger ingenting om draganordningen,
+    och en spärr som gav fritt fram för båda hade gjort mätningen meningslös.
+    """
+    tillaten = forfragan(franvaro_far_pastas=frozenset({"dragvikt"}))
+
+    generera.krav_pa_belagt_franvaropastaende("Bilen saknar dragvikt.", tillaten)
+    with pytest.raises(Sparrfalld):
+        generera.krav_pa_belagt_franvaropastaende(
+            "Bilen saknar dragkrok.", tillaten)
+
+
+def test_forvalet_ar_TOM_mangd_alltsa_inga_franvaropastaenden():
+    """**TOM MÄNGD ÄR DET SÄKRA FÖRVALET.** En anropare som inte vet något om
+    registrets luckor ska inte kunna låta boten påstå att en uppgift saknas.
+    """
+    assert forfragan().franvaro_far_pastas == frozenset()

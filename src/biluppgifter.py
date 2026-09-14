@@ -72,7 +72,9 @@ import json
 import re
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from enum import Enum
 from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
@@ -129,6 +131,43 @@ EXAKT_ETIKETT = {
     "tjanstevikt_kg": "Tjänstevikt",
     "slapvagnsvikt_kg": "Släpvagnsvikt",
     "draganordning": "Draganordning",
+}
+
+# ÖVRIGA FÄLT SIDAN BÄR. Skiva 40 DEL A, på Lars order.
+#
+# **ETIKETTERNA ÄR AVLÄSTA, INTE ANTAGNA.** Uppmätta 2026-09-14 med
+# `scripts/faltinventering.py` över skiva 37:s sex sparade sidor. Samtliga sex
+# finns på 6/6 sidor utom `Passagerare`, som finns på 5/6.
+#
+# **`Fordonsår / Modellår` HETER SÅ, INTE `Modellår`.** Briefen skrev `Modellår`,
+# och den första körningen gav 0/6. Mätverktygets kontroll över sidornas
+# faktiska etiketter visade varför. Det är skivans egen skillnad, ett saknat
+# fält mot ett fel hos den som letar, begången av mätverktyget självt. Se
+# `docs/beslutslogg.md` #87.
+OVRIGA_ETIKETT = {
+    "kaross": "Kaross",
+    "fyrhjulsdrift": "Fyrhjulsdrift",
+    "totalvikt_kg": "Totalvikt",
+    "passagerare_utover_forare": "Passagerare",
+    "arsmodell": "Fordonsår / Modellår",
+    "status": "Status",
+}
+
+# SLÄPVIKTENS TRE ANDRA FORMER. LÄSES, MEN ERSÄTTER ALDRIG `slapvagnsvikt_kg`.
+#
+# **LARS BESLUT I SKIVA 40, och skälet är att de mäter andra storheter.**
+# `Släpvagnsvikt` är BROMSAD släpvagnsvikt, och det är den storhet §42 punkt 2
+# avser. `Släpvagnsvikt obromsad` är en annan storhet och ett lägre tal. `Släp
+# totalvikt (B)` och `(B+)` är KÖRKORTSBEHÖRIGHET, alltså vad en förare får dra,
+# inte vad fordonet är konstruerat för.
+#
+# De läses för att kunna SKILJA två lägen som annars ser likadana ut: att
+# registret inte bär någon dragviktsuppgift alls, och att det bär en i en form
+# vi inte kan bedöma mot. Se `dragviktslage`.
+SLAPVIKT_ALTERNATIV = {
+    "slapvagnsvikt_obromsad_kg": "Släpvagnsvikt obromsad",
+    "slap_totalvikt_b": "Släp totalvikt (B)",
+    "slap_totalvikt_bplus": "Släp totalvikt (B+)",
 }
 
 # SIDAN PARSAS, DEN MATCHAS INTE SOM TEXT. Beslut av Lars, `docs/beslutslogg.md`
@@ -967,6 +1006,250 @@ def _galler_fordonet(sida: str, regnr: str) -> bool:
     return vag.upper() == f"{FORVANTAD_KATALOG}/{regnr}".upper()
 
 
+# RESERVERADE NYCKLAR I HÄMTNINGENS DICT. Skiva 40 DEL A.
+#
+# **UNDERSTRECKET ÄR KONTRAKTET.** `fordonsuppslag._kontrollera` prövar de tre
+# fältnycklarna och bryr sig inte om andra, och `slag_upp` plockar bort de här
+# innan `Uppslag` byggs. En nyckel utan understreck hade riskerat att läsas som
+# ett fordonsfält av nästa läsare.
+META_STATUS = "_faltstatus"
+META_DRAGVIKT = "_dragviktslage"
+
+
+class Faltstatus(str, Enum):
+    """Vad som hände med ETT fält. Skiva 40 DEL A, Lars tre utfall.
+
+    **DE TRE ÄR INTE VARANDRAS GRADSKILLNADER.** `SAKNAS_PA_SIDAN` är ett
+    REGISTERFAKTUM: biluppgifter renderar bara fält som har ett värde, alltså
+    betyder en frånvarande etikett att registret inte bär uppgiften. Det är
+    något boten FÅR säga till kunden. `TOLKAS_EJ` är VÅRT fel: fältet stod där
+    och vi kunde inte läsa det. Det får boten aldrig uttala sig om.
+
+    Modulen behandlade de två likadant före den här skivan: båda gav ett
+    utelämnat nyckelvärde, `_kontrollera` fällde, och härkomstraden sade
+    MISSLYCKADES. `docs/beslutslogg.md` #87 bär mätningen som visar vad det
+    kostade.
+    """
+
+    LAST = "läst"
+    SAKNAS_PA_SIDAN = "saknas på sidan"
+    TOLKAS_EJ = "tolkas ej"
+
+
+@dataclass(frozen=True)
+class Falt:
+    """Ett fälts utfall och, när det lästes, dess värde."""
+
+    status: Faltstatus
+    varde: object | None = None
+
+
+def _text(varde: str) -> str | None:
+    """Ett textfält som det står. `None` när det är tomt efter `strip`.
+
+    Finns för att `Kaross`, `Status` och körkortsraderna inte är tal och inte är
+    ja eller nej. Ett tomt värde är inget värde, och då är fältet `TOLKAS_EJ`
+    och inte läst: etiketten stod ju där.
+    """
+    rensat = varde.strip()
+    return rensat or None
+
+
+# `3 st + förare`, alltså antalet UTÖVER föraren. Avläst 2026-09-14: sidans två
+# former i stickprovet är `3 st + förare` och `4 st + förare`.
+#
+# **NAMNET SÄGER `utover_forare` DÄRFÖR ATT SIDAN GÖR DET.** Ett fält som hette
+# `passagerare` hade tvingat varje läsare att gissa om föraren räknas in.
+PASSAGERARE = re.compile(r"(\d{1,2})\s*st\s*\+\s*förare", re.IGNORECASE)
+
+# `2010 / 2011`, alltså fordonsår och modellår. Båda läses; INGET väljs bort.
+#
+# Att plocka bara det ena hade varit ett tyst val mellan två tal som sidan
+# skriver ut som ett par, och de kan skilja sig: `2010 / 2011` står i
+# stickprovet.
+ARSPARET = re.compile(r"(\d{4})\s*/\s*(\d{4})")
+
+
+def _passagerare(varde: str) -> int | None:
+    """Antalet passagerare utöver föraren. `None` när formen inte känns igen."""
+    traff = PASSAGERARE.fullmatch(varde.strip())
+    return int(traff.group(1)) if traff else None
+
+
+def _arsparet(varde: str) -> tuple[int, int] | None:
+    """`(fordonsår, modellår)`. `None` när formen inte känns igen."""
+    traff = ARSPARET.fullmatch(varde.strip())
+    return (int(traff.group(1)), int(traff.group(2))) if traff else None
+
+
+# VILKEN TOLKARE VARJE FÄLT HAR. Vald ur en MÄTNING av sidans faktiska värden,
+# `scripts/faltinventering.py --visa-varden`, 2026-09-14:
+#
+#   `1201 kg`                   vikterna, inklusive obromsad
+#   `Ja Kula` och `Nej`         draganordning
+#   `Ja` och `Nej`              fyrhjulsdrift
+#   `Halvkombi`, `Ombyggd Bil`  kaross
+#   `3 st + förare`             passagerare
+#   `2010 / 2011`               årsparet
+#   `Avställd`, `I Trafik`      status
+#   `Max 1105 kg (Teoretisk)`   körkortsraderna, som läses som TEXT
+#
+# **KÖRKORTSRADERNA LÄSES SOM TEXT MED AVSIKT.** `_tal` skulle ge `None` för
+# `Max 1105 kg (Teoretisk)`, och det vore att kalla ett fält oläsbart som vi
+# läser alldeles utmärkt. Talet i dem får ändå aldrig användas som dragvikt, se
+# `SLAPVIKT_ALTERNATIV`, så det finns inget skäl att plocka ut det.
+TOLKARE = {
+    "tjanstevikt_kg": _tal,
+    "slapvagnsvikt_kg": _tal,
+    "totalvikt_kg": _tal,
+    "slapvagnsvikt_obromsad_kg": _tal,
+    "draganordning": _ja_nej,
+    "fyrhjulsdrift": _ja_nej,
+    "kaross": _text,
+    "status": _text,
+    "slap_totalvikt_b": _text,
+    "slap_totalvikt_bplus": _text,
+    "passagerare_utover_forare": _passagerare,
+    "arsmodell": _arsparet,
+}
+
+# FÄLT SOM RIMLIGHETSPRÖVAS. Samma kontroll som sedan skiva 22, utsträckt till
+# de nya viktfälten: en felläsning ser likadan ut oavsett vilken vikt det är.
+VIKTFALT = frozenset({
+    "tjanstevikt_kg", "slapvagnsvikt_kg", "totalvikt_kg",
+    "slapvagnsvikt_obromsad_kg",
+})
+
+
+def _ett_falt(lasare: _Faltlasare, nyckel: str, etikett: str, *,
+              gatande: bool) -> Falt:
+    """Ett fälts utfall, med spärrlagren intakta.
+
+    **`gatande` STYR OM ETT OLÄSBART FÄLT KASTAR ELLER RAPPORTERAS.** De tre
+    fälten i `EXAKT_ETIKETT` gatar §42-bedömningen, och för dem är en tvetydig
+    etikett eller ett värde med markup ett HAMTNINGSFEL precis som före skiva
+    40: hela uppslaget fälls. Det beteendet är bundet av tester sedan skiva 24
+    och rörs inte.
+
+    För övriga fält vore ett kast fel riktning: att `Kaross` står två gånger ska
+    inte fälla ett uppslag som svarar på en dragviktsfråga. De får `TOLKAS_EJ`,
+    alltså det utfall som säger att felet är vårt.
+    """
+    forekomster = lasare.etiketter.count(etikett)
+    if forekomster > 1:
+        if gatande:
+            raise Hamtningsfel(
+                f"etiketten {etikett!r} förekommer {forekomster} gånger, tvetydigt"
+            )
+        return Falt(Faltstatus.TOLKAS_EJ)
+
+    varden = [
+        (varde, bar_element)
+        for namn, varde, bar_element in lasare.par
+        if namn == etikett
+    ]
+
+    # **HÄR LIGGER HELA SKIVANS SKILLNAD.** Ingen etikett betyder att sidan inte
+    # renderade fältet, och sidan renderar bara fält som har ett värde.
+    if not varden:
+        return Falt(Faltstatus.SAKNAS_PA_SIDAN)
+
+    ratt, bar_element = varden[0]
+
+    if bar_element:
+        if gatande:
+            raise Hamtningsfel(
+                f"värdet för {etikett!r} bär markup och går därför inte att "
+                f"tolka, alltså en felläsning och inte ett saknat fält"
+            )
+        return Falt(Faltstatus.TOLKAS_EJ)
+
+    varde = TOLKARE[nyckel](ratt)
+    if varde is None:
+        return Falt(Faltstatus.TOLKAS_EJ)
+
+    if nyckel in VIKTFALT:
+        _krav_pa_rimlighet(nyckel, varde)
+
+    return Falt(Faltstatus.LAST, varde)
+
+
+def falt_med_status(sida: str) -> dict[str, Falt]:
+    """Varje fält modulen känner, med sitt utfall. Skiva 40 DEL A.
+
+    **SKILLNADEN MOT `_las_falt` ÄR ATT INGENTING UTELÄMNAS.** `_las_falt` ger
+    en dict över de fält som LÄSTES, vilket gör ett saknat fält omöjligt att
+    skilja från ett oläsbart hos anroparen. Den här ger ett utfall per fält.
+
+    Gatande fält kastar fortfarande vid tvetydig etikett eller markup, se
+    `_ett_falt`, alltså är den här funktionen inte en mildare väg runt spärren.
+    """
+    lasare = _lasaren(sida)
+    ut: dict[str, Falt] = {}
+
+    for nyckel, etikett in EXAKT_ETIKETT.items():
+        ut[nyckel] = _ett_falt(lasare, nyckel, etikett, gatande=True)
+
+    for karta in (OVRIGA_ETIKETT, SLAPVIKT_ALTERNATIV):
+        for nyckel, etikett in karta.items():
+            ut[nyckel] = _ett_falt(lasare, nyckel, etikett, gatande=False)
+
+    return ut
+
+
+class Dragviktslage(str, Enum):
+    """Vad vi VET om fordonets bromsade släpvagnsvikt. Skiva 40 DEL A och B.
+
+    **FYRA LÄGEN, OCH BARA TVÅ AV DEM FÅR SÄGAS TILL KUNDEN.**
+
+    `LAST` är ett tal vi kan bedöma mot §42 punkt 2.
+
+    `REGISTRET_SAKNAR` betyder att INGEN av sidans fyra släpviktsformer finns.
+    Då bär registret ingen dragviktsuppgift, och det är ett faktum boten får
+    säga.
+
+    `ANNAN_FORM` betyder att `Släpvagnsvikt` saknas men att minst en av de andra
+    tre står på sidan. Då finns uppgiften, i en form vi inte kan bedöma mot.
+    Boten får varken påstå att registret saknar uppgift eller ge ett besked.
+    Lars beslut i skiva 40.
+
+    `TOLKAS_EJ` betyder att fältet stod där och inte gick att läsa. Vårt fel.
+    """
+
+    LAST = "läst"
+    REGISTRET_SAKNAR = "registret saknar uppgiften"
+    ANNAN_FORM = "uppgiften finns i en form vi inte kan bedöma mot"
+    TOLKAS_EJ = "tolkas ej"
+
+
+def dragviktslage(falt: dict[str, Falt]) -> Dragviktslage:
+    """Vilket av de fyra lägena gäller för den bromsade släpvagnsvikten?
+
+    **ORDNINGEN ÄR INTE GODTYCKLIG.** `TOLKAS_EJ` prövas före allt annat:
+    ett fält vi inte kunde läsa är vårt fel oavsett vad sidan bär i övrigt, och
+    att då svara `ANNAN_FORM` hade bytt ut ett eget fel mot en egenskap hos
+    registret.
+    """
+    bromsad = falt["slapvagnsvikt_kg"]
+
+    if bromsad.status is Faltstatus.LAST:
+        return Dragviktslage.LAST
+
+    if bromsad.status is Faltstatus.TOLKAS_EJ:
+        return Dragviktslage.TOLKAS_EJ
+
+    # SAKNAS PÅ SIDAN. Frågan är då om någon annan form gör det ändå.
+    #
+    # **NÄRVARO RÄCKER, VÄRDET SPELAR INGEN ROLL.** En alternativ form som står
+    # på sidan men inte går att tolka visar ändå att registret BÄR en uppgift,
+    # och det är precis det `ANNAN_FORM` säger.
+    for nyckel in SLAPVIKT_ALTERNATIV:
+        if falt[nyckel].status is not Faltstatus.SAKNAS_PA_SIDAN:
+            return Dragviktslage.ANNAN_FORM
+
+    return Dragviktslage.REGISTRET_SAKNAR
+
+
 def _las_falt(sida: str) -> dict:
     """Plockar de tre gatande fälten ur sidans HTML.
 
@@ -990,53 +1273,24 @@ def _las_falt(sida: str) -> dict:
     Ett fält som saknas eller inte går att tolka UTELÄMNAS ur dict:en. Då fäller
     `fordonsuppslag._kontrollera` med sitt eget skäl, och det anropet faller
     till utkast. Det är rätt riktning: inget skickas på fakta vi inte har.
+
+    **DE TVÅ UTFALLEN SES INTE HÄR, OCH DET ÄR FUNKTIONENS GRÄNS.** Ett saknat
+    fält och ett oläsbart ger samma sak, en utelämnad nyckel. Skiva 40 lade
+    `falt_med_status` bredvid, som skiljer dem. Den här funktionens kontrakt är
+    oförändrat, eftersom `_kontrollera` och dess tester vilar på det.
+
+    **LAGREN LIGGER NU I `_ett_falt`, DELADE MED `falt_med_status`.** De stod
+    tidigare här, och två kopior av en spärr är två ställen att glömma att
+    rätta. `gatande=True` ger exakt det tidigare beteendet: tvetydig etikett och
+    värde med markup kastar `Hamtningsfel`.
     """
     lasare = _lasaren(sida)
     ut: dict = {}
 
     for nyckel, etikett in EXAKT_ETIKETT.items():
-        # LAGER 2 RÄKNAR ETIKETTNODER. Jämförelsen är exakt likhet mot nodens
-        # text, alltså aldrig ett prefix: `Släpvagnsvikt obromsad` är en annan
-        # sträng och räknas inte.
-        forekomster = lasare.etiketter.count(etikett)
-        if forekomster > 1:
-            raise Hamtningsfel(
-                f"etiketten {etikett!r} förekommer {forekomster} gånger, tvetydigt"
-            )
-
-        varden = [
-            (varde, bar_element)
-            for namn, varde, bar_element in lasare.par
-            if namn == etikett
-        ]
-
-        if not varden:
-            continue
-
-        ratt, bar_element = varden[0]
-
-        # LUCKA 11:S SPÄRR. Ett värde vars text är avdelad av något som inte är
-        # text går inte att tolka. Skälet står i `_varde_bar_markup`.
-        #
-        # MEDDELANDET SÄGER INTE `tal`, och det är avsiktligt: spärren gäller
-        # alla tre fälten, och `draganordning` är ett ja eller ett nej.
-        # Granskningen av skiva 24 fällde en tidigare lydelse som sade `tal` om
-        # ett ja/nej-fält.
-        if bar_element:
-            raise Hamtningsfel(
-                f"värdet för {etikett!r} bär markup och går därför inte att "
-                f"tolka, alltså en felläsning och inte ett saknat fält"
-            )
-
-        if nyckel == "draganordning":
-            varde = _ja_nej(ratt)
-        else:
-            varde = _tal(ratt)
-            if varde is not None:
-                _krav_pa_rimlighet(nyckel, varde)
-
-        if varde is not None:
-            ut[nyckel] = varde
+        falt = _ett_falt(lasare, nyckel, etikett, gatande=True)
+        if falt.status is Faltstatus.LAST:
+            ut[nyckel] = falt.varde
 
     return ut
 
@@ -1133,18 +1387,44 @@ def biluppgifter_hamtning(
             if not _galler_fordonet(sida, regnr):
                 logga_uppslag(regnr, "fel_fordon")
                 return None
-            falt = _las_falt(sida)
+            statusar = falt_med_status(sida)
         except Hamtningsfel as fel:
             logga_uppslag(regnr, "fel_vid_lasning", detalj=str(fel))
             raise
+
+        # SAMMA DICT SOM `_las_falt` GAV, och det är avsiktligt: `_kontrollera`
+        # och dess tester vilar på formen. Skillnaden är att den byggs ur
+        # statusarna, alltså parsas sidan EN gång och inte två.
+        falt = {
+            nyckel: statusar[nyckel].varde
+            for nyckel in EXAKT_ETIKETT
+            if statusar[nyckel].status is Faltstatus.LAST
+        }
+
+        # **METADATA UNDER RESERVERADE NYCKLAR. Skiva 40 DEL A.** Utan dem når
+        # skillnaden mellan ett saknat och ett oläsbart fält aldrig fram till
+        # `src/generera.py`, och då kan DEL B:s spärr inte veta vad som är
+        # belagt. Nycklarna börjar med `_` och plockas bort av `slag_upp`.
+        falt[META_STATUS] = {n: f.status.value for n, f in statusar.items()}
+        falt[META_DRAGVIKT] = dragviktslage(statusar).value
 
         # **DEN HÄR RADEN ÄR SKÄLET TILL ATT LOGGEN FINNS.** Sidan svarade 200,
         # gällde rätt fordon, och gick att parsa, men bar inte fälten. Det är
         # vad en markupändring ser ut som, och utan loggen syns den bara i att
         # svaren tyst börjar hamna i `utkast`.
-        saknade = sorted(set(EXAKT_ETIKETT) - set(falt))
+        #
+        # **LOGGEN SKILJER NU DE TVÅ ORSAKERNA.** `falt_saknas` betydde förut
+        # både att registret inte bär uppgiften och att vi inte kunde läsa den.
+        # Bara den andra är ett tecken på en markupändring, och det är den
+        # `falt_oläsbart` mäter.
+        saknade = sorted(n for n in EXAKT_ETIKETT
+                         if statusar[n].status is Faltstatus.SAKNAS_PA_SIDAN)
+        olasbara = sorted(n for n in EXAKT_ETIKETT
+                          if statusar[n].status is Faltstatus.TOLKAS_EJ)
         if saknade:
             logga_uppslag(regnr, "falt_saknas", saknade=saknade)
+        if olasbara:
+            logga_uppslag(regnr, "falt_olasbart", olasbara=olasbara)
 
         return falt
 

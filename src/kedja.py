@@ -36,7 +36,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-from src import fordonsuppslag, generera, ometikettera
+from src import biluppgifter, fordonsuppslag, generera, ometikettera
 from src.fordonsuppslag import UppslagMisslyckades, Uppslag, Utfall
 from src.generera import Forfragan, Sparrfalld
 from src.vy import Fall, Granskningsfall, krav_pa_skrivbar_sokvag
@@ -110,6 +110,11 @@ class Steg:
     utfall: str
     detalj: str = ""
 
+    # SKIVA 40 DEL A. Uppslagssteget bär VILKET läge som gäller, inte bara att
+    # något misslyckades. `None` för varje steg som inte är ett uppslag.
+    dragviktslage: str | None = None
+    franvaro_far_pastas: frozenset[str] = frozenset()
+
 
 @dataclass(frozen=True)
 class Kedjeutfall:
@@ -144,12 +149,46 @@ def _uppslagssteg(
     try:
         uppslag = fordonsuppslag.slag_upp(arende.regnr, hamta=hamta)
     except UppslagMisslyckades as fel:
-        return None, None, Steg("uppslag", "misslyckades", str(fel))
+        # **STEGET SÄGER VILKET UTFALL DET ÄR, inte bara att något misslyckades.**
+        # Lars order i skiva 40. Härkomstraden i vyn sade MISSLYCKADES för tre
+        # lägen som betyder olika saker, och femton uppslag gav noll gröna och
+        # noll röda utan att det gick att se varför.
+        return None, None, Steg("uppslag", "misslyckades", str(fel),
+                                dragviktslage=fel.dragviktslage,
+                                franvaro_far_pastas=_franvaro_far_pastas(fel))
     except Exception as fel:  # noqa: BLE001
         raise Kallfel(type(fel).__name__, str(fel)) from fel
 
     utfall = fordonsuppslag.utvardera(uppslag)
     return uppslag, utfall, Steg("uppslag", "lyckades", utfall.value)
+
+
+def _franvaro_far_pastas(fel: UppslagMisslyckades) -> frozenset[str]:
+    """Vilka frånvaropåståenden som är BELAGDA av sidan. Skiva 40 DEL B.
+
+    **ETT NAMN KOMMER MED BARA NÄR SIDAN BEVISLIGEN INTE BÄR FÄLTET.**
+    Biluppgifter renderar bara fält som har ett värde, så en frånvarande etikett
+    ÄR ett registerfaktum, och det är något boten får säga till kunden.
+
+    **`ANNAN_FORM` GER INGENTING, och det är Lars beslut i skiva 40.** Saknas
+    `Släpvagnsvikt` men finns en av de tre andra släpviktsformerna, så BÄR
+    registret en uppgift, i en form vi inte kan bedöma §42 punkt 2 mot. Då får
+    boten varken påstå frånvaro eller ge ett besked.
+
+    Saknas metadatan helt, alltså för varje hämtare som inte är
+    `biluppgifter_hamtning`, blir mängden TOM. Ett okänt läge tillåter
+    ingenting.
+    """
+    tillatna: set[str] = set()
+
+    if fel.dragviktslage == biluppgifter.Dragviktslage.REGISTRET_SAKNAR.value:
+        tillatna.add("dragvikt")
+
+    saknas = biluppgifter.Faltstatus.SAKNAS_PA_SIDAN.value
+    if (fel.faltstatus or {}).get("draganordning") == saknas:
+        tillatna.add("draganordning")
+
+    return frozenset(tillatna)
 
 
 def kor(
@@ -195,10 +234,12 @@ def kor(
 
     uppslag: Uppslag | None = None
     utfall: Utfall | None = None
+    franvaro_far_pastas: frozenset[str] = frozenset()
 
     if kategori in A_TRAKTORKATEGORIER:
         uppslag, utfall, uppslagssteg = _uppslagssteg(arende, hamta)
         steg.append(uppslagssteg)
+        franvaro_far_pastas = uppslagssteg.franvaro_far_pastas
     else:
         steg.append(Steg("uppslag", "hoppades över", "kategorin gatas inte"))
 
@@ -208,6 +249,11 @@ def kor(
         utfall=utfall,
         uppslag=uppslag,
         uppslag_gjordes=kategori in A_TRAKTORKATEGORIER,
+        # SKIVA 40 DEL B. Mängden kommer ur en MÄTNING av sidan, aldrig ur ett
+        # antagande. Hoppades uppslaget över är den tom, alltså får boten inte
+        # påstå att någon uppgift saknas i ett ärende där vi inte slagit upp
+        # något.
+        franvaro_far_pastas=franvaro_far_pastas,
     )
 
     try:
@@ -260,6 +306,27 @@ def _hink_for(etikett: str, hinkar: dict) -> str:
     return hinkar.get("standardhink", "utkast")
 
 
+# VAD HÄRKOMSTRADEN SÄGER OM VARJE DRAGVIKTSLÄGE. Skiva 40 DEL A.
+#
+# **`LAST` STÅR INTE HÄR**, eftersom ett läst fält inte ger ett misslyckat
+# uppslag: den vägen når aldrig hit. `TOLKAS_EJ` är det enda av de tre som är
+# VÅRT fel, och raden säger det rakt ut i stället för att kalla allt
+# MISSLYCKADES.
+_DRAGVIKTSTEXT = {
+    biluppgifter.Dragviktslage.REGISTRET_SAKNAR.value:
+        "REGISTRET BÄR INGEN DRAGVIKTSUPPGIFT för fordonet. Det är ett faktum "
+        "om bilen och inte ett fel hos oss.",
+    biluppgifter.Dragviktslage.ANNAN_FORM.value:
+        "registret bär en dragviktsuppgift i en FORM VI INTE KAN BEDÖMA MOT, "
+        "alltså obromsad vikt eller körkortsbehörighet men ingen bromsad "
+        "släpvagnsvikt. Vi kan varken ge besked eller säga att uppgiften "
+        "saknas.",
+    biluppgifter.Dragviktslage.TOLKAS_EJ.value:
+        "fältet STOD PÅ SIDAN och gick inte att läsa. Det är vårt fel och "
+        "ingenting om bilen.",
+}
+
+
 def uppslagskalla(arende: Arende, utfall: Kedjeutfall, *, skarp: bool) -> str:
     """Vad som FAKTISKT hände med uppslaget för DEN HÄR posten.
 
@@ -285,6 +352,15 @@ def uppslagskalla(arende: Arende, utfall: Kedjeutfall, *, skarp: bool) -> str:
                 "Inget uppslag: MAILET BÄR INGET REGISTRERINGSNUMMER. "
                 "Vikter i utkastet nedan saknar källa."
             )
+
+        # **RADEN SÄGER VILKET LÄGE DET ÄR, inte bara att något misslyckades.**
+        # Lars order i skiva 40. Tre lägen såg likadana ut här, och två av dem
+        # är inte fel: att registret inte bär uppgiften är ett faktum om bilen,
+        # inte om vår kod.
+        lage = _DRAGVIKTSTEXT.get(steg.dragviktslage)
+        if lage:
+            return f"Uppslag mot {kalla}: {lage} Vikter i utkastet saknar källa."
+
         return (
             f"Uppslag mot {kalla} MISSLYCKADES ({steg.detalj}). "
             "Vikter i utkastet nedan saknar källa."
