@@ -625,6 +625,158 @@ def test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal():
         assert tal not in tillatna, f"{tal} kom in via en kommentarnyckel"
 
 
+# --- SKIVA 42 DEL 0: LUCKA 53, PLATT FIL -------------------------------------
+
+
+def test_bada_konfigfilerna_i_repot_ar_PLATTA():
+    """LARS BESLUT I SKIVA 42, LUCKA 53: platt fil, ingen nästling.
+
+    **VAD NÄSTLINGEN KOSTAR.** `las_konfigvarden` filtrerade `_`-nycklar bara på
+    toppnivån och körde sedan `str(v)` på vad som helst. En nästlad post
+    renderade därför hela sin repr i prompten, med varje inre kommentar inbakad,
+    under rubriken *"Priser, avlästa ur config/priser.json"* och över foten
+    *"Varje pris här återges ordagrant"*. Det är lucka 53, uppmätt av
+    §7-granskningen av skiva 41, varv 2.
+
+    Den här raden är TRIPWIREN för filerna i repot. Koden bär sitt eget skydd,
+    prövat av `test_ett_NASTLAT_varde_nar_ALDRIG_prompten`; den här raden går röd
+    den dag någon nästlar en post, så att nästlingen blir ett medvetet val och
+    inte en tyst form.
+    """
+    for fil in (generera.PRISER, generera.FAKTA):
+        data = json.loads(fil.read_text(encoding="utf-8"))
+        for namn, varde in data.items():
+            assert isinstance(varde, str), (
+                f"{fil.name}: posten {namn!r} är nästlad. Filen ska vara PLATT, "
+                "Lars beslut i skiva 42. En nästlad struktur renderar sina "
+                "interna kommentarer i prompten."
+            )
+
+
+@pytest.mark.parametrize(
+    "filnamn, renderare",
+    [("PRISER", "_prisrader"), ("FAKTA", "_faktarader")],
+)
+def test_ett_NASTLAT_varde_nar_ALDRIG_prompten(filnamn, renderare, tmp_path,
+                                               monkeypatch):
+    """SPÄRR: koden släpper inte igenom nästlingen, oavsett vad filen bär.
+
+    **VÄRDET I EXEMPLET ÄR VÅRT INKÖPSPRIS**, alltså precis det som inte får bli
+    ett citerbart pris. Talets halva var redan stängd av `_varden_ur`, som
+    hindrar att 9000 blir ett tillåtet tal. TEXTENS halva var öppen: ingenting
+    hindrade att raden stod i prompten.
+
+    **NEGATIVKONTROLLEN LIGGER I SAMMA RAD.** Utan den vore "returnera alltid
+    tomt" en grön lösning, och då hade filtret tagit Lars priser med sig.
+    """
+    fil = tmp_path / "konfig.json"
+    fil.write_text(
+        '{"nastlad": {"_internt": "kostar oss 9 000 kr", "pris": "25 000 kr"},'
+        ' "platt": "1 500 kr"}',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(generera, filnamn, fil)
+
+    block = getattr(generera, renderare)()
+
+    assert "_internt" not in block, block
+    assert "kostar oss" not in block, block
+    assert "9 000" not in block, block
+    assert "1 500 kr" in block, block
+
+
+# --- SKIVA 42 DEL 0: LUCKA 54, SATSPAR FOGAS SAMMAN --------------------------
+
+
+def test_prisfrasen_fogas_ihop_over_meningsgransen():
+    """ENHETEN: `_prissatser` lagar det `_meningar` klöv.
+
+    `inkl. moms` klyvs av förkortningspunkten, och ingendera halvan matchar
+    `PRISORD`. Utan hopfogningen finns ingen prissats alls att pröva här.
+    """
+    assert generera._prissatser("Vi hör av oss. Det är inkl. moms.") == [
+        "Det är inkl. moms."
+    ]
+
+
+@pytest.mark.parametrize(
+    "svar",
+    [
+        # DE TRE SOM MÄTTES UPP I SKIVA 41 VARV 3, ordagrant ur
+        # `docs/sparrar.md`:s post för lucka 54. Alla tre PASSERADE då.
+        "Konverteringen kostar 25 000 kr. Dragkroken blir 1400 extra inkl. moms.",
+        "Konverteringen kostar 25 000 kr. Tillägget är 3 extra exkl. moms.",
+        "Konverteringen kostar 25 000 kr. Tillägget är 2 inkl. moms.",
+        # OCH FORMEN SOM SKILJER DE TVÅ TÄNKBARA EGENSKAPERNA ÅT. Här bär den
+        # FÖRSTA halvan ett eget giltigt prisord, alltså hade ett villkor av
+        # formen "ingendera halvan bär ett prisord" låtit paret vara, och
+        # `moms 1400.` hade aldrig prövats av prisgrenen.
+        "Det kostar 25 000 kr exkl. moms 1400.",
+    ],
+)
+def test_en_SONDERKLYVD_prissats_provas_av_PRISGRENEN(monkeypatch, svar):
+    """LUCKA 54 STÄNGD. Lars beslut i skiva 42: foga samman satspar.
+
+    Reserven i `_prissatser` fångade klyvningen BARA när ingen sats alls bar ett
+    prisord. Bar en annan mening ett giltigt prisord blev urvalet icke-tomt,
+    reserven löpte aldrig, och den klyvda satsen föll ned i den ALLMÄNNA
+    talloopen, vars mängd bär uppslagets vikter och `ALLTID_TILLATNA_TAL`.
+
+    Fixturen bär ett uppslag med tjänstevikt 1400 och släpvagnsvikt 1500, alltså
+    är `1400` ett tal som FINNS i den allmänna mängden. Det är hela defekten:
+    fordonets tjänstevikt blev ett citerbart pris.
+    """
+    _med_priser(monkeypatch, {"a_traktorkonvertering": "25 000 kr"})
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla(svar, forfragan(uppslag=GRONT_UPPSLAG))
+
+    assert fel.value.sparr == "genererat-tal-har-kalla"
+
+
+def test_ett_AVLAST_pris_MED_momsangivelse_slapps_igenom(monkeypatch):
+    """NEGATIVKONTROLL: hopfogningen får inte göra prisgrenen till ett larm.
+
+    Står hela prisfrasen i `config/priser.json` ska svaret som återger den
+    ordagrant passera. En spärr som fäller det prompten beställer är §9.1:s
+    motsägelse, och den blir avstängd.
+    """
+    _med_priser(monkeypatch,
+                {"a_traktorkonvertering": "25 000 kr inkl. moms"})
+
+    generera.krav_pa_tal_med_kalla(
+        "Konverteringen kostar 25 000 kr inkl. moms.",
+        forfragan(uppslag=GRONT_UPPSLAG))
+
+
+@pytest.mark.parametrize(
+    "svar",
+    [
+        "Din bil väger 1400 kg, och konverteringen kostar 25 000 kr.",
+        "Konverteringen kostar 25 000 kr och tar 2 veckor.",
+    ],
+)
+def test_LUCKA_55_overblockeringen_STAR_KVAR_och_ar_beslutad(monkeypatch, svar):
+    """LUCKA 55 ÄR INTE STÄNGD, och den här raden binder att den inte är det.
+
+    `, och ` är struket ur `SATSBROTT`, alltså prövas en samordnad mening som EN
+    prissats, och prisgrenen kräver att VARJE tal i en prissats kommer ur
+    `config/priser.json`. Båda raderna nedan är SANNA meningar som ändå faller:
+    den första på en avläst vikt ur uppslaget, den andra på en ledtid.
+
+    **LARS BESLUT I SKIVA 42, ordagrant hans skäl:** överblockering kostar Lars
+    fem sekunders läsning, underblockering kostar ett felaktigt prisbesked till
+    en kund. Utfallet blir `utkast`, och Lars läser varje utkast.
+
+    Raden står här för att kostnaden ska vara SYNLIG och inte glömd. Den dag
+    lucka 55 stängs blir den röd, och då ska det vara ett beslut.
+    """
+    _med_priser(monkeypatch, {"a_traktorkonvertering": "25 000 kr"})
+
+    with pytest.raises(Sparrfalld):
+        generera.krav_pa_tal_med_kalla(svar, forfragan(uppslag=GRONT_UPPSLAG))
+
+
 @pytest.mark.parametrize("svar", ["", "   ", "\n\n", "\t \n"])
 def test_ett_TOMT_svar_ar_INGET_utkast(svar):
     """SPÄRR: de tre andra spärrarna SÖKER EFTER SAKER och släpper det tomma.
@@ -1330,8 +1482,20 @@ REGLER_I_PROMPTEN = {
     4: "Nämn aldrig en konkurrent.",
     # SKIVA 36: "en kollega" är struket. Regeln var SJÄLV källan till formen
     # regel 9 nu förbjuder, alltså föreskrev prompten det Lars invände mot.
-    5: "ALDRIG ETT PRIS. Inte ett belopp, inte ett ungefärligt pris, inte "
-       '"ring för offert". Om kunden frågar vad det kostar: säg att VI '
+    # SKIVA 42, LUCKA 52. Förbehållet är Lars, ORDAGRANT hans lydelse: "aldrig
+    # ett pris UTÖVER DET SOM STÅR I UNDERLAGET NEDAN", av samma form som
+    # regel 8:s. Utan det sade regeln emot `PRISRUBRIK`, som ber modellen
+    # återge priset ur `config/priser.json` ordagrant, i samma ögonblick Lars
+    # fyller en post.
+    #
+    # **SLUTMENINGENS VILLKOR ÄR MITT OCH INTE LARS.** Utan `Står inget pris i
+    # underlaget` beordrar regeln i en och samma andetag både att priset FÅR
+    # återges och att kunden ska få höra att vi återkommer med prisuppgift.
+    # Det är samma motsägelse förbehållet stänger, ett led ned. Lydelsen är
+    # redovisad för Lars och ändras på hans ord.
+    5: "ALDRIG ETT PRIS utöver det som står i underlaget nedan. Inte ett "
+       'belopp, inte ett ungefärligt pris, inte "ring för offert". Står inget '
+       "pris i underlaget och kunden frågar vad det kostar: säg att VI "
        "återkommer med prisuppgift.",
     6: "ALDRIG ETT TAL som inte står i underlaget nedan. Inga vikter, inga "
        "ledtider, inga antal du inte fått.",
@@ -1643,6 +1807,32 @@ def test_systemprompten_bar_paragraf_elva():
     for regel in ("Första person plural", "friverkstad", "tankstreck",
                   "ALDRIG ETT PRIS"):
         assert regel in generera.SYSTEM
+
+
+def test_REGEL_5_bar_SAMMA_FORBEHALL_som_regel_8():
+    """LUCKA 52 STÄNGD. Lars beslut i skiva 42.
+
+    **REGELN SADE EMOT UNDERLAGET.** Regel 5 löd *"ALDRIG ETT PRIS"* utan
+    förbehåll, medan `PRISRUBRIK` samtidigt ber modellen återge priserna ur
+    `config/priser.json` och `PRISFOT` att den gör det ORDAGRANT. Ingen
+    motsägelse rådde medan filen var tom, eftersom `INGA_PRISER` renderades i
+    stället. Den blev live i samma ögonblick Lars fyller en post.
+
+    **SKILLNADEN MOT FAKTAFALLET VAR ATT REGEL 8 BÄR ETT FÖRBEHÅLL.** Priser
+    modellerades efter fakta utan att just den skillnaden följde med.
+
+    `test_varje_regel_star_ORDAGRANT` binder hela lydelsen och går röd vid varje
+    ändring. Den här raden säger VILKET led som är lastbärande, så att en
+    framtida omskrivning ser vad den tar bort.
+    """
+    regler = _reglerna_i_systemprompten()
+    forbehall = "utöver det som står i underlaget nedan"
+
+    assert forbehall in regler[8], "regel 8 har tappat sitt förbehåll"
+    assert forbehall in regler[5], (
+        "regel 5 har tappat förbehållet, alltså förbjuder prompten åter det "
+        "PRISRUBRIK ber om. Lucka 52 är då återöppnad."
+    )
 
 
 # ------------------------------------------------- generera_utkast, helt

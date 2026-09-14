@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.15.3 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §10
+**Version:** 0.15.4 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -726,8 +726,12 @@ svaret följa frågan. `config/sparrar.yaml` finns fortfarande inte.
   bär sex poster som ALLA ÄR TOMMA. Att FYLLA en post är Lars beslut, och ett
   tomt värde når aldrig prompten. `test_prisfilen_i_repot_har_BARA_TOMMA_varden`
   binder både värdena och hela nyckelmängden. Se `docs/beslutslogg.md` #94.
-  **INNAN EN POST FYLLS måste LUCKA 52 avgöras:** systempromptens regel 5
-  förbjuder varje pris utan förbehåll, och den är bunden ordagrant.
+  **DE FYRA LUCKOR SOM GATADE FYLLNINGEN ÄR AVGJORDA AV LARS I SKIVA 42.** Lucka
+  52, 53 och 54 är stängda, lucka 55 är öppen och medvetet så. Se
+  `docs/beslutslogg.md` #96 till #99. Filen kan alltså fyllas.
+  *Här stod att lucka 52 måste avgöras innan en post fylls, med regel 5:s
+  förbehållslösa lydelse som skäl. Regeln bär förbehållet sedan skiva 42, alltså
+  blev raden falsk i just den lista Lars läser för att veta vad som återstår.*
 - `config/fakta.json` FINNS sedan skiva 36 och bär sedan skiva 37 posten
   `bokningar`, flyttad dit av Lars §10-beslut. **`telefon` är fortfarande TOM.**
   Att FYLLA en post är Lars beslut, och ett tomt värde når aldrig prompten,
@@ -793,6 +797,22 @@ visat dagsvolymen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.15.4 — 2026-09-14
+
+**FAS 5:s RAD OM PRISFILEN SADE ATT LUCKA 52 MÅSTE AVGÖRAS INNAN EN POST
+FYLLS.** Lars avgjorde den, och lucka 53, 54 och 55, i skiva 42. Raden är rättad
+och bär en kursiv not: den stod i just den lista Lars läser för att veta vad som
+återstår, vilket är samma defekt 0.15.1 och 0.15.3 skrevs för att rätta.
+
+**FILEN KAN NU FYLLAS.** Lucka 52, 53 och 54 är stängda, lucka 55 är öppen och
+medvetet så, se `docs/beslutslogg.md` #96 till #99.
+
+**INGET VÄRDE ÄR SATT.** Prisfilen bär fortfarande sex tomma poster, och
+`config/fakta.json`:s `telefon` är fortfarande tom. Båda raderna i listan gäller
+i övrigt oförändrat.
+
+Rättad rad i fas 5 ⇒ PATCH.
 
 ### 0.15.3 — 2026-09-14
 

@@ -631,29 +631,14 @@ def krav_pa_tal_med_kalla(svar: str, forfragan: Forfragan) -> None:
 
     **PRÖVNINGEN SKER PER SATS**, med samma delning som
     `krav_pa_belagt_franvaropastaende`. Ett prisord i en sats ska inte kunna
-    hämta sin källa ur ett tal i en annan.
+    hämta sin källa ur ett tal i en annan. Vilka satser som prövas avgörs av
+    `_prissatser`, som fogar ihop de par delningen klöv mitt i en prisfras.
     """
     priskallans_tal: set[str] = set()
     for varde in las_priser().values():
         priskallans_tal |= _tal_i(varde)
 
-    # **SATSDELNINGEN FÅR ALDRIG TAPPA ETT PRISORD.** `PRISORD` bär fraser med
-    # punkt i, `inkl. moms` och `exkl. moms`, och meningsdelningen klyver dem
-    # mitt itu: `Det är inkl.` plus `moms.`, där ingendera halvan matchar.
-    # Följden var att två committade prisformer slutade fällas, uppmätt av
-    # sviten i samma skrivning som införde delningen.
-    #
-    # Regeln är en EGENSKAP och ingen förkortningslista: bär hela svaret ett
-    # prisord men ingen enskild sats, så har delningen förstört frasen, och då
-    # prövas svaret som EN sats.
-    satser = [s for s in _meningar(svar) if PRISORD.search(s)]
-    if not satser and PRISORD.search(svar):
-        satser = [svar]
-
-    for sats in satser:
-        if not PRISORD.search(sats):
-            continue
-
+    for sats in _prissatser(svar):
         talen = _tal_i(sats)
         if not talen:
             raise Sparrfalld(
@@ -880,6 +865,72 @@ def _meningar(svar: str) -> list[str]:
     return delar
 
 
+def _prisord_over_skarven(forsta: str, andra: str) -> bool:
+    """Ligger ett prisord ÖVER skarven mellan två angränsande satser?
+
+    Måttet är en MATCHNING SOM SPÄNNER, inte en jämförelse av vad halvorna var
+    för sig bär. Skillnaden är lastbärande och uppmätt: *"Det kostar 25 000 kr
+    exkl. moms 1400."* har ett giltigt prisord i sin FÖRSTA halva, alltså hade
+    ett villkor av formen "ingendera halvan bär ett prisord" låtit paret vara.
+    Då prövas `moms 1400.` aldrig av prisgrenen, och 1400 faller ned i den
+    allmänna talloopen där uppslagets tjänstevikt är tillåten. Det är lucka 54:s
+    egen defekt, flyttad ett steg.
+    """
+    skarv = len(forsta)
+    par = f"{forsta} {andra}"
+    return any(traff.start() < skarv and traff.end() > skarv + 1
+               for traff in PRISORD.finditer(par))
+
+
+def _prissatser(svar: str) -> list[str]:
+    """Satserna som ska prövas av prisgrenen, med klyvda prisfraser lagade.
+
+    **SATSDELNINGEN FÅR ALDRIG TAPPA ETT PRISORD.** `PRISORD` bär fraser med
+    punkt i, `inkl. moms` och `exkl. moms`, och `_meningar` klyver dem mitt itu:
+    `Det är inkl.` plus `moms.`, där ingendera halvan matchar.
+
+    **LUCKA 54, LARS BESLUT I SKIVA 42: FOGA SAMMAN SATSPAR.** Reserven längst
+    ned fångade klyvningen BARA när ingen sats alls bar ett prisord. Bar en annan
+    mening ett giltigt prisord blev urvalet icke-tomt, reserven löpte aldrig, och
+    den klyvda satsen prövades inte av prisgrenen alls. Uppmätt mot hela
+    `krav_pa_svaret` i skiva 41 varv 3, med prisfilen fylld och ett uppslag med
+    tjänstevikt 1400: *"Konverteringen kostar 25 000 kr. Dragkroken blir 1400
+    extra inkl. moms."* passerade, alltså blev fordonets tjänstevikt ett
+    citerbart pris.
+
+    Regeln är en EGENSKAP och ingen förkortningslista: spänner ett prisord över
+    skarven mellan två angränsande satser, så har delningen förstört frasen och
+    paret prövas som EN sats. Se `_prisord_over_skarven`.
+
+    **DET HÄR ÄR EN AVVÄGNING LARS GJORT, inte en gratis förbättring.** Varje
+    hopfogning gör en sats större, och prisgrenen kräver att VARJE tal i en
+    prissats kommer ur `config/priser.json`. Fler tal i samma sats betyder alltså
+    fler fällningar, och lucka 55 är den kostnaden. Lars skäl, ordagrant:
+    överblockering kostar Lars fem sekunders läsning, underblockering kostar ett
+    felaktigt prisbesked till en kund. `scripts/prismatning.py` mäter priset.
+
+    **RESERVEN STÅR KVAR**, och den är inte död: en prisfras som spänner över
+    TRE delar fogas inte ihop av en parvis regel, och då är hela svaret det enda
+    som bär frasen. Det är fällningshållet, alltså det säkra.
+    """
+    delar = _meningar(svar)
+
+    hopfogade: list[str] = []
+    i = 0
+    while i < len(delar):
+        if i + 1 < len(delar) and _prisord_over_skarven(delar[i], delar[i + 1]):
+            hopfogade.append(f"{delar[i]} {delar[i + 1]}")
+            i += 2
+            continue
+        hopfogade.append(delar[i])
+        i += 1
+
+    satser = [s for s in hopfogade if PRISORD.search(s)]
+    if not satser and PRISORD.search(svar):
+        return [svar]
+    return satser
+
+
 def krav_pa_att_troskeln_inte_ar_forfattningstext(svar: str) -> None:
     """SPÄRR: tröskeln 1 000 kg får inte återges som en sammanfattad föreskrift.
 
@@ -1047,8 +1098,9 @@ REGLER SOM ALDRIG BRYTS:
 eller skriv om meningen.
 3. Skriv aldrig "friverkstad". Skriv "fristående verkstad".
 4. Nämn aldrig en konkurrent.
-5. ALDRIG ETT PRIS. Inte ett belopp, inte ett ungefärligt pris, inte "ring för \
-offert". Om kunden frågar vad det kostar: säg att VI återkommer med prisuppgift.
+5. ALDRIG ETT PRIS utöver det som står i underlaget nedan. Inte ett belopp, inte \
+ett ungefärligt pris, inte "ring för offert". Står inget pris i underlaget och \
+kunden frågar vad det kostar: säg att VI återkommer med prisuppgift.
 6. ALDRIG ETT TAL som inte står i underlaget nedan. Inga vikter, inga ledtider, \
 inga antal du inte fått.
 7. Återge aldrig en lagtext eller en föreskrift sammanfattad. Säg inte att något \
@@ -1209,13 +1261,33 @@ def las_konfigvarden(fil: Path) -> dict:
     och stoppar genereringen. Det är avsiktligt: en fil som inte går att tolka
     är ett driftfel som ska synas, inte ett tomt faktaunderlag. Fällt av
     §7-granskningen av skiva 36, varv 3.*
+
+    **FILEN ÄR PLATT, OCH ETT NÄSTLAT VÄRDE UTELÄMNAS.** Lars beslut i skiva 42,
+    lucka 53. Funktionen filtrerade `_`-nycklar bara på TOPPNIVÅN och körde sedan
+    `str(v)` på vad som helst, alltså renderade en nästlad post hela sin repr i
+    prompten med varje inre kommentar inbakad. Uppmätt med en prisfil där
+    `a_traktor` var `{'_internt': 'kostar oss 9 000 kr', 'pris': '25 000 kr'}`:
+    raden hamnade under rubriken *"Priser, avlästa ur config/priser.json"* och
+    över foten *"Varje pris här återges ordagrant"*, alltså blev vårt INKÖPSPRIS
+    ett citerbart pris.
+
+    **TALETS HALVA VAR REDAN STÄNGD, TEXTENS INTE.** `_varden_ur` hindrar att
+    9000 blir ett tillåtet tal, men ingenting hindrade att texten stod i
+    prompten. Det är skillnaden mellan de två läsarna, och den var hålet.
+
+    **ETT NÄSTLAT VÄRDE UTELÄMNAS I STÄLLET FÖR ATT KASTA**, av samma skäl som
+    raden ovanför: en fil av fel form ska inte kunna tala, och utelämnandet är
+    den säkra riktningen. Att filerna i repot FAKTISKT är platta binds separat,
+    av `test_bada_konfigfilerna_i_repot_ar_PLATTA`.
     """
     data = las_konfig(fil)
     if not isinstance(data, dict):
         return {}
 
     return {n: v for n, v in data.items()
-            if not str(n).startswith("_") and str(v).strip()}
+            if not str(n).startswith("_")
+            and not isinstance(v, (dict, list, tuple))
+            and str(v).strip()}
 
 
 def las_fakta(faktafil: Path | None = None) -> dict:

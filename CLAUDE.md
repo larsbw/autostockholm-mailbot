@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.12.6 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #95
+**Version:** 0.12.7 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #99
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -518,6 +518,41 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.12.7 — 2026-09-14
+
+**`Speglar` följer med till beslutslogg #99.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 42:s fyra poster lagts till.
+
+**§0:s RAMVERKSREGEL 3 FICK TVÅ HÅL STÄNGDA OCH ETT MEDVETET LÄMNAT.** Regeln
+säger att boten aldrig genererar ett tal. En sönderklyvd prissats lät fordonets
+tjänstevikt bli ett citerbart pris, och en nästlad konfigurationspost lät vårt
+inköpspris renderas i prompten under rubriken om avlästa priser. Båda stängda,
+se `docs/beslutslogg.md` #97 och #98. Regeltexten är oförändrad.
+
+**§0:s RAMVERKSREGEL 1 SLÄPPER FORTFARANDE IGENOM INGENTING**, eftersom `auto`
+är tom sedan 0.12.0. Skiva 42 rör vad ett UTKAST får innehålla, inte om ett mail
+får gå ut.
+
+**§9.1:s MOTSÄGELSE VAR PÅ VÄG ATT UPPSTÅ, och den stängdes innan den gjorde
+det.** Systempromptens regel 5 förbjöd varje pris medan `PRISRUBRIK` bad
+modellen återge priset ordagrant. Lars gav regel 5 samma förbehåll som regel 8.
+Paragrafen är oförändrad; det som ändrats är att prompten inte längre beställer
+en mening spärren fäller.
+
+**LARS GRÄNS PÅ FEM FALSKA FÄLLNINGAR AV HUNDRA ÖVERSKREDS, och det är
+utskrivet i #98.** 7,7 av hundra över hela underlaget. Skivans egen ändring
+bidrog med 0. Det är ingen regeländring, men §7.2 kräver att talet sägs där det
+mättes och inte döljs.
+
+**§10 BRÖTS INTE I DEN HÄR SKIVAN.** `config/priser.json` ändrades, och
+ändringen är Lars uttryckliga beslut i briefens DEL A. Inget värde är satt.
+
+**§0:s styrdokumentlista är oförändrad.** Skiva 42 skapade
+`scripts/prismatning.py`, alltså ett mätverktyg och inget styrdokument. Samma
+grund som 0.8.2, 0.8.6, 0.11.7, 0.11.13 och 0.12.3.
+
+Ren synk ⇒ PATCH.
 
 ### 0.12.6 — 2026-09-14
 

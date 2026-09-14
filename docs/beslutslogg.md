@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.58.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
+**Version:** 0.59.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -5233,7 +5233,7 @@ omkörda i varv 3: 19 röda, och fyra tal till i tabellen. Fällt av
 
 ---
 
-## #95 — Skiva 41 STOPPAD efter tre varv. Tre luckor gatar prisfilens fyllning
+## #95 — Skiva 41 STOPPAD efter tre varv. Fyra luckor gatar prisfilens fyllning
 
 **§7:s rad för SÄNDVÄG, tillämpad och inte frångången:** fynd kvarstod efter tre
 varv. Samma form som #53, #58, #66, #70, #76, #80, #85 och #92.
@@ -5254,6 +5254,11 @@ citerbart pris.
 utlöses alla av samma händelse: att Lars fyller en post i `config/priser.json`.
 Varningen står i filens egen kommentar och på `docs/roadmap.md`:s rad, så att
 den som fyller filen ser den.
+
+*Postens rubrik sade TRE luckor medan det här stycket och postens sista stycke
+säger fyra. Fyra är rätt, och `docs/sparrar.md` bär alla fyra posterna. Rubriken
+är rättad på plats under huvudets undantag för känt falskt påstående. Fällt av
+Lars i skiva 42, se #99.*
 
 **JAG ÄNDRADE `config/priser.json` I VARV 2 UTAN ETT NYTT BESLUT AV LARS, och
 det ska stå här.** §10 gör VARJE ändring i filen till ett stopp, och §7 säger
@@ -5287,7 +5292,177 @@ luckorna beskriver exakt vad som måste avgöras innan den fylls.
 
 ---
 
+## #96 — Lucka 52 stängd: regel 5 får regel 8:s förbehåll
+
+Lars beslut i skiva 42, DEL 0. Systempromptens regel 5 löd *"ALDRIG ETT PRIS"*
+utan förbehåll och är bunden ORDAGRANT. `PRISRUBRIK` ber samtidigt modellen
+återge priserna ur `config/priser.json`, och `PRISFOT` att den gör det ordagrant.
+
+**BESLUTET, ORDAGRANT LARS:** regel 5 får samma förbehåll som regel 8, alltså
+*"aldrig ett pris UTÖVER DET SOM STÅR I UNDERLAGET NEDAN"*. Skälet är hans:
+utan förbehållet säger prompten emot prisfilen så fort den fylls.
+
+**MOTSÄGELSEN VAR INTE TEORETISK.** Den blir live i samma ögonblick Lars fyller
+en post, och den hade då lett rakt in i §9.1: en spärr som fäller det prompten
+beställt, och frestelsen att skriva om texten tills den slinker igenom.
+
+**SLUTMENINGENS VILLKOR ÄR MITT OCH INTE LARS, och det ska stå.** Regeln slutar
+*"Om kunden frågar vad det kostar: säg att VI återkommer med prisuppgift"*. Med
+förbehållet infört sade regeln i samma andetag både att priset FÅR återges och
+att kunden ska höra att vi återkommer. Jag lade till *"Står inget pris i
+underlaget och"*. Det är samma motsägelse ett led ned, men lydelsen är promptens
+och därmed Lars enligt §8 och §11. Han ändrar den på sitt ord.
+
+`test_varje_regel_star_ORDAGRANT` binder hela lydelsen.
+`test_REGEL_5_bar_SAMMA_FORBEHALL_som_regel_8` säger vilket led som är
+lastbärande. Fällning av förbehållet ur `SYSTEM` ger RÖD.
+
+---
+
+## #97 — Lucka 53 stängd: filen är PLATT, och plattheten är bunden
+
+Lars beslut i skiva 42, DEL 0: *"PLATT FIL, ingen nästling. En struktur som
+renderar interna kommentarer om inköpspris rakt in i prompten är samma hål
+config/fakta.json öppnade i skiva 36. Bind plattheten."*
+
+**VAD SOM VAR ÖPPET.** `las_konfigvarden` filtrerade `_`-nycklar bara på
+TOPPNIVÅN och körde sedan `str(v)` på vad som helst. En nästlad post renderade
+därför hela sin repr i prompten med varje inre kommentar inbakad. `_varden_ur`
+stängde TALETS halva; textens halva stod öppen.
+
+**BUNDET PÅ TVÅ STÄLLEN, och de prövar olika saker.** `las_konfigvarden`
+utelämnar ett värde som är en dict, lista eller tupel, prövat av
+`test_ett_NASTLAT_varde_nar_ALDRIG_prompten` för BÅDA filerna.
+`test_bada_konfigfilerna_i_repot_ar_PLATTA` är tripwiren för filerna i repot.
+
+**BÅDA PRÖVADE MED EN KÖRNING.** En fällning av `isinstance`-ledet ger RÖD, och
+utdatan visar raden `nastlad: {'_internt': 'kostar oss 9 000 kr', ...}` renderad
+under rubriken *"Priser, avlästa ur config/priser.json"* och över foten *"Varje
+pris här återges ordagrant"*. En nästlad post i `config/priser.json` ger RÖD på
+tripwiren.
+
+**ETT NÄSTLAT VÄRDE UTELÄMNAS I STÄLLET FÖR ATT KASTA.** Samma riktning som
+raden ovanför i samma funktion: en fil av fel form ska inte kunna tala. Ett
+kast hade stoppat genereringen helt, och det är ett driftfel och inte ett
+innehållsfel.
+
+---
+
+## #98 — Lucka 54 stängd genom hopfogade satspar. Lucka 55 lämnas MEDVETET öppen
+
+Lars beslut i skiva 42, DEL 0: *"LUCKA 54 OCH 55. Foga samman satspar."*
+
+**SKÄLET ÄR HANS OCH ÅTERGES ORDAGRANT.** Lucka 54 är den farliga: fordonets
+tjänstevikt blir ett citerbart pris, alltså ett tal ur uppslaget presenterat som
+en kostnad till kunden. Lucka 55 fäller en sann mening, alltså ett utkast Lars
+ändå läser. Överblockering kostar Lars fem sekunders läsning. Underblockering
+kostar ett felaktigt prisbesked till en kund.
+
+**EGENSKAPEN SOM BYGGDES: ETT PRISORD SOM SPÄNNER ÖVER SKARVEN.** Bär
+sammanfogningen av två angränsande satser en `PRISORD`-matchning som börjar i
+den ena och slutar i den andra, så har delningen förstört frasen och paret prövas
+som EN sats. Ingen förkortningslista.
+
+**MÅTTET ÄR EN SPÄNNANDE MATCHNING OCH INTE "INGENDERA HALVAN BÄR ETT
+PRISORD".** Skillnaden är lastbärande och uppmätt: *"Det kostar 25 000 kr exkl.
+moms 1400."* har ett giltigt prisord i sin FÖRSTA halva, alltså hade den svagare
+lydelsen låtit paret vara, och `moms 1400.` hade aldrig prövats av prisgrenen.
+Det är lucka 54:s egen defekt flyttad ett steg, och `docs/incidentlogg.md` I10
+bär formen.
+
+**PRÖVAT MED EN KÖRNING.** En neutralisering av hopfogningen ger RÖD på alla
+fyra fallen, samtliga med `DID NOT RAISE Sparrfalld`: de tre lydelser skiva 41
+varv 3 mätte upp som passerande, plus den fjärde formen ovan.
+
+**MÄTNINGEN LARS BESTÄLLDE, ur `scripts/prismatning.py`.** En falsk fällning är
+en text med minst en prissats som också bär ett tal UTAN valutaord. En sådan sats
+faller även när priset i den står ordagrant i `config/priser.json`.
+
+| Underlag | Texter | Med prisord | Falska fällningar | Per hundra texter |
+| --- | --- | --- | --- | --- |
+| `data/par.jsonl`, alla utgående svar | 222 | 77 | 17 | 7,7 |
+| samma, bara a-traktorsvaren | 45 | 31 | 7 | 15,6 |
+| `data/granskningsfall.jsonl`, botens utkast | 11 | 0 | 0 | 0,0 |
+
+**DET ÄR VÄRRE ÄN FEM AV HUNDRA, OCH DET SÄGS HÄR SOM LARS BAD OM.** 7,7 av
+hundra över hela underlaget och 15,6 av hundra på a-traktorsvaren.
+
+**MEN HOPFOGNINGEN BIDROG MED NOLL, och det är den andra halvan av samma
+mätning.** Antalet texter vars satsuppdelning ändrades av skiva 42 är 0 i alla
+tre underlagen, och antalet texter som BLEV en falsk fällning av ändringen är
+likaså 0. Nivån är alltså lucka 55:s, oförändrad sedan före skivan, och inte en
+kostnad den här ändringen infört.
+
+**VARFÖR DELTAT ÄR NOLL.** Formen hopfogningen lagar kräver ett prisord som
+spänner över en meningsgräns. `grep -c "inkl. moms" data/par.jsonl` ger 1 och
+`grep -ci "exkl. moms"` ger 0, alltså finns formen på en enda rad i hela filen.
+Den raden bär både kundens mail och vårt svar, och eftersom hopfogningen inte
+löpte på något utgående svar ligger träffen i kundens hälft.
+
+**TALET ÄR EN ÖVRE GRÄNS.** Mätverktygets mönster för vad som är ett pristal
+missar former som *"25 000 svenska kronor"*, och ett missat pristal räknas som
+ett övrigt tal. Mätfelet lutar alltså åt att rapportera FLER falska fällningar än
+det finns, vilket är rätt riktning när talet ska jämföras mot en gräns.
+
+**LUCKA 55 STÅR ÖPPEN OCH ÄR BUNDEN SOM ÖPPEN.**
+`test_LUCKA_55_overblockeringen_STAR_KVAR_och_ar_beslutad` fäller de två
+lydelser `docs/sparrar.md` mätte upp. Den dag luckan stängs blir raden röd, och
+då ska det vara ett beslut och inte en bieffekt.
+
+---
+
+## #99 — #95:s rubrik och prisfilens kommentar rättade. En §10-ändring på Lars beslut
+
+Lars beslut i skiva 42, DEL A: *"Fyra är rätt: 52, 53, 54 och 55 står i
+docs/sparrar.md. Rätta båda."*
+
+**#95:s RUBRIK SADE TRE, brödtexten fyra.** Rubriken är rättad PÅ PLATS under
+huvudets undantag för känt falskt påstående, och strykningen bär en kursiv not
+där den stod. Postens sista stycke och versionsposten 0.58.0 sade redan fyra.
+
+**PRISFILENS `_las_detta_forst` SADE OCKSÅ TRE**, och dess uppräkning utelämnade
+lucka 53. `config/priser.json` är en §10-fil där varje ändring är ett stopp, och
+Lars fattade beslutet i den här briefen.
+
+**RÄTTELSEN GICK LÄNGRE ÄN TRE TILL FYRA, och skälet är §7.** Efter DEL 0 är
+lucka 52, 53 och 54 stängda, alltså hade en kommentar som säger att fyra luckor
+MÅSTE AVGÖRAS varit falsk i samma ögonblick den rättades. Kommentaren säger nu
+vilka som är stängda, att lucka 55 är öppen och medvetet så, och pekar på
+`scripts/prismatning.py` i stället för att bära en siffra som blir gammal.
+`_platt_fil` säger nu att plattheten är BUNDEN och av vad.
+
+**INGET VÄRDE ÄR SATT.** Nyckelmängden är oförändrad och varje pris är
+fortfarande en tom sträng, bundet av
+`test_prisfilen_i_repot_har_BARA_TOMMA_varden`.
+
+**DEL B: KOMMENTARNYCKLARNA BEHÅLLS.** Lars beslut. De fem nycklar jag lade i
+skiva 41 varv 2 utan hans beslut, och som #95 redovisar, står kvar. De bär
+varningarna, och `test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal` binder
+att deras tal aldrig blir tillåtna tal i ett utgående mail.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.59.0 — 2026-09-14
+
+**#96 TILL #99 TILLKOMMER.** Skiva 42, Lars fyra beslut på luckorna som gatade
+`config/priser.json`. Lucka 52, 53 och 54 stängda, lucka 55 medvetet öppen.
+
+**#95:s RUBRIK ÄR RÄTTAD PÅ PLATS**, från TRE luckor till FYRA, under huvudets
+undantag för känt falskt påstående. Strykningen bär en kursiv not där den stod
+och redovisas i #99. Postens brödtext sade redan fyra, alltså sade posten emot
+sig själv.
+
+**EN §10-FIL ÄNDRAD PÅ LARS BESLUT, och det står i #99.**
+`config/priser.json`:s två kommentarnycklar `_las_detta_forst` och `_platt_fil`
+är omskrivna. Inget värde är satt och nyckelmängden är oförändrad.
+
+**MÄTNINGEN LARS BESTÄLLDE STÅR I #98, och den överskrider hans gräns.** 7,7
+falska fällningar av hundra över hela underlaget, 15,6 av hundra på
+a-traktorsvaren. Hopfogningens eget bidrag till det talet är 0.
+
+Nya poster ⇒ MINOR.
 
 ### 0.58.0 — 2026-09-14
 
