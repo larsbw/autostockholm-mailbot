@@ -851,8 +851,21 @@ def krav_pa_belagt_franvaropastaende(svar: str, forfragan: Forfragan) -> None:
 def _delat_pa_mening(svar: str) -> list[str]:
     """Svaret delat vid meningsslut. Delningen tar bort BARA blanktecken.
 
-    Den egenskapen är lastbärande för `_prissatser`, som fogar ihop igen: en
-    delning som kastar tecken går inte att ångra utan att texten ändras.
+    **DEN TAR ETT ELLER FLERA, och `_prissatser` skarvar med ETT.** Hopfogningen
+    är alltså en NORMALISERING och ingen ångring: `Det är inkl.\\n\\nmoms.` blir
+    `Det är inkl. moms.`, en sträng som inte stod i svaret. Det är ofarligt därför
+    att varje flerordsterm i `PRISTERMER` tar godtyckligt många blanktecken med
+    `\\s*`, inte därför att delningen skulle gå att ångra.
+
+    Skillnaden mot `_delat_pa_satsbrott`, som KASTAR sin avskiljare, är ändå den
+    som styr anropsordningen i `_prissatser`: en hopfogning över en sådan skarv
+    tillverkar prisfraser som aldrig stått i svaret.
+
+    *Här stod att egenskapen "är lastbärande för `_prissatser`" och att en
+    delning som kastar tecken "inte går att ångra utan att texten ändras", alltså
+    hela den premiss varv 2 fällde och ersatte på fyra andra ställen. Den här
+    docstringen var ett femte ställe, och varv 2:s självrapport sade "rättad på
+    alla fyra ställena". Fällt av §7-granskningen av skiva 42, varv 3.*
     """
     return re.split(r"(?<=[.!?])\s+", svar)
 

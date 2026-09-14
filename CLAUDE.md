@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.12.9 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #100
+**Version:** 0.12.10 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #101
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -518,6 +518,36 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.12.10 — 2026-09-14
+
+**`Speglar` följer med till beslutslogg #101.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 42:s stoppost lagts till.
+
+**§7:s tre granskningsvarv är OFÖRÄNDRADE, och #101 är en tillämpning av dem.**
+Skivan stoppades därför att ett fynd kvarstod efter tre varv. Raden står här av
+samma skäl som i 0.9.4, 0.11.4, 0.12.1, 0.12.4 och 0.12.6.
+
+**§7:s RAD OM RÄTTELSETEXT ÄR DET SOM BAR HELA SKIVAN, och det ska sägas.** Varje
+varv fällde ett fynd i den text som skrevs för att rätta föregående varv: en
+obefintlig kodrad, sedan en obefintlig testrad, sedan ett obefintligt faktum.
+Paragrafen är oförändrad; det som är nytt är att repot har en tredje instans av
+kedjan i `docs/incidentlogg.md` I2:s form.
+
+**SÄNDVÄGEN SJÄLV GODKÄNDES av varv 3**, och §0:s ramverksregel 3 fick två hål
+stängda: en sönderklyvd prissats och en nästlad konfigurationspost. Regeltexten
+är oförändrad.
+
+**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
+är tom sedan 0.12.0. De fyra luckorna rör vad ett UTKAST innehåller, och Lars
+läser varje utkast.
+
+**§10 BRÖTS INTE.** `config/priser.json` ändrades på Lars uttryckliga beslut i
+briefens DEL A, och inget värde är satt.
+
+**§0:s styrdokumentlista är oförändrad.** Varv 3 skapade ingen ny fil.
+
+Ren synk ⇒ PATCH.
 
 ### 0.12.9 — 2026-09-14
 

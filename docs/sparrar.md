@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.50.1 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.50.2 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -3372,9 +3372,24 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   42 hela den nästlade posten ur prompten. En nästlad prisfil skulle alltså göra
   `25000` skrivbart för modellen utan att talet någonsin står i underlaget.
 
-  **UPPMÄTT AV §7-GRANSKNINGEN AV SKIVA 42, VARV 1**, som också mätte att en
-  nästlad post i `config/priser.json` gör bland annat
-  `test_kundens_tal_gor_ALDRIG_ett_svarstal_tillatet` RÖD.
+  **UPPMÄTT AV §7-GRANSKNINGEN AV SKIVA 42, VARV 1 OCH VARV 3.** Luckan kräver en
+  nästlad post vars nyckel INTE börjar med `_`, och vars värde bär talet. Mätt på
+  `config/priser.json` rad 13:
+
+  | Nästlad post | `test_kundens_tal_gor_ALDRIG_ett_svarstal_tillatet` |
+  | --- | --- |
+  | `{"_internt": "kostar oss 25 000 kr"}` | GRÖN, `5 passed, 1559 deselected` |
+  | `{"pris": "25 000 kr"}` | RÖD, `2 failed, 3 passed, 1559 deselected` |
+
+  Skälet till skillnaden är `_varden_ur`, som hoppar över `_`-nycklar på VARJE
+  nivå. En nästlad kommentar läcker alltså ingenting; det är ett nästlat VÄRDE
+  som gör det.
+
+  *Här stod bara att "en nästlad post" gör raden RÖD, utan att säga vilken. Den
+  nästling som lucka 53:s prövning två poster ovanför föreskriver ordagrant,
+  `{"_internt": "kostar oss 9 000 kr"}`, ger GRÖNT, alltså fick den som följde
+  dokumentet fel svar. Det är ordagrant den defekt varv 2 fällde för lucka 53 och
+  lämnade kvar här i samma fil. Fällt av §7-granskningen av skiva 42, varv 3.*
 
   **VARFÖR DEN INTE ÄR STÄNGD.** De två läsarna har olika krav med avsikt, och
   `test_en_NASTLAD_kommentar_vidgar_ALDRIG_talsparren` binder uttryckligen att ett
@@ -4867,6 +4882,24 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.50.2 — 2026-09-14
+
+**VARV 3 UNDERKÄNDE, OCH SKIVAN ÄR STOPPAD.** Se `docs/beslutslogg.md` #101.
+Spärren själv är godkänd: granskaren kunde inte konstruera ett hål, och samtliga
+tio prövningar i dokumentet reproducerade exakt.
+
+**LUCKA 56:s PRÖVNING SAKNADE SITT VILLKOR, och det var ett grönt svar åt den som
+följde dokumentet.** Posten sade att "en nästlad post" gör
+`test_kundens_tal_gor_ALDRIG_ett_svarstal_tillatet` RÖD. Den nästling lucka 53:s
+prövning två poster ovanför föreskriver ordagrant, `{"_internt": "kostar oss
+9 000 kr"}`, ger GRÖNT, eftersom `_varden_ur` hoppar över `_`-nycklar på varje
+nivå. Posten bär nu en tabell med båda utfallen.
+
+**DET ÄR SAMMA DEFEKT VARV 2 FÄLLDE FÖR LUCKA 53** och som lämnades kvar i
+identisk form två poster ned i samma fil.
+
+Rättade påståenden ⇒ PATCH.
 
 ### 0.50.1 — 2026-09-14
 

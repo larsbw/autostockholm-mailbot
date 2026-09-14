@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.60.1 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
+**Version:** 0.61.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -5222,15 +5222,26 @@ föråldras av varje redigering av kommentaren, och den ska därför inte stå s
 lista. Det verifierbara är de två raderna ovanför, som båda mäter en EGENSKAP och
 räknas om av en körning. Fällt av §7-granskningen av skiva 42, varv 1.*
 
-*Listan var FEL REDAN NÄR DEN SKREVS, och den första strykningsnoten lade skulden
-på fel skiva. Den sade att `skiva 42`, `LUCKA 54` och `LUCKA 55` tillkom i skiva
-42. `git grep -c "LUCKA 54" a11b6c1 -- config/priser.json` och samma kommando för
-`LUCKA 55` ger båda en träff, alltså stod de två i filen redan före skivan, och
-skiva 42 tillförde bara talet `42`. Listan bar dessutom talet `8`, som aldrig har
-funnits i filen: `grep -c "8" config/priser.json` ger 0 och `git grep -c "8"
-a11b6c1 -- config/priser.json` ger ingen träff. Felet är alltså skiva 41 varv 3:s
-omkörning och inte skiva 42:s redigering. Fällt av §7-granskningen av skiva 42,
-varv 2.*
+*Den första strykningsnoten lade skulden på fel skiva. Den sade att `skiva 42`,
+`LUCKA 54` och `LUCKA 55` tillkom i skiva 42. `git grep -c "LUCKA 54" a11b6c1 --
+config/priser.json` och samma kommando för `LUCKA 55` ger båda en träff, alltså
+stod de två i filen redan före skivan, och skiva 42 tillförde bara talet `42`.
+Fällt av §7-granskningen av skiva 42, varv 2.*
+
+*DEN NOTEN BAR SJÄLV ETT FALSKT "ALDRIG", och det är tredje gången samma form
+fälls i den här skivan. Den sade att talet `8` aldrig funnits i filen.
+`git grep -c "regel 8" 675e619 -- config/priser.json` ger en träff: `_las_detta_forst`
+lydde då "samma förbehåll som regel 8 har". De två kommandon noten åberopade
+mäter HEAD respektive `a11b6c1` och säger ingenting om `675e619`, alltså belade
+de inte satsen de stod under.*
+
+*OCH LISTAN VAR INTE FEL NÄR DEN SKREVS.* `git diff 675e619 a11b6c1 --
+config/priser.json` *visar att `a11b6c1`, alltså skiva 41 varv 3:s EGEN commit,
+skrev om `_las_detta_forst` och därmed tog bort `regel 8` och lade till `LUCKA 54`
+och `LUCKA 55`. Listan speglade filen som den stod FÖRE den redigeringen och
+föråldrades av samma skrivning som skrev den. Det är CLAUDE.md §7:s rad om att en
+rättelse som namnger rader föråldrar sig själv i samma skrivning, tillämpad på en
+tallista. Fällt av §7-granskningen av skiva 42, varv 3.*
 
 **KOMMENTAREN BÄR MED FLIT ETT PRISFORMAT TAL.** `_formen` innehåller exemplet
 `25 000 kr`. En fällning av `_`-filtret gör **20 test röda**, mätt mot skiva 42:s
@@ -5511,12 +5522,20 @@ att varv 2 lade till `_las_detta_forst` och `_platt_fil` och skrev om
 `_`-nycklar totalt, alltså är fem varken antalet tillagda eller antalet
 kommentarer.
 
-*Meningen namngav först #95 som källa för citatet. `grep -n "två
-kommentarnycklar" docs/beslutslogg.md` ger fyra träffar, och ingen av dem ligger
-i #95: frasen står i #94, i versionsposten 0.59.0 och i `CLAUDE.md` 0.12.6. #95:s
-egen formulering är "Tilläggen är kommentarnycklar", utan räkneord. Rättelsen
-belade sig alltså mot en post som inte säger det, vilket är samma fel som den
-rättade. Fällt av §7-granskningen av skiva 42, varv 2.*
+*Meningen namngav först #95 som källa för citatet. Ingen träff på "två
+kommentarnycklar" ligger inom #95, som spänner från sin rubrik till #96:s. #95:s
+egen formulering är "Tilläggen är kommentarnycklar", utan räkneord. Frasen står i
+#94 och i `CLAUDE.md` 0.12.6. Rättelsen belade sig alltså mot en post som inte
+säger det, vilket är samma fel som den rättade. Fällt av §7-granskningen av skiva
+42, varv 2.*
+
+*NOTEN RÄKNADE FÖRST TRÄFFARNA OCH FÖRÅLDRADE SIG SJÄLV I SAMMA COMMIT.* Den
+sade "ger fyra träffar" och räknade upp tre platser. Appendixposten 0.60.1, som
+skrevs i samma skrivning, blev en femte träff, och uppräkningen utelämnade
+dessutom en träff i posten om skiva 37 och lämnade `CLAUDE.md` i en uppräkning
+över träffar i `docs/beslutslogg.md`. *Det är formen 0.3.1 infördes för att
+stoppa: skriv aldrig en mening som räknar sin egen omgivning. Fällt av
+§7-granskningen av skiva 42, varv 3.*
 
 *Lars brief till skiva 42 sade "Du lade fem av dem i varv 2", och jag skrev av
 talet i stället för att läsa det ur repot. §7.2 gäller också ett tal som kommer
@@ -5535,6 +5554,13 @@ ett tillåtet tal i ett utgående mail. `las_konfigvarden` utelämnar sedan skiv
 hela den nästlade posten ur prompten. En nästlad prisfil skulle alltså göra
 `25000` skrivbart för modellen utan att talet någonsin står i underlaget.
 
+**DET KRÄVER EN NYCKEL SOM INTE BÖRJAR MED `_`, och det ledet saknades här.**
+`_varden_ur` hoppar över `_`-nycklar på varje nivå, alltså läcker en nästlad
+KOMMENTAR ingenting. Mätt: `{"_internt": "kostar oss 25 000 kr"}` på
+`config/priser.json` rad 13 ger GRÖN svit, `{"pris": "25 000 kr"}` ger RÖD.
+Posten för lucka 56 i `docs/sparrar.md` bär tabellen. Fällt av §7-granskningen av
+skiva 42, varv 3.
+
 **DEN STÄNGS INTE, och skälet är att båda leden är avsiktliga.**
 `test_en_NASTLAD_kommentar_vidgar_ALDRIG_talsparren` binder uttryckligen att ett
 nästlat VÄRDES tal SKA nå `_tillatna_tal`. Det är skiva 36:s lärdom, och att
@@ -5552,7 +5578,75 @@ Samma vakt gatar det, eftersom den kräver `str`.
 
 ---
 
+## #101 — Skiva 42 STOPPAD efter tre varv. Sändvägen står, texten om den föll tre gånger
+
+**§7:s rad för SÄNDVÄG, tillämpad och inte frångången:** fynd kvarstod efter tre
+varv. Samma form som #53, #58, #66, #70, #76, #80, #85, #92 och #95.
+
+**SÄNDVÄGEN SJÄLV ÄR GODKÄND AV VARV 3.** Granskaren kunde inte konstruera ett
+hål i kedjefogningen, i `_prisord_over_skarven`, i ordningskravet eller i
+`las_konfigvarden`, och samtliga tio prövningar i de tre styrdokumenten
+reproducerade exakt, tal för tal. Lucka 52, 53 och 54 är stängda och lucka 55 är
+öppen på Lars beslut.
+
+**DET SOM STOPPADE SKIVAN LÅG VARJE GÅNG I RÄTTELSETEXTEN, och formen är
+densamma i alla tre varven:**
+
+| Varv | Vad som fälldes |
+| --- | --- |
+| 1 | en obefintlig KODRAD, `if PRISORD.search(svar):`, i spärrpostens beslutsradstabell |
+| 2 | en obefintlig TESTRAD, `test_varje_PRISTERM_overlever_delningen`, i den docstring som bar argumentet för att ta bort en reserv |
+| 3 | ett obefintligt FAKTUM, att talet `8` "aldrig" funnits i `config/priser.json`, i den not som skulle rätta varv 1:s not |
+
+**VARJE LED VAR EN RÄTTELSE AV FÖREGÅENDE LED.** Det är `docs/incidentlogg.md`
+I2:s kedja, upprepad, och §7:s rad om att rättelsetext granskas som ny text är
+det enda som fångade den. Rättelsen skrivs i övertygelsen om att den ÄR
+rättelsen, och den övertygelsen lånar trovärdighet åt varje bisats i samma
+stycke.
+
+**VAD SOM RÄTTADES ÄNDÅ.** §7 kräver att ett känt falskt påstående alltid rättas,
+och `docs/beslutslogg.md` 0.11.8 skriver ut att den plikten gäller oberoende av
+grinden. Fyra rättelser, samtliga i TEXT och ingen i kod:
+
+| Fynd | Vad som var falskt |
+| --- | --- |
+| #94:s andra strykningsnot | sade att `8` aldrig funnits i filen, och att listan var fel när den skrevs. `git grep -c "regel 8" 675e619` ger en träff, och `git diff 675e619 a11b6c1` visar att varv 3:s egen commit tog bort talet |
+| lucka 56:s prövning | sade "en nästlad post" utan att säga vilken. Den nästling lucka 53 föreskriver ordagrant ger GRÖNT |
+| #99:s not | räknade träffar på en fras och blev falsk av sin egen appendixpost i samma commit |
+| `_delat_pa_mening`:s docstring | bar kvar den premiss varv 2 fällde, och varv 2:s självrapport sade att den var rättad på alla fyra ställena |
+
+**RÄTTELSERNA ÄR SJÄLVMÄTTA OCH INTE OBEROENDE GRANSKADE.**
+
+**INGA KODFYND KVARSTÅR.** Varv 3 fann inget i sändvägen. Det som kvarstår är
+att skivans egen text har underkänts tre gånger, och det är Lars att avgöra vad
+det betyder för skivan.
+
+**LUCKA 20 NOTERAD AV VARV 3, UTAN ATT FÄLLAS.** *"Det kostar 25 000 kr.
+Dragkroken 1400."* passerar, eftersom den andra satsen inte bär något prisord.
+Det är `PRISORD`:s icke-uttömmande uppräkning, registrerad sedan tidigare, och
+ingen post i den här skivan påstår att den klassen är stängd.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.61.0 — 2026-09-14
+
+**#101 TILLKOMMER: skiva 42 STOPPAD efter tre varv.** Sändvägen står, texten om
+den föll tre gånger, varje gång i den text som skrevs för att rätta föregående
+varv.
+
+**FYRA KÄNDA FALSKHETER RÄTTADES ÄNDÅ**, självmätt och utan granskare, enligt
+§7:s rättelseplikt som gäller oberoende av grinden.
+
+**#94:s STRYKNINGSNOT BAR SJÄLV ETT FALSKT "ALDRIG".** Talet `8` stod i
+`config/priser.json` vid `675e619`. Listan var alltså rätt när den skrevs och
+föråldrades av skiva 41 varv 3:s egen redigering i samma skrivning.
+
+**#100:s BESKRIVNING AV LUCKA 56 SAKNADE SITT VILLKOR.** Luckan kräver en nyckel
+som inte börjar med `_`.
+
+Ny post och rättade påståenden ⇒ MINOR.
 
 ### 0.60.1 — 2026-09-14
 
@@ -5573,8 +5667,13 @@ i `config/priser.json` redan vid `a11b6c1`, och skiva 42 tillförde bara talet
 NORMALISERAR blanktecken, den återställer dem inte: delningen tar `\s+` och
 skarven sätter ett mellanslag. Det som bär är att varje flerordsterm tar
 godtyckligt många blanktecken med `\s*`. Samma falska mening hade citerats vidare
-till `src/generera.py`, `tests/test_generera.py` och `docs/sparrar.md`, och är
-rättad på alla fyra ställena.
+till `src/generera.py`, `tests/test_generera.py` och `docs/sparrar.md`.
+
+*Här stod att den var "rättad på alla fyra ställena". Premissen stod kvar i
+`_delat_pa_mening`:s egen docstring, alltså på ett ställe till, och just den
+docstring som uttalar den tydligast. Självrapportering ska verifieras mot diffen
+och inte mot minnet av avsikten, §7.2. Fällt av §7-granskningen av skiva 42,
+varv 3.*
 
 **EN RADHÄNVISNING BYTT MOT VILLKORETS TEXT.** Ett radnummer i en prövning
 föråldras av nästa docstringrad, vilket `docs/sparrar.md`:s ingress varnar för.
