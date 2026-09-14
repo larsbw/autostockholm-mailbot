@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.64.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
+**Version:** 0.65.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -5926,7 +5926,77 @@ arbete som ingen källa bär.
 
 ---
 
+## #107 — Lars §11-order: ett a-traktorsvar nämner ALLTID priset
+
+**BESLUTET.** Ett svar på en a-traktorförfrågan ska nämna priset, också när
+uppslaget inte gav ett entydigt besked om bilen. Skälet är Lars: kunden som
+frågar om ombyggnad vill veta vad det kostar oavsett vad registret säger om just
+den bilen.
+
+**DET KOM UR LARS LÄSNING AV UTKASTEN I VYN, och iakttagelsen är hans.** Samma
+läge, ett lyckat uppslag utan registrerad draganordning och ett svar som säger
+att vi behöver titta närmare på bilen, gav ett utkast MED priset och ett UTAN.
+Skillnaden var modellens val och inget prompten styrde.
+
+**BYGGD SOM DE ÖVRIGA §11-REGLERNA: EN REGEL I `SYSTEM`, bunden ordagrant.**
+Regel 15. Samma form som regel 9, 10 och 13, som alla kom ur Lars läsning av vyn
+och som ingen spärr bär.
+
+**REGELN BÄRS AV PROMPTEN, OCH SKÄLET ÄR VAD EN FÄLLNING SKULLE KOSTA.** En
+spärr GÅR att bygga: `krav_pa_ett_svar` fäller ett TOMT svar, alltså en ren
+utelämning, och en spärr på den här regeln hade bara behövt det `Forfragan`
+redan bär. Men en fälld spärr ger Lars INGET utkast i stället för ett utkast
+utan pris, alltså vore utfallet sämre än det regeln finns för att rätta. Samma
+avvägning som lucka 29:s åtgärd och som `PRISFOT`:s helhetskrav.
+
+*Här stod att ingen spärr KAN bära regeln, med skälet att spärrarna bara fäller
+det ett svar PÅSTÅR. Det var ett falskt påstående om repots egen kod, och
+motexemplet står i samma modul som spärrarna. Fällt av §7-granskningen av skiva
+45, innan posten committades.*
+
+`scripts/prisandel.py` är regelns enda verifikation. Den räknar per körning två
+mått: hur många utkast som bär konfigvärdet ORDAGRANT, vilket är det `PRISFOT`
+beordrar, och hur många som bär prisets båda gränser. De två är en undre och en
+övre gräns för efterlevnaden, eftersom det grova måttet inte kan se om
+ordalydelsen är återgiven och inte kan tillskriva ett tal en prispost.
+
+**VILLKORET `OCH STÅR PRISET I UNDERLAGET` ÄR LASTBÄRANDE.** Utan det säger
+regeln emot regel 5, som förbjuder varje pris utöver underlagets och beordrar
+beskedet att VI återkommer med prisuppgift när inget pris finns. En ovillkorlig
+regel 15 hade i samma andetag krävt ett pris och förbjudit det, i det läge
+`INGA_PRISER` renderas. Det är lucka 52:s defektform, spegelvänd.
+
+**REGELN ÄR BYGGD SOM DEN LYDER, ALLTSÅ UTAN UNDANTAG FÖR RÖTT.** Ordet ALLTID
+är Lars, och hans skäl säger `oavsett vad registret säger om just den bilen`. Ett
+RÖTT utfall är däremot ett ENTYDIGT besked, och ett svar som säger att bilen inte
+går att bygga om och i samma mail anger vad en ombyggnad kostar är den form
+beslutet inte uttalar sig om.
+
+**BREDDEN ÄR MÄTT OCH BUNDEN, inte antagen.** Ingen av de fem spärrarna rör
+formen, i båda uppslagslägena, och
+`test_REGEL_15_kraver_priset_OCKSA_VID_ROTT_och_INGEN_SPARR_faller_det` binder
+det. Raden finns just för att bredden inte ska vara tyst: inskränks regeln blir
+den röd, och då ska den bli det, eftersom en inskränkning är en ändring av
+sändvägstext. Körningen som följde beslutet bar noll RÖDA utfall, alltså vilar
+raden på konstruerad text och formen är oprövad i fält. **Ett undantag för RÖTT
+är Lars beslut och inte byggt.** Fynd 1 i §7-granskningen av skiva 45.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.65.0 — 2026-09-14
+
+**#107 TILLKOMMER: Lars §11-order om priset i ett a-traktorsvar.** Regel 15 i
+systemprompten, bunden ordagrant, plus `scripts/prisandel.py` som mäter
+efterlevnaden.
+
+**TRE FALSKA PÅSTÅENDEN RÄTTADE I `docs/roadmap.md`.** Fas 5:s lista över vad som
+återstår sade att `config/priser.json` bär sex TOMMA poster och att `telefon` är
+TOM; Lars fyllde båda i skiva 44. Fas 5.5 sade att granskningsläget inte är
+kopplat; det fick sin rutt i skiva 34.
+
+Ett nytt beslut ⇒ MINOR.
 
 ### 0.64.0 — 2026-09-14
 

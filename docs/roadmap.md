@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.15.4 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §10
+**Version:** 0.15.5 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -686,15 +686,17 @@ enligt #38 och inloggning enligt #37 är en EGEN SKIVA och är inte gjord.
 Vad skiva 27 byggde: `src/vy.py` med båda lägena, `scripts/kor-vy.py` som
 startar den, och spärren mot att vyn har någon sändväg alls.
 
-**Referensläget är det som fungerar. GRANSKNINGSLÄGET RENDERAR MEN ÄR INTE
-KOPPLAT**, alltså har `rendera_granskning` och `spara_omdome` ingen anropare i
-`src/` eller `scripts/`, och `do_GET` rutar varje begäran till referensläget.
-Att generatorn hör till fas 5 är skälet till att det inte GÖR något; att ingen
-rutt når funktionerna är skälet till att det inte KAN göra något, och det är det
-grundläggande av de två. Skivans brief sade att referensläget räcker.
+**BÅDA LÄGENA HAR EN VÄG IN. GRANSKNINGSLÄGET FICK SIN RUTT I SKIVA 34**,
+`/granskning/N` för att läsa och `/omdome/N` för att spara. `do_GET` rutar
+`/granskning` till granskningsläget och allt annat till referensläget, och
+`scripts/kedja-prov.py --vy` startar det på sparade fall.
 
-Fällt av §7-granskningen av skiva 27, varv 1, som fann att raden angav det
-svagare av de två skälen.
+*Här stod att granskningsläget RENDERAR MEN INTE ÄR KOPPLAT, att
+`rendera_granskning` och `spara_omdome` saknar anropare i `src/` och `scripts/`,
+och att `do_GET` rutar VARJE begäran till referensläget. Alla tre leden blev
+falska av skiva 34, och `src/vy.py::bygg_hanterare` skriver ut rättelsen i sin
+egen docstring medan den stod kvar här, i den fas Lars läser för att veta vad som
+är byggt. Samma defektform som de två posterna i fas 5.*
 
 **Grind:** Lars beslutar att omdömesvolymen räcker. Talet sätts inte i förväg,
 eftersom det beror på hur många kategorier som visar sig bära underlag, och
@@ -722,22 +724,28 @@ svaret följa frågan. `config/sparrar.yaml` finns fortfarande inte.
 
 **Vad som ÅTERSTÅR i fasen:**
 
-- `config/priser.json` FINNS sedan skiva 41, upprättad på Lars §10-beslut, och
-  bär sex poster som ALLA ÄR TOMMA. Att FYLLA en post är Lars beslut, och ett
-  tomt värde når aldrig prompten. `test_prisfilen_i_repot_har_BARA_TOMMA_varden`
-  binder både värdena och hela nyckelmängden. Se `docs/beslutslogg.md` #94.
+- `config/priser.json` FINNS sedan skiva 41 och är **FYLLD av Lars i skiva 44**.
+  Fem poster bär pris, `tillbehor` står kvar tom därför att prislistan inte bär
+  något fast tillbehörspris. Att ändra ett värde är Lars beslut, och
+  `test_prisfilen_i_repot_bar_EXAKT_det_Lars_BESLUTAT` binder HELA innehållet
+  ordagrant. Se `docs/beslutslogg.md` #94 och #106.
   **DE FYRA LUCKOR SOM GATADE FYLLNINGEN ÄR AVGJORDA AV LARS I SKIVA 42.** Lucka
   52, 53 och 54 är stängda, lucka 55 är öppen och medvetet så. Se
-  `docs/beslutslogg.md` #96 till #99. Filen kan alltså fyllas.
-  *Här stod att lucka 52 måste avgöras innan en post fylls, med regel 5:s
-  förbehållslösa lydelse som skäl. Regeln bär förbehållet sedan skiva 42, alltså
-  blev raden falsk i just den lista Lars läser för att veta vad som återstår.*
-- `config/fakta.json` FINNS sedan skiva 36 och bär sedan skiva 37 posten
-  `bokningar`, flyttad dit av Lars §10-beslut. **`telefon` är fortfarande TOM.**
-  Att FYLLA en post är Lars beslut, och ett tomt värde når aldrig prompten,
-  alltså kan boten inte skriva numret.
-  `test_faktafilen_i_repot_har_TOM_telefon` binder det. Se
-  `docs/beslutslogg.md` #74 och #77.
+  `docs/beslutslogg.md` #96 till #99.
+  *Här stod att filen bär sex poster som ALLA ÄR TOMMA och att
+  `test_prisfilen_i_repot_har_BARA_TOMMA_varden` binder dem. Lars fyllde filen i
+  skiva 44 och vakten band om och bytte namn i samma skiva, alltså var båda leden
+  falska i just den lista Lars läser för att veta vad som återstår. Här stod före
+  det att lucka 52 måste avgöras innan en post fylls, vilket blev falskt av skiva
+  42.*
+- `config/fakta.json` FINNS sedan skiva 36, bär `bokningar` sedan skiva 37 och
+  **`telefon` sedan skiva 44**, båda på Lars §10-beslut.
+  `test_faktafilen_i_repot_bar_EXAKT_det_Lars_BESLUTAT` binder hela innehållet.
+  Se `docs/beslutslogg.md` #74, #77 och #106.
+  *Här stod att `telefon` är fortfarande TOM, att boten därför inte kan skriva
+  numret, och att `test_faktafilen_i_repot_har_TOM_telefon` binder det. Lars
+  fyllde posten i skiva 44 och vakten bytte namn, alltså var alla tre leden
+  falska. Boten skriver numret i varje läst utkast sedan dess.*
 - `config/sparrar.yaml`, som fasen kräver och som fortfarande inte finns.
 - Mallarna ur Lars referenssvar i vyn, se fas 5.5. Generatorn använder paren som
   få-exempel och bygger inga mallar.
@@ -797,6 +805,26 @@ visat dagsvolymen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.15.5 — 2026-09-14
+
+**TRE FALSKA PÅSTÅENDEN RÄTTADE, alla i den text Lars läser för att veta vad som
+är byggt och vad som återstår.**
+
+Fas 5 sade att `config/priser.json` bär sex poster som ALLA ÄR TOMMA och att
+`config/fakta.json`:s `telefon` är fortfarande TOM. Lars fyllde båda filerna i
+skiva 44, se `docs/beslutslogg.md` #106. Båda raderna namngav dessutom vakter
+som bytte namn i samma skiva.
+
+Fas 5.5 sade att GRANSKNINGSLÄGET RENDERAR MEN ÄR INTE KOPPLAT, att
+`rendera_granskning` och `spara_omdome` saknar anropare och att `do_GET` rutar
+varje begäran till referensläget. Alla tre blev falska av skiva 34, och
+`src/vy.py::bygg_hanterare` skriver ut rättelsen i sin egen docstring.
+
+**0.15.4:s EGEN SLUTRAD BLEV FALSK AV SKIVA 44.** Den sade INGET VÄRDE ÄR SATT.
+Appendixposter skrivs inte om, alltså står den kvar och upphävs av den här.
+
+Rättade påståenden i två faser ⇒ PATCH.
 
 ### 0.15.4 — 2026-09-14
 

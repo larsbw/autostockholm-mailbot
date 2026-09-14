@@ -1787,10 +1787,16 @@ def test_prompten_sager_att_priser_inte_finns(monkeypatch):
     **RADEN PRÖVAR MEKANISMEN MED EN TOM FIL, inte repots filtillstånd.** Den
     läste tidigare den riktiga filen och gick därför röd den dag Lars fyllde en
     post, trots att mekanismen fungerade: med en fylld fil SKA prompten inte säga
-    `Priser: INGA`. Att filen i repot är tom vaktas av
-    `test_prisfilen_i_repot_har_BARA_TOMMA_varden`, som är §10-tripwiren, och en
-    tripwire till gör bara att fler rader går röda av samma beslut. Lars beslut i
-    skiva 43, se `docs/beslutslogg.md` #103.
+    `Priser: INGA`. Vad filen i repot BÄR vaktas av
+    `test_prisfilen_i_repot_bar_EXAKT_det_Lars_BESLUTAT`, som är §10-tripwiren,
+    och en tripwire till gör bara att fler rader går röda av samma beslut. Lars
+    beslut i skiva 43, se `docs/beslutslogg.md` #103.
+
+    *Här stod att filen i repot ÄR TOM och att den vaktas av
+    `test_prisfilen_i_repot_har_BARA_TOMMA_varden`. Lars fyllde filen i skiva 44
+    och vakten band om och bytte namn i samma skiva, alltså namngav raden en vakt
+    som inte finns och påstod ett filtillstånd som inte gäller. Den defekten är
+    exakt vad den här radens egen förklaring ovan handlar om, ett led ned.*
     """
     _med_priser(monkeypatch, {})
 
@@ -1958,6 +1964,51 @@ REGLER_I_PROMPTEN = {
         "priset som det står i underlaget, sätt punkt, och be kunden ringa oss "
         "på numret i underlaget så tittar vi på just den bilen. Priset och "
         "numret får ALDRIG stå i samma mening.",
+    # SKIVA 45, LARS §11-ORDER. Skälet är hans, ordagrant: kunden som frågar om
+    # ombyggnad vill veta vad det kostar oavsett vad registret säger om just den
+    # bilen.
+    #
+    # **REGELN KOM UR LARS LÄSNING AV UTKASTEN I VYN, och iakttagelsen är hans.**
+    # Samma läge, ett lyckat uppslag utan registrerad draganordning och ett svar
+    # som säger att vi behöver titta närmare på bilen, gav ett utkast MED priset
+    # och ett UTAN. Skillnaden var modellens val och inget prompten styrde, och
+    # det är den sortens val en regel ska ta.
+    #
+    # *Här stod hur MÅNGA lästa utkast som skilde sig. §7.2 förbjuder att räkna
+    # instanser av ett mönster i ett arbetsförlopp: talet går inte att verifiera
+    # mot repot, och de utkasten finns inte kvar. Flaggat av §7-granskningen av
+    # skiva 45.*
+    #
+    # **VILLKORET `OCH STÅR PRISET I UNDERLAGET` ÄR LASTBÄRANDE.** Utan det säger
+    # regeln emot regel 5, som förbjuder varje pris utöver underlagets och
+    # beordrar beskedet att VI återkommer med prisuppgift när inget pris finns.
+    # En ovillkorlig regel 15 hade i samma andetag krävt ett pris och förbjudit
+    # det, i det läge `INGA_PRISER` renderas, alltså exakt lucka 52:s defektform.
+    # Bundet av `test_REGEL_15_kraver_INGET_PRIS_nar_underlaget_saknar_det`.
+    #
+    # **REGELN BÄRS AV PROMPTEN OCH INTE AV EN SPÄRR, och det är Lars order:
+    # bind regeln som de övriga.** Regel 9, 10 och 13 är byggda så, och ingen av
+    # dem har något `krav_pa_*`.
+    #
+    # *Här stod att INGEN SPÄRR KAN BÄRA DEN, med skälet att spärrarna fäller det
+    # ett svar PÅSTÅR och att ett utelämnat pris inte är en påstådd osanning. Det
+    # var FALSKT, och motexemplet står i samma modul: `krav_pa_ett_svar` fäller
+    # ett TOMT svar, alltså en ren utelämning. En spärr GÅR att bygga av det
+    # `Forfragan` redan bär. Fällt av §7-granskningen av skiva 45.*
+    #
+    # **SKÄLET ATT INTE BYGGA DEN ÄR VAD EN FÄLLNING KOSTAR.** En fälld spärr ger
+    # Lars INGET utkast i stället för ett utkast utan pris, alltså vore utfallet
+    # sämre än det regeln finns för att rätta. Samma avvägning som lucka 29:s
+    # åtgärd och som `PRISFOT`:s helhetskrav, båda promptregler av samma skäl.
+    #
+    # Verifikationen är därför en MÄTNING: `scripts/prisandel.py` räknar per
+    # körning hur många utkast som bär prisets båda gränser.
+    15: "FRÅGAR KUNDEN OM EN OMBYGGNAD TILL A-TRAKTOR OCH STÅR PRISET I "
+        "UNDERLAGET, SKRIV ALLTID VAD DEN KOSTAR. Det gäller ÄVEN när du inte "
+        "kan ge något besked om just den bilen. Att uppslaget är oklart, att en "
+        "uppgift saknas, eller att vi behöver titta närmare på bilen är inget "
+        "skäl att utelämna priset. Kunden vill veta vad en ombyggnad kostar "
+        "oavsett vad registret säger om just den bilen.",
 }
 
 
@@ -2297,6 +2348,124 @@ def test_REGEL_14_beordrar_en_form_som_PRISSPARREN_slapper_igenom():
             f"Ombyggnaden kostar {pris}, ring oss på {omskrivet}.", forfragan())
 
     assert fel.value.sparr == "genererat-tal-har-kalla"
+
+
+def test_REGEL_15_beordrar_en_form_som_SPARRARNA_slapper_igenom():
+    """REGEL 15 FÅR INTE BE OM DET SPÄRRARNA FÄLLER, i sitt EGNA läge.
+
+    **LÄGET ÄR DET REGELN FINNS FÖR**, alltså inte ett godtyckligt prissvar:
+    ett lyckat uppslag som läst `Draganordning: Nej`, ett svar som säger det och
+    att vi behöver titta närmare på bilen, OCH priset. Det är formen Lars läste
+    i vyn och saknade priset i.
+
+    Tre spärrar möts i just den texten, och därför prövas hela `krav_pa_svaret`
+    och inte prisgrenen för sig: frånvaropåståendet ska bäras av
+    `franvaro_far_pastas`, fordonsordet av att uppslaget lyckats, och priset av
+    `config/priser.json`.
+
+    **RADEN LÄSER DE RIKTIGA KONFIGFILERNA**, av samma skäl som regel 14:s: frågan
+    är om regeln går att lyda med just det pris och det nummer Lars beslutat.
+    """
+    pris = PRISER_SOM_LARS_BESLUTAT["a_traktorkonvertering"]
+    telefon = FAKTA_SOM_LARS_BESLUTAT["telefon"]
+
+    forfr = forfragan(
+        utfall=Utfall.GULT,
+        uppslag=Uppslag(tjanstevikt_kg=1400, slapvagnsvikt_kg=1500,
+                        draganordning=False),
+        franvaro_far_pastas=frozenset({"draganordning"}),
+    )
+
+    # PRISET ÅTERGES I SIN HELHET, alltså som `PRISFOT` kräver, och numret står
+    # i en egen mening, alltså som regel 14 kräver.
+    generera.krav_pa_svaret(
+        "Vi har tittat upp bilen och ser att den saknar registrerad "
+        "draganordning. Vi kan montera en om det behövs, men vi behöver titta "
+        "närmare på bilen innan vi kan ge ett säkert besked. En konvertering "
+        f"till A-traktor kostar {pris}. "
+        f"Ring oss på {telefon} så tittar vi på just den bilen.",
+        forfr,
+    )
+
+
+def test_REGEL_15_kraver_INGET_PRIS_nar_underlaget_saknar_det(monkeypatch):
+    """REGELNS VILLKOR ÄR LASTBÄRANDE, och utan det säger den emot regel 5.
+
+    **DET ÄR LUCKA 52:s DEFEKTFORM, spegelvänd.** Där förbjöd regel 5 det
+    `PRISRUBRIK` bad om. En ovillkorlig regel 15 gör tvärtom: den KRÄVER ett
+    pris i varje a-traktorsvar, medan regel 5 samtidigt förbjuder varje pris
+    utöver underlagets och beordrar beskedet att VI återkommer med prisuppgift.
+    Med `config/priser.json` tom är de två då varandras motsatser, och §9.1 säger
+    att utvägen inte är att skriva om texten efteråt.
+
+    Raden binder VILLKORET och dess premiss: att ett tomt underlag verkligen är
+    ett läge som inträffar, alltså att `INGA_PRISER` renderas och att regel 5:s
+    besked är det som gäller då.
+    """
+    regler = _reglerna_i_systemprompten()
+
+    assert "STÅR PRISET I UNDERLAGET" in regler[15], (
+        "regel 15 har tappat sitt villkor, alltså kräver den ett pris också när "
+        "underlaget saknar ett. Den säger då emot regel 5."
+    )
+    assert "Står inget pris i underlaget" in regler[5], (
+        "regel 5 har tappat sitt besked för det tomma fallet, alltså är regel "
+        "15:s villkor inte längre kopplat till något"
+    )
+
+    # OCH PREMISSEN: det tomma läget finns, och då står inget pris i underlaget.
+    _med_priser(monkeypatch, {})
+    assert generera._prisrader() == generera.INGA_PRISER
+    assert generera.INGA_PRISER in generera._underlag(forfragan())
+
+
+@pytest.mark.parametrize("har_uppslag", [True, False])
+def test_REGEL_15_kraver_priset_OCKSA_VID_ROTT_och_INGEN_SPARR_faller_det(
+        har_uppslag):
+    """REGELNS BREDD VID RÖTT, bunden därför att den annars är TYST.
+
+    **REGELN ÄR BREDARE ÄN DET FALL LARS NAMNGAV, och det är avsiktligt men
+    oavgjort.** Ordern lyder ALLTID, med skälet att kunden vill veta vad en
+    ombyggnad kostar `oavsett vad registret säger om just den bilen`, och den
+    namnger fallet `även när uppslaget inte gav ett entydigt besked`. Ett RÖTT
+    utfall är tvärtom ETT ENTYDIGT BESKED, alltså uttalar ordern sig inte om det.
+    Regelns två villkor håller ändå: kunden frågade om en ombyggnad, och priset
+    står i underlaget.
+
+    **FÖLJDEN ÄR ETT PRIS FÄST VID EN TJÄNST VI NEKAT.** `_utfallstext(ROTT)`
+    beordrar att svaret säger att bilen inte går att bygga om och bjuder kunden
+    med ett annat fordon. Regel 15 plus regel 14 lägger till vad en ombyggnad
+    kostar och en uppmaning att ringa. Ingen av spärrarna rör formen, vilket den
+    här raden MÄTER och inte antar: båda lägena passerar `krav_pa_svaret`.
+
+    **RADEN FINNS FÖR ATT BREDDEN SKA VARA UTSKRIVEN OCH INTE TYST.** Ett
+    undantag för RÖTT är Lars beslut, se `docs/beslutslogg.md` #107. Fattar han
+    det blir den här raden röd, och då ska den bli det: en inskränkning av regeln
+    är en ändring av sändvägstext och inte en förbigående rättelse.
+
+    **BÅDA LÄGENA PRÖVAS**, eftersom `_utfallstext` skiljer dem: med uppslag får
+    svaret ange bilens egna siffror, utan uppslag inget om bilen alls.
+
+    *Formen är OPRÖVAD I FÄLT. Körningen som följde beslutet bar noll RÖDA
+    utfall, se rapporten för skiva 45, alltså vilar raden på konstruerad text och
+    inte på ett läst utkast.*
+    """
+    pris = PRISER_SOM_LARS_BESLUTAT["a_traktorkonvertering"]
+    telefon = FAKTA_SOM_LARS_BESLUTAT["telefon"]
+
+    uppslag = Uppslag(tjanstevikt_kg=980, slapvagnsvikt_kg=600,
+                      draganordning=False) if har_uppslag else None
+
+    # INGEN VIKT NÄMND I SKÄLET, och det är inte för att slinka igenom en spärr.
+    # `krav_pa_belagt_franvaropastaende` fäller `släpvagnsvikten räcker inte
+    # till`, alltså det som `_utfallstext(ROTT)` med uppslag ber om. Det är
+    # lucka 55:s klass och rör inte regel 15, så raden håller sig utanför den.
+    generera.krav_pa_svaret(
+        "Bilen ser inte ut att gå att bygga om. Du är välkommen att höra av dig "
+        f"med ett annat fordon. En konvertering till A-traktor kostar {pris}. "
+        f"Ring oss på {telefon} så tittar vi på det.",
+        forfragan(utfall=Utfall.ROTT, uppslag=uppslag),
+    )
 
 
 # ------------------------------------------------- generera_utkast, helt
