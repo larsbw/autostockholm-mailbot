@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.12.8 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #100
+**Version:** 0.12.9 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #100
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -519,6 +519,32 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.12.9 — 2026-09-14
+
+**`Speglar` STÅR KVAR PÅ #100.** Varv 2 skapade ingen ny beslutspost. Avläst ur
+`grep -n "^## #" docs/beslutslogg.md`.
+
+**0.12.5-POSTEN BAR ETT KÄNT FALSKT TAL, i presens, i den här filen.** Den sade
+att en fällning av `_varden_ur`:s kommentarfilter gör 19 test röda. Talet är 20,
+och det var känt sedan varv 1 mätte om det i `docs/beslutslogg.md` #94. Rättat på
+plats med en not, och nu med sin svit utskriven.
+
+**0.12.8 PÅSTOD ATT DEN RÄTTELSEN VAR GJORD.** Den var gjord i beslutsloggen och
+inte här, alltså rättade posten ett fel i en fil medan samma fel stod kvar i den
+fil posten själv bor i. Det är §7:s rad om att ett känt falskt påstående rättas
+på alla tre nivåerna, och den här filen är nivå ett: den läses vid varje
+sessionsstart.
+
+**EN PROCESSRÄKNING ÄR STRUKEN UR 0.12.8.** "I FYRA PÅSTÅENDEN" räknar ett
+arbetsförlopp, vilket §7.2 förbjuder, och talet blev dessutom falskt av varv 2.
+
+**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
+är tom sedan 0.12.0.
+
+**§0:s styrdokumentlista är oförändrad.** Varv 2 skapade ingen ny fil.
+
+Rättade påståenden ⇒ PATCH.
+
 ### 0.12.8 — 2026-09-14
 
 **`Speglar` följer med till beslutslogg #100.** Avläst ur
@@ -541,11 +567,17 @@ säger emot sig själv. §11 gör promptens ordalydelse till Lars, och han ändr
 på sitt ord. 0.12.7 skrev bara att Lars gav förbehållet, vilket var sant men
 utelämnade det här.
 
-**§7.2 BRÖTS AV MIG I FYRA PÅSTÅENDEN, samtliga rättade i varv 1.** Ett tal
-skrivet av ur Lars brief i stället för läst ur repot, ett tal som blev oläst av
-skivans egen ändring i en grannfil, en tabell över en kommentars tal som
-föråldrats, och en slutsats dragen ur ett mått som inte mätte det den påstods
-mäta. Paragrafen är oförändrad.
+**§7.2 BRÖTS AV MIG, och varv 1 rättade det i beslutsloggen.** Ett tal skrivet av
+ur Lars brief i stället för läst ur repot, ett tal som blev oläst av skivans egen
+ändring i en grannfil, en tabell över en kommentars tal som föråldrats, och en
+slutsats dragen ur ett mått som inte mätte det den påstods mäta. Paragrafen är
+oförändrad.
+
+*Här stod "I FYRA PÅSTÅENDEN, samtliga rättade i varv 1". Båda leden föll i varv
+2: talet är en processräkning, som §7.2 förbjuder, och ett av de fyra var INTE
+rättat överallt. Fällningstalet stod kvar som 19 i presens i 0.12.5-posten i den
+här filen, medan `docs/beslutslogg.md` #94 hade rättat det till 20. Det är rättat
+nu. Fällt av §7-granskningen av skiva 42, varv 2.*
 
 **LUCKA 56 REGISTRERAD, se `docs/beslutslogg.md` #100.**
 
@@ -641,11 +673,18 @@ fyllt något, och den binder HELA nyckelmängden och inte bara ett fält.
 
 **§0:s ramverksregel 3 fick en verkställande rad till, prövad med en KÖRNING.**
 Filens kommentarer bär med flit talet `25 000 kr`. En fällning av `_varden_ur`:s
-kommentarfilter gör 19 test röda över hela sviten, bland dem ett som visar att
-just det talet då blir tillåtet i ett utgående mail. *Talet stod först som
-fjorton, avläst ur en delkörning, och rättades till sjutton i varv 1. Varv 2
+kommentarfilter gör 20 test röda, mätt mot skiva 42:s svit, bland dem ett som
+visar att just det talet då blir tillåtet i ett utgående mail. *Talet stod först
+som fjorton, avläst ur en delkörning, och rättades till sjutton i varv 1. Varv 2
 lade två kommentarnycklar i filen och räknade inte om det. Fällt av
 §7-granskningen av skiva 41, varv 1 och varv 3.*
+
+*Talet stod sedan som 19, och den lydelsen sade "över hela sviten" utan att
+säga vilken. Skiva 42 ändrade både filens kommentarer och svitens innehåll,
+alltså blev talet oläst i §7.2:s mening. Omkört: `20 failed, 1474 passed, 54
+skipped, 16 xfailed`. Fällt av §7-granskningen av skiva 42, varv 2, som också
+mätte att 0.12.8 påstod den här rättelsen gjord när den bara var gjord i
+`docs/beslutslogg.md` #94.*
 
 **§0:s styrdokumentlista är oförändrad.** `config/priser.json` står redan i §7.2
 och §10, och skiva 41 skapade ingen ny fil utöver den.

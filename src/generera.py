@@ -889,14 +889,28 @@ def _prisord_over_skarven(forsta: str, andra: str) -> bool:
     allmänna talloopen där uppslagets tjänstevikt är tillåten. Det är lucka 54:s
     egen defekt, flyttad ett steg.
 
-    **BARA MENINGSSKARVAR, ALDRIG `SATSBROTT`-SKARVAR.** Skarvens blanksteg
-    återställer vad `_delat_pa_mening` tog bort, ingenting annat.
-    `_delat_pa_satsbrott` KASTAR sin avskiljare, och en hopfogning över en sådan
-    skarv TILLVERKAR text som aldrig stått i svaret: *"Vi tar det exkl, men moms
-    är inräknad 1400."* bär inget prisord alls, men blir `exkl moms` när `, men `
-    faller bort, och då fälls en avläst tjänstevikt med motiveringen att den står
-    i en prismening som inte finns. Uppmätt av §7-granskningen av skiva 42,
-    varv 1. Skyddet ligger i anropsordningen i `_prissatser`, inte här.
+    **BARA MENINGSSKARVAR, ALDRIG `SATSBROTT`-SKARVAR.** `_delat_pa_satsbrott`
+    KASTAR sin avskiljare, och en hopfogning över en sådan skarv TILLVERKAR text
+    som aldrig stått i svaret: *"Vi tar det exkl, men moms är inräknad 1400."* bär
+    inget prisord alls, men blir `exkl moms` när `, men ` faller bort, och då
+    fälls en avläst tjänstevikt med motiveringen att den står i en prismening som
+    inte finns. Uppmätt av §7-granskningen av skiva 42, varv 1. Skyddet ligger i
+    anropsordningen i `_prissatser`, inte här.
+
+    **MENINGSSKARVEN ÄR OFARLIG DÄRFÖR ATT VARJE FLERORDSTERM ÄR BLANKSTEGSTÅLIG,
+    inte därför att hopfogningen återställer det som togs bort.**
+    `_delat_pa_mening` delar på `\\s+`, alltså ETT ELLER FLERA blanktecken, medan
+    hopfogningen skarvar med ETT mellanslag. Det är en NORMALISERING och ingen
+    återställning: `Det är inkl.\\n\\nmoms.` blir `Det är inkl. moms.`, en sträng
+    som inte stod i svaret. Den kan ändå varken skapa eller förstöra en
+    `PRISORD`-matchning, eftersom `inkl\\.?\\s*moms`, `exkl\\.?\\s*moms` och
+    `\\d\\s*tkr` alla tar godtyckligt många blanktecken med `\\s*`, och `_tal_i`
+    stryper `[\\s.,]`.
+
+    *Här stod att skarvens blanksteg "återställer vad `_delat_pa_mening` tog bort,
+    ingenting annat". Det är falskt för varje skarv med mer än ett blanktecken,
+    och meningen hade citerats vidare till två styrdokument och en testdocstring.
+    Fällt av §7-granskningen av skiva 42, varv 2.*
     """
     skarv = len(forsta)
     par = f"{forsta} {andra}"
@@ -933,10 +947,10 @@ def _prissatser(svar: str) -> list[str]:
     steg. Uppmätt av §7-granskningen av skiva 42, varv 1.
 
     **ORDNINGEN ÄR LASTBÄRANDE: MENINGAR, HOPFOGNING, SEDAN `SATSBROTT`.**
-    Hopfogningen får bara ångra en delning som tog bort blanktecken.
     `_delat_pa_satsbrott` kastar sin avskiljare, alltså skulle en hopfogning
-    efter den delningen TILLVERKA prisfraser som aldrig stått i svaret. Se
-    `_prisord_over_skarven`.
+    efter den delningen TILLVERKA prisfraser som aldrig stått i svaret. En
+    hopfogning över en MENINGSSKARV normaliserar däremot bara blanktecken, och
+    det kan inte ändra vilken pristerm som matchar. Se `_prisord_over_skarven`.
 
     **DET HÄR ÄR EN AVVÄGNING LARS GJORT, inte en gratis förbättring.** Varje
     hopfogning gör en sats större, och prisgrenen kräver att VARJE tal i en
@@ -953,9 +967,17 @@ def _prissatser(svar: str) -> list[str]:
     inträffa: de enda fleroordstermerna i `PRISTERMER` är `inkl. moms`,
     `exkl. moms` och `\\d\\s*tkr`, och ingen av dem kan rymma två klyvpunkter,
     eftersom `_delat_pa_mening` klyver vid `[.!?]` och `_delat_pa_satsbrott` vid
-    strängar som alla bär ett kommatecken. Bunden av
-    `test_varje_PRISTERM_overlever_delningen`. Uppmätt av §7-granskningen av
-    skiva 42, varv 1.
+    strängar som alla bär ett kommatecken. Invarianten den bar, att ett svar med
+    ett prisord alltid ger minst en sats att pröva, är bunden av
+    `tests/test_generera_monster.py::test_ett_PRISORD_i_tabellen_nar_ALLTID_prisgrenen`.
+    Uppmätt av §7-granskningen av skiva 42, varv 1.
+
+    *Raden namngav `test_varje_PRISTERM_overlever_delningen`, ett testnamn som
+    inte finns i repot: `grep -rn` gav en enda träff, citatet självt. Det är
+    samma form som beslutsradstabellen i `docs/sparrar.md` fälldes för i samma
+    skiva, en obefintlig kodrad utbytt mot en obefintlig testrad, och den satsen
+    är hela argumentet för att en sändvägsreserv fick tas bort. Fällt av
+    §7-granskningen av skiva 42, varv 2.*
     """
     delar = _delat_pa_mening(svar)
 

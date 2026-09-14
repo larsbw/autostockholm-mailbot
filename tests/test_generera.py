@@ -743,11 +743,17 @@ def test_en_SONDERKLYVD_prissats_provas_av_PRISGRENEN(monkeypatch, svar):
 def test_en_SATSBROTT_SKARV_fogas_ALDRIG_ihop(monkeypatch):
     """HOPFOGNINGEN FÅR ALDRIG TILLVERKA EN PRISFRAS SOM INTE STÅR I SVARET.
 
-    `_delat_pa_mening` tar bort BARA blanktecken, alltså går den att ångra.
     `_delat_pa_satsbrott` KASTAR sin avskiljare. Fogades en sådan skarv ihop med
     ett blanksteg blev *"Vi tar det exkl, men moms är inräknad 1400."* till
     `exkl moms`, och då fälldes en AVLÄST tjänstevikt med motiveringen att den
     står i en prismening. Texten bär inget prisord alls.
+
+    En hopfogning över en MENINGSSKARV normaliserar i stället bara blanktecken,
+    och kan varken skapa eller förstöra en pristerm, eftersom varje flerordsterm
+    tar godtyckligt många blanktecken med `\\s*`. *Här stod att meningsdelningen
+    "tar bort BARA blanktecken, alltså går den att ångra". Delningen tar ett
+    eller flera och hopfogningen skarvar med ett, alltså är det en normalisering
+    och ingen ångring. Fällt av §7-granskningen av skiva 42, varv 2.*
 
     Uppmätt av §7-granskningen av skiva 42, varv 1. Skyddet är ordningen i
     `_prissatser`: meningar, hopfogning, sedan `SATSBROTT`.

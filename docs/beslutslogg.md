@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.60.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
+**Version:** 0.60.1 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -5217,13 +5217,20 @@ läste kommentarnycklarnas tal. Mätt på `priser.json`:
 | tal som når `_tillatna_tal` ur filen | inga |
 | tal i filens RÅA innehåll, om filtret inte fanns | ~~`09`, `10`, `14`, `2026`, `25000`, `41`, `5`, `52`, `53`, `8`~~ se noten |
 
-*Uppräkningen är STRUKEN och ersätts inte. Skiva 42 skrev om två av filens
-kommentarnycklar på Lars beslut, och `grep -c` visar att `skiva 42`, `LUCKA 54`
-och `LUCKA 55` nu står i filen, alltså saknar raden minst tre tal. En tabell över
-en KOMMENTARS tal föråldras av varje redigering av kommentaren, och den ska
-därför inte stå som en lista. Det verifierbara är de två raderna ovanför, som
-båda mäter en EGENSKAP och räknas om av en körning. Fällt av §7-granskningen av
-skiva 42, varv 1.*
+*Uppräkningen är STRUKEN och ersätts inte. En tabell över en KOMMENTARS tal
+föråldras av varje redigering av kommentaren, och den ska därför inte stå som en
+lista. Det verifierbara är de två raderna ovanför, som båda mäter en EGENSKAP och
+räknas om av en körning. Fällt av §7-granskningen av skiva 42, varv 1.*
+
+*Listan var FEL REDAN NÄR DEN SKREVS, och den första strykningsnoten lade skulden
+på fel skiva. Den sade att `skiva 42`, `LUCKA 54` och `LUCKA 55` tillkom i skiva
+42. `git grep -c "LUCKA 54" a11b6c1 -- config/priser.json` och samma kommando för
+`LUCKA 55` ger båda en träff, alltså stod de två i filen redan före skivan, och
+skiva 42 tillförde bara talet `42`. Listan bar dessutom talet `8`, som aldrig har
+funnits i filen: `grep -c "8" config/priser.json` ger 0 och `git grep -c "8"
+a11b6c1 -- config/priser.json` ger ingen träff. Felet är alltså skiva 41 varv 3:s
+omkörning och inte skiva 42:s redigering. Fällt av §7-granskningen av skiva 42,
+varv 2.*
 
 **KOMMENTAREN BÄR MED FLIT ETT PRISFORMAT TAL.** `_formen` innehåller exemplet
 `25 000 kr`. En fällning av `_`-filtret gör **20 test röda**, mätt mot skiva 42:s
@@ -5234,7 +5241,8 @@ aldrig nycklar, hela vägen ned.
 
 *Talet stod som 19, mätt i skiva 41 varv 3. Skiva 42 ändrade BÅDE filens
 kommentarer och svitens innehåll, alltså är talet oläst i §7.2:s mening. Omkört:
-`20 failed, 1474 passed, 54 skipped, 16 xfailed`, rad 575 neutraliserad. Vilken
+`20 failed, 1474 passed, 54 skipped, 16 xfailed`, med raden
+`if str(namn).startswith("_"):` i `_varden_ur` neutraliserad. Vilken
 svit talet mättes mot står nu utskrivet, eftersom ett antal röda test utan sin
 svit inte går att räkna om. Fällt av §7-granskningen av skiva 42, varv 1.*
 
@@ -5392,8 +5400,7 @@ inkl. moms 1400."* PASSERADE, och 1400 är uppslagets tjänstevikt. Det är samm
 defekt en tredje gång, och `docs/incidentlogg.md` I10 bär formen. Fällt av
 §7-granskningen av skiva 42, varv 1.
 
-**ORDNINGEN ÄR LASTBÄRANDE: MENINGAR, HOPFOGNING, SEDAN `SATSBROTT`.** En
-hopfogning får bara ångra en delning som tog bort blanktecken.
+**ORDNINGEN ÄR LASTBÄRANDE: MENINGAR, HOPFOGNING, SEDAN `SATSBROTT`.**
 `_delat_pa_satsbrott` KASTAR sin avskiljare, alltså TILLVERKADE en hopfogning
 efter den delningen prisfraser som aldrig stått i svaret: *"Vi tar det exkl, men
 moms är inräknad 1400."* bär inget prisord alls, men blev `exkl moms` när
@@ -5401,6 +5408,14 @@ moms är inräknad 1400."* bär inget prisord alls, men blev `exkl moms` när
 står i en prismening som inte finns. En ny överblockeringsklass, införd av
 skivans egen första lydelse. Fällt av §7-granskningen av skiva 42, varv 1, och
 bunden av `test_en_SATSBROTT_SKARV_fogas_ALDRIG_ihop`.
+
+**MENINGSSKARVEN ÄR OFARLIG AV ETT ANNAT SKÄL ÄN DET SOM FÖRST SKREVS HÄR.**
+Hopfogningen normaliserar blanktecken i stället för att återställa dem:
+delningen tar `\s+`, alltså ett eller flera, och skarven sätter ett. Det som
+bär är att `inkl\.?\s*moms`, `exkl\.?\s*moms` och `\d\s*tkr` alla tar
+godtyckligt många blanktecken. *Här stod att en hopfogning "bara ångrar en
+delning som tog bort blanktecken", vilket är falskt för varje skarv med mer än
+ett. Fällt av §7-granskningen av skiva 42, varv 2.*
 
 **RESERVEN ÄR BORTTAGEN, och det är ett fynd och ingen förenkling.** Raden
 `if not satser and PRISORD.search(svar)` prövade hela svaret som en sats när
@@ -5492,9 +5507,16 @@ aldrig blir tillåtna tal i ett utgående mail.
 
 **DE VAR TVÅ, INTE FEM.** `git diff 3a7772c 675e619 -- config/priser.json` visar
 att varv 2 lade till `_las_detta_forst` och `_platt_fil` och skrev om
-`_nycklarna`. #95 säger ordagrant "två kommentarnycklar", och filen bär sex
+`_nycklarna`. #94 säger ordagrant "två kommentarnycklar", och filen bär sex
 `_`-nycklar totalt, alltså är fem varken antalet tillagda eller antalet
 kommentarer.
+
+*Meningen namngav först #95 som källa för citatet. `grep -n "två
+kommentarnycklar" docs/beslutslogg.md` ger fyra träffar, och ingen av dem ligger
+i #95: frasen står i #94, i versionsposten 0.59.0 och i `CLAUDE.md` 0.12.6. #95:s
+egen formulering är "Tilläggen är kommentarnycklar", utan räkneord. Rättelsen
+belade sig alltså mot en post som inte säger det, vilket är samma fel som den
+rättade. Fällt av §7-granskningen av skiva 42, varv 2.*
 
 *Lars brief till skiva 42 sade "Du lade fem av dem i varv 2", och jag skrev av
 talet i stället för att läsa det ur repot. §7.2 gäller också ett tal som kommer
@@ -5532,6 +5554,35 @@ Samma vakt gatar det, eftersom den kräver `str`.
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.60.1 — 2026-09-14
+
+**VARV 2 UNDERKÄNDE, och samtliga fynd låg i varv 1:s egen rättelsetext.**
+Sändvägslogiken höll: granskaren kunde inte konstruera ett hål i kedjefogningen.
+
+**#99 CITERADE #95 FÖR EN FRAS SOM INTE STÅR DÄR.** Frasen "två kommentarnycklar"
+står i #94, inte i #95. Rättelsen belade sig alltså mot fel post, vilket är samma
+fel som den rättade. Rättat på plats med en not.
+
+**#94:s STRYKNINGSNOT LADE SKULDEN PÅ FEL SKIVA.** `LUCKA 54` och `LUCKA 55` stod
+i `config/priser.json` redan vid `a11b6c1`, och skiva 42 tillförde bara talet
+`42`. Listan bar dessutom talet `8`, som aldrig funnits i filen. Felet var skiva
+41 varv 3:s omkörning. Rättat på plats med en not, båda leden verifierade med
+`git grep -c`.
+
+**#98:s SKÄL FÖR ATT MENINGSSKARVEN ÄR OFARLIG VAR FEL SKÄL.** Hopfogningen
+NORMALISERAR blanktecken, den återställer dem inte: delningen tar `\s+` och
+skarven sätter ett mellanslag. Det som bär är att varje flerordsterm tar
+godtyckligt många blanktecken med `\s*`. Samma falska mening hade citerats vidare
+till `src/generera.py`, `tests/test_generera.py` och `docs/sparrar.md`, och är
+rättad på alla fyra ställena.
+
+**EN RADHÄNVISNING BYTT MOT VILLKORETS TEXT.** Ett radnummer i en prövning
+föråldras av nästa docstringrad, vilket `docs/sparrar.md`:s ingress varnar för.
+
+**PROCESSRÄKNINGEN I 0.60.0:s SEMVER-RAD ÄR STRUKEN.**
+
+Rättade påståenden i committade poster ⇒ PATCH.
+
 ### 0.60.0 — 2026-09-14
 
 **#100 TILLKOMMER**, och skiva 42:s varv 1 rättade fem påståenden i redan
@@ -5553,7 +5604,10 @@ ur repot. §7.2 gäller också ett tal som kommer ur en order.
 `scripts/prismatning.py` mäter `texter_dar_hopfogningen_lopte`, eftersom
 `nya != gamla` inte var samma sak som att hopfogningen inte löpte.
 
-Ny post och fem rättade påståenden ⇒ MINOR.
+Ny post och rättade påståenden i committade poster ⇒ MINOR.
+
+*Raden räknade först de rättade påståendena. §7.2 förbjuder räkningar av ett
+arbetsförlopp, och talet blev dessutom falskt i varv 2, som rättade fler.*
 
 ### 0.59.0 — 2026-09-14
 
