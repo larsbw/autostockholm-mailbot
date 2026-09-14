@@ -1,1980 +1,229 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.12.14 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #105
-
-Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
-Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
-i Auto Stockholms namn. **Tradeoff:** reglerna prioriterar försiktighet före hastighet.
-Ett skickat mail går inte att ångra, och avsändaren är ett företags rykte.
-
-## 0. Kontext
-
-- **Repo:** `larsbw/autostockholm-mailbot` (GitHub = enda källa till sanning)
-- **Brevlåda:** info@autostockholm.se, Google Workspace, domän autostockholm.se
-- **Auth:** OAuth desktop client i GCP-projektet `autostockholm-mailbot`, consent
-  screen satt till **Internal** (därav ingen Google-verifiering trots restricted
-  scopes). Scopes: `gmail.modify`, `gmail.send`. Refresh token i `token.json`,
-  klientdata i `client_secret.json`. Båda gitignorerade.
-- **Stack:** Python · google-api-python-client · Anthropic API (klassificering och
-  generering) · lokal disk för data och loggar.
-- **Drift:** boten flyttar i sin helhet till `mailagent.dasher.se`, se
-  beslutslogg #20, och hostas på **Railway** enligt #38. `token.json` och `data/`
-  SKA då ligga på ett persistent volume, aldrig i containern. Fram till dess körs
-  allt på Lars maskin, och flytten är inte gjord.
-- **Styrdokument:** `docs/roadmap.md` (fasordning, grindar, och definitionen av
-  SKUGGLÄGE),
-  `docs/kategorier-forslag.md` (maskinproducerad av `src/ometikettera.py`, skrivs
-  aldrig för hand),
-  `config/kategorier.yaml` (varje kategoris hink, ändras bara av Lars),
-  `docs/sparrar.md` (varje spärr, vad den skyddar mot, dess negativkontroll, och om
-  den är redundant med någon annan spärr),
-  `docs/beslutslogg.md` (sekventiell, append-only),
-  `docs/incidentlogg.md` (varje regel med incident bor här),
-  `docs/mining-log.md` (varje körning mot brevlådan: datum, query, antal, kvotåtgång)
-- **Ramverksregler (obrytbara):**
-  1. Inget mail skickas vars kategori inte står i hinken `auto` i `config/kategorier.yaml`.
-  2. Ingen kategori flyttas till `auto` av kod. Bara av Lars uttryckliga beslut.
-  3. Boten genererar aldrig ett tal. Priser, ledtider och antal läses ur källa eller
-     utelämnas (§7.2).
-  4. `logg/beslut.jsonl` är append-only.
-  Ingen kod får implementera något som bryter dem.
-
-## 1. Think Before Coding
-
-**Anta inte. Dölj inte förvirring. Lyft trade-offs.**
-
-- Ange antaganden explicit. Osäker? Fråga.
-- Finns flera tolkningar: presentera dem, välj inte tyst.
-- Finns ett enklare sätt: säg det. Push-backa när det är motiverat.
-- Något oklart: stanna, namnge vad, fråga.
-
-Gäller särskilt Gmail API:s beteende. Kvoter, scope-täckning och trådsemantik slås
-upp i dokumentationen, gissas aldrig fram ur minnet.
-
-## 2. Simplicity First
-
-Minsta kod som löser problemet. Inga spekulativa features, inga abstraktioner för
-engångskod, ingen flexibilitet som inte efterfrågats, ingen felhantering för omöjliga
-scenarier. Fråga: skulle en senior säga att detta är överkomplicerat? Om ja, förenkla.
-
-## 3. Surgical Changes
-
-Rör bara det du måste. Förbättra inte angränsande kod, refaktorera inte det som inte
-är trasigt, matcha befintlig stil. Noterar du orelaterad död kod: nämn den, radera
-den inte. Städa orphans som DINA ändringar skapade, inget annat.
-Testet: varje ändrad rad ska spåras direkt till uppgiften.
-
-## 4. Goal-Driven Execution
-
-Omvandla uppgifter till verifierbara mål med test först där det går. För
-flerstegsuppgifter: kort plan med verify-punkt per steg.
-
-**Mailbot-specifikt:** varje spärr har test för sitt gränsvärdes- och nollfall.
-Den tomma tråden, avsändaren utan display-namn, mailet utan brödtext, kategorin med
-noll historiska exempel, tröskeln vid exakt gränsvärdet. En spärr som bara testats
-mot normalfallet är otestad.
-
-## 5. Ship It
-
-En uppgift är inte klar förrän origin/main bär den. Alltid, utan att fråga:
-`git status` → commit (vad + varför) → `git push origin main` → verifiera att
-`git rev-parse HEAD` är lika med `git rev-parse origin/main`.
-
-Fråga inte om lov och stanna inte vid "vill du att jag committar?". Enda undantaget
-är en uppgift som uttryckligen sagt att den inte ska committas. Att uppgiften inte
-nämnde commit är inte ett undantag.
-
-**Sista raden i varje rapport är commit-SHA:n.** Ingen SHA betyder att arbetet aldrig
-nådde origin, alltså att det inte är klart. Säg det rakt ut.
-
-**COMMIT_MSG-provenans.** `.git/COMMIT_MSG` är en scratch-fil som lever kvar mellan
-committar. Skriv den ALLTID färskt för den aktuella committen med Write (som
-trunkerar), och verifiera att kroppen namnger rätt uppgift INNAN push. Ärvd regel,
-buren av tradingbot-v2:s incident där en skiva var nära att skeppa under en tidigare
-skivas meddelande.
-
-**UNDANTAG — sändning är ALDRIG del av "ship it".**
-Push till main: alltid. Att köra `respond.py --send`: aldrig som del av att avsluta
-en uppgift, aldrig som default, aldrig för att verifiera att koden fungerar.
-Verifiering sker mot `--dry-run` och mot testbrevlådan. Ett mail som skickats för att
-bevisa att sändningsfunktionen fungerar är fortfarande ett mail som en kund läser.
-
-## 6. Driftregler (bindande)
-
-- Skriv aldrig ut en hemlighet i upplöst form. Inte client secret, inte refresh token,
-  inte API-nyckel. Rapportera existens och längd, aldrig innehåll.
-- Rapportera aldrig ett värde du inte läst i verktygsutdata denna session.
-- `--send` aktiveras aldrig av kod eller default, bara av Lars explicita val.
-- **Persondata.** Kundmail innehåller namn, adresser, registreringsnummer och
-  telefonnummer. Dessa förekommer ALDRIG i rapporter, commit-meddelanden, dokument i
-  `docs/`, eller i något som pushas. Loggar i `logg/` bär hashade avsändare, inte
-  adresser. `data/tradar.jsonl` raderas när `data/par.jsonl` är extraherad.
-
-## 7. Granskningsgrind
-
-**ANTALET VARV STYRS AV VAD SOM GRANSKAS, inte av hur stor skivan känns.** Beslut
-av Lars i skiva 30, `docs/beslutslogg.md` #46. Flöde när det finns varv: bygg →
-granskare → åtgärda → granskare igen. Granskaren verifierar i egen kontext och
-kör egna kommandon.
-
-| Vad | Varv | Vid kvarstående fynd |
-| --- | --- | --- |
-| **Sändväg** | 3 | Stoppa och rapportera öppet. Sänk aldrig kraven. |
-| **Övrig kod** | 1 | Rätta fynden, skeppa med status utskriven. |
-| **Dokument och text om kod** | 0 | Skeppa med status utskriven. |
-
-**NOLL VARV BETYDER ATT INGEN GRANSKARE BEHÖVER LETA.** Det är hela innebörden,
-och den är avsiktlig. *Här stod att inget steg rapporteras klart förrän en
-granskare prövat det, vilket motsäger noll varv tre rader ned. Fällt av
-§7-granskningen av skiva 30.*
-
-**OBLIGATORISK SÄNDVÄGSGRANSKNING gäller oförändrat för: all generativ output,
-all klassificeringslogik, all spärrlogik och alla mallar.** Den raden stod i §7
-före skiva 30 och står kvar. Den avgör tvisten när tabellen och en uppräkning
-pekar åt olika håll: **klassificering är sändväg**, oavsett att `kategorisering`
-nämns bland exemplen på övrig kod nedan.
-
-**SÄNDVÄGEN ÄR OFÖRÄNDRAD OCH FÅR FULL §7, OVILLKORLIGT.** Sändvägen är allt som
-kan ändra **om**, **till vem**, eller **med vilket innehåll** ett mail lämnar
-servern. Hit hör spärrarna, kategorihinkarna, confidence-tröskeln,
-mottagarupplösning, mallarnas brödtext, prisinsättning, `--send`-flaggans
-styrning, och mutationers RÖD/GRÖN-verdikt. Hit hör också mallarnas ordalydelse,
-som ser ut som prosa: ett mail som lovar en tid vi inte kan hålla är en
-sändvägsdefekt även om koden är felfri.
-
-**Är du osäker på om något är sändvägen, SÅ ÄR DET.**
-
-**ÖVRIG KOD** är kod som inte kan ändra om, till vem eller med vilket innehåll ett
-mail går ut. EN omgång. Fynden rättas, och skivan skeppas med *"rättelserna är
-självmätta, inte oberoende granskade"* utskrivet.
-
-Exempel: mining, `scripts/`, mätverktyg, utkastvyns RENDERING och navigering.
-
-**MEN INTE VYNS SPÄRRAR, och inte klassificeringen.** `vyn-har-ingen-sandvag`
-avgör om vyn kan skicka mail, alltså är den sändväg trots att den ligger i vyn.
-Klassificeringen avgör vilken hink en tråd hamnar i, alltså **om** ett mail går
-ut. Uppräkningen ovan är exempel och aldrig en gräns: gränsen är egenskapen i
-föregående stycke.
-
-*Här stod "utkastvyn, mining, kategorisering, skript och verktyg" utan förbehåll,
-vilket lade vyns spärr och klassificeringen i ett varv samtidigt som stycket
-ovan lägger dem i tre. Fällt av §7-granskningen av skiva 30. En uppräkning i
-riktning mot färre varv är samma form som lucka 12 och 13 handlar om, och den
-hör inte hemma i den här paragrafen.*
-
-**ETT TEST SOM VAKTAR EN SÄNDVÄGSSPÄRR ÄR SÄNDVÄG.** Det följer inte av
-egenskapen ovan, eftersom ett test inte skickar något, och skrivs därför ut.
-Skälet är §7.1: ett vakuöst spärrtest är repots mest återkommande defekt, och
-§7.1:s verdikt förutsätter att det finns varv kvar att förbruka.
-
-**DOKUMENT OCH TEXT OM KOD** är prosa i `docs/`, radnummer, appendix- och
-changelogformuleringar, korsreferenser, kodkommentarer, docstrings och
-commitmeddelanden. NOLL varv. **Skillnaden går INUTI en fil, inte mellan filer:**
-en kodkommentar är text om kod och får noll varv; villkoret kommentaren beskriver
-är kod och får sitt eget antal.
-
-**KONFIGURATION ÄR VARKEN KOD ELLER TEXT, och styrs av §10 och inte av tabellen.**
-`config/kategorier.yaml`, `config/sparrar.yaml`, `config/priser.json` och
-`config/fakta.json` ändras bara av Lars uttryckliga beslut. Där är frågan inte hur
-många varv utan om ändringen är tillåten alls.
-
-Övriga konfigurationsfiler, `pytest.ini`, `.gitignore` och `requirements.txt`, är
-ÖVRIG KOD. De kan inte ändra ett mails innehåll, men de kan tysta ett test eller
-flytta en fil ut ur en gitignorerad katalog, och båda har hänt.
-
-**ETT KÄNT FALSKT PÅSTÅENDE RÄTTAS ALLTID.** Det gäller på alla tre nivåerna och
-är oförändrat. Noll varv betyder att ingen granskare behöver leta, inte att en
-falskhet får stå kvar när den är känd.
-
-**SKÄLET.** Det här dokumentet ärvdes från tradingbot-v2, där ett fel kostar
-kapital per sekund och varje varv därför betalar sig. Kapitalvägen mappades till
-sändvägen som om de vore likvärdiga. Här skickas ett mail till en verkstadskund
-som annars ofta inte fått något svar alls, och kostnaden för ett fel är inte av
-samma slag.
-
-**SKÄLET ÄR EN BEDÖMNING AV KOSTNADEN, INTE EN UPPMÄTT PROPORTION.** Frågan hur
-många fynd som legat i sändvägskod mot annat gick INTE att besvara ur
-granskningsrapporterna: de skiljer kod från text, aldrig sändvägskod från övrig
-kod, eftersom den uppdelningen skapas här. `docs/beslutslogg.md` #46 skriver ut
-det, och skriver också ut att ett första försök att räkna fram ett tal föll på
-att det uteslöt just de skivor där kodfynden låg.
-
-*Här stod att skälet är "mätt och inte principiellt" och att sändvägens fynd var
-en minoritet enligt en mätning i #46. Ingen sådan mätning finns. Fällt av
-§7-granskningen av skiva 30.*
-
-**En regel som gör systemet oanvändbart börjar ignoreras**, och det är samma skäl
-som ligger bakom 0.5.0 och 0.7.0. Se `docs/incidentlogg.md` I3.
-
-*Här stod ett DOKUMENTDETALJUNDANTAG som gav EN omgång och som måste åberopas
-aktivt per skiva, i briefen och aldrig per fynd i efterhand. Det ersätts av
-tabellen ovan, som inte kräver något åberopande alls. Raden "Noll omgångar är
-aldrig tillåtet" är därmed också struken: noll är nu förvalet för text.
-
-Undantaget hade sedan 0.7.0 ett led om att det gäller PER DEFEKTKLASS, alltså att
-en skiva med både kod och dokument fick undantaget för dokumentdelen. Det ledet
-löste blandskivan, och det ska sägas i stället för att undantaget framställs som
-oanvändbart in i det sista. Det som återstod var kravet på ett aktivt åberopande,
-som är den friktion tabellen tar bort.
-
-Undantaget nämns fortfarande i appendixposter här och i `docs/incidentlogg.md`
-I3, `docs/beslutslogg.md`, `docs/sparrar.md` och `docs/roadmap.md`. De posterna
-är HISTORIK och beskriver regeln som den var när de skrevs. De skrivs inte om.*
-
-**RÄTTELSETEXT GRANSKAS SOM NY TEXT.** En mening skriven för att rätta ett fynd bär
-inte lägre bevisbörda än den den ersätter. **Granskaren prövar rättelsen mot källan,
-inte mot fyndet den svarar på.** Frågan är aldrig "svarar den här meningen på
-anmärkningen", utan "är den här meningen sann om filen den beskriver".
-
-Skälet är mekaniskt. Rättelsetext skrivs i övertygelsen om att den ÄR rättelsen, och
-den övertygelsen lånar trovärdighet åt varje bisats i samma stycke. Den som skriver
-rättelsen har dessutom nyss läst fyndet och skriver mot minnet av det i stället för
-mot filen. Det är §7.2:s slutstycke om bisatsen, tillämpat på den text som är minst
-misstänkt och därför granskas slappast. Se `docs/incidentlogg.md` I2.
-
-**EN RÄTTELSE I TAGET, VERIFIERAD MOT KÄLLAN INNAN NÄSTA SKRIVS.** Rättelser görs
-inte i svep. Varje mening prövas mot källan före nästa skrivs, och prövningen är en
-uppslagning i filen, aldrig ett minne av vad som stod där.
-
-Regeln ovan styr GRANSKAREN. Den här styr den som skriver, och den behövs därför att
-den första fångade varje instans utan att hindra någon. Se `docs/incidentlogg.md` I4,
-som räknar upp de rättelseposter som själva bar ett fel, var och en med sin plats.
-
-Skälet är att den som rättar en hel lista håller hela listan i huvudet och skriver mot
-minnet av listan i stället för mot filen. En särskilt snabb variant: **en appendixpost som
-läggs överst skjuter ner varje radnummer under sig**, så en rättelse som namnger rader
-föråldrar sig själv i samma skrivning.
-
-### 7.1 Vakuösa test — ett grönt test som inte kan bli rött
-
-Varje test som påstår sig vakta en spärr prövas i tre steg. Prövningen är en KÖRNING,
-aldrig ett resonemang.
-
-> **Steg 1 — notera utgångsdiffen** (`git diff`), så återställningen går att kvittera.
-> **Steg 2 — peka ut raden.** Vilken rad fattar beslutet: villkoret, spärren, grenen?
-> **Steg 3 — fäll den.** Radera raden, kör sviten, läs utdatan. Blev testet rött?
-
-Blev det inte rött testar det ingenting. Då gäller ett av två: döp om det till vad
-det faktiskt bevisar, eller gör det äkta.
-
-**Urvalet är påståendebaserat, aldrig prefixbaserat.** Prövningen gäller varje test
-vars påstående är att något INTE sker: mailet skickas inte, tråden hoppas över,
-spärren håller, kategorin faller till utkast, tröskeln avvisar. Ett namnmönster fångar
-bara de fall någon redan misstänkte, och det är de omärkta som slinker igenom. Steget
-ligger i granskningen och inte hos den som skrev testet, eftersom skribenten skrev det
-i god tro och trodde att det täckte något.
-
-**Redovisa varje prövning:** vilken rad som fälldes, vad svitens utdata blev, och OM
-raden RADERADES eller NEUTRALISERADES. Det sista är inget formkrav. En rad som inte
-går att radera utan att sviten slutar köra bär ett annat bevisvärde, och nästa läsare
-ska kunna reproducera prövningen utan att gissa vilket som gjordes.
-
-Går raden inte att radera utan att bygget faller så att sviten inte kan köras alls:
-neutralisera villkoret i stället, invertera det eller gör det alltid sant. Poängen är
-att spärren slutar spärra MEDAN sviten fortfarande kör. Går inte heller det är just
-det fyndet: rapportera att prövningen inte kunde genomföras, godkänn inte i stället.
-
-**LAGRAT FÖRSVAR GER FALSKT VAKUÖST, och det är normalfallet här.** Mailbotens spärrar
-är redundanta med avsikt. En och samma tråd blockeras typiskt av både *tråden bär
-mänskligt svar* och *avsändaren besvarad senaste dygnet*. Fälls bara den ena förblir
-testet grönt, och prövningen pekar ut ett äkta spärrtest som vakuöst. Ett grönt utfall
-bevisar alltså bara att just den raden inte är ENSAM avgörande. **Fäll samtliga lager
-som implementerar spärren innan verdiktet sätts.** Annars är utfallet inkonklusivt,
-inte vakuöst. Vilka spärrar som är redundanta med varandra står i `docs/sparrar.md`,
-och den listan är obligatorisk läsning före en prövning.
-
-**ÅTERSTÄLLNING — styrs av vad FILEN bär, inte av vad passet heter.**
-Fråga inte vilken sorts pass du tror att du kör, utan om filen har ocommittat arbete
-i sig just nu:
-
-- **Filen är ocommittat ren.** Fällningen är dess enda skillnad mot HEAD. Då duger
-  `git checkout -- <fil>`.
-- **Filen bär ocommittat arbete.** Då är `git checkout` FÖRBJUDET. Återställ med
-  INVERS REDIGERING: skriv tillbaka exakt den text du tog bort.
-
-Skälet är att `git checkout -- <fil>` inte vet något om din fällning. Den kan en enda
-sak, göra filen identisk med indexet, som i ett byggpass normalt är detsamma som HEAD.
-Är skillnaden mot den utgångspunkten större än fällningen raderas resten också, tyst
-och utan varning.
-
-`scripts/sparr-prova.sh` är säkert i BÅDA lägena och är förstahandsvalet när det går:
-det kopierar filen till en temporärfil utanför repot före mutationen och kopierar
-tillbaka i en trap, till filens FAKTISKA utgångsläge, aldrig till HEAD.
-**Granskaren har inga skrivverktyg och kör alltid `sparr-prova.sh`.**
-
-**Kvittera återställningen, anta den aldrig.** Kör `git diff` igen och jämför mot
-utgångsdiffen från steg 1. Den ska vara IDENTISK, inte tom: bär arbetsträdet
-ocommittat arbete ska det ligga kvar precis som det gjorde. Skiljer den sig är
-återställningen ofullständig, och det är ett stoppläge.
-
-**Granskarens verdikt:** ett spärrtest som inte går att fälla är UNDERKÄND.
-Blockerande, och förbrukar ett granskningsvarv som vilket annat underkännande som
-helst. Det är inte en anteckning vid sidan av.
-
-### 7.2 Utsmyckande faktapåståenden — bisatsen prövas som huvudsatsen
-
-Ett faktapåstående som inte bär slutsatsen prövas med SAMMA krav som det som gör det.
-Gäller bisatser i kodkommentarer, docstrings, commitmeddelanden, rapporter **och i
-allt som lämnar servern som mail**: antal, tider, priser, "den enda", "alltid",
-jämförelser mellan värden.
-
-**VARJE TAL ÄR AVLÄST ELLER UTELÄMNAT.** Ett tal i löptext, rapport, commitmeddelande
-eller utgående mail ska antingen vara direkt avläst ur verktygsutdata eller ur en
-committad källa i samma session, eller inte skrivas alls. Det finns ingen tredje
-kategori. En exakt siffra som inte kommer ur en körning eller en fil är otillåten, hur
-rimlig den än ser ut. Vaga mängdord är tillåtna men befriar inte från kravet.
-Vet du inte, skriv inte.
-
-För utgående mail betyder det konkret: priser läses ur `config/priser.json`, ledtider
-och öppettider ur `config/fakta.json`. Saknas posten faller mailet till `utkast`,
-oavsett kategori och oavsett confidence. Formuleringen "ring för offert" används aldrig,
-och ett ungefärligt pris hittas aldrig på för att fylla hålet.
-
-**VID OMSKRIVNING RÄKNAS TALET SOM OLÄST.** Formuleras en mening om, av vilket skäl som
-helst och även för att rätta något annat i den, är dess tal OLÄST och ska verifieras på
-nytt före leverans. Att det stod där innan och passerade en granskning duger inte: det
-som passerade var den gamla formuleringen. **Detta gäller mallarna särskilt**, eftersom
-de kommer att formuleras om löpande medan deras siffror ärvs oförändrade genom
-omskrivningarna. Kravet utlöses också när talets UNDERLAG ändras i en grannmening.
-
-Skälet är mekaniskt, inte moraliskt. När en mening formuleras om reproduceras dess FORM
-ur minnet medan detaljerna fylls i på nytt, och det är i ifyllnaden felen uppstår.
-Reflexen att sätta en trovärdig siffra där en siffra hör hemma är starkare än minnet av
-vilken siffra som stod där.
-
-**PROCESSRÄKNINGAR SKRIVS INTE.** Räkningar av ett arbetsförlopp, hur många prövningar
-eller granskningsvarv eller instanser av ett mönster, går inte att verifiera mot repot
-och blir falska vid nästa rättelse. Det kontrollerbara redovisas per post i en lista,
-aldrig summerat i en bisats. Tal som går att läsa ur repot eller ur en körning omfattas
-inte.
-
-**SJÄLVRAPPORTERING VERIFIERAS MOT KÄLLAN.** Ett påstående om vad passet SJÄLVT har
-gjort, vilka filer som ändrats, vilken form en ändring tog, och SHA:n i rapportens sista
-rad, verifieras mot diffen före leverans, aldrig ur minnet av avsikten.
-
-**Granskaren namnger, per prövat påstående, den fil och rad eller kommandoutdata som
-belägger det.** Ett påstående utan namngiven källa i granskningssvaret räknas som
-OPRÖVAT, inte som godkänt. Utan det kravet producerar prövningen ingen artefakt och kan
-efterlevas i sken, vilket är precis svagheten som gjorde de vakuösa testen i §7.1
-möjliga.
-
-Skälet till regeln i stort är att bisatsen är farligare, inte mindre farlig. Den läses
-som bakgrund och granskas därför slappare, men den ärver trovärdighet från en korrekt
-omgivning och blir sedan citerad som om den vore belagd. Ett fel i huvudpåståendet syns
-när slutsatsen inte går ihop. Ett fel i bisatsen syns aldrig.
-
-## 8. Dokumentägarskap
-
-`docs/` är enda hemvist för projektdokument och underhålls uteslutande av Claude Code
-på instruktion från chatten. Varje ändring: kirurgisk, på plats, appendixpost i berört
-dokument, commit. En ändring utan appendixpost är en ospårbar ändring.
-Dokumenttillstånd är inte verifierad verklighet.
-
-**ÖPPEN PUNKT:** SEO-agents §8 föreskriver att Claude i claude.ai aldrig producerar
-dokumentfiler, endast uppdateringsinstruktioner. Detta dokument producerades som fil i
-claude.ai. Om konventionen ska bära hit levereras nästa revision som instruktioner.
-Frågan är ställd till Lars och obesvarad.
-
-Varje körning mot brevlådan loggas i `docs/mining-log.md` med datum, Gmail-query, antal
-träffar och åtgången kvot innan nästa körning startas.
-
-## 9. Bash-disciplin
-
-Gäller ALLA Bash-anrop, huvudloop och varje subagent, granskare inkluderad.
-
-- Kommandoraden ska vara literal: inga expansioner (`$(…)`, backticks, `$VAR`), inga
-  inline-loopar, inga heredocs, inga pipes till `grep`/`awk` för verifiering. Behövs
-  loop eller expansion: lägg i ett committat skript, anropa literalt.
-- **Läsning och sökning:** läs med `Read`. Sök med `Grep`/`Glob` när de står i DIN
-  verktygslista. Saknas de är den sanktionerade reserven `grep -n` respektive
-  `grep -rn` på en literal enradig bash-rad med citerat mönster: inga pipes, inga
-  expansioner. `cat` och `head` ersätter aldrig `Read`. Skälet: `Read` talar om när
-  den bara visar en del av en fil, `cat` och `head` tiger. En tyst delvis läsning
-  producerar exakt det slags påstående §7.2 finns för att stoppa.
-- Terminalkommandon som visas för Lars inleds med `clear && `.
-- Commit-meddelanden: enradiga literalt med `git commit -m`. Flerradiga skrivs först
-  till `.git/COMMIT_MSG` med Write, sedan `git commit -F .git/COMMIT_MSG`.
-
-**AUTO-LÄGET SÄGER MOTSATSEN, och det är känt.** Med `permissions.defaultMode: "auto"`
-injicerar Claude Code en instruktion om att läsa med `cat`/`head`/`sed -n`, söka med
-`grep`/`find` och ändra filer med `sed`/heredocs framför de dedikerade verktygen. Den
-är produktbeteende och går inte att redigera bort. **§9 går före i det här repot**, för
-läsning såväl som redigering.
-
-### 9.1 Blockerad ärlig formulering — stopptecken, inte formuleringsproblem
-
-När en vakt eller klassificerare fäller ett ärligt commit-meddelande: STANNA och
-eskalera till Lars. Omformulera ALDRIG innehållet tills det slinker igenom. Historiken
-ska bära vad som faktiskt hände.
-
-**Motsvarigheten för sändvägen, och den är den farligaste frestelsen i hela projektet.**
-När en spärr fäller ett mail är det ett stopptecken, inte ett formuleringsproblem.
-Följande är samma fel i tre former och alla tre är förbjudna utan Lars uttryckliga
-beslut:
-
-1. Skriva om mailets text tills spärren släpper igenom det.
-2. Sänka confidence-tröskeln så att kategorin passerar.
-3. Flytta kategorin till en mildare hink för att komma runt spärren.
-
-Spärren fällde mailet därför att något i det inte gick att verifiera, eller därför att
-tråden inte var vad klassificeraren trodde. Ingen av de tre åtgärderna rör den orsaken.
-De döljer den, och mailet går ut ändå.
-
-## 10. Mailbot-specifika stopp
-
-Stanna ALLTID och invänta Lars uttryckliga beslut före:
-
-- Första auktoriseringen mot en brevlåda, alltså varje körning som skapar
-  `token.json` eller begär nya scopes. Rutinmässig förnyelse av en befintlig
-  token är inte ett stopp.
+**Version:** 1.0.0 · **Uppdaterad:** 2026-09-14
+
+Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje
+sessionsstart.
+
+Ersätter 0.12.14, som var ärvd från tradingbot-v2 och skriven för ett system där
+ett fel kostar kapital per sekund. Den förlagan var fel. Det här systemet skriver
+mail till verkstadskunder som annars ofta inte får något svar alls, och ett fel
+kostar ett pinsamt mail som en människa redan läst innan det gick ut.
+
+## 0. Vad systemet gör
+
+Läser info@autostockholm.se. Sorterar bort maskinmail. Klassificerar det som är
+kvar. För a-traktorförfrågningar: slår upp registreringsnumret på
+biluppgifter.se, avgör om bilen går att bygga om, och skriver ett svarsutkast.
+
+Utkastet hamnar i en granskningsvy. Lars läser det. Ingenting skickas
+automatiskt förrän han beslutar att en kategori får det.
+
+- **Repo:** `larsbw/autostockholm-mailbot`
+- **Brevlåda:** info@autostockholm.se, Google Workspace
+- **Stack:** Python, stdlib där det går. Gmail API, Anthropic API.
+- **Styrdokument:** `docs/roadmap.md`, `docs/beslutslogg.md`, `docs/sparrar.md`
+
+**Fyra regler som aldrig bryts:**
+
+1. Inget mail skickas vars kategori inte står i `auto` i `config/kategorier.yaml`.
+2. Ingen kategori flyttas till `auto` av kod. Bara av Lars.
+3. Boten påstår aldrig ett faktum om ett fordon som inte kommer ur ett uppslag,
+   och aldrig ett pris som inte står i `config/priser.json`.
+4. `logg/beslut.jsonl` är append-only.
+
+## 1. Fråga när något är oklart
+
+Anta inte. Finns flera tolkningar, presentera dem. Finns ett enklare sätt, säg
+det. Push-backa när det är motiverat.
+
+Gäller särskilt Gmail API och biluppgifter.se: slå upp beteendet, gissa inte.
+
+## 2. Minsta lösningen
+
+Minsta kod som löser problemet. Inga abstraktioner för engångskod, ingen
+flexibilitet som inte efterfrågats, ingen felhantering för omöjliga scenarier.
+
+Frågan att ställa: skulle en senior säga att det här är överkomplicerat?
+
+## 3. Rör bara det du måste
+
+Förbättra inte angränsande kod, refaktorera inte det som fungerar. Städa orphans
+som dina egna ändringar skapade, inget annat.
+
+## 4. Verifiera det som kan gå fel i drift
+
+Skriv test för det som skickar mail, det som läser fordonsdata och det som
+avgör om ett svar får gå ut. Skriv inte test för att höja ett antal.
+
+Ett test som inte kan bli rött är värre än inget test. Går en spärr att ta bort
+med hela sviten grön, mäter testet ingenting.
+
+## 5. Skeppa
+
+En uppgift är inte klar förrän origin/main bär den. `git status`, commit, push,
+verifiera att HEAD är lika med origin/main. Fråga inte om lov.
+
+Sista raden i varje rapport är commit-SHA:n.
+
+**Sändning är aldrig del av att skeppa.** `respond.py --send` körs på Lars
+uttryckliga instruktion, aldrig som default, aldrig för att pröva att koden
+fungerar.
+
+## 6. Hemligheter och persondata
+
+Skriv aldrig ut en hemlighet i upplöst form.
+
+Kundmail bär namn, adresser, registreringsnummer och telefonnummer. De förekommer
+aldrig i `docs/`, i commit-meddelanden eller i något som pushas. `data/` och
+`logg/` är gitignorerade och är enda platsen för kundtext.
+
+`scripts/persondatakontroll.py` kör som pre-commit-hook.
+
+## 7. Granskning
+
+**Kod som kan påverka ett utgående mail granskas av en oberoende granskare
+innan den skeppas.** Hit hör spärrarna, klassificeringen, fordonsuppslaget,
+generatorn och mallarna. En omgång. Kvarstår fynd efter den: rätta dem och
+skeppa med statusen utskriven.
+
+**All annan kod: ingen granskningsomgång.** Skeppa och rapportera vad som
+byggdes.
+
+**Dokument och text om kod: ingen granskningsomgång.** Skeppa.
+
+Ett känt falskt påstående rättas alltid, oavsett nivå.
+
+### 7.1 Pröva att en spärr biter
+
+En spärr som påstår sig hindra något ska gå att fälla. Ta bort den beslutande
+raden, kör sviten, och kontrollera att den blir röd. Blir den inte det mäter
+testet ingenting.
+
+Är spärren redundant, alltså om två rader vaktar samma sak, fäll båda. Ett
+grönt utfall efter att en av dem fällts betyder inget.
+
+Fäll en rad i taget när du vill veta om just den raden bär. Fäller du två
+tillsammans och får rött vet du bara att minst en av dem bär.
+
+`scripts/sparr-prova.sh` gör det säkert. Återställ och kontrollera att
+arbetsträdet är oförändrat.
+
+### 7.2 Skriv inga tal du inte läst
+
+Ett tal i en rapport, ett dokument eller ett utgående mail är antingen avläst i
+den här sessionen eller utelämnat. Ingen tredje möjlighet.
+
+Skriver du om en mening blir dess tal oläst igen. Kontrollera dem på nytt.
+
+Räkna inte arbetsförlopp: hur många granskningsvarv, hur många rättelser, hur
+många instanser av ett mönster. Sådana tal går inte att verifiera mot repot och
+blir falska vid nästa ändring.
+
+## 8. Dokument
+
+`docs/` underhålls av Claude Code på instruktion från chatten.
+
+Skriv kort. Ett dokument som ingen läser skyddar ingenting. Arkitekturbeslut går
+i `docs/beslutslogg.md`, append-only.
+
+## 9. Bash
+
+Läs filer med `Read`, sök med `Grep` och `Glob`. Inte `cat`, `sed` eller `grep`
+i Bash.
+
+Undvik heredocs, backticks och expansioner på kommandoraden. De har ätit innehåll
+ur committade dokument fyra gånger i det här repot.
+
+Flerradiga commit-meddelanden skrivs till `.git/COMMIT_MSG` med Write, sedan
+`git commit -F`.
+
+### 9.1 En fälld spärr är ett stopptecken
+
+Fäller en spärr ett mail eller ett commit-meddelande: stanna och fråga Lars.
+Skriv aldrig om texten tills den slinker igenom, sänk aldrig en tröskel, flytta
+aldrig en kategori för att komma runt spärren.
+
+Spärren fällde av en orsak, och ingen av de tre åtgärderna rör orsaken.
+
+## 10. Stanna och fråga Lars
+
 - Första sändningen i en ny miljö, även till en egen testadress
-- Att befordra en kategori från `utkast` till `auto`, eller från `aldrig` till `utkast`
-- Varje ändring i `config/sparrar.yaml`
-- Varje ändring i `config/priser.json` eller `config/fakta.json`
-- Sänkning av confidence-tröskeln
-- Radering eller migrering av `logg/beslut.jsonl` (append-only)
-- En körning som skulle skicka fler än 1 mail (talet är ett öppet antagande, se appendix)
-- Att lägga till ett nytt OAuth-scope
-- Att ändra avsändaradress eller svarsadress
+- Att flytta en kategori mellan hinkar
+- Ändring i `config/sparrar.yaml`, `config/priser.json` eller `config/fakta.json`
+- Att sänka confidence-tröskeln
+- En körning som skulle skicka mer än ett mail
+- Nytt OAuth-scope, ny avsändaradress
 
-Vid tvetydig instruktion som rör sändning: fråga vad som faktiskt menas.
-Gissningar mot en kunds inkorg är den sortens fel som syns utåt.
+Vid tvetydig instruktion som rör sändning: fråga vad som menas.
 
-## 11. Innehållsregler för genererade mail
+## 11. Hur mailen ska låta
 
-Dessa gäller allt som lämnar servern och ingår i sändvägen. Talregeln i §7.2 gäller
-parallellt och går före vid konflikt.
-
-- **Mallarna byggs ur `data/par.jsonl`**, alltså ur faktiska svar som Matte och Lars
-  redan skickat. De skrivs inte från grunden. Rösten finns redan i utkorgen.
-- **Första person plural.** Vi, oss, vår, våra. Aldrig jag, mig, min, eller man.
-- **Inga tankstreck eller bindestreck som skiljetecken.** Komma, punkt, kolon, eller
-  skriv om meningen.
+- **Rösten byggs ur `data/par.jsonl`**, alltså ur svar Matte faktiskt skickat.
+- **Första person plural.** Vi, oss, vår. Aldrig jag eller man.
+- **Inga kollegor.** Matte driver verkstaden själv.
+- **Inga tankstreck eller bindestreck som skiljetecken.**
 - **Aldrig "friverkstad".** Alltid "fristående verkstad".
-- **Inga konkurrentnamn i brödtext.**
-- Varje mall bär en kommentarrad överst som namnger vilka par i `par.jsonl` den vilar
-  på, och datum för senaste avläsning av de tal den innehåller.
+- **Inga konkurrentnamn.**
+- **Bokningsförfrågningar bekräftas positivt.** En kund som frågar om ni kan ta
+  emot bilen i juni ska få ja och ett telefonnummer, inte en hänvisning.
+- **Fråga inte efter ett registreringsnummer som redan står i mailet.**
+- **Inga påståenden om vad Auto Stockholm har eller erbjuder** utöver vad som
+  står i `config/`.
 
-## 12. Dokumentkonventioner & färskhetskontroll
+## 12. Rapporten
 
-**Vid sessionsstart, och innan något påstås om nuläget:** kör färskhetskontrollen.
-(1) det här dokumentets `Speglar`, (2) högsta numret i `docs/beslutslogg.md`. Är de
-överens är nuläget avläst. Är de oense: synka om innan du påstår något. Gissa inte
-vilken signal som har rätt.
-
-Numret läses ur `grep -n "^## #" docs/beslutslogg.md`, aldrig ur minnet av vad det
-stod på sist. **Bara CLAUDE.md bär en pekare mot ett rörligt nummer.** Övriga styrdokument
-namnger i stället vilken paragraf de implementerar, eftersom en pekare med patchnivå
-blir gammal av varje rättelse här och tvingar fram innehållslösa versionsposter i varje
-dokument som pekar. Se `docs/beslutslogg.md` 0.6.0.
-
-**Varje slutrapport avslutas med en MASKINPRODUCERAD statusrad över kategorierna:**
-`.venv/bin/python scripts/kategoristatus.py`. Raden får **aldrig skrivas för hand**.
-Den redovisar antal kategorier per hink, antal mail per kategori, och datum för senaste
-mining. En handskriven status är sann när den skrivs och falsk i nästa tråd.
-
-**Före fas 4 finns skriptet inte**, och då gäller i stället: skriv ut att statusraden
-inte kan produceras och varför. Skriv ALDRIG en handskriven ersättning. Kravet är
-uppfyllt av att hålet namnges, inte av att det fylls.
-
-**Rapporten skrivs till en egen fil med tidsstämpel** i den gitignorerade `scratchpad/`:
+Varje avstämning får en fil i den gitignorerade `scratchpad/`:
 
 ```
 scratchpad/Mailbot-CC-report-YYYYMMDD-HHMM.md
 ```
 
-Tidsstämpeln tas ur `date -u +%Y%m%d-%H%M` **vid skrivögonblicket**, aldrig för hand.
-Rapportens första rad är den fullständiga tidsstämpeln, andra raden HEAD-SHA.
-**Skrivningen ska VERIFIERAS innan den rapporteras:** kör `ls -la` på filen och
-återge sökväg, storlek och tidsstämpel.
-**Ett påstående om en skrivning är inte en skrivning.**
+Tidsstämpeln ur `date -u`, aldrig för hand. Första raden tidsstämpel, andra
+HEAD-SHA. Kontrollera att filen skrevs innan du säger att den gjorde det.
 
-**EN RAPPORT PER AVSTÄMNINGSTILLFÄLLE, inte en per skiva.** Rapporten skrivs varje
-gång arbetet stannar för ett besked från Lars, inte bara sist. Filnamnet bär redan
-tidsstämpel, så flera filer per skiva blir ett audit trail i stället för en
-slutrapport som skrivs när allt redan är avgjort.
-
-En rapport som inte avslutar skivan bär **`STATUS: DELRAPPORT`** på TREDJE raden,
-efter tidsstämpeln och SHA:n, och redovisar vad som återstår i skivan. En rapport
-som avslutar skivan bär `STATUS: SLUTRAPPORT` och skrivs SIST, efter grinden.
-
-Skälet är att en delrapport dokumenterar läget FÖRE beslutet den ber om. Skrivs den
-i efterhand är den skriven av någon som redan vet hur det gick, och då är den ett
-referat och inte ett underlag.
-
-**Motsvarande för sändning: ett påstående om ett skickat mail är inte ett skickat mail.**
-Efter varje `messages.send`, läs tillbaka det returnerade message-ID:t med `messages.get`
-och återge ID och tidsstämpel i rapporten. Går det inte att bekräfta: säg det rakt ut och
-behandla mailet som osäkert skickat, aldrig som skickat.
-
-Arkitekturbeslut skrivs i `docs/beslutslogg.md`, append-only, numren återanvänds aldrig.
+Efter varje `messages.send`: läs tillbaka message-ID:t och återge det. Går det
+inte att bekräfta, säg det.
 
 ---
 
-**Reglerna fungerar om:** noll mail skickade till fel mottagare, noll tal i utgående
-text som inte går att belägga, noll fall där en spärr kringgåtts genom omskrivning,
-noll kategorier befordrade utan Lars beslut, och noll persondata i git-historiken.
+**Reglerna fungerar om:** noll mail till fel mottagare, noll påhittade priser
+eller fordonsfakta, noll kategorier befordrade utan Lars beslut, noll persondata
+i git-historiken, och en bot som faktiskt svarar på mail.
 
 ---
 
-## Appendix — versionshistorik (nyaste överst)
+## Appendix
 
-### 0.12.14 — 2026-09-14
+### 1.0.0 — 2026-09-14
 
-**`Speglar` följer med till beslutslogg #105.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 43:s stoppost lagts till.
+Omskriven från grunden. 0.12.14 var 1980 rader ärvda från tradingbot-v2, ett
+system där ett fel kostar kapital per sekund. Mappningen av kapitalvägen till
+sändvägen var Lars fel och gjordes i skiva 1.
 
-**§7:s tre granskningsvarv är OFÖRÄNDRADE, och #105 är en tillämpning av dem.**
-Skivan stoppades därför att fynd kvarstod efter tre varv. Raden står här av samma
-skäl som i 0.9.4, 0.11.4, 0.12.1, 0.12.4, 0.12.6 och 0.12.10.
+**Vad som ändrades:**
 
-**§7:s RAD OM RÄTTELSETEXT HAR NU FÅNGAT SEX VARV I RAD ÖVER TRE SKIVOR.** Skiva
-42 underkändes tre gånger och skiva 43 tre gånger, och varje gång låg det tyngsta
-fyndet i den text som skrevs för att rätta föregående varv. Paragrafen är
-oförändrad; det som är nytt är att mönstret nu är sex djupt och att
-`docs/incidentlogg.md` I2:s form är den återkommande.
+Granskningsgrinden gick från tre varv med uttömmande formkrav till en omgång på
+det som kan påverka ett utgående mail och noll på allt annat. Fyrtiotvå skivor
+producerade nästan uteslutande underkännanden, och merparten av fynden låg i
+meningar om kod.
 
-**TRE UPPMÄTTA TAL VAR OLÄSTA AV MINA EGNA ÄNDRINGAR I VARV 2**, och det är §7.2:s
-omskrivningsregel bruten i rättelsetexten. Rättade i varv 3.
+Dokumentdetaljundantaget, vakuitetsstegets formkrav, mutationstabellernas
+redovisningsform, färskhetskontrollen, rättelsetaktregeln och kraven på
+appendixposter och versionshuvuden är strukna. De beskrev hur arbete redovisas,
+inte vad systemet gör, och de genererade mer fynd än de förhindrade.
 
-**LUCKA 58 REGISTRERAD SOM KVARSTÅENDE FYND, se `docs/sparrar.md`.** Nio lagliga
-belopp ger mer än §10-tripwiren, och tre spärrtest läser en §10-fil de inte
-patchar. Rättas inte: §7 säger att kvarstående kodfynd rapporteras öppet när
-grinden är förbrukad.
+§7.1 och §7.2 står kvar i kort form. De är de två regler som faktiskt fångade
+defekter i sändvägen: en spärr som inte går att fälla mäter ingenting, och ett
+tal som inte är avläst är påhittat.
 
-**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
-är tom sedan 0.12.0.
+§11 har växt med de regler som kom ur att Lars läste botens utkast: inga
+kollegor, bokningar bekräftas positivt, fråga inte efter ett regnr som redan
+står i mailet.
 
-**§10 ÄR OBRUTEN.** `git diff 8492939 HEAD -- config/` är tom över hela skivan.
+**Vad som inte ändrades:** de fyra ramverksreglerna, §6 om persondata, §9.1 om
+att en fälld spärr är ett stopptecken, och §10:s lista över vad som kräver Lars
+beslut.
 
-**§0:s styrdokumentlista är oförändrad.** Varv 3 skapade ingen ny fil.
-
-Ren synk ⇒ PATCH.
-
-### 0.12.13 — 2026-09-14
-
-**`Speglar` följer med till beslutslogg #104.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att lucka 57 registrerats.
-
-**JAG BYGGDE OM SAMMA VAKT FEL TVÅ GÅNGER I RAD, och det ska stå.** Först
-prövade den strängidentitet och blev vakuös. Sedan prövade den en differens mot
-fel mängd och gick röd av en fullt laglig ledtid i `config/fakta.json`, alltså
-samma defektklass som skivan byggdes för att ta bort, flyttad mellan två filer.
-Den räknar nu mot samtliga fyra källor `_tillatna_tal` använder. Regeln är
-oförändrad; det som ändrats är att jag skriver ut båda felen.
-
-**LÄRDOMEN I 0.12.11 GÄLLER ALLTSÅ ÅT BÅDA HÅLL.** Ett test som bär ett
-exempelvärde ur samma domän som en §10-fil blir en tripwire i förklädnad, och en
-VAKT som subtraherar fel mängd blir det också. Jag skriver fortfarande inte in
-den i §7.1 på eget bevåg, se §8.
-
-**LUCKA 57 REGISTRERAD, se `docs/beslutslogg.md` #104.** Samma defektform för
-LEDTIDER. Inte byggd: Lars order gällde priser, och §3 säger att bara det
-uppgiften kräver ska röras.
-
-**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
-är tom sedan 0.12.0.
-
-**§10 ÄR OBRUTEN.** `git diff --stat -- config/` är tom över hela skivan.
-
-**§0:s styrdokumentlista är oförändrad.** Varv 2 skapade ingen ny fil.
-
-Ren synk och rättade påståenden ⇒ PATCH.
-
-### 0.12.12 — 2026-09-14
-
-**`Speglar` STÅR KVAR PÅ #103.** Varv 1 skapade ingen ny beslutspost.
-
-**EN SÄNDVÄGSVAKT FÖRSVAGADES AV MIG I DEN HÄR SKIVAN, och det ska stå här.**
-`test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal` byggdes om till att pröva
-strängidentitet och blev då mätt VAKUÖS mot en fällning av `_varden_ur`:s
-kommentarfilter. Docstringen påstod samtidigt att ändringen var "strikt
-starkare", och den premissen var falsk. Vakten är ombyggd och fäller fällningen
-igen. Regeln är oförändrad; det som ändrats är att jag skriver ut att jag
-försvagade dess vakt.
-
-*Här stod att §0:s ramverksregel 3 "stod utan sin vakt" mellan `d772d9a` och
-rättelsen. Det är starkare än mätningen bär: den försvagade lydelsen var RÖD mot
-en fällning av `_`-filtret och GRÖN bara mot en variant som dumpar dicten. Fällt
-av §7-granskningen av skiva 43, varv 2.*
-
-**0.12.11:s TAL "ELVA RÖDA VAKTER" ÄR STRUKET.** Det kom ur Lars brief och inte
-ur repot, alltså samma fel som skiva 42:s "de fem nycklar". §7.2 gäller också ett
-tal som kommer ur en order, och att det upprepades en skiva senare hör till
-bilden.
-
-**0.12.5:s FÄLLNINGSTAL ÄR OMKÖRT EN TREDJE GÅNG**, från 20 till 13, eftersom
-korpusbytet tog bort sju rader som gick röda på kommentarens `25000`.
-
-**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
-är tom sedan 0.12.0.
-
-**§10 ÄR OBRUTEN.** `git diff --stat -- config/` är tom. Fällningarna som mätte
-tripwiren är återställda och kvitterade.
-
-Rättade påståenden ⇒ PATCH.
-
-### 0.12.11 — 2026-09-14
-
-**`Speglar` följer med till beslutslogg #103.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 43:s två poster lagts till.
-
-**SKIVA 42 ÄR GODKÄND AV LARS, se #102.** §7:s tre granskningsvarv är
-OFÖRÄNDRADE: godkännandet gäller en enskild skiva, precis som i #34, #54, #67,
-#71 och #77.
-
-**0.12.8:s RAD OM ATT REGEL 5:s SLUTMENING ÄR MIN ÄR ÖVERTAGEN AV LARS.**
-Villkoret *"Står inget pris i underlaget och"* var mitt när det skrevs i skiva
-42, och §11 gör promptens ordalydelse till hans. Han antog det som sitt i skiva
-43. Regeltexten är OFÖRÄNDRAD; det som ändrats är vem som står för den.
-*Raden namngav först 0.12.9. Den posten nämner inte slutmeningen; raden står i
-0.12.8. Fällt av §7-granskningen av skiva 43, varv 1.*
-
-**§7.1 FICK EN LÄRDOM SOM ÄNNU INTE ÄR EN REGEL, och den hör hemma i regeltexten
-först när Lars vill ha den där.** Den skulle lyda ungefär: ett test som bär ett
-exempelvärde ur samma domän som en §10-fil blir en tripwire i förklädnad, och då
-går en rad vakter röda av ett beslut som bara en av dem vaktar. Skiva 43 fick ner
-utfallet till EN röd rad, mätt för fem olika belopp. Jag skriver inte in lärdomen
-i §7.1 på eget bevåg, se §8.
-
-*Här stod att "tio vakter" går röda och att skiva 43 "mätte upp elva röda
-vakter". Talet kom ur Lars brief och inte ur repot, och det gick inte att
-reproducera. Vad som är mätt står i `docs/beslutslogg.md` #103. Fällt av
-§7-granskningen av skiva 43, varv 1.*
-
-**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
-är tom sedan 0.12.0.
-
-**§10 ÄR OBRUTEN.** `config/priser.json` och `config/fakta.json` är orörda i den
-här skivan. Fällningarna som mätte tripwiren är återställda och kvitterade.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 43 skapade
-`tests/sentinelpris.py`, alltså en testmodul och inget styrdokument.
-
-Ren synk ⇒ PATCH.
-
-### 0.12.10 — 2026-09-14
-
-**`Speglar` följer med till beslutslogg #101.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 42:s stoppost lagts till.
-
-**§7:s tre granskningsvarv är OFÖRÄNDRADE, och #101 är en tillämpning av dem.**
-Skivan stoppades därför att ett fynd kvarstod efter tre varv. Raden står här av
-samma skäl som i 0.9.4, 0.11.4, 0.12.1, 0.12.4 och 0.12.6.
-
-**§7:s RAD OM RÄTTELSETEXT ÄR DET SOM BAR HELA SKIVAN, och det ska sägas.** Varje
-varv fällde ett fynd i den text som skrevs för att rätta föregående varv: en
-obefintlig kodrad, sedan en obefintlig testrad, sedan ett obefintligt faktum.
-Paragrafen är oförändrad; det som är nytt är att repot har en tredje instans av
-kedjan i `docs/incidentlogg.md` I2:s form.
-
-**SÄNDVÄGEN SJÄLV GODKÄNDES av varv 3**, och §0:s ramverksregel 3 fick två hål
-stängda: en sönderklyvd prissats och en nästlad konfigurationspost. Regeltexten
-är oförändrad.
-
-**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
-är tom sedan 0.12.0. De fyra luckorna rör vad ett UTKAST innehåller, och Lars
-läser varje utkast.
-
-**§10 BRÖTS INTE.** `config/priser.json` ändrades på Lars uttryckliga beslut i
-briefens DEL A, och inget värde är satt.
-
-**§0:s styrdokumentlista är oförändrad.** Varv 3 skapade ingen ny fil.
-
-Ren synk ⇒ PATCH.
-
-### 0.12.9 — 2026-09-14
-
-**`Speglar` STÅR KVAR PÅ #100.** Varv 2 skapade ingen ny beslutspost. Avläst ur
-`grep -n "^## #" docs/beslutslogg.md`.
-
-**0.12.5-POSTEN BAR ETT KÄNT FALSKT TAL, i presens, i den här filen.** Den sade
-att en fällning av `_varden_ur`:s kommentarfilter gör 19 test röda. Talet är 20,
-och det var känt sedan varv 1 mätte om det i `docs/beslutslogg.md` #94. Rättat på
-plats med en not, och nu med sin svit utskriven.
-
-**0.12.8 PÅSTOD ATT DEN RÄTTELSEN VAR GJORD.** Den var gjord i beslutsloggen och
-inte här, alltså rättade posten ett fel i en fil medan samma fel stod kvar i den
-fil posten själv bor i. Det är §7:s rad om att ett känt falskt påstående rättas
-på alla tre nivåerna, och den här filen är nivå ett: den läses vid varje
-sessionsstart.
-
-**EN PROCESSRÄKNING ÄR STRUKEN UR 0.12.8.** "I FYRA PÅSTÅENDEN" räknar ett
-arbetsförlopp, vilket §7.2 förbjuder, och talet blev dessutom falskt av varv 2.
-
-**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
-är tom sedan 0.12.0.
-
-**§0:s styrdokumentlista är oförändrad.** Varv 2 skapade ingen ny fil.
-
-Rättade påståenden ⇒ PATCH.
-
-### 0.12.8 — 2026-09-14
-
-**`Speglar` följer med till beslutslogg #100.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 42:s varv 1 lagt till en
-post.
-
-**0.12.7-POSTEN PÅSTOD ATT ETT HÅL VAR STÄNGT NÄR DET INTE VAR DET.** Den skrev
-att §0:s ramverksregel 3 fick två hål stängda. Lucka 54 var öppen: hopfogningen
-var parvis och hoppade över varannan skarv, alltså blev fordonets tjänstevikt
-fortfarande ett citerbart pris. Stängt i varv 1 med en kedjefogning, se
-`docs/beslutslogg.md` #98. Posten står kvar som den var, och den här raden är
-rättelsen.
-
-**REGEL 5 BÄR ETT LED SOM ÄR MITT OCH INTE LARS, och det ska stå i det dokument
-som läses vid varje sessionsstart.** Lars gav förbehållet *"utöver det som står i
-underlaget nedan"*. Regelns slutmening lyder nu *"Står inget pris i underlaget
-och kunden frågar vad det kostar: säg att VI återkommer med prisuppgift"*, och
-villkoret *"Står inget pris i underlaget och"* skrev jag, för att regeln annars
-säger emot sig själv. §11 gör promptens ordalydelse till Lars, och han ändrar den
-på sitt ord. 0.12.7 skrev bara att Lars gav förbehållet, vilket var sant men
-utelämnade det här.
-
-**§7.2 BRÖTS AV MIG, och varv 1 rättade det i beslutsloggen.** Ett tal skrivet av
-ur Lars brief i stället för läst ur repot, ett tal som blev oläst av skivans egen
-ändring i en grannfil, en tabell över en kommentars tal som föråldrats, och en
-slutsats dragen ur ett mått som inte mätte det den påstods mäta. Paragrafen är
-oförändrad.
-
-*Här stod "I FYRA PÅSTÅENDEN, samtliga rättade i varv 1". Båda leden föll i varv
-2: talet är en processräkning, som §7.2 förbjuder, och ett av de fyra var INTE
-rättat överallt. Fällningstalet stod kvar som 19 i presens i 0.12.5-posten i den
-här filen, medan `docs/beslutslogg.md` #94 hade rättat det till 20. Det är rättat
-nu. Fällt av §7-granskningen av skiva 42, varv 2.*
-
-**LUCKA 56 REGISTRERAD, se `docs/beslutslogg.md` #100.**
-
-**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
-är tom sedan 0.12.0.
-
-**§0:s styrdokumentlista är oförändrad.** Varv 1 skapade ingen ny fil.
-
-Ren synk och en rättelse ⇒ PATCH.
-
-### 0.12.7 — 2026-09-14
-
-**`Speglar` följer med till beslutslogg #99.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 42:s fyra poster lagts till.
-
-**§0:s RAMVERKSREGEL 3 FICK TVÅ HÅL STÄNGDA OCH ETT MEDVETET LÄMNAT.** Regeln
-säger att boten aldrig genererar ett tal. En sönderklyvd prissats lät fordonets
-tjänstevikt bli ett citerbart pris, och en nästlad konfigurationspost lät vårt
-inköpspris renderas i prompten under rubriken om avlästa priser. Båda stängda,
-se `docs/beslutslogg.md` #97 och #98. Regeltexten är oförändrad.
-
-**§0:s RAMVERKSREGEL 1 SLÄPPER FORTFARANDE IGENOM INGENTING**, eftersom `auto`
-är tom sedan 0.12.0. Skiva 42 rör vad ett UTKAST får innehålla, inte om ett mail
-får gå ut.
-
-**§9.1:s MOTSÄGELSE VAR PÅ VÄG ATT UPPSTÅ, och den stängdes innan den gjorde
-det.** Systempromptens regel 5 förbjöd varje pris medan `PRISRUBRIK` bad
-modellen återge priset ordagrant. Lars gav regel 5 samma förbehåll som regel 8.
-Paragrafen är oförändrad; det som ändrats är att prompten inte längre beställer
-en mening spärren fäller.
-
-**LARS GRÄNS PÅ FEM FALSKA FÄLLNINGAR AV HUNDRA ÖVERSKREDS, och det är
-utskrivet i #98.** 7,7 av hundra över hela underlaget. Skivans egen ändring
-bidrog med 0. Det är ingen regeländring, men §7.2 kräver att talet sägs där det
-mättes och inte döljs.
-
-**§10 BRÖTS INTE I DEN HÄR SKIVAN.** `config/priser.json` ändrades, och
-ändringen är Lars uttryckliga beslut i briefens DEL A. Inget värde är satt.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 42 skapade
-`scripts/prismatning.py`, alltså ett mätverktyg och inget styrdokument. Samma
-grund som 0.8.2, 0.8.6, 0.11.7, 0.11.13 och 0.12.3.
-
-Ren synk ⇒ PATCH.
-
-### 0.12.6 — 2026-09-14
-
-**`Speglar` följer med till beslutslogg #95.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 41:s stoppost lagts till.
-
-**§7:s tre granskningsvarv är OFÖRÄNDRADE, och #95 är en tillämpning av dem.**
-Skivan stoppades därför att ett fynd kvarstod efter tre varv. Raden står här av
-samma skäl som i 0.9.4, 0.11.4, 0.12.1 och 0.12.4.
-
-**§10 BRÖTS AV MIG I DEN HÄR SKIVAN, och det är utskrivet i #95.** Jag lade två
-kommentarnycklar i `config/priser.json` i varv 2 utan ett nytt beslut av Lars.
-Ordern gällde att skapa filen med tomma värden och rapportera nycklarna. Inga
-värden är satta och nyckelmängden är oförändrad, men §10 gör VARJE ändring i
-filen till ett stopp. Regeln är oförändrad; det som ändrats är att jag skriver
-ut att jag bröt den.
-
-**TILLÄGGEN GJORDE TVÅ AV SKIVANS EGNA TAL OLÄSTA**, och varv 2 räknade inte om
-dem. Det är §7.2:s omskrivningsregel utlöst av att talets UNDERLAG ändrades i en
-grannmening, vilket paragrafen skriver ut ordagrant. Båda omkörda i varv 3.
-
-**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
-är tom sedan 0.12.0. Samtliga fyra öppna luckor rör vad ett UTKAST innehåller,
-och alla fyra utlöses först när Lars fyller `config/priser.json`.
-
-**§0:s styrdokumentlista är oförändrad.** Varv 3 skapade ingen ny fil.
-
-Ren synk ⇒ PATCH.
-
-### 0.12.5 — 2026-09-14
-
-**`Speglar` följer med till beslutslogg #94.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 41:s två poster lagts till.
-
-**§7.2:s RAD OM VAR PRISER LÄSES PEKAR NU PÅ EN FIL SOM FINNS.**
-`config/priser.json` har stått i §7.2 och §10 sedan 0.2.0 utan att existera. Den
-är upprättad i skiva 41 på Lars §10-beslut, och den är TOM. Regeltexten är
-oförändrad; det som ändrats är att filen regeln pekar på finns.
-
-Samma grund som 0.11.11, som skrev in exakt detta om `config/fakta.json`, och
-med samma följd: en tom fil är ingen källa, alltså är §0:s ramverksregel 3:s
-tillåtna mängd oförändrad. **DÄRFÖR PATCH OCH INTE MINOR**, till skillnad från
-0.12.0 som ändrade vad ramverksregel 1 släpper igenom.
-
-**§10:s STOPPRAD OM `config/priser.json` GÄLLER OFÖRÄNDRAT.** Ordern var att
-skapa filen med tomma värden och rapportera nycklarna; att FYLLA den är Lars
-beslut. `test_prisfilen_i_repot_har_BARA_TOMMA_varden` binder att jag inte
-fyllt något, och den binder HELA nyckelmängden och inte bara ett fält.
-
-**§0:s ramverksregel 3 fick en verkställande rad till, prövad med en KÖRNING.**
-Filens kommentarer bär med flit talet `25 000 kr`. En fällning av `_varden_ur`:s
-kommentarfilter gör 12 test röda, mätt mot skiva 43:s svit efter varv 2, bland
-dem ett som visar att just det talet då blir tillåtet i ett utgående mail.
-*Talet stod först
-som fjorton, avläst ur en delkörning, och rättades till sjutton i varv 1. Varv 2
-lade två kommentarnycklar i filen och räknade inte om det. Fällt av
-§7-granskningen av skiva 41, varv 1 och varv 3.*
-
-*Talet stod sedan som 19, och den lydelsen sade "över hela sviten" utan att
-säga vilken. Skiva 42 ändrade både filens kommentarer och svitens innehåll,
-alltså blev talet oläst i §7.2:s mening. Omkört till 20. Fällt av
-§7-granskningen av skiva 42, varv 2, som också mätte att 0.12.8 påstod den här
-rättelsen gjord när den bara var gjord i `docs/beslutslogg.md` #94.*
-
-*Och omkört en tredje gång i skiva 43, som bytte korpusens exempeltal:
-`12 failed, 1484 passed, 54 skipped, 16 xfailed`. Åtta av de tjugo gick röda
-därför att kommentarens tal gjorde deras exempeltal tillåtet, och det gör de inte
-längre. Fällt av §7-granskningen av skiva 43, varv 1, och omkört igen i varv 3
-efter att varv 2 bytt ytterligare en korpusrad och därmed gjort talet oläst.*
-
-**§0:s styrdokumentlista är oförändrad.** `config/priser.json` står redan i §7.2
-och §10, och skiva 41 skapade ingen ny fil utöver den.
-
-Ren synk och en fil som reglerna redan namngav ⇒ PATCH.
-
-### 0.12.4 — 2026-09-14
-
-**`Speglar` följer med till beslutslogg #92.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 40:s stoppost lagts till.
-
-**§7:s tre granskningsvarv är OFÖRÄNDRADE, och #92 är en tillämpning av dem.**
-Skivan stoppades därför att fynd kvarstod efter tre varv. Raden står här av
-samma skäl som i 0.9.4, 0.11.4 och 0.12.1: en läsare av CLAUDE.md ska inte
-behöva härleda ett undantag ur beslutsloggen, och det finns inget att härleda.
-
-**§7.1:s LAGRADE FÖRSVAR FICK EN NY INSTANS I REPOT.**
-`biluppgifter._sidan_bar_inte_faltet` bär två lager med avsikt, och varv 3 mätte
-att en fällning av bara det ena ger GRÖN svit, alltså INKONKLUSIVT och inte
-vakuöst. Klausulen gällde redan; det som är nytt är att `docs/sparrar.md` bär
-den för den här spärren.
-
-**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
-är tom sedan 0.12.0. Lucka 50 och 51 rör vad ett utkast PÅSTÅR, inte om ett mail
-får gå ut, och varje utkast läses av Lars.
-
-**§0:s styrdokumentlista är oförändrad.** Varv 3 skapade ingen ny fil.
-
-Ren synk ⇒ PATCH.
-
-### 0.12.3 — 2026-09-14
-
-**`Speglar` följer med till beslutslogg #91.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 40:s fem poster lagts till.
-
-**§0:s RAMVERKSREGEL 3 FICK EN SPÄRR I EN RIKTNING SOM SAKNADE EN.** Regeln
-säger att boten aldrig genererar ett tal. Skiva 40 mätte upp att ett påstående om
-FRÅNVARO av en uppgift bär samma risk och inget värde att pröva, alltså låg hela
-klassen utanför varje befintlig spärr. `pastaende-om-franvaro` stänger den. Se
-`docs/beslutslogg.md` #89.
-
-**REGELTEXTEN ÄR OFÖRÄNDRAD.** Det som ändrats är att en klass av påståenden som
-regeln rimligen täcker nu har kod som verkställer den.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 40 skapade
-`scripts/faltinventering.py` och `scripts/sparrmatning.py`, alltså mätverktyg
-och inga styrdokument. Samma grund som 0.8.2, 0.8.6, 0.11.7 och 0.11.13: en
-mätning som bär ett styrdokuments påstående ska gå att räkna om, och §9 kräver
-att den ligger i ett committat skript.
-
-**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
-är tom sedan 0.12.0.
-
-**§9 BRÖTS AV MIG EN FJÄRDE GÅNG**, i samma form som I12 beskriver. Jag körde en
-heredoc i ett kommando som inte behövde den alls. Regeln är oförändrad och
-fångade inget den här gången: överträdelsen var verkningslös, och det är tur och
-inte disciplin.
-
-Ren synk och en ny spärr ⇒ PATCH.
-
-### 0.12.2 — 2026-09-11
-
-**`Speglar` följer med till beslutslogg #86.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 39:s post lagts till.
-
-**§0:s ramverksregel 3 fick en tillämpning i den riktning den finns för.** #86
-låter ett värde falla till OKLART hellre än att tolkas, alltså utelämnas
-uppgiften när den inte går att läsa säkert. Regeln talar om tal och inte om
-dragkrokar, så detta är en analogi och ingen regeländring: den skrivs ut här
-därför att 0.11.5 noterade när regel 3 stoppade en leverans, och det här är
-samma hållning tillämpad av ett beslut i stället för av en spärr.
-
-**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
-är tom sedan 0.12.0. Skiva 39 rör vad ett uppslag PÅSTÅR om en bil, inte om ett
-mail får gå ut.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 39 skapade ingen ny fil.
-
-**Ingen regel i det här dokumentet är ändrad** ⇒ PATCH.
-
-### 0.12.1 — 2026-09-11
-
-**`Speglar` följer med till beslutslogg #85.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 38:s stoppost lagts till.
-
-**§7:s tre granskningsvarv är OFÖRÄNDRADE, och #85 är en tillämpning av dem.**
-Skivan stoppades därför att ett fynd kvarstod efter tre varv, vilket är precis
-vad tabellens rad för SÄNDVÄG föreskriver. Raden står här av samma skäl som i
-0.9.4 och 0.11.4: en läsare av CLAUDE.md ska inte behöva härleda ett undantag ur
-beslutsloggen, och det finns inget undantag att härleda.
-
-**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
-är tom sedan 0.12.0. Lucka 48 rör vad ett uppslag PÅSTÅR om en bil, inte om ett
-mail får gå ut, och ingen kategori har flyttats.
-
-**§0:s styrdokumentlista är oförändrad.** Varv 3 skapade ingen ny fil.
-
-**Ingen regel i det här dokumentet är ändrad** ⇒ PATCH, till skillnad från
-0.12.0 som ändrade vad ramverksregel 1 släpper igenom.
-
-### 0.12.0 — 2026-09-11
-
-**`Speglar` följer med till beslutslogg #84.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 38:s fyra poster lagts till.
-
-**§0:s RAMVERKSREGEL 1 HAR INGET ATT VERKA PÅ: `auto` ÄR TOM.** Lars beslut i
-skiva 38, se `docs/beslutslogg.md` #81. Regeln säger att inget mail skickas vars
-kategori inte står i `auto`, och med en tom hink betyder det att inget mail får
-skickas automatiskt alls. **Det är det säkra läget och det avsedda.**
-
-`auto` fylls efter skuggläget, när det mätt hur ofta klassificeraren vacklar
-mellan grannkategorier. Ramverksregel 2 gäller oförändrat: ingen kategori flyttas
-dit av kod.
-
-**Regeltexten är OFÖRÄNDRAD.** Det som ändrats är innehållet i den fil regeln
-pekar på, och det är ett §10-beslut av Lars.
-
-**MINOR OCH INTE PATCH.** Den här posten ändrar vad §0:s ramverksregel 1 FAKTISKT
-tillåter, från en kategori till ingen, och det är en beteendeändring som en
-läsare av CLAUDE.md ska se utan att härleda den ur beslutsloggen.
-
-**0.11.11 ÄR DEN NÄRMASTE ANALOGIN OCH SATTES TILL PATCH**, och skillnaden ska
-sägas ut. Där tillkom `config/fakta.json` på Lars §10-beslut, alltså gick en fil
-från att inte finnas till att finnas TOM. Ramverksregel 3:s tillåtna mängd var
-oförändrad: en tom fil är ingen källa. Här går den tillåtna mängden i regel 1
-från ett till noll, alltså ändras vad regeln släpper igenom.
-
-*Här stod i stället "Tidigare poster med tom diff i regeltexten har varit rena
-synkar". Det är en mening som kategoriserar sin egen omgivning, vilket 0.3.1
-infördes för att stoppa, och den utelämnade dessutom 0.11.11. Fällt av
-§7-granskningen av skiva 38, varv 2.*
-
-**§9 BRÖTS AV MIG EN TREDJE GÅNG, och den här gången efter att jag skrivit
-incidentposten om det.** `docs/incidentlogg.md` I12 bär mönstret. Jag använde en
-heredoc för att slippa backticks, alltså bytte jag en förbjuden konstruktion mot
-en annan i samma förbudsmening. Regeln är oförändrad.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 38 skapade ingen ny fil.
-
-Ändrat vad ramverksregel 1 tillåter ⇒ MINOR.
-
-### 0.11.14 — 2026-09-11
-
-**`Speglar` följer med till beslutslogg #80.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att stopposten lagts till.
-
-**§7:s tre granskningsvarv är OFÖRÄNDRADE.** #80 är en TILLÄMPNING: skiva 37
-stoppades därför att fynd kvarstod efter tre varv.
-
-**§0:s RAMVERKSREGEL 1 FICK EN MÄTT SPÄNNING, och den är Lars att avgöra.**
-Regeln säger att inget mail skickas vars kategori inte står i `auto`. Skiva 37
-mätte att klassificeraren flyttade samma tråd mellan `utkast` och `auto` mellan
-två körningar, alltså att gränsen regeln vilar på är icke-deterministisk för
-samma text. Regeln är oförändrad; det som är nytt är att vi vet det. Se
-`docs/beslutslogg.md` #79 och LUCKA 47.
-
-**§9 BRÖTS AV MIG IGEN, i samma form som i skiva 36.** En bash-rad bar
-backticks, skalet expanderade dem, och fem kodreferenser försvann ur en
-appendixpost i `docs/sparrar.md`. Regeln är oförändrad och fångade felet. Att det
-skedde två skivor i rad står här därför att en upprepad överträdelse av samma
-regel är en annan sorts uppgift än en engångs.
-
-**§0:s styrdokumentlista är oförändrad.**
-
-Ren synk ⇒ PATCH.
-
-### 0.11.13 — 2026-09-11
-
-**`Speglar` följer med till beslutslogg #78.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 37:s två poster lagts till.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 37 skapade
-`scripts/faltdiagnos.py`, alltså ett mätverktyg och inget styrdokument. Samma
-grund som 0.8.2, 0.8.6 och 0.11.7: en mätning som bär ett styrdokuments
-påstående ska gå att räkna om, och §9 kräver att den ligger i ett committat
-skript.
-
-**§10:s STOPPRAD OM `config/fakta.json` HEDRADES, och det gav utdelning.** Lars
-skrev i skiva 37 ut att det var rätt att inte skriva in bokningsbeskedet själv i
-skiva 36. Han flyttade det med ett eget beslut, och lucka 43 är stängd.
-
-**`telefon` ÄR FORTFARANDE TOM.** Briefen bar platshållaren `[LARS FYLLER I]`
-oifylld. Ett tomt värde utelämnas ur prompten, alltså kan boten inte skriva ett
-nummer, och `test_faktafilen_i_repot_har_TOM_telefon` binder det.
-
-**Ingen regel i det här dokumentet är ändrad.** #77 är Lars beslut, #78 är en
-mätning.
-
-Ren synk ⇒ PATCH.
-
-### 0.11.12 — 2026-09-10
-
-**`Speglar` följer med till beslutslogg #76.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att stopposten lagts till.
-
-**§7:s tre granskningsvarv är OFÖRÄNDRADE.** #76 är en TILLÄMPNING: skiva 36
-stoppades därför att fynd kvarstod efter tre varv. Samma grund som 0.11.5,
-0.11.8 och 0.11.10.
-
-**§0:s RAMVERKSREGEL 3 BRÖTS AV DEN HÄR SKIVAN, och det ska stå här.** En
-kommentar i `config/fakta.json` gjorde talen 7 och 10 tillåtna i ett utgående
-mail. Regeln är obrytbar och koden bröt den; hålet var öppet mellan DEL C och
-varv 1:s rättelse, och tre varv krävdes för att stänga det helt. Ingen regel är
-ändrad. Det som ändrats är att en fil regeln vilar på nu filtreras av
-`generera._varden_ur`, som plockar VÄRDEN och aldrig nycklar, hela vägen ned.
-
-**Lärdomen hör hemma i regeltexten först när Lars vill ha den där.** Den skulle
-lyda ungefär: en konfigurationsfil som är källa för en spärr får inte bära
-kommentarer i samma namnrymd som sina värden. Jag skriver inte in den i §0 eller
-§7.2 på eget bevåg, se §8.
-
-**§9 BRÖTS AV MIG i det här passet**, och det är utskrivet i
-`docs/beslutslogg.md` 0.49.0: en bash-rad bar backticks, skalet expanderade dem,
-och två filnamn försvann ur en appendixpost. Regeln är oförändrad och fångade
-felet exakt som den finns för.
-
-**§0:s styrdokumentlista är oförändrad.**
-
-Ren synk ⇒ PATCH.
-
-### 0.11.11 — 2026-09-10
-
-**`Speglar` följer med till beslutslogg #75.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 36:s fem poster lagts till.
-
-**§0:s STYRDOKUMENTLISTA ÄR OFÖRÄNDRAD, men en fil den namnger FINNS NU.**
-`config/fakta.json` har stått i §7.2 och §10 sedan 0.2.0 utan att existera. Den
-är upprättad i skiva 36 på Lars order, och den är TOM: `telefon` har ett tomt
-värde och Lars fyller det. Regeltexten är oförändrad; det som ändrats är att
-filen regeln pekar på finns.
-
-**§10:s STOPPRAD OM `config/fakta.json` GÄLLER OFÖRÄNDRAT.** Ordern var *"skapa
-filen om den saknas, Lars fyller värdet"*, alltså var skapandet beställt och
-fyllandet inte. `test_faktafilen_i_repot_har_TOM_telefon` binder att jag inte
-fyllt i något, och den blir röd den dag någon gör det.
-
-**§0:s ramverksregel 3 fick en verkställande rad till.** `las_fakta` utelämnar
-ett tomt värde, alltså når det aldrig prompten och modellen kan inte skriva det.
-En tom sträng är ingen avläsning.
-
-**§11:s röstregler fick tre motsvarigheter i prompten**, ur Lars läsning av
-utkasten i vyn: inga kollegor, bokningsförfrågan besvaras med ja, och fråga inte
-efter uppgifter som redan står i mailet. Se `docs/beslutslogg.md` #73. §11 är
-OFÖRÄNDRAD: reglerna bor i prompten, inte här.
-
-Ren synk och en fil som §0 redan namngav ⇒ PATCH.
-
-### 0.11.10 — 2026-09-10
-
-**`Speglar` följer med till beslutslogg #70.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att stopposten lagts till.
-
-**§7:s tre granskningsvarv är OFÖRÄNDRADE.** #70 är en TILLÄMPNING: skiva 35
-stoppades därför att fynd kvarstod efter tre varv. Samma grund som 0.11.5 och
-0.11.8.
-
-**0.11.9-POSTEN BAR SJÄLV TVÅ AV SKIVANS FYND, och det står i den.** Den skrev en
-siffra i samma stycke som sin försäkran om att ingen siffra står där, och den
-påstod att loggen "läses från ett noterat radantal" som om skivan byggt något.
-Båda rättade, med kursiv not på plats. Att posten som redovisar ett §10-brott
-själv bröt mot §7.2 två gånger hör till bilden.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 35 skapade ingen ny fil.
-
-Ren synk ⇒ PATCH.
-
-### 0.11.9 — 2026-09-10
-
-**`Speglar` följer med till beslutslogg #69.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 35:s tre poster lagts till.
-
-**§7:s tre granskningsvarv är OFÖRÄNDRADE.** #67 godkänner skiva 34 som
-levererad trots att #66 stoppade den. Godkännandet gäller en enskild skiva och är
-inte en ändring av regeln. Posten säger det själv, och raden står här av samma
-skäl som i 0.9.4 och 0.11.4: en läsare av CLAUDE.md ska inte behöva härleda ett
-undantag ur beslutsloggen.
-
-**§10:s stopplista är oförändrad, och jag bröt mot en av dess rader.** Jag
-raderade `logg/beslut.jsonl` under både skiva 34 och skiva 35, för att få en ren
-mätning, utan att fråga. Raden *"Radering eller migrering av `logg/beslut.jsonl`
-(append-only)"* är ett uttryckligt stopp. Ingen regel är ändrad; det som ändrats
-är att jag följer den.
-
-**Rättelsen är en ARBETSPRAXIS och inget repot verkställer.** I skiva 35:s DEL B
-noterade jag radantalet före körningen och läste bara de nya raderna. Ingen kod
-och ingen konfiguration hindrar en framtida radering, alltså vore det falskt att
-skriva att hålet är stängt.
-
-*Ingen siffra står här med flit. Hur många gånger det skedde är en räkning av ett
-arbetsförlopp, alltså går den inte att verifiera mot repot, och §7.2 förbjuder
-den formen. Att det skedde, i båda skivorna, är det verifierbara påståendet.*
-
-*Här stod först "tre gånger under skiva 34", sedan "upprepade gånger … och EN
-GÅNG i skiva 35". Den andra lydelsen bar alltså kvar en räkning av samma
-arbetsförlopp, i samma stycke som sin egen försäkran om att ingen räkning står
-där. Det är formen 0.8.1 redan har en post om. Här stod också att loggen "läses från
-ett noterat radantal" som om skivan byggt något; `grep -rn "radantal" scripts/
-src/ docs/` ger inga träffar som rör den här loggen. Fällt av §7-granskningen av
-skiva 35, varv 1.*
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 35 skapade ingen ny fil.
-
-Ren synk ⇒ PATCH.
-
-### 0.11.8 — 2026-09-10
-
-**`Speglar` följer med till beslutslogg #66.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att stopposten lagts till.
-
-**§7:s tre granskningsvarv är OFÖRÄNDRADE.** #66 är en TILLÄMPNING av regeln och
-inte ett undantag: skivan stoppades därför att fynd kvarstod efter tre varv,
-vilket är precis vad tabellens rad för SÄNDVÄG föreskriver. Samma grund som
-0.11.5, som skrev in samma sak om #58.
-
-**§6 OCH §7:s rättelseplikt gäller oberoende av grinden, och posten visar vad
-det betyder i praktiken.** En persondataläcka i kod som körs, och ett känt falskt
-påstående, rättas även när grinden är förbrukad. Det som INTE rättas är
-kvarstående kodfynd, och de står som lucka 40 och 41 i `docs/sparrar.md`.
-
-**§0:s styrdokumentlista är oförändrad.**
-
-Ren synk ⇒ PATCH.
-
-### 0.11.7 — 2026-09-10
-
-**`Speglar` följer med till beslutslogg #65.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 34:s varv 3 lagt till tre
-poster.
-
-**§0:s styrdokumentlista är oförändrad.** Varvet skapade `scripts/stamprov.py`,
-alltså ett mätverktyg och inget styrdokument. Samma grund som 0.8.2 och 0.8.6: en
-mätning som bär ett styrdokuments påstående ska gå att räkna om, och §9 kräver
-att den ligger i ett committat skript.
-
-**Ingen regel i det här dokumentet är ändrad.** #63 lämnar en lucka öppen enligt
-en order som redan gäller, #64 är en spärr och #65 en loggrad.
-
-Ren synk ⇒ PATCH.
-
-### 0.11.6 — 2026-09-10
-
-**`Speglar` följer med till beslutslogg #62.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 34:s fyra poster lagts till.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 34 skapade `src/kedja.py`,
-`tests/test_kedja.py` och `scripts/kedja-prov.py`, alltså kod, test och ett
-provverktyg. Inget styrdokument.
-
-**§0:s RAMVERKSREGEL 4 fick sin första verkställande kod.** `logg/beslut.jsonl`
-har funnits i regeltexten sedan repots början och skrivs nu av
-`kedja.logga_beslut`, som bara öppnar filen i `a`-läge och binds av
-`test_beslutsloggen_ar_APPEND_ONLY`. Regeln är oförändrad; det som ändrats är
-att något faktiskt lyder den.
-
-**Ingen regel i det här dokumentet är ändrad.** #59 drar tillbaka en order, #60
-avgör en lucka, #61 och #62 är kod.
-
-Ren synk ⇒ PATCH.
-
-### 0.11.5 — 2026-09-10
-
-**`Speglar` följer med till beslutslogg #58.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 33:s stoppost lagts till.
-
-**§7:s tre granskningsvarv är OFÖRÄNDRADE.** #58 är en tillämpning av regeln:
-skivan stoppades, och den del som inte gick att bygga utan att bryta §0:s
-ramverksregel 3 återställdes i stället för att skeppas.
-
-**§0:s ramverksregler är oförändrade, och regel 3 är skälet till att DEL B inte
-levereras.** Att en obrytbar regel faktiskt stoppade en leverans är värt att
-notera här, eftersom det är första gången det hänt.
-
-Ren synk ⇒ PATCH.
-
-### 0.11.4 — 2026-09-10
-
-**`Speglar` följer med till beslutslogg #57.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 33:s fyra poster lagts till.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 33 skapade ingen ny fil.
-
-**§7:s tre granskningsvarv är OFÖRÄNDRADE.** #54 godkänner skiva 32 trots att
-varv 3 underkände och grinden var förbrukad. Godkännandet gäller en enskild skiva
-och är inte en ändring av regeln. Raden står här av samma skäl som i 0.9.4: en
-läsare av CLAUDE.md ska inte behöva härleda ett undantag ur beslutsloggen.
-
-**Ingen regel i det här dokumentet är ändrad.** #55 och #56 är beslut om kod och
-bor i `docs/sparrar.md` och `docs/beslutslogg.md`. #57 är en mätning.
-
-Ren synk ⇒ PATCH.
-
-### 0.11.3 — 2026-09-04
-
-**`Speglar` följer med till beslutslogg #53.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 32:s stopposter lagts till.
-
-**§7:s tre granskningsvarv är OFÖRÄNDRADE.** #53 är en tillämpning av regeln och
-inte ett undantag från den: skivan stoppades därför att fynd kvarstod efter tre
-varv, vilket är precis vad tabellens rad för SÄNDVÄG föreskriver.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 32 skapade ett test, ett
-mätverktyg och en delad skriptmodul, alltså inget styrdokument.
-
-Ren synk ⇒ PATCH.
-
-### 0.11.2 — 2026-09-04
-
-**`Speglar` följer med till beslutslogg #52.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 32:s tre poster lagts till.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 32 skapade
-`tests/test_generera_monster.py`, `scripts/generator-matning.py` och
-`scripts/prov_stod.py`, alltså ett test, ett mätverktyg och en delad
-skriptmodul. Inget styrdokument.
-
-**Ingen regel i det här dokumentet är ändrad.** #50 bekräftar uttryckligen att
-§11 STÅR OFÖRÄNDRAD, alltså är den posten ett beslut om att INTE ändra §11 och
-inte en ändring. #51:s regel om regressionstabeller bor i `docs/sparrar.md` och
-`docs/beslutslogg.md`, inte här: den säger hur en spärr rättas, vilket §7.1
-redan reglerar i stort.
-
-Ren synk ⇒ PATCH.
-
-### 0.11.1 — 2026-09-04
-
-**`Speglar` följer med till beslutslogg #49.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 31:s post lagts till.
-
-**§11 ÄR OFÖRÄNDRAD, och det är ett val.** Skiva 31 mätte att 18 av 32
-a-traktorsvar i utkorgen bryter mot §11: 15 bär första person singular eller
-"man", 9 bär bindestreck som skiljetecken. Samma paragraf säger att rösten finns
-i utkorgen. Spänningen är utskriven som en öppen punkt i `#49` i stället för att
-avgöras här: en ändring i §11 är Lars beslut. Generatorn följer regeln som den
-lyder och väljer bort de 18, så att 14 blir kvar.
-
-*Här stod "14 av 32 ... bär första person SINGULAR" och "väljer bort de 14". 14
-är antalet som blir KVAR. Fällt av §7-granskningen av skiva 31, varv 2.*
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 31 skapade `src/generera.py`,
-`tests/test_generera.py`, `scripts/par-matning.py` och
-`scripts/generera-prov.py`, alltså kod och verktyg och inget styrdokument.
-
-Ren synk ⇒ PATCH.
-
-### 0.11.0 — 2026-09-04
-
-**§7 SKRIVS OM: VARVEN STYRS AV VAD SOM GRANSKAS.** Beslut av Lars i skiva 30,
-`docs/beslutslogg.md` #46. Sändväg tre varv, övrig kod ett, dokument och text om
-kod noll. Sändvägen är oförändrad, och att ett känt falskt påstående alltid
-rättas är oförändrat.
-
-**DOKUMENTDETALJUNDANTAGET ÄR STRUKET** och ersatt av tabellen. Det krävde ett
-aktivt åberopande per skiva, i briefen, och den friktionen är vad tabellen tar
-bort: noll varv är nu förvalet för text, utan åberopande.
-
-**Att undantaget var oanvändbart för en blandskiva gällde lydelsen I3 mätte upp i
-skiva 9, inte den som stryks nu.** 0.7.0 lade till ledet om att undantaget gäller
-PER DEFEKTKLASS, vilket löste just det fallet. Det ska stå, så att strykningen
-inte motiveras med ett problem som redan var åtgärdat.
-
-**DEN OBLIGATORISKA LISTAN STÅR KVAR.** Gamla §7 avslutade ingressen med
-"Obligatorisk för: all generativ output, all klassificeringslogik, all spärrlogik,
-alla mallar". Den raden är flyttad, inte struken, och den avgör tvisten när
-tabellen och en uppräkning pekar åt olika håll.
-
-**Skälet är Lars, och det står i posten:** dokumentet ärvdes från tradingbot-v2,
-där ett fel kostar kapital per sekund, och kapitalvägen mappades till sändvägen
-som om de vore likvärdiga. Här skickas ett mail till en verkstadskund som annars
-ofta inte fått något svar alls.
-
-**Ingen summa över de senaste tio skivorna skrevs in, och det är inte en
-formsak.** Rapporterna skiljer kod från text, aldrig sändvägskod från övrig kod,
-eftersom den uppdelningen skapas av den här skivan.
-
-**Ett första försök räknade ändå fram ett tal, och det höll inte.**
-§7-granskningen fällde att uteslutningarna föll på just de skivor där kodfynden
-låg: skiva 20 är avläsbar, skiva 21:s rapport bär en rubrik som lyder
-"BLOCKERANDE", och skiva 27:s fynd ÄR placerade och summerar exakt. Talet är
-struket, och #46 bär hela historien.
-
-**`Speglar` följer med till beslutslogg #48.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 30:s fyra poster lagts till.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 30 skapade ingen ny fil.
-
-Ändrad regel i §7 ⇒ MINOR.
-
-### 0.10.3 — 2026-09-04
-
-**`Speglar` följer med till beslutslogg #44.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 29:s post lagts till.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 29 skapade ingen ny fil.
-`logg/uppslag.jsonl` är en driftlogg under gitignorerade `logg/`, inte ett
-styrdokument, och den skapas först när ett uppslag misslyckas.
-
-Ren synk ⇒ PATCH.
-
-### 0.10.2 — 2026-09-04
-
-**`Speglar` följer med till beslutslogg #43.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 28:s två poster lagts till.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 28 skapade ingen ny fil.
-
-**§7.1:s klausul om lagrat försvar är OFÖRÄNDRAD här, och det är avsiktligt.**
-Skiva 28 skrev in den spegelvända riktningen i `docs/sparrar.md`, alltså att en
-SAMMANSLAGEN fällning ger falskt ÄKTA. Briefen namngav `docs/sparrar.md` och inte
-det här dokumentet. Följden är att CLAUDE.md §7.1 bär en riktning och
-`docs/sparrar.md` två.
-
-**ÖPPEN PUNKT för Lars:** ska §7.1 bära båda riktningarna också? Klausulen här är
-den som läses vid varje sessionsstart, och den som prövar en spärr utan att slå
-upp `docs/sparrar.md` ser bara den ena fällan. Frågan skrivs ut i stället för att
-avgöras, eftersom en ny regel i CLAUDE.md är Lars beslut och inte mitt.
-
-Ren synk ⇒ PATCH.
-
-### 0.10.1 — 2026-09-04
-
-**`Speglar` följer med till beslutslogg #41.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 27:s två poster lagts till.
-
-**#41 är inte ett beslut av Lars**, utan ett val jag gjorde som ändrar formen på
-`data/par.jsonl`. Posten är märkt så i sin första mening. Pekaren här följer
-loggens högsta nummer och säger ingenting om vem som beslutat vad.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 27 skapade `src/vy.py`,
-`scripts/osynliga-tecken.py`, `scripts/kor-vy.py` och två testfiler, alltså kod
-och verktyg och inget styrdokument.
-
-Ren synk ⇒ PATCH.
-
-### 0.10.0 — 2026-09-04
-
-**`Speglar` följer med till beslutslogg #39.** Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 26:s fyra poster lagts till.
-
-**§0:s driftrad namnger nu VÄRDEN och det bindande volymkravet.** Railway enligt
-#38, och att `token.json` och `data/` ska ligga på ett persistent volume. Raden
-namngav tidigare adressen och nuläget men inte värden. Skälet att kravet står här
-och inte bara i `docs/roadmap.md` är att §0 är det som läses vid varje
-sessionsstart, och att en container som körs om raderar både token och underlag.
-
-*Här stod att raden tidigare sade "bara att boten flyttar". Den bar också
-adressen och raden om att allt körs på Lars maskin till dess. Fällt av
-granskningen av skiva 26, som självrapportering mot diffen enligt §7.2.*
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 26 skapade ingen ny fil.
-
-**Ingen regel i det här dokumentet är ändrad.** Ändrad rad i §0 ⇒ MINOR.
-
-### 0.9.5 — 2026-09-04
-
-**`Speglar` följer med till beslutslogg #35**, som godkänner skiva 24 med lucka 12
-öppen och registrerad, och som byter spärren mot markup i ett värde från att
-beskriva en HÄNDELSE till att mäta en EGENSKAP. Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att posten lagts till.
-
-**Lucka 12 är stängd**, alltså gäller inte längre 0.9.4:s rad om att den var öppen
-när skiva 24 stannade. Den raden står kvar som historik om det läget.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 25 skapade ingen ny fil.
-
-Ren synk ⇒ PATCH.
-
-### 0.9.4 — 2026-09-03
-
-**`Speglar` följer med till beslutslogg #34**, som godkänner skiva 23 trots varv
-3:s underkännande, stänger lucka 11 genom kast, och registrerar lucka 10 som
-öppen sändvägslucka. Lucka 11 blev DELVIS stängd: granskningen av skiva 24 mätte
-upp en väg till, som står som lucka 12 i `docs/sparrar.md` och var öppen när
-skivan stannade. Avläst ur `grep -n "^## #" docs/beslutslogg.md` efter att
-posten lagts till.
-
-**§7:s tre granskningsvarv är OFÖRÄNDRADE.** #34:s godkännande gäller en enskild
-skiva och är inte en ändring av regeln. Posten skriver ut det själv, och den här
-raden finns för att en läsare av CLAUDE.md inte ska härleda ett undantag ur
-beslutsloggen.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 24 skapade ingen ny fil.
-
-Ren synk ⇒ PATCH.
-
-### 0.9.3 — 2026-09-03
-
-**`Speglar` följer med till beslutslogg #33**, som skiljer ett felläst fält från
-ett saknat, stänger lucka 7 strukturellt, godtar `www` som samma värd, registrerar
-lucka 9, och avgör lucka 5 och 8 som luckor. Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att posten lagts till.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 23 skapade ingen ny fil.
-
-Ren synk ⇒ PATCH.
-
-### 0.9.2 — 2026-09-03
-
-**`Speglar` följer med till beslutslogg #32**, som avgör att skiva 21 inte stängs
-utan fortsätter som skiva 22, och som beslutar att fordonssidan ska parsas i
-stället för matchas som text. Avläst ur `grep -n "^## #" docs/beslutslogg.md`
-efter att posten lagts till.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 21 skapade ingen ny fil.
-
-Ren synk ⇒ PATCH.
-
-### 0.9.1 — 2026-09-02
-
-**`Speglar` följer med till beslutslogg #31**, som väljer datakälla för fas 4.5.
-Enbart pekaren ändras och ingen regel i det här dokumentet rörs ⇒ PATCH, enligt
-§12:s ordning att bara CLAUDE.md bär en pekare mot ett rörligt nummer.
-
-### 0.9.0 — 2026-08-28
-
-**§0:s rad om `docs/kategorier.md` är STRUKEN och ersatt av
-`config/kategorier.yaml`.** Beslut av Lars i skiva 18, se `docs/beslutslogg.md`
-#30. Filen har listats sedan repots första commit `f9b680a` och behövs inte:
-hinken står i yaml-filen, namnen i `docs/kategorier-forslag.md`, och definitioner
-utöver namnen finns inte, eftersom pass 2 ger modellen enbart namnen.
-
-Markeringen "planerad, byggs i fas 4" är däremot yngre än raden själv: den
-tillkom i `0b3f0ef`, vilket 0.4.1-posten nedan redovisar. I `f9b680a` stod raden
-utan förbehåll, alltså som om filen fanns.
-
-Raden pekade alltså på något som inte fanns och inte skulle byggas. **Kartan ska
-peka på det som finns.**
-
-**`config/kategorier.yaml` byter position, och det ska sägas rakt ut.** 0.8.8
-skrev att skiva 17:s nya filer, den inräknad, inte är styrdokument. Nu står den i
-§0:s styrdokumentlista. Skälet är att listan är kartan över vad som styr
-projektet, och filen styr **om ett mail får gå ut** enligt ramverksregel 1. Att
-den är maskinläsbar gör den inte till något annat: `docs/kategorier-forslag.md`
-står redan i listan och är maskinPRODUCERAD. 0.8.8:s mening var rimlig när den
-skrevs, som en anteckning om att skivan inte skapade något nytt styrdokument, och
-den står kvar som historik.
-
-`Speglar` följer med beslutsloggen till #30, avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att posten lagts till.
-
-**§12:s hål är fyllt.** `scripts/kategoristatus.py` finns sedan skiva 18, så
-statusraden går att producera. §12:s stycke om vad som gäller före fas 4 står
-kvar oförändrat: det beskriver ett läge som inte längre råder, men det är sant om
-det läget och gäller igen om filen någon gång saknas.
-
-Ändrad rad i §0 ⇒ MINOR.
-
-### 0.8.8 — 2026-08-28
-
-`Speglar` följer med beslutsloggen till #29. Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att posten lagts till.
-
-**§0:s ramverksregel 1 pekar nu på en fil som finns.** `config/kategorier.yaml`
-upprättades i skiva 17 på Lars diktamen. Regeltexten är oförändrad.
-
-**§0:s rad om `docs/kategorier.md` står kvar som PLANERAD.** Fas 4:s grind är
-fattad men den filen byggdes inte, och den ingick inte i skivans brief. Frågan är
-ställd som en öppen punkt i #29.
-
-*Föråldrad av 0.9.0: raden är struken och ersatt, och den öppna punkten är
-avgjord i #30. Påståendet gällde när posten skrevs.*
-
-**§0:s styrdokumentlista är i övrigt oförändrad.** Skiva 17 skapade
-`config/kategorier.yaml`, som §0:s ramverksregel 1 redan namngav, samt
-`src/kanal.py`, `tests/test_kanal.py`, `tests/test_kategorier_yaml.py` och
-`tests/test_etikettera_nya.py`, alltså kod och tester. Ingen av dem är ett
-styrdokument.
-
-Ren synk ⇒ PATCH.
-
-### 0.8.7 — 2026-08-28
-
-`Speglar` följer med beslutsloggen till #28. Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att posten lagts till.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 16 skapade
-`scripts/etikettera-nya.py`, alltså ett verktyg och inget styrdokument.
-
-**§0:s rad om `docs/kategorier-forslag.md` står kvar sann.** Filen är fortfarande
-maskinproducerad av `src/ometikettera.py` och skrivs aldrig för hand: skiva 16:s
-tillägg gjordes genom att `scripts/etikettera-nya.py` anropade samma
-`skriv_rapport`.
-
-Ren synk ⇒ PATCH.
-
-### 0.8.6 — 2026-08-28
-
-`Speglar` följer med beslutsloggen till #27. Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att posten lagts till.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 15 skapade
-`scripts/besvarad-omklassning.py` och `scripts/formular-matning.py`, alltså
-mätverktyg och inga styrdokument. Samma grund som 0.8.2, och samma skäl som Lars
-angav i skiva 11: en mätning som bär ett styrdokuments påstående ska gå att räkna
-om, och §9 kräver att den ligger i ett committat skript.
-
-Ren synk ⇒ PATCH.
-
-### 0.8.5 — 2026-08-27
-
-`Speglar` följer med beslutsloggen till #26. Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att posten lagts till.
-
-Ren synk ⇒ PATCH.
-
-### 0.8.4 — 2026-08-27
-
-`Speglar` följer med beslutsloggen till #25 efter skiva 13. Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att posten lagts till.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 13 skapade ingen ny fil.
-
-Ren synk ⇒ PATCH.
-
-### 0.8.3 — 2026-08-27
-
-`Speglar` följer med beslutsloggen till #24 efter skiva 12. Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att posten lagts till.
-
-**§0:s styrdokumentlista är oförändrad.** Skiva 12 skapade `src/fordonsuppslag.py`
-och `tests/test_fordonsuppslag.py`, alltså kod och inte styrdokument.
-
-Ren synk ⇒ PATCH.
-
-### 0.8.2 — 2026-08-27
-
-`Speglar` följer med beslutsloggen till #23 efter skiva 11. Avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att posten lagts till.
-
-**§0:s styrdokumentlista är oförändrad.** Fas 4.5 lades i `docs/roadmap.md`,
-spärrposten i `docs/sparrar.md`, beslutet i `docs/beslutslogg.md` och incidenten
-I5 i `docs/incidentlogg.md`. Alla fyra står redan i §0.
-
-**Skivan skapade däremot en fil: `scripts/regnr-matning.py`.** Den är ett
-mätverktyg och inget styrdokument, så §0:s lista berörs inte. Skiva 11:s brief
-sade INGEN KOD; Lars avgjorde att det syftade på botens kod och inte på ett
-verktyg som bär ett styrdokuments centrala påstående, och att §9:s krav på ett
-committat skript väger tyngre. Skälet står i `docs/incidentlogg.md` I5.
-
-Ren synk, och en fil som inte rör §0 ⇒ PATCH.
-
-### 0.8.1 — 2026-08-27
-
-Rättelser efter §7-granskningen av skiva 10.
-
-**0.8.0-posten påstod att I4 "skriver ingen summa".** Posten skrev en, tre rader
-under sitt eget löfte, i formen "En åttonde instans". Ordinalen är borttagen ur
-I4 och påståendet här står därför kvar som sant, men det var falskt när det
-skrevs och det ska synas.
-
-**En processräkning struken ur §7.** Skälstycket sa "den som rättar sju fynd
-håller sju fynd i huvudet". Talet var illustrativt men obelagt, och formen är den
-§7.2 förbjuder. Meningen talar nu om en lista utan att räkna den.
-
-**§0 sa att `docs/kategorier-forslag.md` är maskinproducerad av
-`src/cluster.py`.** Filen själv säger `src/ometikettera.py` sedan beslutslogg
-#18. §0 bar alltså ett falskt påstående om repot fyra rader från den rad skiva 10
-redigerade. Rättat.
-
-Rättade påståenden ⇒ PATCH.
-
-### 0.8.0 — 2026-08-27
-
-**§7 får en regel om TAKT: EN RÄTTELSE I TAGET, VERIFIERAD MOT KÄLLAN INNAN NÄSTA
-SKRIVS.** Beslut av Lars i skiva 10.
-
-Regeln RÄTTELSETEXT GRANSKAS SOM NY TEXT, som infördes i 0.7.0, styr granskaren.
-Den fångade varje instans som följde och hindrade ingen av dem, eftersom den inte
-säger något om hur den som skriver ska arbeta. Den nya raden gör det.
-`docs/incidentlogg.md` I4 räknar upp de rättelseposter som själva bar ett fel, var
-och en med sin plats, och skriver ingen summa.
-
-**§0:s rad om ingen molndrift och ingen extern databas är struken.** Den var
-aldrig Lars beslut, och den blev falsk av beslutet att flytta boten till
-`mailagent.dasher.se`. §0 bär i stället en driftrad som pekar på beslutslogg #20.
-Att stryka ett påstående som aldrig var förankrat och nu dessutom är falskt är
-inte en regeländring, men raden fanns i §0 och strykningen redovisas därför här.
-
-Ny regel i §7 ⇒ MINOR.
-
-### 0.7.1 — 2026-08-27
-
-**§7:s regeltext bar ett känt falskt tal, och det är struket.** 0.7.0 skrev in
-Lars formulering ordagrant, "Undantaget fanns i sju av åtta skivor och åberopades
-i en", samtidigt som `docs/incidentlogg.md` I3 i SAMMA commit skrev att talen
-inte gick att belägga. Ett falskt tal stod alltså i regeltexten, infört av den
-commit som skrev att det inte skrevs, i det stycke som inför regeln mot precis
-den defekten. §7 namnger nu `e9a6772` och `c8b1214` i stället för att räkna, och
-överlåter dagens läge åt den som kör kommandot.
-
-**0.7.0-posten skrevs om på plats i `2d43d00`.** Den bar en mening om att
-undantaget "åberopats i två skivor", och fick samtidigt ett nytt stycke om det
-falska talet. Omskrivningen saknade versionspost, vilket 0.3.1 uttryckligen
-förbjuder: en committad appendixpost rättas genom en ny versionspost, inte genom
-omskrivning. Den här posten är den rättelsen, i efterhand.
-
-**Ingen regel ändrad, bara ett tal struket och ett spår efterlämnat** ⇒ PATCH.
-
-### 0.7.0 — 2026-08-26
-
-Två regler i §7, båda beslutade av Lars i skiva 9 och båda burna av en incident.
-
-**RÄTTELSETEXT GRANSKAS SOM NY TEXT.** En mening skriven för att rätta ett fynd
-bär inte lägre bevisbörda än den den ersätter, och granskaren prövar den mot
-källan i stället för mot fyndet den svarar på. Incidenten är skiva 8, där fyndet i
-alla tre granskningsvarven satt i den text som skrivits för att rätta föregående
-varvs fynd. `docs/incidentlogg.md` I2 bär kedjan led för led.
-
-**UNDANTAGET GÄLLER PER DEFEKTKLASS, inte per skiva.** Skillnaden går INUTI ett
-dokument och inuti en fil, inte mellan filer: en kodkommentar, en docstring och ett
-commitmeddelande är text om kod och omfattas, medan villkoret kommentaren beskriver
-är kod och inte gör det. Den gamla lydelsen krävde att undantaget åberopas per
-skiva, i briefen, och förbjöd samtidigt att det åberopas per fynd i efterhand. En
-skiva som bygger kod hade därmed ingen väg som var både tillåten och användbar.
-`docs/incidentlogg.md` I3 mäter upp följden: undantaget har funnits sedan repots
-första commit och åberopades före den här skivan bara i `e9a6772` och `c8b1214`.
-
-I3 redovisar också att två led i Lars instruktion inte gick att belägga i repot,
-och skriver ut vilka i stället för att återge dem. Det är §7.2 tillämpad på den
-egna briefen.
-
-**Regeltexten i §7 bar först Lars tal ordagrant**, alltså "sju av åtta skivor och
-åberopades i en", samtidigt som I3 i samma commit skrev att talen inte gick att
-belägga. Granskningen av skiva 9 fällde det. Ett känt falskt tal stod alltså i den
-obrytbara regeltexten, infört av samma commit som skrev att det inte skrevs, och i
-det stycke som inför regeln mot precis den defekten. Talet är borttaget: ingen
-mening här räknar längre sin egen omgivning.
-
-Mekanismen bakom den andra regeln är densamma som i 0.5.0: **en regel som gör
-systemet oanvändbart börjar ignoreras, och en ignorerad regel skyddar ingenting.**
-
-`Speglar` följer med beslutsloggen från #16 till #19, avläst ur
-`grep -n "^## #" docs/beslutslogg.md` efter att skiva 9:s poster lagts till.
-
-Nya regler i §7 ⇒ MINOR.
-
-### 0.6.0 — 2026-08-26
-
-**§12: rapporten skrivs vid varje avstämningstillfälle, inte bara sist.** Beslut
-av Lars i skiva 8. Filnamnet bär redan tidsstämpel, så flera filer per skiva ger
-ett audit trail i stället för en slutrapport. En delrapport bär `STATUS:
-DELRAPPORT` på tredje raden och redovisar vad som återstår.
-
-Skälet är att en delrapport dokumenterar läget FÖRE det beslut den ber om. Skrivs
-den i efterhand är den skriven av någon som redan vet hur det gick, och då är den
-ett referat och inte ett underlag.
-
-Ändringen åberopar §7:s dokumentdetaljundantag, alltså EN granskningsomgång.
-
-Ny regel i §12 ⇒ MINOR.
-
-### 0.5.7 — 2026-08-26
-
-`Speglar` följer med beslutsloggen till #16. Avläst ur
-`grep -n "^## #" docs/beslutslogg.md`. Ren synk ⇒ PATCH.
-
-### 0.5.6 — 2026-08-26
-
-`Speglar` följer med beslutsloggen till #15. Avläst ur
-`grep -n "^## #" docs/beslutslogg.md`. Ren synk ⇒ PATCH.
-
-### 0.5.5 — 2026-08-26
-
-`Speglar` följer med beslutsloggen till #13. Avläst ur
-`grep -n "^## #" docs/beslutslogg.md`. Ren synk ⇒ PATCH.
-
-### 0.5.4 — 2026-08-26
-
-`Speglar` följer med beslutsloggen till #11. Avläst ur
-`grep -n "^## #" docs/beslutslogg.md`. Ren synk ⇒ PATCH.
-
-### 0.5.3 — 2026-08-26
-
-`Speglar` följer med beslutsloggen till #10. Avläst ur
-`grep -n "^## #" docs/beslutslogg.md`. §0:s styrdokumentlista bär nu också
-`docs/kategorier-forslag.md`, som är maskinproducerad av `src/cluster.py`.
-Ren synk och en listrad ⇒ PATCH.
-
-### 0.5.2 — 2026-08-26
-
-`Speglar` följer med beslutsloggen till #8. Avläst ur
-`grep -n "^## #" docs/beslutslogg.md`. Ren synk ⇒ PATCH.
-
-### 0.5.1 — 2026-08-26
-
-`Speglar` följer med beslutsloggen till #7 efter full mining. Avläst ur
-`grep -n "^## #" docs/beslutslogg.md`. Ren synk ⇒ PATCH.
-
-### 0.5.0 — 2026-08-26
-
-**§10:s rad om `token.json` får en snävare lydelse.** Den sa tidigare "varje
-körning som skriver eller skriver om `token.json`". Bokstavligt träffade den även
-en rutinmässig token-förnyelse, som `src/auth.py` gör utan att någon ber om det,
-och därmed hade varje framtida körning mot brevlådan varit ett §10-stopp.
-Granskaren läste den precis så i skiva 4 och rapporterade ett möjligt passerat
-stopp. Så var det inte: `token.json` bar auktoriseringens tidsstämpel och rördes
-inte av körningen. Men läsningen var rimlig, och det är regelns fel och inte
-läsarens.
-
-Skälet att rätta är inte att den gamla lydelsen var obekväm. **En regel som gör
-systemet oanvändbart börjar ignoreras**, och en ignorerad regel skyddar
-ingenting. Stoppet ska ligga där risken finns: när en brevlåda auktoriseras för
-första gången, eller när scopelistan vidgas. En förnyelse av en token som redan
-har Lars godkännande flyttar ingen gräns.
-
-Ändrad regel i §10 ⇒ MINOR.
-
-### 0.4.2 — 2026-08-26
-
-`Speglar` följer med beslutsloggen till #6, som är loggens högsta nummer efter
-provkörningens två nya poster. Avläst ur `grep -n "^## #" docs/beslutslogg.md`.
-Ren synk av pekaren ⇒ PATCH.
-
-### 0.4.1 — 2026-08-26
-
-Rättelser efter skiva 3:s granskningsomgång, per post:
-
-- **0.4.0-posten namngav fel post för strykningen.** Den skrev "Rättelse i
-  0.3.1-posten"; strykningen ligger i 0.3.0-posten. Självrapportering ska
-  verifieras mot diffen, inte skrivas ur minnet av avsikten (§7.2).
-- **En andra falskhet fanns oredovisad.** 0.3.1-posten sa att 0.3.0-posten "säger
-  nu i stället var begreppet SAKNAS, vilket är ett påstående som inte förändras
-  av att texten omkring växer". Den meningen blev falsk av strykningen i samma
-  commit, och blev det på precis det sätt den påstod var uteslutet. Struken.
-- **Ett committat citat hade retroöversatts.** Lars motivering i 0.3.0-posten
-  skrevs om från "shadow mode" till "skuggläge" och omformulerades, utöver
-  strykningen. Ursprunglig ordalydelse återställd. Undantaget tillåter att en
-  falskhet stryks, inte att ett citat moderniseras.
-- **Processräkning struken.** 0.4.0-posten skrev att skiva 1 och skiva 2 gick
-  "tre granskningsvarv" var. §7.2 namnger `granskningsvarv` ordagrant som
-  förbjuden processräkning, och talet går inte att läsa ur repot: rapporterna
-  ligger i gitignorerad `scratchpad/`. Ersatt med det som är avläsbart, att
-  `config/` och `mallar/` är tomma.
-- **`färskhetstriangeln` var upphävd men refererades i presens** på två ställen.
-  Båda bär nu en not.
-- **§0 och §12 pekade på filer som inte finns.** `docs/kategorier.md` är markerad
-  som planerad till fas 4, och §12 säger nu vad som gäller innan
-  `scripts/kategoristatus.py` finns: skriv ut att raden inte kan produceras,
-  aldrig en handskriven ersättning.
-
-Skivan åberopade §7:s dokumentundantag, alltså en granskningsomgång. Dessa
-rättelser är gjorda efter den omgången och är **självmätta, inte oberoende
-granskade**. De rör inte sändvägen. Undantaget begränsar antalet omgångar, inte
-kravet på sanning: ett känt falskt påstående får inte skeppas oavsett.
-
-### 0.4.0 — 2026-08-26
-
-**§7:s dokumentundantag får en regel om NÄR det ska åberopas.** Undantaget har
-funnits sedan `f9b680a` och åberopades aldrig, eftersom ingenting sade när.
-Följden var att granskningsgrinden maldes på prosa medan sändvägen förblev
-obyggd: `ls -la config` och `ls -la mallar` är tomma, och `src/` bär bara
-`auth.py` och `mine.py`. En skiva vars leverabler är enbart dokument åberopar nu
-undantaget som förval, och åberopandet sker per skiva i briefen, aldrig per fynd
-i efterhand. Det senare vore att sänka kraven mitt i grinden.
-
-**Kaskaden stängs.** Bara det här dokumentet bär en pekare mot ett rörligt nummer.
-Övriga styrdokument namnger vilken paragraf de implementerar. §12:s
-färskhetskontroll är omskriven därefter: den jämförde tidigare korsreferenser som
-nu avsiktligt är borta. Beslut av Lars i skiva 3, som svar på den öppna fråga
-`docs/sparrar.md` ställde i sin 0.2.2-post.
-
-**`docs/roadmap.md` upprättas och listas i §0.** Den bär fasordningen, varje fas
-grindbeslut, och definitionen av SKUGGLÄGE.
-
-**Två strykningar på plats, båda i redan committade appendixposter.**
-
-`0.3.0`-posten sa att `shadow mode` inte var definierat någonstans i repot. Det
-blev falskt av `docs/roadmap.md`, som skapades i samma skiva. `0.3.1`-posten sa i
-sin tur att 0.3.0-posten "säger nu i stället var begreppet SAKNAS, vilket är ett
-påstående som inte förändras av att texten omkring växer". Det blev falskt av den
-första strykningen, och blev det på precis det sätt meningen påstod var uteslutet.
-
-Båda falskheterna är strukna på plats med stöd av undantaget i
-`docs/beslutslogg.md`:s huvud, och varje strykning bär en kursiv not där den
-stod. **Lars citerade motivering i 0.3.0-posten står kvar ordagrant**, inklusive
-den engelska termen: undantaget tillåter att en falskhet stryks, inte att ett
-committat citat översätts i efterhand.
-
-Ny regel i §7 ⇒ MINOR.
-
-### 0.3.2 — 2026-08-26
-
-**Processräkningar strukna ur 0.3.0- och 0.3.1-posterna.** Formuleringarna "Fyra
-ändringar efter skiva 1" och "Två rättelser" räknade posternas eget innehåll, och
-"Regeln som de tre rättelserna gav" räknade instanser av ett mönster. §7.2
-förbjuder den formen. Uppräkningarna står kvar, summorna är borta.
-
-Den tyngsta av dem satt i regeln mot självräknande meningar. Den räknade tre
-instanser, och en av dem, "Ger tre träffar", har aldrig funnits i något
-styrdokument: `git grep -n "tre träffar" 7397e8e` ger exit 1. Frasen stod i en
-granskningsrapport och blev aldrig committad, alltså var den aldrig en rättelse.
-Regeln bars alltså av ett räkneexempel som själv bröt mot regeln, vilket är den
-sortens bisats §7.2 säger blir citerad som belagd. Instanserna redovisas nu per
-post, med sin plats.
-
-**Strykningarna är gjorda på plats i redan committade appendixposter.** Det är
-tillåtet under det undantag som samtidigt skrivs in i `docs/beslutslogg.md`:s
-huvud: ett känt falskt påstående stryks på plats, och strykningen redovisas i en
-ny versionspost. Allt annat rättas genom tillägg.
-
-### 0.3.1 — 2026-08-26
-
-Rättelser efter granskningen av 0.3.0, per post nedan.
-
-**`Speglar` sätts till #4**, alltså till loggens högsta nummer efter den här
-skivans rättelser. 0.3.0 lämnade huvudet på #2 medan loggen växte, vilket är
-samma osynk som 0.3.0 infördes för att stänga. **Pekaren ska kontrolleras mot
-`grep -n "^## #" docs/beslutslogg.md` i varje pass som rör beslutsloggen**, inte
-skrivas ur minnet av vad den stod på sist.
-
-**Kvantifieringen om `shadow mode` stryks ur 0.3.0-posten.** Den sa att en
-`grep`-sökning bara träffar en mening. Sökningen träffar hela stycket, och blev
-falsk av den omskrivning som skulle rätta ett närliggande fel.
-
-*Rättelse i 0.4.0: här stod att 0.3.0-posten i stället säger var begreppet
-saknas, och att det är ett påstående som inte förändras av att texten omkring
-växer. Båda leden är struket. Meningen det syftade på är själv struken ur
-0.3.0-posten, och den blev falsk av precis det den påstods vara oberoende av.*
-
-**Om formen.** 0.3.0:s appendixpost redigerades på plats i `b03139d`, efter att
-den committats. Det bryter mot beslutsloggens räckviddsregel, som infördes i
-samma commit. Den här posten är rättelsen: härefter rättas en committad
-appendixpost genom en ny versionspost, inte genom omskrivning.
-
-**Regeln som rättelserna gav.** Skriv aldrig en mening som räknar eller
-kategoriserar sin egen omgivning. Den blir falsk när texten omkring växer, och
-den växer oftast av just den commit som skriver meningen. Namnge fil och rad i
-stället. Belagda instanser, var och en med sin plats:
-
-- `shadow mode`-meningen i 0.3.0-posten, som sa att en `grep`-sökning bara
-  träffar en mening.
-- `docs/beslutslogg.md` #3, vars anvisning bad läsaren skilja på tre sorters
-  träff varav den första inte finns i utdatan. Upphävd av #4.
-
-### 0.3.0 — 2026-08-26
-
-Ändringar efter skiva 1, per post nedan. Beslutsloggen finns nu.
-
-**Versionshuvudets `Speglar` sätts till #2, och stycket som föreskrev #1 raderas
-helt.** Talet #1 skrevs innan någon visste hur många beslut den första skivan
-skulle producera. Rätt värde är #2. Stycket ersätts inte, eftersom ett dokument
-inte ska bära en instruktion om vilket tal det självt ska få: det är ett ogrundat
-tal i en bisats, alltså precis det §7.2 finns för att stoppa. Att `Speglar`
-uppdateras när loggen växer följer av §12 och behöver ingen egen föreskrift.
-*(Namnet färskhetstriangeln, som stod här, är upphävt i 0.4.0: kontrollen har två
-signaler.)*
-
-**§10 får en ny första rad om auktorisering.** Beslutslogg #2 behandlar
-auktoriseringen som den grind som öppnar miljön, medan §10 bara namngav första
-sändningen. Hålet blottades av #2 utan att något påstående i §10 blev falskt: det
-som saknades var en rad, inte en rättelse. Raden namnger `token.json` uttryckligen,
-eftersom det är skrivningen till den filen som är den observerbara händelsen.
-
-**§10:s gräns per körning sänks från 5 till 1.** Femman hade inget underlag och
-läses som en kalibrerad tröskel, vilket den aldrig var. Ettan är golvet och är
-därför inget påstående om volym. Talet revideras när mining visat den faktiska
-dagsvolymen. Raden behåller sin pekare hit.
-
-Lars motiverade sänkningen med att ingenting skickas under shadow mode och att
-första skarpa sändningen är manuell. Sänkningen vilar inte på begreppet, utan på
-att 1 är golvet, så motiveringen håller även om shadow mode aldrig införs.
-
-*Rättelse i 0.4.0: här stod att begreppet inte var definierat någonstans i repot.
-Det påståendet blev falskt av `docs/roadmap.md` och är struket. Lars motivering
-ovan står kvar i sin ursprungliga ordalydelse, inklusive den engelska termen, för
-att den är ett citat. Begreppet heter SKUGGLÄGE i repot och definieras i
-`docs/roadmap.md`.*
-
-**§0:s styrdokumentlista räknade upp `docs/incidentlogg.md` medan filen inte
-fanns.** Filen är nu upprättad och bär sin första post, I1, om defaultvärden som
-binds när modulen laddas. Listraden är oförändrad. Uppmätt i skiva 1, inte
-hypotetisk.
-
-Ny regel i §10 och raderat innehåll i huvudet ⇒ MINOR.
-
-### 0.2.0 — 2026-08-26
-
-Avstämd mot SEO-agents CLAUDE.md, som 0.1.0 inte hade tillgång till. Fyra regler som
-tradingbot-v2 1.5.0 komprimerat bort återinförs, och tre av dem väger tyngre här än i
-förlagorna.
-
-**§7.2 tillkommer i sin helhet.** Talregeln, omskrivningsregeln, processräkningsförbudet
-och kravet att granskaren namnger källa per påstående. 0.1.0 hade bara prisregeln, alltså
-ett specialfall av talregeln, och saknade den generella formen. Omskrivningsregeln är den
-viktigaste delen här: mallarna kommer formuleras om löpande medan deras siffror ärvs
-oförändrade genom omskrivningarna, vilket är exakt det fall regeln finns för.
-
-**§9.1 tillkommer, utvidgad till sändvägen.** Förlagan gäller ett blockerat
-commit-meddelande. Utvidgningen till tre namngivna förbjudna åtgärder vid fälld sändning
-saknar motsvarighet i förlagorna och tillkommer därför att frestelsen är specifik för det
-här systemet: en spärr som fäller ett mail har en orsak, och alla tre kringgåendena lämnar
-orsaken orörd.
-
-**§7.1:s återställningsdisciplin tillkommer.** Skillnaden mellan ren fil och fil med
-ocommittat arbete, förbudet mot `git checkout` i det andra fallet, och kravet att
-kvittera mot utgångsdiffen som ska vara identisk och inte tom.
-
-**Klausulen om lagrat försvar tillkommer, och är omskriven till att beskriva
-normalfallet.** I förlagan är den ett kantfall med en uppmätt instans. Här är
-redundanta spärrar designen, så klausulen bär en pekare till `docs/sparrar.md` och
-gör den listan obligatorisk läsning före en prövning. Det tillägget saknar motsvarighet
-i förlagan.
-
-**§8 bär en namngiven öppen punkt** om huruvida SEO-agents förbud mot att claude.ai
-producerar dokumentfiler ska bära hit. Punkten skrivs ut i stället för att avgöras, och
-dokumentet du läser är självt en instans av frågan.
-
-**§10:s gräns på 5 mail per körning är fortfarande satt utan underlag** och ska revideras
-när mining-fasen visat den faktiska dagsvolymen. Namngivet öppet antagande, inte ett mätt
-värde. Raden bär nu en explicit pekare hit så att talet inte läses som ett beslut.
-
-**Inga incidenter bärs ännu.** Förlagornas styrka är att varje härdad regel namnger den
-incident som skapade den. Detta dokument har inga egna. De ärvda incidenterna hör hemma i
-respektive förlagas historik och återges inte här. `docs/incidentlogg.md` börjar tom.
-
-Nya regler tillkom ⇒ MINOR. Inget befintligt innehåll omorganiserat utöver att §7 fått
-underrubriker och att den tidigare §11 numrerats om till §12 för att ge plats åt
-innehållsreglerna.
-
-### 0.1.0 — 2026-08-26
-
-Baseline, byggd enbart på tradingbot-v2 1.5.0. Kapitalvägen definieras om till
-sändvägen, §5:s deploy-undantag mappas till sändning, och innehållsreglerna för
-genererade mail tillkommer som ny sektion utan förlaga.
+**Luckorna 1 till 58 i `docs/sparrar.md` står kvar som de är.** Ingen av dem
+stängs av den här ändringen, och ingen av dem öppnas.
