@@ -2967,8 +2967,11 @@ def test_ett_FALT_SOM_SAKNAS_ar_inte_ett_falt_som_inte_gar_att_tolka():
     """SKIVANS HELA SKÄL, i en rad.
 
     De två gav samma sak före skiva 40, en utelämnad nyckel, och därmed samma
-    besked nedströms. `SAKNAS_PA_SIDAN` är ett registerfaktum boten FÅR säga;
-    `TOLKAS_EJ` är vårt eget fel och får aldrig sägas.
+    besked nedströms. Skillnaden syns i HÄRKOMSTRADEN och i loggen.
+
+    *Här stod att `SAKNAS_PA_SIDAN` är ett registerfaktum boten FÅR säga. VÄG
+    TRE i skiva 41 tog bort den rätten, se `docs/beslutslogg.md` #93. Fällt av
+    §7-granskningen av skiva 41, varv 2.*
     """
     saknas = falt_med_status(sida_med(slapvagnsvikt=None))
     otolkbar = falt_med_status(sida_med(slapvagnsvikt="ungefär 2 ton"))
@@ -3113,7 +3116,11 @@ def test_dragvikt_LAST_nar_den_bromsade_star_dar():
 
 
 def test_dragvikt_REGISTRET_SAKNAR_nar_INGEN_av_de_fyra_formerna_finns():
-    """UTFALL 1. Det ENDA läge där boten får säga att registret saknar uppgift.
+    """UTFALL 1. Det ENDA läge där ingen av de fyra formerna står på sidan.
+
+    *Rubriken sade "det ENDA läge där boten får säga att registret saknar
+    uppgift". Efter VÄG TRE i skiva 41 finns inget sådant läge. Fällt av
+    §7-granskningen av skiva 41, varv 2.*
 
     `sida_med(slapvagnsvikt=None)` tar bort både den bromsade och den
     obromsade, se hjälparens docstring, och ingen körkortsrad läggs till.

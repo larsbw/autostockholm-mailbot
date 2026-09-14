@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.46.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.47.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -2647,9 +2647,16 @@ Mot `tests/test_generera.py`, som bar 129 test vid mätningen.
   ÄKTA-utfall enligt §7.1:s klausul om lagrat försvar. Fällt av §7-granskningen
   av skiva 32, varv 1.*
 - **Vad den skyddar mot.** §7.2 i utgående text: ett tal som ser trovärdigt ut
-  men inte är avläst. **Priser finns inte än:** `config/priser.json` existerar
-  inte, alltså bidrar den med noll tillåtna tal och varje svar som nämner ett
-  pris faller. Det är avsiktligt och inte ett provisorium.
+  men inte är avläst. **Prisfilen finns och är TOM:** `config/priser.json`
+  upprättades i skiva 41 på Lars §10-beslut och bidrar med noll tillåtna tal,
+  alltså faller varje svar som nämner ett pris. Det är avsiktligt och inte ett
+  provisorium.
+- **PRISER PRÖVAS MOT PRISKÄLLAN OCH INTE MOT ALLA TILLÅTNA TAL.** En sats som
+  bär ett prisord får bara bära tal ur `config/priser.json`, och den måste bära
+  minst ett. Utan den avgränsningen blev uppslagets TJÄNSTEVIKT ett tillåtet
+  pris den dag filen fylls. *Här stod att filen inte existerar och att varje
+  prissvar faller, båda i presens. Det första blev falskt av skiva 41, det andra
+  är inte längre vad koden gör. Fällt av §7-granskningen av skiva 41, varv 2.*
 - **Negativkontroll.** `tests/test_generera.py::test_uppslagets_egna_tal_slapps_igenom`
   visar att talen ur ett LYCKAT uppslag passerar, och
   `test_ett_svar_utan_tal_slapps_igenom` att ett vanligt svar gör det. En spärr
@@ -3040,6 +3047,57 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   räknade upp. Det är `docs/incidentlogg.md` I10, tredje varvet i rad i den här
   skivan.
 
+- **Lucka 52. SYSTEMPROMPTENS REGEL 5 FÖRBJUDER DET UNDERLAGET LEVERERAR.
+  ÖPPEN. SÄNDVÄG. UTLÖSES NÄR LARS FYLLER `config/priser.json`.**
+
+  Regel 5 står under rubriken REGLER SOM ALDRIG BRYTS och lyder *"ALDRIG ETT
+  PRIS. Inte ett belopp, inte ett ungefärligt pris, inte 'ring för offert'."*
+  Den är bunden ORDAGRANT av `test_varje_regel_star_ORDAGRANT`.
+
+  `PRISRUBRIK` säger samtidigt *"Priser, avlästa ur config/priser.json … du
+  uppskattar aldrig ett pris som inte står här"*, och `PRISFOT` *"Varje pris här
+  återges ordagrant"*.
+
+  **INGEN MOTSÄGELSE RÅDER I DAG**, eftersom filen är tom och `INGA_PRISER`
+  renderas i stället. Den blir live första gången Lars fyller en post.
+
+  **SKILLNADEN MOT FAKTAFALLET ÄR ATT REGEL 8 BÄR ETT FÖRBEHÅLL.** Den förbjuder
+  påståenden om oss *"utöver det som står i underlaget nedan"*. Regel 5 har inget
+  sådant led, alltså modellerades priser efter fakta utan att den skillnaden
+  syntes. Uppmätt av §7-granskningen av skiva 41, varv 2.
+
+  **VAD SOM STÄNGER LUCKAN.** Ett förbehåll i regel 5 av samma form som regel
+  8:s. Regelns ordalydelse är Lars, se §8 och §11, och ändras inte av mig.
+  Varningen står också i `config/priser.json`:s egen kommentar, så att den som
+  fyller filen ser den.
+
+- **Lucka 53. `las_konfigvarden` REKURSERAR INTE, och en nästlad prisfil
+  renderar sina kommentarer i prompten. ÖPPEN. SÄNDVÄG.**
+
+  `las_konfigvarden` filtrerar `_`-nycklar bara på TOPPNIVÅN, medan `_varden_ur`
+  går ned genom hela strukturen. Uppmätt av §7-granskningen av skiva 41, varv 2,
+  med en nästlad prisfil:
+
+  > `  a_traktor: {'_internt': 'kostar oss 9 000 kr', 'pris': '25 000 kr'}`
+
+  Raden renderas under rubriken *"Priser, avlästa ur config/priser.json"* och
+  över foten *"Varje pris här återges ordagrant"*. En INTERN kommentar, i
+  exemplet vårt inköpspris, blir alltså ett citerbart pris.
+
+  **TALETS HALVA FÅNGAS NEDSTRÖMS, TEXTENS INTE.** `_varden_ur` hindrar att
+  9000 blir ett tillåtet tal, men ingenting hindrar att texten står i prompten.
+
+  **REPOTS EGNA KOMMENTARER FÖRUTSÄGER ATT FILEN BLIR NÄSTLAD.** `_varden_ur`
+  skriver att listgrenen är den `config/priser.json` mest sannolikt behöver.
+
+  **VAD SOM HINDRAR DET I DAG.** För `priser.json`
+  `test_prisfilen_i_repot_har_BARA_TOMMA_varden`, som kräver att varje post är
+  en tom sträng. För `config/fakta.json` finns ingen motsvarande vakt: dess test
+  prövar bara `telefon`.
+
+  **VAD SOM STÄNGER LUCKAN.** Att `las_konfigvarden` rekurserar som `_varden_ur`
+  gör, eller att en vakt binder att båda filerna är platta.
+
 - **Lucka 50. STÄNGD SOM SÄNDVÄG I SKIVA 41, VÄG TRE. Ett kvarstående led rör
   HÄRKOMSTRADEN och inte kundmailet.**
 
@@ -3100,17 +3158,25 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   fjärde självmätt ändring i samma regel är precis vad §7:s rad för SÄNDVÄG
   finns för att hindra. Se `docs/incidentlogg.md` I10.
 
-  **VAD SOM STÄNGER LUCKAN, och det är Lars val mellan tre vägar.** Att
-  normalisera jämförelsen som parsern gör, alltså avkoda entiteter och strippa
-  osynliga tecken före jämförelsen. Att kräva att sidan gett SAMTLIGA
-  ankaretiketter i stället för tre. Eller att ta bort rätten att påstå frånvaro
-  ur den saknade-fältet-vägen helt och bara behålla det avlästa `Nej`, vilket är
-  säkrast men tar bort det DEL A byggdes för.
+  **LARS VALDE VÄG TRE I SKIVA 41**, alltså den tredje av de tre vägar som stod
+  här: rätten att påstå frånvaro är borttagen ur den saknade-fältet-vägen. De
+  två övriga, att normalisera jämförelsen som parsern gör och att kräva samtliga
+  ankaretiketter, är kvar som möjliga sätt att stänga det led som rör
+  härkomstraden.
 
-  **`MINSTA_ANKARE` ÄR OBUNDET.** `--ersatt 'MINSTA_ANKARE = 2'` ger grön svit:
-  testen binder att lager 2 finns, aldrig var tröskeln sitter. §4 kräver ett
-  test för gränsvärdet. Talet är dessutom valt som marginal utan mätning, medan
-  mätningen ger 6/6 på samtliga sex ankare.
+  *De tre stod här som ett ÖPPET val efter att Lars gjort det. Fällt av
+  §7-granskningen av skiva 41, varv 2.*
+
+  **`MINSTA_ANKARE` ÄR BUNDEN SEDAN SKIVA 41.** Sex parametrar kring
+  gränsvärdet plus en rad om talet självt, och en fällning till 2 ger två röda.
+  Talet är fortfarande valt som marginal utan mätning, medan mätningen ger 6/6
+  på samtliga sex ankare.
+
+  *Här stod "`MINSTA_ANKARE` ÄR OBUNDET" och att en fällning till 2 ger grön
+  svit, i presens, femtio rader från den rad samma skiva skrev om att den ÄR
+  bunden. Skivans egen motivering för att lämna mätningen kvar, att den
+  beskriver koden som den fortfarande är, var alltså falsk om just det stycket.
+  Fällt av §7-granskningen av skiva 41, varv 2.*
 
 - **Lucka 51. `pastaende-om-franvaro`:s FRAMLÄNGESRIKTNING ÄR EN UPPRÄKNING.
   ÖPPEN OCH MÄTT. SÄNDVÄG.**
@@ -4495,6 +4561,37 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.47.0 — 2026-09-14
+
+**TVÅ NYA LUCKOR, BÅDA SÄNDVÄG, BÅDA UTLÖSTA AV ATT LARS FYLLER
+`config/priser.json`.**
+
+**LUCKA 52: systempromptens regel 5 förbjuder det underlaget levererar.** Regeln
+lyder ALDRIG ETT PRIS utan förbehåll och är bunden ordagrant, medan `PRISRUBRIK`
+ber modellen återge priser ur filen. Ingen motsägelse råder i dag, eftersom
+filen är tom. Skillnaden mot faktafallet är att regel 8 bär ett förbehåll och
+regel 5 inte gör det. Regelns ordalydelse är Lars.
+
+**LUCKA 53: `las_konfigvarden` rekurserar inte.** En nästlad prisfil renderar
+sina `_`-kommentarer i prompten, uppmätt: en intern rad om vårt inköpspris blev
+en citerbar prisrad. Talets halva fångas av `_varden_ur`, textens av ingenting.
+
+**PRISSPÄRREN PRÖVAR NU MOT PRISKÄLLAN OCH INTE MOT ALLA TILLÅTNA TAL.** En
+första lydelse lät prisordet falla igenom till den allmänna talloopen, vars
+mängd bär uppslagets vikter: fordonets TJÄNSTEVIKT blev ett tillåtet pris.
+Posten för `genererat-tal-har-kalla` bär egenskapen.
+
+**TVÅ PÅSTÅENDEN I 0.46.0 OCH I LUCKA 50 VAR FALSKA.** Posten sade att
+`MINSTA_ANKARE` är OBUNDET, i presens, femtio rader från den rad samma skiva
+skrev om att den ÄR bunden, och den presenterade VÄG TRE som ett öppet val efter
+att Lars gjort det. Båda rättade.
+
+**SPÄRRPOSTENS EGET FÄLT VAR INTE UPPDATERAT.** `genererat-tal-har-kalla` sade
+att prisfilen inte existerar och att varje prissvar faller. Skivan höjde filen
+till 0.46.0 och rörde luckorna men inte posten för den spärr den ändrade.
+
+Två nya luckor och en ändrad spärregenskap ⇒ MINOR.
 
 ### 0.46.0 — 2026-09-14
 

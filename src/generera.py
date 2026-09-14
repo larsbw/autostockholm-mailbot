@@ -601,8 +601,14 @@ def krav_pa_tal_med_kalla(svar: str, forfragan: Forfragan) -> None:
     Före skiva 41 fällde den varje prisord ovillkorligt, med skälet att filen
     inte existerade. Filen finns nu och är TOM, alltså är utfallet oförändrat.
 
-    *Skälet var dessutom FALSKT så snart filen skapades, och strängen går in i
-    `logg/beslut.jsonl` och i vyn. Fällt av §7-granskningen av skiva 41, varv 1.*
+    *Skälet var dessutom FALSKT så snart filen skapades. Fällt av
+    §7-granskningen av skiva 41, varv 1.*
+
+    *Noten sade också att strängen går in i `logg/beslut.jsonl` och i vyn. Båda
+    leden är falska: `kedja.logga_beslut` skriver uttryckligen inget `skal`, och
+    `till_granskningsfall` skickar `sparr` och aldrig `skal`. En rättelsetext som
+    inflaterade allvaret i det den rättade, med en dataväg repot redan tagit
+    bort. Fällt av §7-granskningen av skiva 41, varv 2.*
 
     **DEN DAG LARS FYLLER EN POST HADE DEN GAMLA GRENEN FÄLLT VARJE SVAR SOM
     PROMPTEN BEDER OM.** `_prisrader` skriver in priset och ber modellen återge
@@ -611,23 +617,55 @@ def krav_pa_tal_med_kalla(svar: str, forfragan: Forfragan) -> None:
     som fäller det prompten beställt, och frestelsen blir att skriva om texten
     tills den slinker igenom. Uppmätt av §7-granskningen av skiva 41, varv 1.
 
-    **ETT PRISORD UTAN TAL FÄLLER FORTFARANDE.** *"Det kostar en del"* är ett
-    prispåstående utan avläsbar källa, och det ska inte passera bara för att
-    filen råkar bära ett pris. Talet prövas sedan av loopen längre ned, som
-    slår upp det mot `_tillatna_tal`, där prisfilens värden ingår via
-    `_varden_ur`.
+    **ETT PRIS PRÖVAS MOT PRISKÄLLAN, INTE MOT ALLA TILLÅTNA TAL.** Regeln är en
+    egenskap och inte två grenar: **en sats som bär ett prisord får bara bära tal
+    som kommer ur `config/priser.json`, och den måste bära minst ett.**
+
+    *En första lydelse lät prisordet falla igenom till den allmänna talloopen så
+    snart filen bar något. Den mängden bär också uppslagets vikter och
+    `ALLTID_TILLATNA_TAL`, alltså blev fordonets TJÄNSTEVIKT ett tillåtet PRIS:
+    "Ombyggnaden kostar 1400 kr" och "Vi tar 3 kr" passerade båda, uppmätt.
+    Samma lydelse påstod att ett prisord utan tal faller, men prövade `_tal_i`
+    över HELA svaret, så "Det kostar en del, vi hör av oss inom 2 dagar"
+    passerade på tvåan. Fällt av §7-granskningen av skiva 41, varv 2.*
+
+    **PRÖVNINGEN SKER PER SATS**, med samma delning som
+    `krav_pa_belagt_franvaropastaende`. Ett prisord i en sats ska inte kunna
+    hämta sin källa ur ett tal i en annan.
     """
-    if PRISORD.search(svar):
-        if not las_priser():
-            raise Sparrfalld(
-                "genererat-tal-har-kalla",
-                "svaret nämner ett pris, och config/priser.json bär inga priser",
-            )
-        if not _tal_i(svar):
+    priskallans_tal: set[str] = set()
+    for varde in las_priser().values():
+        priskallans_tal |= _tal_i(varde)
+
+    # **SATSDELNINGEN FÅR ALDRIG TAPPA ETT PRISORD.** `PRISORD` bär fraser med
+    # punkt i, `inkl. moms` och `exkl. moms`, och meningsdelningen klyver dem
+    # mitt itu: `Det är inkl.` plus `moms.`, där ingendera halvan matchar.
+    # Följden var att två committade prisformer slutade fällas, uppmätt av
+    # sviten i samma skrivning som införde delningen.
+    #
+    # Regeln är en EGENSKAP och ingen förkortningslista: bär hela svaret ett
+    # prisord men ingen enskild sats, så har delningen förstört frasen, och då
+    # prövas svaret som EN sats.
+    satser = [s for s in _meningar(svar) if PRISORD.search(s)]
+    if not satser and PRISORD.search(svar):
+        satser = [svar]
+
+    for sats in satser:
+        if not PRISORD.search(sats):
+            continue
+
+        talen = _tal_i(sats)
+        if not talen:
             raise Sparrfalld(
                 "genererat-tal-har-kalla",
                 "svaret nämner ett pris utan att ange ett tal som går att "
                 "slå upp mot config/priser.json",
+            )
+        for tal in sorted(talen - priskallans_tal):
+            raise Sparrfalld(
+                "genererat-tal-har-kalla",
+                f"talet {tal} står i en prismening men kommer inte ur "
+                f"config/priser.json",
             )
 
     traff_i_ord = TAL_I_ORD.search(svar)

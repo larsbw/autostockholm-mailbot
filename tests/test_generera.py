@@ -465,7 +465,7 @@ def test_ett_pris_FALLER_nar_prisfilen_ar_tom(monkeypatch):
         generera.krav_pa_tal_med_kalla("Det kostar 25 000 kr.", forfragan())
 
     assert fel.value.sparr == "genererat-tal-har-kalla"
-    assert "bär inga priser" in fel.value.skal
+    assert "kommer inte ur config/priser.json" in fel.value.skal
 
 
 def test_ett_AVLAST_pris_slapps_igenom_nar_Lars_fyllt_filen(monkeypatch):
@@ -492,6 +492,58 @@ def test_ett_PAHITTAT_pris_faller_aven_nar_filen_ar_fylld(monkeypatch):
     with pytest.raises(Sparrfalld):
         generera.krav_pa_tal_med_kalla(
             "Konverteringen kostar 30 000 kr.", forfragan())
+
+
+@pytest.mark.parametrize(
+    "svar",
+    [
+        # UPPSLAGETS VIKTER ÄR INGEN PRISKÄLLA. Alla fyra passerade en första
+        # lydelse, där prisordet föll igenom till den ALLMÄNNA talloopen så
+        # snart filen bar något. Uppmätt av §7-granskningen av skiva 41, varv 2.
+        "Ombyggnaden kostar 1400 kr.",
+        "Det blir 1500 kr.",
+        "Det blir 1400tkr.",
+        # `ALLTID_TILLATNA_TAL` ÄR HELLER INGEN PRISKÄLLA.
+        "Vi tar 3 kr.",
+        # ETT PRISORD UTAN TAL I SIN EGEN SATS. Den gamla lydelsen prövade
+        # `_tal_i` över HELA svaret, alltså räckte en tvåa var som helst.
+        "Det kostar en del, vi hör av oss inom 2 dagar.",
+        "Det kostar en del.",
+    ],
+)
+def test_ett_PRIS_utan_PRISKALLA_faller_aven_nar_filen_ar_fylld(monkeypatch,
+                                                                svar):
+    """**ETT PRIS PRÖVAS MOT PRISKÄLLAN, inte mot alla tillåtna tal.**
+
+    `_tillatna_tal` bär uppslagets vikter och `ALLTID_TILLATNA_TAL`. Lät man
+    prisordet falla igenom dit blev fordonets TJÄNSTEVIKT ett tillåtet pris, och
+    `Det blir 1400tkr` är 1,4 miljoner kronor.
+
+    Fixturen bär ett uppslag med tjänstevikt 1400 och släpvagnsvikt 1500, alltså
+    är de två första raderna tal som FINNS i den allmänna mängden.
+    """
+    _med_priser(monkeypatch, {"a_traktorkonvertering": "25 000 kr"})
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla(
+            svar, forfragan(uppslag=GRONT_UPPSLAG))
+
+    assert fel.value.sparr == "genererat-tal-har-kalla"
+
+
+def test_ett_PRISORD_I_EN_ANNAN_SATS_hamtar_ingen_kalla(monkeypatch):
+    """PRÖVNINGEN SKER PER SATS, precis som frånvarospärrens.
+
+    Ett pris i en sats får inte hämta sin källa ur ett tal i en annan.
+    """
+    _med_priser(monkeypatch, {"a_traktorkonvertering": "25 000 kr"})
+
+    generera.krav_pa_tal_med_kalla(
+        "Konverteringen kostar 25 000 kr. Vi hör av oss.", forfragan())
+
+    with pytest.raises(Sparrfalld):
+        generera.krav_pa_tal_med_kalla(
+            "Vikten är 25 000. Det kostar en del.", forfragan())
 
 
 def test_ett_PRISORD_UTAN_TAL_faller_aven_nar_filen_ar_fylld(monkeypatch):
@@ -588,11 +640,20 @@ def test_ett_TOMT_svar_ar_INGET_utkast(svar):
     assert fel.value.sparr == "tomt-svar"
 
 
-def test_ett_pris_faller_alltid():
-    """PRISER FINNS INTE ÄN, alltså faller varje svar som nämner ett.
+def test_ett_pris_faller_med_repots_egen_TOMMA_prisfil():
+    """PRISFILEN I REPOT ÄR TOM, alltså faller varje svar som nämner ett pris.
 
-    `config/priser.json` existerar inte. §7.2 säger att ett tal är avläst eller
-    utelämnat, och det finns ingen tredje kategori.
+    §7.2 säger att ett tal är avläst eller utelämnat, och det finns ingen tredje
+    kategori.
+
+    **RADEN LÄSER DEN RIKTIGA FILEN**, till skillnad från raderna ovan som
+    patchar läsningen. Den blir därför röd den dag någon fyller en post utan att
+    ändra §10-vakten, vilket är avsikten.
+
+    *Testet hette `test_ett_pris_faller_alltid` och sade att
+    `config/priser.json` existerar inte. Filen skapades av skiva 41, och ordet
+    ALLTID var fel redan då: en fällning av filens första post gav `DID NOT
+    RAISE`. Fällt av §7-granskningen av skiva 41, varv 1 och varv 2.*
     """
     with pytest.raises(Sparrfalld) as fel:
         generera.krav_pa_tal_med_kalla("Ombyggnaden kostar 25 000 kr.", forfragan())

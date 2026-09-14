@@ -5124,7 +5124,11 @@ om sidan och osant om vår läsning av den.
 
 **JA, DET TAR BORT DET DEL A BYGGDES FÖR**, och Lars skriver ut det själv. DEL A:s
 värde ligger kvar i två saker: härkomstraden säger vilket läge uppslaget är i,
-och de åtta nya fälten läses.
+och de NIO nya fälten läses.
+
+*Talet stod som åtta, ur briefens uppräkning. Skiva 40 lade sex poster i
+`OVRIGA_ETIKETT` och tre i `SLAPVIKT_ALTERNATIV`, alltså nio. Fällt av
+§7-granskningen av skiva 41, varv 2.*
 
 **VAD SOM TOGS BORT I KOD.** `kedja._franvaro_far_pastas` är struken.
 `Steg.franvaro_far_pastas` är struken. `UppslagMisslyckades.faltstatus` och
@@ -5178,12 +5182,23 @@ utelämnas, alltså kan modellen inte skriva ett pris den inte har.
 `fråga om pris`, avläst ur `scripts/kategoristatus.py` 2026-09-14:
 `a_traktorkonvertering`, `rekond`, `reparation`, `service`, `dack`, `tillbehor`.
 
-*Källan stod först som `config/kategorier.yaml`. Den filen bär hinkar och inte
-kategorinamn: en literal sökning efter `pris` i den ger fem träffar, alla i
-kommentarer, och noll kategorinamn. Namnen kommer ur `data/taxonomi.json` via
-statusskriptet. Antalet och namnen stämde; källangivelsen gjorde det inte, och
-den är hela postens bevisvärde eftersom posten själv säger AVLÄSTA OCH INTE
-VALDA. Fällt av §7-granskningen av skiva 41, varv 1.*
+*Källan stod först som `config/kategorier.yaml`. En literal sökning efter `pris`
+i den filen ger fem träffar, alla i kommentarer, och noll kategorinamn. Namnen
+kommer ur `data/taxonomi.json` via statusskriptet. Antalet och namnen stämde;
+källangivelsen gjorde det inte, och den är hela postens bevisvärde eftersom
+posten själv säger AVLÄSTA OCH INTE VALDA. Fällt av §7-granskningen av skiva 41,
+varv 1.*
+
+*Rättelsen sade i sin tur att `config/kategorier.yaml` "bär hinkar och inte
+namn". Även det är falskt: filen bär nio kategorinamn i hinken `aldrig`. Det
+sanna och snävare påståendet är att den bär noll namn som börjar med `fråga om
+pris`. Fällt av §7-granskningen av skiva 41, varv 2.*
+
+**EN KÄND FALSKHET STÅR KVAR I `config/kategorier.yaml`, och den rättas inte av
+mig.** Filens kommentar säger att prisfrågan *"hindras enbart av att
+`config/priser.json` saknas"*. Filen finns nu, och `auto` är dessutom TOM sedan
+skiva 38, alltså är ENBART falskt i två led. Filen är ett §10-stopp och ändras
+bara av Lars uttryckliga beslut.
 
 **EN TJÄNST SOM PRISSÄTTS PER FALL LÄMNAS TOM.** Det står i filens egen
 kommentar. En ofylld nyckel kostar ingenting.

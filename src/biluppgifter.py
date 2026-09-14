@@ -1033,16 +1033,24 @@ META_DRAGVIKT = "_dragviktslage"
 class Faltstatus(str, Enum):
     """Vad som hände med ETT fält. Skiva 40 DEL A, Lars tre utfall.
 
-    **DE TRE ÄR INTE VARANDRAS GRADSKILLNADER.** `SAKNAS_PA_SIDAN` är ett
-    REGISTERFAKTUM: biluppgifter renderar bara fält som har ett värde, alltså
-    betyder en frånvarande etikett att registret inte bär uppgiften. Det är
-    något boten FÅR säga till kunden. `TOLKAS_EJ` är VÅRT fel: fältet stod där
-    och vi kunde inte läsa det. Det får boten aldrig uttala sig om.
+    **DE TRE ÄR INTE VARANDRAS GRADSKILLNADER.** `SAKNAS_PA_SIDAN` betyder att
+    sidan inte renderade fältet. `TOLKAS_EJ` betyder att det stod där och att vi
+    inte kunde läsa det. `LAST` betyder att vi har ett värde.
 
-    Modulen behandlade de två likadant före den här skivan: båda gav ett
-    utelämnat nyckelvärde, `_kontrollera` fällde, och härkomstraden sade
-    MISSLYCKADES. `docs/beslutslogg.md` #87 bär mätningen som visar vad det
-    kostade.
+    **INGEN AV DEM GER BOTEN RÄTT ATT SÄGA NÅGOT TILL KUNDEN.** Statusarna
+    används av härkomstraden i vyn och av loggens skillnad mellan `falt_saknas`
+    och `falt_olasbart`, och av ingenting annat.
+
+    *Här stod att `SAKNAS_PA_SIDAN` är ett REGISTERFAKTUM som boten FÅR säga,
+    med motiveringen att biluppgifter bara renderar fält som har ett värde. Den
+    motiveringen är sann om SIDAN och osann om vår läsning av den, och Lars
+    förkastade den i skiva 41: VÄG TRE tog bort rätten. Se
+    `docs/beslutslogg.md` #93 och LUCKA 50. Fällt av §7-granskningen av skiva
+    41, varv 2.*
+
+    Modulen behandlade de två likadant före skiva 40: båda gav ett utelämnat
+    nyckelvärde, `_kontrollera` fällde, och härkomstraden sade MISSLYCKADES.
+    `docs/beslutslogg.md` #87 bär mätningen som visar vad det kostade.
     """
 
     LAST = "läst"
@@ -1302,20 +1310,24 @@ def falt_med_status(sida: str) -> dict[str, Falt]:
 class Dragviktslage(str, Enum):
     """Vad vi VET om fordonets bromsade släpvagnsvikt. Skiva 40 DEL A och B.
 
-    **FYRA LÄGEN, OCH BARA TVÅ AV DEM FÅR SÄGAS TILL KUNDEN.**
+    **FYRA LÄGEN, OCH BARA `LAST` GER NÅGOT SOM NÅR ETT KUNDMAIL.** De tre
+    övriga skiljer sig åt för HÄRKOMSTRADENS skull, inte för kundens: efter VÄG
+    TRE i skiva 41 ger inget av dem rätt att påstå att en uppgift saknas.
 
     `LAST` är ett tal vi kan bedöma mot §42 punkt 2.
 
     `REGISTRET_SAKNAR` betyder att INGEN av sidans fyra släpviktsformer finns.
-    Då bär registret ingen dragviktsuppgift, och det är ett faktum boten får
-    säga.
 
     `ANNAN_FORM` betyder att `Släpvagnsvikt` saknas men att minst en av de andra
     tre står på sidan. Då finns uppgiften, i en form vi inte kan bedöma mot.
-    Boten får varken påstå att registret saknar uppgift eller ge ett besked.
     Lars beslut i skiva 40.
 
     `TOLKAS_EJ` betyder att fältet stod där och inte gick att läsa. Vårt fel.
+
+    *Här stod "BARA TVÅ AV DEM FÅR SÄGAS TILL KUNDEN" och att
+    `REGISTRET_SAKNAR` är ett faktum boten får säga. Båda blev falska av VÄG
+    TRE, se `docs/beslutslogg.md` #93. Fällt av §7-granskningen av skiva 41,
+    varv 2.*
     """
 
     LAST = "läst"

@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.15.2 · **Uppdaterad:** 2026-09-11 · **Implementerar** CLAUDE.md §10
+**Version:** 0.15.3 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -722,7 +722,12 @@ svaret följa frågan. `config/sparrar.yaml` finns fortfarande inte.
 
 **Vad som ÅTERSTÅR i fasen:**
 
-- `config/priser.json`, ett §10-stopp och alltså Lars att upprätta.
+- `config/priser.json` FINNS sedan skiva 41, upprättad på Lars §10-beslut, och
+  bär sex poster som ALLA ÄR TOMMA. Att FYLLA en post är Lars beslut, och ett
+  tomt värde når aldrig prompten. `test_prisfilen_i_repot_har_BARA_TOMMA_varden`
+  binder både värdena och hela nyckelmängden. Se `docs/beslutslogg.md` #94.
+  **INNAN EN POST FYLLS måste LUCKA 52 avgöras:** systempromptens regel 5
+  förbjuder varje pris utan förbehåll, och den är bunden ordagrant.
 - `config/fakta.json` FINNS sedan skiva 36 och bär sedan skiva 37 posten
   `bokningar`, flyttad dit av Lars §10-beslut. **`telefon` är fortfarande TOM.**
   Att FYLLA en post är Lars beslut, och ett tomt värde når aldrig prompten,
@@ -735,13 +740,20 @@ svaret följa frågan. `config/sparrar.yaml` finns fortfarande inte.
 - §11:s härkomstrad: ett utkast bär i dag ingen uppgift om vilka par det vilar
   på, se `docs/beslutslogg.md` #49.
 
-Tills `priser.json` finns faller varje svar som nämner ett pris **i de former
-spärren känner igen**, och det är spärren som avsedd och inte ett provisorium.
-Kända luckor står i `docs/sparrar.md` under `genererat-tal-har-kalla`.
+Så länge `priser.json` är TOM faller varje svar som nämner ett pris **i de
+former spärren känner igen**, och det är spärren som avsedd och inte ett
+provisorium. Kända luckor står i `docs/sparrar.md` under
+`genererat-tal-har-kalla`.
 
 *Här stod att bara `priser.json` och `fakta.json` återstår, och att VARJE svar
 som nämner ett pris faller. Båda leden var för snäva respektive för breda. Fällt
 av §7-granskningen av skiva 31, varv 1.*
+
+*Här stod sedan "Tills `priser.json` finns", och listan ovan sade att filen
+återstår att upprätta. Filen skapades i skiva 41, alltså blev båda falska i den
+lista Lars läser för att veta vad som återstår. Det är EXAKT den defekt 0.15.1
+skrevs för att rätta för `config/fakta.json`, upprepad för prisfilen. Fällt av
+§7-granskningen av skiva 41, varv 2.*
 
 **Grind:** Lars godkänner varje mall ORDAGRANT, och varje ändring i
 `config/sparrar.yaml`, `config/priser.json` och `config/fakta.json` är ett
@@ -781,6 +793,26 @@ visat dagsvolymen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.15.3 — 2026-09-14
+
+**`config/priser.json` FLYTTAS UR "Vad som ÅTERSTÅR" TILL EN FYLLD RAD.** Filen
+upprättades i skiva 41 på Lars §10-beslut, tom, se `docs/beslutslogg.md` #94.
+
+**DET ÄR EXAKT DEN DEFEKT 0.15.1 SKREVS FÖR ATT RÄTTA, UPPREPAD.** Den posten
+rättade samma sak för `config/fakta.json` och skrev ut att raden annars är känt
+falsk i den lista Lars läser för att veta vad som återstår. Skiva 41 skapade
+prisfilen och rörde inte roadmapen. Fällt av §7-granskningen av skiva 41,
+varv 2.
+
+**RADEN "Tills `priser.json` finns" ÄR OCKSÅ RÄTTAD.** Villkoret är inte längre
+att filen finns utan att den är TOM.
+
+**LUCKA 52 ÄR UTSKRIVEN PÅ RADEN.** Systempromptens regel 5 förbjuder varje pris
+utan förbehåll och är bunden ordagrant, alltså måste den avgöras innan en post
+fylls. Den som läser listan för att veta vad som återstår ska se det där.
+
+Rättade påståenden ⇒ PATCH.
 
 ### 0.15.2 — 2026-09-11
 

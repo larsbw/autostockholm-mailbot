@@ -115,10 +115,13 @@ def test_de_nio_aldrig_kategorierna_star_kvar(hinkar):
 def test_prisfragan_star_inte_i_auto(hinkar):
     """`fråga om pris a-traktorkonvertering` står inte i `auto`.
 
-    Kategorin är KVALIFICERAD för `auto` och hindras enbart av att
-    `config/priser.json` saknas, se `docs/beslutslogg.md` #30. Den flyttas
-    ändå inte automatiskt när filen fylls: flytten kräver ett nytt uttryckligt
-    beslut av Lars.
+    Kategorin bedömdes KVALIFICERAD för `auto` i `docs/beslutslogg.md` #30, med
+    den tomma prisfilen som hinder. Den flyttas ändå inte automatiskt när filen
+    fylls: flytten kräver ett nytt uttryckligt beslut av Lars.
+
+    *Här stod att den "hindras enbart av att `config/priser.json` saknas". Filen
+    finns sedan skiva 41, och `auto` är dessutom TOM sedan skiva 38, alltså är
+    ordet ENBART falskt i två led. Fällt av §7-granskningen av skiva 41, varv 2.*
 
     Testet binder alltså var kategorin står i dag, och det ska falla den dag
     någon flyttar den. Att det faller är poängen: flytten ska vara ett beslut
