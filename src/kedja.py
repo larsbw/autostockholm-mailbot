@@ -151,8 +151,13 @@ def _uppslagssteg(
     except UppslagMisslyckades as fel:
         # **STEGET SÄGER VILKET UTFALL DET ÄR, inte bara att något misslyckades.**
         # Lars order i skiva 40. Härkomstraden i vyn sade MISSLYCKADES för tre
-        # lägen som betyder olika saker, och femton uppslag gav noll gröna och
-        # noll röda utan att det gick att se varför.
+        # lägen som betyder olika saker, och femton skarpa uppslag PER KÖRNING
+        # gav noll gröna och noll röda utan att det gick att se varför.
+        #
+        # *Kvalifikatorn "per körning" saknades här. `docs/beslutslogg.md` #78
+        # bär en kursiv not om exakt den utelämningen, och den återinfördes i
+        # den här kommentaren. Fällt av §7-granskningen av skiva 40, varv 1 och
+        # varv 2.*
         return None, None, Steg("uppslag", "misslyckades", str(fel),
                                 dragviktslage=fel.dragviktslage,
                                 franvaro_far_pastas=_franvaro_far_pastas(fel))

@@ -1523,6 +1523,17 @@ def test_GENERERAT_FORDONSFAKTUM_fangade_INTE_det_fallda_utkastet():
         # ETT ERBJUDANDE FRIAR BARA SITT EGET FAKTUM. Dragkroken går att
         # montera, dragvikten är fordonets konstruktion.
         "Vi kan montera en dragkrok, men bilen saknar dragvikt.",
+        # TRE LÄCKOR SOM VARV 2 MÄTTE UPP, alla i en spärr som var en
+        # UPPRÄKNING av de former varv 1 råkat hitta. Baklängesmängden är nu en
+        # egenskap: varje nekande ord.
+        "Dragvikten framgår inte av registret.",
+        "Dragvikten står inte i registret.",
+        "Dragvikten, och det är tråkigt, saknas i registret.",
+        # ETT ERBJUDANDE UTAN VILLKOR FRIAR INGENTING. Det här är ett PÅSTÅENDE
+        # om just den här bilen, med ett erbjudande efter. Regel 13 ber om en
+        # VILLKORSSATS, och en första lydelse friade båda.
+        "Din bil saknar dragkrok så det ordnar vi.",
+        "Bilen saknar dragvikt men det ordnar vi.",
     ],
 )
 def test_varje_form_av_franvaropastaende_sparras(svar):

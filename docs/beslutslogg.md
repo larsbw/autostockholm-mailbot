@@ -4902,12 +4902,25 @@ senare och första körningen gav 0/6. Mätverktygets kontroll över sidornas
 FAKTISKA etiketter visade varför. Det är skivans egen skillnad, ett saknat fält
 mot ett fel hos den som letar, begången av mätverktyget självt.
 
-**PARSERFELSHINKEN ÄR I PRAKTIKEN TOM.** Över sex sidor och nio fält faller
-exakt ETT närvarande värde: `Draganordning` med formen `Ja Kula`, som skiva 39
-gjorde `None` med avsikt. Varje uppslagsmisslyckande i skiva 39:s körning var
-alltså utfall 1 eller 4, aldrig utfall 2. Modulen rapporterade MISSLYCKADES om
-saker som inte är fel, och det förklarar varför femton skarpa uppslag per körning
-gav noll gröna och noll röda.
+**ETT ENDA NÄRVARANDE VÄRDE FALLER.** Över sex sidor och nio fält är det
+`Draganordning` med formen `Ja Kula`, som skiva 39 gjorde `None` med avsikt på
+Lars beslut om lucka 48.
+
+**DET GÖR INTE PARSERFELSHINKEN TOM, och det ska sägas rakt ut.** Sida 05 har
+läsbar tjänstevikt och läsbar släpvagnsvikt; dess uppslag misslyckas ENBART
+därför att `draganordning` är `TOLKAS_EJ`. Det är utfall 2.
+
+*Här stod "Parserfelshinken är i praktiken tom" och att varje
+uppslagsmisslyckande i skiva 39:s körning var "utfall 1 eller 4, aldrig utfall
+2". Slutledet motsägs av premissen i samma stycke: ett fält som faller ÄR ett
+utfall 2, och `scripts/faltinventering.py --utfall` visar att just det avgör
+sida 05. Fällt av §7-granskningen av skiva 40, varv 2.*
+
+**VAD SOM ÄNDÅ HÅLLER.** Modulen rapporterade MISSLYCKADES om lägen som inte är
+fel, och det är skälet till att femton skarpa uppslag per körning gav noll gröna
+och noll röda. Av de sex sidorna är fyra `LAST`, en `REGISTRET_SAKNAR` och en
+`ANNAN_FORM` i dragviktsläge, alltså är utfall 1 och 4 de dominerande. Att de är
+de dominerande är något annat än att de är de enda.
 
 **HÄRKOMSTRADEN I VYN SÄGER NU VILKET UTFALL DET ÄR**, på Lars order, i stället
 för att kalla tre olika saker MISSLYCKADES.

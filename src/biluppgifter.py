@@ -655,7 +655,10 @@ def _lasaren(sida: str) -> _Faltlasare:
     """Parsar sidan en gång och returnerar läsaren.
 
     SIDAN PARSAS TVÅ GÅNGER PER UPPSLAG, en gång för ankaret och en gång för
-    fälten, eftersom `_galler_fordonet` och `_las_falt` tar en sträng var. Det
+    fälten, eftersom `_galler_fordonet` och `falt_med_status` tar en sträng var.
+    *Här stod `_las_falt`. Den funktionen anropas inte längre någonstans i
+    `src/` efter skiva 40; produktionens andra parsning går via
+    `falt_med_status`. Fällt av §7-granskningen av skiva 40, varv 2.* Det
     är medvetet: de två är svitens angreppsytor och prövas var för sig, och en
     delad läsare hade gjort dem beroende av anropsordningen. Kostnaden är en
     extra parsning av en sida vi redan hämtat över nätet.
@@ -1012,9 +1015,15 @@ def _galler_fordonet(sida: str, regnr: str) -> bool:
 # RESERVERADE NYCKLAR I HÄMTNINGENS DICT. Skiva 40 DEL A.
 #
 # **UNDERSTRECKET ÄR KONTRAKTET.** `fordonsuppslag._kontrollera` prövar de tre
-# fältnycklarna och bryr sig inte om andra, och `slag_upp` plockar bort de här
-# innan `Uppslag` byggs. En nyckel utan understreck hade riskerat att läsas som
-# ett fordonsfält av nästa läsare.
+# fältnycklarna och bryr sig inte om andra: dess docstring skriver ut att OKÄNDA
+# NYCKLAR TOLERERAS, och `Uppslag` byggs av tre namngivna nycklar. Metanycklarna
+# LÄSES av `_kontrollera` och når aldrig `Uppslag`. En nyckel utan understreck
+# hade riskerat att läsas som ett fordonsfält av nästa läsare.
+#
+# *Här stod att `slag_upp` "plockar bort de här innan `Uppslag` byggs". Ingen rad
+# tar bort dem: `slag_upp` returnerar `_kontrollera(hamta(normalt))` rakt av.
+# Utfallet är detsamma, men ingen kod utför den handling meningen tillskrev den.
+# Fällt av §7-granskningen av skiva 40, varv 1 och varv 2.*
 META_STATUS = "_faltstatus"
 META_DRAGVIKT = "_dragviktslage"
 
@@ -1124,6 +1133,66 @@ VIKTFALT = frozenset({
 })
 
 
+# ETIKETTER SOM STÅR PÅ VARJE SIDA. Ankare för att sidan över huvud taget lästes.
+#
+# **AVLÄSTA OCH INTE VALDA.** `scripts/faltinventering.py` över skiva 37:s sex
+# sparade sidor, 2026-09-14: var och en av de här finns på 6/6. `Passagerare`
+# står INTE här trots att den är nästan lika vanlig, eftersom den saknas på en
+# av sidorna, alltså varierar den per fordon.
+ANKARETIKETTER = ("Tjänstevikt", "Kaross", "Fyrhjulsdrift", "Totalvikt",
+                  "Fordonsår / Modellår", "Status")
+
+# HUR MÅNGA ANKAREN SOM KRÄVS. En markupändring tappar ALLA etiketter; ett
+# fordon som saknar ett fält tappar ETT. Tröskeln skiljer de två.
+#
+# **TALET ÄR EN MARGINAL OCH INGEN MÄTNING, och det ska sägas.** Samtliga sex
+# ankare finns på samtliga sex sidor, alltså hade tröskeln 6 också fungerat mot
+# det materialet. Tre är valt för att tåla att biluppgifter slutar rendera ett
+# par av dem för ett enskilt fordon, utan att tåla att etikettmarkupen byts.
+MINSTA_ANKARE = 3
+
+
+def _sidan_bar_inte_faltet(lasare: _Faltlasare, etikett: str) -> bool:
+    """Bär sidan verkligen inte fältet, eller misslyckades vår läsning?
+
+    **DEN HÄR SKILLNADEN ÄR HELA SKIVANS FÖRUTSÄTTNING.** `SAKNAS_PA_SIDAN` ger
+    boten rätt att säga till kunden att registret inte bär uppgiften. Den rätten
+    får aldrig vila på att VÅR parser inte hittade något.
+
+    **LAGER 1: ETIKETTTEXTEN FINNS INTE I SIDANS KÄLLA.** Står `Släpvagnsvikt`
+    som text någonstans i HTML:en men saknas bland de etikettnoder parsern
+    kände igen, så renderade sidan fältet och vi läste det fel. Det täcker en
+    ändrad klass på etikettspannen, ett fält som ligger i `<noscript>`, och
+    varje annan form där texten finns men vår struktur inte matchar.
+
+    **LAGER 2: SIDAN SKA HA GETT MINST `MINSTA_ANKARE` KÄNDA ETIKETTER.** Byter
+    källan namn på själva fälten, så hjälper lager 1 inte: texten finns då inte
+    heller. Ankarna är fält som står på varje sida i stickprovet, och hittar vi
+    nästan inga av dem har vi inte förstått sidan alls.
+
+    **DE TVÅ ÄR REDUNDANTA MED AVSIKT**, och `docs/sparrar.md` skriver ut det.
+    En prövning som bara fäller det ena lagret ger ett grönt utfall utan att
+    spärren är borta, alltså INKONKLUSIVT och inte vakuöst.
+    """
+    # `_kalla` är sidans källtext, som läsaren redan bär för `_varde_bar_markup`.
+    # Den läses här och skrivs aldrig ut: §6, sidan bär ägaruppgifter.
+    #
+    # **HELA NODEN, ALDRIG EN DELSTRÄNG.** `>Släpvagnsvikt<` och inte
+    # `Släpvagnsvikt`, eftersom `Släpvagnsvikt obromsad` INNEHÅLLER den kortare
+    # strängen. En delsträngsträff hade gjort varje fordon med bara den
+    # obromsade raden till TOLKAS_EJ i stället för ANNAN_FORM, alltså raderat
+    # skivans fjärde utfall.
+    #
+    # Det är samma prefixfälla som `EXAKT_ETIKETT` och `_etikettrader` redan
+    # bär noter om, återinförd av en första lydelse av den här raden och fälld
+    # av sviten i samma skrivning.
+    if f">{etikett}<" in lasare._kalla:
+        return False
+
+    hittade = sum(1 for a in ANKARETIKETTER if a in lasare.etiketter)
+    return hittade >= MINSTA_ANKARE
+
+
 def _ett_falt(lasare: _Faltlasare, nyckel: str, etikett: str, *,
               gatande: bool) -> Falt:
     """Ett fälts utfall, med spärrlagren intakta.
@@ -1161,17 +1230,25 @@ def _ett_falt(lasare: _Faltlasare, nyckel: str, etikett: str, *,
     # `_Faltlasare` skiljer redan de två: `etiketter` bär varje etikettnod i
     # sidans ordning, också de som inte följs av ett värde, medan `par` bara bär
     # dem som gör det. Skillnaden är inte hypotetisk, den är committad och
-    # mätt: `test_ostangd_tagg_i_etikettens_foralder` bygger en sida som SKRIVER
-    # UT släpvagnsvikten men där paret faller på en ostängd tagg.
+    # mätt: `test_ostangd_tagg_i_foraldern_paras_inte_med_senare_varde` bygger en
+    # sida som SKRIVER UT släpvagnsvikten men där paret faller på en ostängd
+    # tagg.
     #
-    # *Här prövades `if not varden`, alltså att paret saknas. Följden var att
-    # just den sidan gav REGISTRET_SAKNAR, att `src/kedja.py` lade `dragvikt` i
-    # mängden, och att boten fick rätt att säga att registret saknar
-    # dragviktsuppgift om ett fordon vars vikt står utskriven. Härkomstraden
-    # sade samtidigt till Lars att det inte är vårt fel. Fällt av
-    # §7-granskningen av skiva 40, varv 1.*
+    # **ATT VÅR LÄSARE INTE HITTADE NÅGOT ÄR INTE ATT SIDAN INTE BÄR NÅGOT**,
+    # och det är egenskapen hela skivan vilar på. `_sidan_bar_inte_faltet` är
+    # den som avgör, med två lager, och den prövar sidan och inte parsern.
+    #
+    # *Här prövades först `if not varden`, alltså att PARET saknas, och sedan
+    # `etikett not in lasare.etiketter`, alltså att parsern inte hittade
+    # etikettnoden. Båda var rätt egenskap namngiven och fel egenskap mätt. Den
+    # andra lydelsen gav REGISTRET_SAKNAR för en sida som skriver ut både vikt
+    # och draganordning i klartext men bär ett annat klassnamn på
+    # etikettspannen, alltså för varje markupändring. Fällt av §7-granskningen
+    # av skiva 40, varv 1 och varv 2.*
     if etikett not in lasare.etiketter:
-        return Falt(Faltstatus.SAKNAS_PA_SIDAN)
+        if _sidan_bar_inte_faltet(lasare, etikett):
+            return Falt(Faltstatus.SAKNAS_PA_SIDAN)
+        return Falt(Faltstatus.TOLKAS_EJ)
 
     # ETIKETTEN STOD DÄR MEN BILDADE INGET PAR. Det är vår avläsning som föll.
     if not varden:
@@ -1417,7 +1494,14 @@ def biluppgifter_hamtning(
 
         # SAMMA DICT SOM `_las_falt` GAV, och det är avsiktligt: `_kontrollera`
         # och dess tester vilar på formen. Skillnaden är att den byggs ur
-        # statusarna, alltså parsas sidan EN gång och inte två.
+        # statusarna, alltså läses FÄLTEN en gång och inte två.
+        #
+        # *Här stod "parsas sidan EN gång och inte två". Sidan parsas fortfarande
+        # två gånger per uppslag, en gång av `_galler_fordonet` och en gång av
+        # `falt_med_status`, vilket `_lasaren`:s egen docstring säger. Det som
+        # ändrades var att fälten inte längre läses av både `_las_falt` och
+        # `falt_med_status`. Fällt av §7-granskningen av skiva 40, varv 1 och
+        # varv 2.*
         falt = {
             nyckel: statusar[nyckel].varde
             for nyckel in EXAKT_ETIKETT

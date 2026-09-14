@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.43.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.44.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -3528,29 +3528,41 @@ fältet, alltså `Faltstatus.SAKNAS_PA_SIDAN` respektive
 `Dragviktslage.REGISTRET_SAKNAR`, eller att draganordningen LÄSTES som `False`.
 Mängden sätts i `src/kedja.py` och är TOM som förval.
 
-**TVÅ RIKTNINGAR, MED OLIKA ORDMÄNGDER.** Framlänges, alltså nekandet före
-faktumet, bär hela mängden: `utan dragvikt` och `inte se någon släpvagnsvikt` är
-båda äkta. Baklänges krävs en NEKANDE BESTÄMNING av faktumet, aldrig ett löst
-`inte`: `dragvikten saknas`, `är okänd`, `är inte angiven`. Skälet är mätt:
-med hela mängden baklänges fälldes *"Dragvikten är 2000 kg, så det är inte något
-problem"*.
+**BÅDA RIKTNINGARNA ÄR NU EGENSKAPER OCH INGA UPPRÄKNINGAR.** Ett nekande ord i
+samma sats som ett fordonsfaktum fäller, oavsett ordning och oavsett vilket
+nekande ord det är.
 
-*Baklängesmängden var först bara `saknas|saknar`. Fyra former slank igenom,
-uppmätta av §7-granskningen av skiva 40 varv 1: `finns inte i registret`, `är
-inte angiven`, `är okänd`, `är inte tillgänglig`. Det utlösande utkastet sade
-`saknar dragvikt`, och en omformulering till någon av dem hade passerat.*
+*Baklängesmängden var först `saknas|saknar`, sedan en uppräkning om nio former.
+Varv 1 hittade fyra läckor, varv 2 hittade tre till: `framgår inte`, `står
+inte`, och en form där `, och` delade satsen så att varken faktum eller nekande
+stod ensamt. En händelselista går alltid att utöka med en post till, vilket
+`biluppgifter._varde_bar_markup` redan bär lärdomen om. Fällt av
+§7-granskningen av skiva 40, varv 1 och varv 2.*
 
-**PRÖVNINGEN SKER PER SATS.** `SATSBROTT` delar på `, men`, `, och`, `,
-däremot` och `, fast`, eftersom *"Vi saknar tyvärr en ledig tid, men dragvikten
-är 2000 kg"* är EN mening med två satser och frånvaroordet hör till tiden.
+**PRISET FÖR EGENSKAPEN BETALAS AV `SATSBROTT`, inte av en kortare lista.**
+Delningen sker på `, men`, `, så`, `, däremot`, `, fast` och `, utan att`,
+alltså på MOTSÄTTANDE och FÖLJDANGIVANDE band, där nekandet hör till något annat
+än faktumet. *"Vi saknar tyvärr en ledig tid, men dragvikten är 2000 kg"* är EN
+mening med två satser.
+
+**`, och` STÅR INTE I `SATSBROTT`**, och det är varv 2:s rättelse. Det är
+SAMORDNANDE, alltså binder det satser om samma sak, och delningen blev själv ett
+kryphål: *"Dragvikten, och det är tråkigt, saknas i registret"* delades i tre
+satser där ingen bar både faktum och nekande.
 
 **ETT ERBJUDANDE ÄR INGET NEGATIVT BESKED, och undantaget gäller BARA
 draganordningen.** En dragkrok går att montera; en dragvikt är fordonets
 konstruktion. *"Om bilen saknar dragkrok monterar vi en"* går igenom, *"Vi kan
 montera en dragkrok, men bilen saknar dragvikt"* gör det inte.
 
-Undantaget finns därför att promptens regel 13 BER om den formuleringen. Utan
-det bad prompten om en mening spärren fällde, vilket §7-granskningen av skiva 40
+**UNDANTAGET KRÄVER BÅDE ETT VILLKOR OCH ETT ERBJUDANDE.** En första lydelse
+prövade bara erbjudandeverbet och friade därmed också ett PÅSTÅENDE: *"Din bil
+saknar dragkrok så det ordnar vi"* slank igenom. Regel 13 ber om en
+VILLKORSSATS, och det är den formen som undantas. Fällt av §7-granskningen av
+skiva 40, varv 2.
+
+Undantaget finns därför att promptens regel 13 BER om formuleringen. Utan det
+bad prompten om en mening spärren fällde, vilket §7-granskningen av skiva 40
 varv 1 mätte upp.
 
 **NEGATIVKONTROLL:** `test_ett_svar_som_INTE_pastar_franvaro_slapps_igenom`. En
@@ -4358,6 +4370,39 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.44.0 — 2026-09-14
+
+**RÄTTEN ATT PÅSTÅ FRÅNVARO VILAR NU PÅ SIDAN, inte på vår läsare.**
+`biluppgifter._sidan_bar_inte_faltet` är ny och bär två lager. Lager 1: står
+etiketttexten som en hel nod i sidans källa men saknas bland de etikettnoder
+parsern kände igen, så renderade sidan fältet och vi läste det fel. Lager 2:
+sidan ska ha gett minst `MINSTA_ANKARE` av de sex etiketter som står på 6/6
+sidor i stickprovet.
+
+**DE TVÅ ÄR REDUNDANTA MED AVSIKT och täcker olika fel.** Lager 1 fångar en
+ändrad klass på etikettspannen och ett fält i `noscript`. Lager 2 fångar att
+källan byter namn på själva fälten, där lager 1 inte hjälper eftersom texten då
+inte heller finns. En prövning som bara fäller det ena ger ett grönt utfall utan
+att spärren är borta, alltså INKONKLUSIVT och inte vakuöst.
+
+**SKÄLET ÄR VARV 2:s FYND, och det var samma egenskap som varv 1.** Varv 1
+flyttade mätningen från `par` till `etiketter`, vilket stängde vägen "etiketten
+hittades, paret föll". Den dominerande vägen är den motsatta: parsern
+registrerar ingen etikettnod alls, och då ser en markupändring ut precis som ett
+tomt register. Boten fick rätt att påstå att registret saknar både dragvikt och
+draganordning om ett fordon vars båda uppgifter står utskrivna på sidan.
+
+**LAGER 1 KRÄVER HELA NODEN, `>Etikett<`, och inte en delsträng.** En första
+lydelse prövade delsträngen, vilket gjorde varje fordon med bara den obromsade
+raden till TOLKAS_EJ i stället för ANNAN_FORM, alltså raderade skivans fjärde
+utfall. Det är samma prefixfälla `EXAKT_ETIKETT` redan bär noter om, återinförd
+och fälld av sviten i samma skrivning.
+
+**`pastaende-om-franvaro` ÄR OMSKRIVEN FRÅN UPPRÄKNING TILL EGENSKAP.** Se
+posten.
+
+Ändrad spärregenskap ⇒ MINOR.
 
 ### 0.43.0 — 2026-09-14
 

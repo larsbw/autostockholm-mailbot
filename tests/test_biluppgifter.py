@@ -849,8 +849,19 @@ def test_falt_som_saknas_loggas_som_markupandring():
     biluppgifter_hamtning(oppna=svarar(utan_falt))(REGNR)
 
     rader = _loggrader()
-    assert [r["skal"] for r in rader] == ["falt_saknas"]
-    assert rader[0]["saknade"] == sorted(EXAKT_ETIKETT)
+
+    # SKÄLET ÄR `falt_olasbart` OCH INTE `falt_saknas`, och det är skiva 40 som
+    # gjorde skillnaden. En sida UTAN ETT ENDA känt fält är precis vad en
+    # markupändring ser ut som, och `_sidan_bar_inte_faltet` vägrar då kalla
+    # något ett registerfaktum: ankarfälten saknas, alltså har vi inte förstått
+    # sidan. Att kalla det `falt_saknas` hade varit att påstå att registret är
+    # tomt för fordonet.
+    #
+    # *Raden asserade `falt_saknas` och listan över saknade nycklar. Testets EGEN
+    # docstring säger att detta är vad en markupändring ser ut som, alltså
+    # motsade den sin egen assert. Skiva 40 varv 2.*
+    assert [r["skal"] for r in rader] == ["falt_olasbart"]
+    assert rader[0]["olasbara"] == sorted(EXAKT_ETIKETT)
     assert rader[0]["regnr"] == REGNR
     assert rader[0]["tidsstampel"]
 
@@ -1002,7 +1013,21 @@ def sida_med(tjanstevikt="2140 kg", slapvagnsvikt="2400 kg", draganordning="Nej"
     namn = {"tj": "Tjänstevikt", "sl": "Släpvagnsvikt", "dr": "Draganordning"}
     namn.update(etiketter or {})
 
-    rader = ""
+    # ANKARRADERNA, SKIVA 40. En verklig sida bär dem på 6/6, avläst med
+    # `scripts/faltinventering.py`, och `_sidan_bar_inte_faltet` kräver minst
+    # `MINSTA_ANKARE` av dem innan ett saknat fält får kallas ett registerfaktum.
+    #
+    # **UTAN DEM VAR FIXTUREN INTE EN SIDA UTAN ETT UTDRAG**, och varje
+    # SAKNAS-påstående i sviten vilade på en sida som en riktig läsare hade
+    # avfärdat som oläst. Att de saknades gjorde sju test röda när ankaret
+    # infördes, vilket är spärren som arbetar och inte ett fel i den.
+    rader = (
+        rad("Kaross", "Halvkombi")
+        + rad("Fyrhjulsdrift", "Nej")
+        + rad("Totalvikt", "2500 kg")
+        + rad("Fordonsår / Modellår", "2010 / 2011")
+        + rad("Status", "I Trafik")
+    )
     if tjanstevikt is not None:
         rader += rad(namn["tj"], tjanstevikt)
     if slapvagnsvikt is not None:
@@ -2675,6 +2700,80 @@ def test_ostangd_tagg_i_foraldern_paras_inte_med_senare_varde(ostangd):
     assert dragviktslage(falt) is Dragviktslage.TOLKAS_EJ
 
 
+def test_ETT_ANNAT_KLASSNAMN_pa_etiketten_ar_TOLKAS_EJ_och_aldrig_SAKNAS():
+    """SKIVA 40:s ANDRA ALLVARLIGASTE FYND, och den dominerande vägen.
+
+    **VÅR LÄSARE SOM INTE HITTAR NÅGOT ÄR INTE ETT TOMT REGISTER.** Sidan nedan
+    skriver ut både släpvagnsvikt och draganordning i klartext, men med ett annat
+    klassnamn på etikettspannen. Parsern registrerar då ingen etikettnod, och
+    ett villkor som bara prövar `etikett not in lasare.etiketter` kallar det ett
+    registerfaktum.
+
+    Följden var att boten fick rätt att säga att registret saknar BÅDA
+    uppgifterna för ett fordon vars båda uppgifter står på sidan, och att
+    härkomstraden samtidigt sade till Lars att det inte är vårt fel. Det är den
+    väg modulens egen logg pekar ut: `falt_saknas` beskrivs som den som betyder
+    att sidan bytt markup.
+
+    Fällt av §7-granskningen av skiva 40, varv 2.
+    """
+    sidan = sida(
+        rader=(
+            rad("Kaross", "Halvkombi")
+            + rad("Totalvikt", "2500 kg")
+            + rad("Status", "I Trafik")
+            + '<li><span class="fieldlabel">Släpvagnsvikt</span>'
+              '<span class="value">2400 kg</span></li>\n'
+        )
+    )
+
+    falt = falt_med_status(sidan)
+    assert falt["slapvagnsvikt_kg"].status is Faltstatus.TOLKAS_EJ
+    assert dragviktslage(falt) is Dragviktslage.TOLKAS_EJ
+
+
+def test_ETT_FALT_I_NOSCRIPT_ar_TOLKAS_EJ_och_aldrig_SAKNAS():
+    """Andra vägen till samma egenskap, och den går förbi ankarräkningen.
+
+    `HOPPAS_OVER` hoppar över `noscript`, alltså ser parsern ingen etikettnod,
+    medan sidans övriga fält läses som vanligt. Ankarlagret räddar inte det
+    fallet; lager 1 gör det, eftersom etiketttexten står i källan.
+
+    *`HOPPAS_OVER`:s kommentar sade att ett fält som bara står där ger utkast,
+    "vilket är den säkra riktningen". Den meningen blev FALSK av skiva 40 innan
+    den här raden fanns: det gav ett frånvaropåstående. Fällt av
+    §7-granskningen av skiva 40, varv 2.*
+    """
+    sidan = sida(
+        rader=(
+            rad("Kaross", "Halvkombi")
+            + rad("Totalvikt", "2500 kg")
+            + rad("Status", "I Trafik")
+            + '<noscript><ul><li><span class="label">Släpvagnsvikt</span>'
+              '<span class="value">2400 kg</span></li></ul></noscript>\n'
+        )
+    )
+
+    falt = falt_med_status(sidan)
+    assert falt["slapvagnsvikt_kg"].status is Faltstatus.TOLKAS_EJ
+    assert dragviktslage(falt) is Dragviktslage.TOLKAS_EJ
+
+
+def test_EN_SIDA_UTAN_ANKARFALT_ger_INGA_registerfakta():
+    """LAGER 2. Byter källan namn på själva fälten hjälper lager 1 inte.
+
+    Då står etiketttexten inte heller i källan, och bara ankarräkningen skiljer
+    en obegriplig sida från ett fordon utan uppgifter. Sidan nedan bär inget av
+    de sex fält som står på 6/6 i stickprovet.
+    """
+    sidan = sida(rader=rad("Nåt Annat", "17"))
+
+    falt = falt_med_status(sidan)
+    for nyckel in ("tjanstevikt_kg", "slapvagnsvikt_kg", "draganordning"):
+        assert falt[nyckel].status is Faltstatus.TOLKAS_EJ, nyckel
+    assert dragviktslage(falt) is Dragviktslage.TOLKAS_EJ
+
+
 def test_en_etikett_utan_varde_ar_TOLKAS_EJ_och_aldrig_SAKNAS():
     """SKILLNADEN MELLAN `etiketter` OCH `par`, i sin renaste form.
 
@@ -2846,15 +2945,8 @@ def test_ett_last_falt_bar_sitt_varde():
 @pytest.mark.parametrize(
     ("nyckel", "etikett", "varde", "vantat"),
     [
-        ("kaross", "Kaross", "Halvkombi", "Halvkombi"),
-        ("kaross", "Kaross", "Ombyggd Bil", "Ombyggd Bil"),
-        ("fyrhjulsdrift", "Fyrhjulsdrift", "Ja", True),
-        ("fyrhjulsdrift", "Fyrhjulsdrift", "Nej", False),
-        ("totalvikt_kg", "Totalvikt", "2510 kg", 2510),
         ("passagerare_utover_forare", "Passagerare", "3 st + förare", 3),
-        ("arsmodell", "Fordonsår / Modellår", "2010 / 2011", (2010, 2011)),
-        ("status", "Status", "Avställd", "Avställd"),
-        ("status", "Status", "I Trafik", "I Trafik"),
+        ("passagerare_utover_forare", "Passagerare", "4 st + förare", 4),
         ("slap_totalvikt_b", "Släp totalvikt (B)",
          "Max 1105 kg (Teoretisk)", "Max 1105 kg (Teoretisk)"),
         ("slap_totalvikt_bplus", "Släp totalvikt (B+)",
@@ -2913,12 +3005,31 @@ def test_den_obromsade_lases_ur_fixturens_egen_rad():
     assert falt["slapvagnsvikt_obromsad_kg"].varde == 750
 
 
-def test_ett_falt_som_inte_star_pa_sidan_blir_SAKNAS_och_aldrig_TOLKAS_EJ():
-    """Spegelvänd negativkontroll. `sida_med()` bär inget av de nya fälten."""
+def test_ANKARFALTEN_lases_ur_forvalssidan():
+    """ANKARRADERNA BÄR SINA VÄRDEN, och de kan inte stå i tabellen ovan.
+
+    Ett `extra` med samma etikett gör den TVETYDIG, alltså `TOLKAS_EJ` med
+    rätta. Formerna är avlästa ur `--visa-varden` som alla andra.
+    """
     falt = falt_med_status(sida_med())
-    for nyckel in ("kaross", "fyrhjulsdrift", "totalvikt_kg",
-                   "passagerare_utover_forare", "arsmodell", "status"):
-        assert falt[nyckel].status is Faltstatus.SAKNAS_PA_SIDAN, nyckel
+
+    assert falt["kaross"].varde == "Halvkombi"
+    assert falt["fyrhjulsdrift"].varde is False
+    assert falt["totalvikt_kg"].varde == 2500
+    assert falt["arsmodell"].varde == (2010, 2011)
+    assert falt["status"].varde == "I Trafik"
+
+
+def test_ett_falt_som_inte_star_pa_sidan_blir_SAKNAS_och_aldrig_TOLKAS_EJ():
+    """Spegelvänd negativkontroll.
+
+    `Passagerare` är valt därför att det INTE är ett ankarfält: det saknas på en
+    av de sex sidorna, alltså varierar det per fordon och `sida_med()` bär det
+    inte. Ankarfälten kan inte användas här, eftersom sidan måste bära dem för
+    att över huvud taget räknas som läst.
+    """
+    falt = falt_med_status(sida_med())
+    assert falt["passagerare_utover_forare"].status is Faltstatus.SAKNAS_PA_SIDAN
 
 
 # --- SKIVA 40 DEL A: gatande fält kastar, övriga rapporterar -----------------

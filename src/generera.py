@@ -671,13 +671,17 @@ FRANVAROORD = (
 # utlösande utkastet sade `saknar dragvikt`, och en omformulering till
 # `dragvikten är inte angiven` hade passerat. Varje tillagd form är en
 # NEKANDE BESTÄMNING av faktumet, aldrig ett löst `inte`.
-FRANVAROORD_EFTER = (
-    r"saknas|saknar|okänd|okänt|finns inte|inte finns"
-    r"|inte angiven|inte angivet|ej angiven|ej angivet"
-    r"|inte tillgänglig|inte tillgängligt"
-    r"|inte registrerad|inte registrerat|ej registrerad|ej registrerat"
-    r"|inte känd|inte känt|ej känd|ej känt"
-)
+# **MÄNGDEN ÄR NU EN EGENSKAP OCH INGEN UPPRÄKNING, och det är varv 2:s fynd.**
+# Lydelsen före denna räknade upp `finns inte`, `inte angiven`, `okänd` och
+# `inte tillgänglig`, alltså precis de fyra former varv 1 hittade. Varv 2 hittade
+# tre till, `framgår inte`, `står inte` och en till, och det kommer alltid att
+# gå: en händelselista går att utöka med en post till, vilket
+# `biluppgifter._varde_bar_markup` redan bär lärdomen om.
+#
+# Baklänges godtas därför VARJE NEKANDE ORD. Priset är falska träffar när
+# nekandet hör till en annan sats, och det priset betalas av `SATSBROTT` nedan
+# i stället för av en uppräkning som aldrig blir färdig.
+FRANVAROORD_EFTER = r"inte|ej|ingen|inget|inga|utan|saknar|saknas|okänd|okänt"
 
 # SATSGRÄNSER SOM BRYTER KOPPLINGEN. Uppmätt falsk träff: *"Vi saknar tyvärr en
 # ledig tid, men dragvikten är 2000 kg."* Frånvaroordet hör till tiden och inte
@@ -685,7 +689,15 @@ FRANVAROORD_EFTER = (
 #
 # **PUNKT RÄCKER INTE**, eftersom samma sak skrivs i en mening lika ofta som i
 # två. Fällt av §7-granskningen av skiva 40, varv 1.
-SATSBROTT = (", men ", ", och ", ", däremot ", ", fast ")
+SATSBROTT = (", men ", ", så ", ", däremot ", ", fast ", ", utan att ")
+
+# **`, och ` STÅR INTE HÄR LÄNGRE.** Det är SAMORDNANDE, alltså binder det satser
+# om samma sak, och delningen blev själv ett kryphål: *"Dragvikten, och det är
+# tråkigt, saknas i registret"* delades i tre satser där ingen bar både faktum
+# och nekande. Uppmätt av §7-granskningen av skiva 40, varv 2.
+#
+# De som står kvar är MOTSÄTTANDE eller FÖLJDANGIVANDE, alltså just de fall där
+# nekandet hör till en annan sak än faktumet.
 
 # ATT ERBJUDA SIG ATT MONTERA ÄR INTE ATT NEKA. Skiva 40 DEL F, regel 13.
 #
@@ -697,10 +709,18 @@ SATSBROTT = (", men ", ", och ", ", däremot ", ", fast ")
 # **UNDANTAGET GÄLLER BARA `draganordning`, och det är avsiktligt.** En dragkrok
 # går att montera, en dragvikt gör det inte: den är fordonets konstruktion.
 # Ett erbjudande kan alltså aldrig göra ett dragviktspåstående ofarligt.
+# **UNDANTAGET KRÄVER BÅDE ETT VILLKOR OCH ETT ERBJUDANDE, och villkoret är
+# varv 2:s rättelse.** En första lydelse prövade bara om satsen bar ett
+# erbjudandeverb, alltså friade den också ett PÅSTÅENDE: *"Din bil saknar
+# dragkrok så det ordnar vi"* slank igenom. Regel 13 ber om en VILLKORSSATS,
+# *"Om bilen saknar dragkrok…"*, och det är den formen som undantas.
+VILLKOR = r"\bom\b|\bifall\b|\bskulle\b|\bvid behov\b"
+
 ERBJUDANDE = re.compile(
-    r"monterar vi|vi monterar|vi kan montera|kan vi montera"
-    r"|ordnar vi|vi ordnar|fixar vi|vi fixar|sätter vi (?:dit|på)",
-    re.IGNORECASE,
+    rf"(?=.*(?:{VILLKOR}))"
+    r"(?=.*(?:monterar vi|vi monterar|vi kan montera|kan vi montera"
+    r"|ordnar vi|vi ordnar|fixar vi|vi fixar|sätter vi (?:dit|på)))",
+    re.IGNORECASE | re.DOTALL,
 )
 
 # HUR LÅNGT MELLAN FRÅNVAROORDET OCH FAKTUMET. Måttet är tecken inom SAMMA
