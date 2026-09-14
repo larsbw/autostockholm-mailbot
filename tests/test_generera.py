@@ -25,6 +25,7 @@ import pytest
 from src import generera, vy
 from src.fordonsuppslag import Uppslag, Utfall
 from src.generera import Forfragan, Sparrfalld
+from tests.sentinelpris import SENTINELPRIS, SENTINELPRIS_IHOP, SENTINELTAL
 
 GRONT_UPPSLAG = Uppslag(tjanstevikt_kg=1400, slapvagnsvikt_kg=1500,
                         draganordning=True)
@@ -603,26 +604,38 @@ def test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal():
     innehåller exemplet `25 000 kr`, alltså är den här raden inte teoretisk: utan
     filtret hade boten fått skriva just det talet som ett pris.
 
-    Raden prövar BÅDA leden: att inget tal når `_tillatna_tal` ur filen, och att
-    talen FINNS i den råa filen. Utan det andra ledet vore testet grönt även om
-    kommentarerna togs bort, alltså vakuöst.
+    Raden prövar BÅDA leden: att ingen KOMMENTARTEXT går vidare till
+    `_varden_ur`, och att kommentarerna faktiskt bär ett prisformat tal. Utan det
+    andra ledet vore testet grönt även om kommentarerna togs bort, alltså
+    vakuöst.
+
+    **RADEN PRÖVAR TEXTEN OCH INTE TALET, och det är skiva 43:s ändring.** Den
+    jämförde tidigare kommentarernas TAL mot `_tillatna_tal`, med `25000` som det
+    bärande exemplet. Det talet står i `_formen` och är samtidigt ett fullt
+    rimligt pris, alltså gick raden röd den dag Lars fyllde filen med just det
+    beloppet, trots att filtret fungerade precis som det ska. `_tillatna_tal`
+    hämtar sina tal enbart ur `_varden_ur`:s utdata, så ett villkor på TEXTEN är
+    strikt starkare: går ingen kommentarsträng vidare kan inget tal ur en
+    kommentar göra det heller. Se `docs/beslutslogg.md` #103.
     """
     rat = json.loads(generera.PRISER.read_text(encoding="utf-8"))
+    kommentarer = [v for n, v in rat.items() if n.startswith("_")]
 
-    # LEDET SOM GÖR RADEN ICKE-VAKUÖS: kommentarerna bär faktiskt tal.
-    ratta_tal = set()
-    for varde in rat.values():
-        ratta_tal |= generera._tal_i(varde)
-    assert "25000" in ratta_tal, (
+    # LEDET SOM GÖR RADEN ICKE-VAKUÖS: kommentarerna bär faktiskt ett prisformat
+    # tal, alltså finns det något att läcka.
+    kommentarernas_tal = set()
+    for kommentar in kommentarer:
+        kommentarernas_tal |= generera._tal_i(kommentar)
+    assert "25000" in kommentarernas_tal, (
         "kommentaren tappade sitt prisformade tal, och då prövar raden inget"
     )
 
-    # LEDET SOM ÄR SPÄRREN: inget av dem når `_tillatna_tal`.
-    assert generera._varden_ur(generera.las_konfig(generera.PRISER)) == []
-
-    tillatna = generera._tillatna_tal(forfragan())
-    for tal in ratta_tal:
-        assert tal not in tillatna, f"{tal} kom in via en kommentarnyckel"
+    # LEDET SOM ÄR SPÄRREN: ingen kommentarsträng går vidare.
+    varden = generera._varden_ur(generera.las_konfig(generera.PRISER))
+    for kommentar in kommentarer:
+        assert kommentar not in varden, (
+            "en kommentarnyckels text nådde sändvägens talkälla"
+        )
 
 
 # --- SKIVA 42 DEL 0: LUCKA 53, PLATT FIL -------------------------------------
@@ -826,23 +839,31 @@ def test_ett_TOMT_svar_ar_INGET_utkast(svar):
     assert fel.value.sparr == "tomt-svar"
 
 
-def test_ett_pris_faller_med_repots_egen_TOMMA_prisfil():
-    """PRISFILEN I REPOT ÄR TOM, alltså faller varje svar som nämner ett pris.
+def test_ett_pris_UTAN_KALLA_faller_mot_repots_egen_prisfil():
+    """Ett pris som filen inte bär faller, läst mot den RIKTIGA filen.
 
     §7.2 säger att ett tal är avläst eller utelämnat, och det finns ingen tredje
     kategori.
 
     **RADEN LÄSER DEN RIKTIGA FILEN**, till skillnad från raderna ovan som
-    patchar läsningen. Den blir därför röd den dag någon fyller en post utan att
-    ändra §10-vakten, vilket är avsikten.
+    patchar läsningen. Den prövar alltså hela vägen: fil, `_varden_ur`,
+    `las_priser` och prisgrenen.
 
     *Testet hette `test_ett_pris_faller_alltid` och sade att
     `config/priser.json` existerar inte. Filen skapades av skiva 41, och ordet
     ALLTID var fel redan då: en fällning av filens första post gav `DID NOT
     RAISE`. Fällt av §7-granskningen av skiva 41, varv 1 och varv 2.*
+
+    *Och sedan hette det `..._med_repots_egen_TOMMA_prisfil`, med en docstring som
+    sade att raden SKA bli röd den dag någon fyller en post. Det var en andra
+    §10-tripwire i förklädnad, och den gjorde att elva vakter gick röda när Lars
+    fyllde filen fast bara en av dem vaktade hans beslut. Raden bär nu
+    `SENTINELPRIS`, alltså ett tal Lars aldrig kan fylla, och prövar det den
+    heter. Lars beslut i skiva 43, se `docs/beslutslogg.md` #103.*
     """
     with pytest.raises(Sparrfalld) as fel:
-        generera.krav_pa_tal_med_kalla("Ombyggnaden kostar 25 000 kr.", forfragan())
+        generera.krav_pa_tal_med_kalla(
+            f"Ombyggnaden kostar {SENTINELPRIS} kr.", forfragan())
 
     assert fel.value.sparr == "genererat-tal-har-kalla"
     assert "pris" in fel.value.skal
@@ -919,8 +940,10 @@ def test_en_BETECKNING_faller_FORTFARANDE(svar):
     [
         # Varv 2:s fynd: bokstäver FÖRE siffran gjorde en kvantitet till en
         # beteckning, alltså räckte det att kunden nämnde beloppet.
-        ("Jag har fått pris ca25000 hos en annan verkstad.", "Vi gör det för 25000."),
-        ("Jag har fått pris SEK25000 av en annan.", "Det landar på 25000 hos oss."),
+        (f"Jag har fått pris ca{SENTINELPRIS_IHOP} hos en annan verkstad.",
+         f"Vi gör det för {SENTINELPRIS_IHOP}."),
+        (f"Jag har fått pris SEK{SENTINELPRIS_IHOP} av en annan.",
+         f"Det landar på {SENTINELPRIS_IHOP} hos oss."),
         ("Se annonsen blocket.se/annons123456", "Det blir 123456."),
         # Varv 2:s fynd om lucka 36: kundens beteckning fick bli en ledtid.
         ("Jag har en A5, går den att bygga om?", "Vi hinner på 5 dagar."),
@@ -947,10 +970,12 @@ def test_ett_PRIS_ur_kundens_text_faller():
     prisord behövdes. Att kunden har fått en offert av NÅGON ANNAN gör inte
     beloppet till vårt.
     """
-    kundens = forfragan(text="Jag har fått offert på 25000 kr någon annanstans.")
+    kundens = forfragan(
+        text=f"Jag har fått offert på {SENTINELPRIS_IHOP} kr någon annanstans.")
 
     with pytest.raises(Sparrfalld):
-        generera.krav_pa_tal_med_kalla("Vi gör det för 25000.", kundens)
+        generera.krav_pa_tal_med_kalla(
+            f"Vi gör det för {SENTINELPRIS_IHOP}.", kundens)
 
 
 def test_en_LEDTID_ur_kundens_text_faller():
@@ -978,10 +1003,10 @@ def test_kundens_VIKT_faller():
     [
         # Enheten EFTER siffran gör det till en kvantitet, inte en beteckning.
         # Det var skiva 31:s värsta hål och får inte återkomma.
-        "Vi tar 25000kr för jobbet.",
+        f"Vi tar {SENTINELPRIS_IHOP}kr för jobbet.",
         "Bilen klarar 1000kg.",
         # Fler än tre siffror är ingen modellbeteckning.
-        "Vi gör det för ca25000.",
+        f"Vi gör det för ca{SENTINELPRIS_IHOP}.",
         # Ett fristående tal är alltid en kvantitet.
         "Tillsammans blir det 55.",
         "Vi hinner på 15 dagar.",
@@ -1151,7 +1176,7 @@ def test_fordonsfakta_i_omskrivning_faller(svar):
 @pytest.mark.parametrize(
     "svar",
     ["Det går på femton hundra spänn.", "Vi gör det för en billig peng.",
-     "Det brukar hamna runt 25tkr."],
+     f"Det brukar hamna runt {SENTINELPRIS_IHOP}tkr."],
 )
 def test_pris_i_ord_faller(svar):
     """Prispåståenden utan siffra eller med talet i ord."""
@@ -1209,7 +1234,7 @@ def test_forfattningsord_utan_troskeln_slapps_igenom():
 @pytest.mark.parametrize(
     "svar, sparr, fall",
     [
-        ("Det kostar 25 000 kr.", "genererat-tal-har-kalla", forfragan()),
+        (f"Det kostar {SENTINELPRIS} kr.", "genererat-tal-har-kalla", forfragan()),
         ("Bilens tjänstevikt duger.", "genererat-fordonsfaktum", forfragan()),
         # TRÖSKELFALLET KRÄVER ETT UPPSLAG SOM GÖR 1000 TILL ETT TILLÅTET TAL.
         # Utan det faller svaret på spärr 1 i stället, eftersom talet då saknar
@@ -1474,9 +1499,34 @@ def test_prompten_bar_uppslagets_tal_nar_det_finns():
     assert "1500" in prompt
 
 
-def test_prompten_sager_att_priser_inte_finns():
-    """Modellen ska veta att den inte har priser, inte gissa att den har det."""
+def test_prompten_sager_att_priser_inte_finns(monkeypatch):
+    """Modellen ska veta att den inte har priser, inte gissa att den har det.
+
+    **RADEN PRÖVAR MEKANISMEN MED EN TOM FIL, inte repots filtillstånd.** Den
+    läste tidigare den riktiga filen och gick därför röd den dag Lars fyllde en
+    post, trots att mekanismen fungerade: med en fylld fil SKA prompten inte säga
+    `Priser: INGA`. Att filen i repot är tom vaktas av
+    `test_prisfilen_i_repot_har_BARA_TOMMA_varden`, som är §10-tripwiren, och en
+    tripwire till gör bara att fler rader går röda av samma beslut. Lars beslut i
+    skiva 43, se `docs/beslutslogg.md` #103.
+    """
+    _med_priser(monkeypatch, {})
+
     assert "Priser: INGA" in generera.bygg_prompt(forfragan(), exempel=[])
+
+
+def test_prompten_bar_PRISET_nar_filen_ar_fylld(monkeypatch):
+    """NEGATIVKONTROLL till raden ovan, och den saknades.
+
+    Utan den vore "säg alltid `Priser: INGA`" en grön lösning, alltså hade Lars
+    kunnat fylla filen utan att priset nådde prompten.
+    """
+    _med_priser(monkeypatch, {"a_traktorkonvertering": "25 000 kr"})
+
+    prompt = generera.bygg_prompt(forfragan(), exempel=[])
+
+    assert "Priser: INGA" not in prompt
+    assert "a_traktorkonvertering: 25 000 kr" in prompt
 
 
 # SYSTEMPROMPTENS REGLER, en rad per regel, ordagrant.
@@ -1522,11 +1572,15 @@ REGLER_I_PROMPTEN = {
     # återge priset ur `config/priser.json` ordagrant, i samma ögonblick Lars
     # fyller en post.
     #
-    # **SLUTMENINGENS VILLKOR ÄR MITT OCH INTE LARS.** Utan `Står inget pris i
+    # **SLUTMENINGENS VILLKOR ÄR LARS SEDAN SKIVA 43.** Utan `Står inget pris i
     # underlaget` beordrar regeln i en och samma andetag både att priset FÅR
     # återges och att kunden ska få höra att vi återkommer med prisuppgift.
-    # Det är samma motsägelse förbehållet stänger, ett led ned. Lydelsen är
-    # redovisad för Lars och ändras på hans ord.
+    # Det är samma motsägelse förbehållet stänger, ett led ned.
+    #
+    # *Villkoret skrevs av mig i skiva 42 och redovisades där som MITT, eftersom
+    # §11 gör promptens ordalydelse till Lars. Han antog det som sitt i skiva 43,
+    # se `docs/beslutslogg.md` #102. Texten är oförändrad; det som ändrats är vem
+    # som står för den.*
     5: "ALDRIG ETT PRIS utöver det som står i underlaget nedan. Inte ett "
        'belopp, inte ett ungefärligt pris, inte "ring för offert". Står inget '
        "pris i underlaget och kunden frågar vad det kostar: säg att VI "
@@ -1890,7 +1944,7 @@ def test_ett_fallt_svar_returneras_ALDRIG():
     """
     with pytest.raises(Sparrfalld):
         generera.generera_utkast(
-            FejkKlient("Det kostar 25 000 kr."), forfragan(), exempel=[]
+            FejkKlient(f"Det kostar {SENTINELPRIS} kr."), forfragan(), exempel=[]
         )
 
 
@@ -1910,7 +1964,7 @@ def test_generatorn_skriver_aldrig_om_ett_fallt_svar():
 
     with pytest.raises(Sparrfalld):
         generera.generera_utkast(
-            Raknande("Det kostar 25 000 kr."), forfragan(), exempel=[]
+            Raknande(f"Det kostar {SENTINELPRIS} kr."), forfragan(), exempel=[]
         )
 
     assert len(anrop) == 1

@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.50.2 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.51.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -3209,6 +3209,23 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
 
   **DET ÖVERSKRIDER LARS GRÄNS PÅ FEM AV HUNDRA, och det är utskrivet i #98.**
 
+  **LUCKAN ÅTGÄRDAS ÄNDÅ INTE. Lars beslut i skiva 43, se `docs/beslutslogg.md`
+  #102, och båda skälen är MÄTTA:**
+
+  1. **Hopfogningens eget bidrag är NOLL.** Ingenting Lars beslutade i skiva 42
+     införde överblockeringen. Nivån fanns före skivan.
+  2. **Talen är mätta mot FEL POPULATION.** 7,7 och 15,6 gäller `data/par.jsonl`,
+     alltså Mattes historiska svar. Botens egna utkast ger 0 av 11. Spärren
+     fäller mänskliga svar som blandar ett pris och andra tal i samma mening, och
+     boten skriver inte så.
+
+  **UNDERLAGET ÄR TUNT.** Elva utkast bär ingen slutsats ensamma. Riktningen är
+  entydig, storleken är det inte.
+
+  **ORDERN: MÄT OM NÄR BOTENS UTKAST ÄR FLER.** Öppnas luckan ska det ske på
+  botens egen population och aldrig på Mattes. `scripts/prismatning.py` läser
+  redan `data/granskningsfall.jsonl`, alltså är det samma kommando.
+
   **HOPFOGNINGEN I SKIVA 42 BIDROG MED NOLL.** Antalet texter vars
   satsuppdelning ändrades är 0 i alla tre underlagen. Nivån är alltså luckans
   egen och fanns före skivan.
@@ -3229,11 +3246,13 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   **VAD SOM STÄNGDE DEN.** Regel 5 bär nu förbehållet *"utöver det som står i
   underlaget nedan"*, ordagrant Lars lydelse och samma form som regel 8:s.
 
-  **SLUTMENINGENS VILLKOR ÄR MITT.** Regeln slutade *"Om kunden frågar vad det
-  kostar: säg att VI återkommer med prisuppgift"*, vilket med förbehållet infört
-  blev en motsägelse ett led ned. Jag lade till *"Står inget pris i underlaget
-  och"*. Promptens ordalydelse är Lars enligt §8 och §11, alltså står tillägget
-  utskrivet här och i #96 och ändras på hans ord.
+  **SLUTMENINGENS VILLKOR ÄR LARS SEDAN SKIVA 43.** Regeln slutade *"Om kunden
+  frågar vad det kostar: säg att VI återkommer med prisuppgift"*, vilket med
+  förbehållet infört blev en motsägelse ett led ned. Villkoret *"Står inget pris
+  i underlaget och"* skrevs av mig i skiva 42 och redovisades där som MITT,
+  eftersom §11 gör promptens ordalydelse till Lars. Han antog det som sitt i
+  skiva 43, se `docs/beslutslogg.md` #102. Texten är oförändrad; det som ändrats
+  är vem som står för den.
 
   **BUNDEN, OCH PRÖVAD MED EN KÖRNING.** `test_varje_regel_star_ORDAGRANT` binder
   hela lydelsen, `test_REGEL_5_bar_SAMMA_FORBEHALL_som_regel_8` säger vilket led
@@ -4882,6 +4901,20 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.51.0 — 2026-09-14
+
+**LUCKA 55 ÅTGÄRDAS INTE, och det är ett vägt beslut av Lars.** Se
+`docs/beslutslogg.md` #102. Båda skälen är mätta: hopfogningens bidrag är noll,
+och talen är mätta mot Mattes svar och inte mot botens. Posten bär ordern att
+mäta om på botens egen population när utkasten är fler.
+
+**LUCKA 52:s NOT OM SLUTMENINGEN ÄR ÖVERTAGEN AV LARS.** Villkoret var mitt när
+det skrevs; han antog det som sitt i skiva 43. Texten är oförändrad.
+
+**LUCKA 56 STÅR REGISTRERAD OCH BYGGS INTE.** Oförändrat sedan skiva 42.
+
+Ett vägt beslut och en övertagen lydelse ⇒ MINOR.
 
 ### 0.50.2 — 2026-09-14
 

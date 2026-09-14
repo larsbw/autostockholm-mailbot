@@ -32,6 +32,7 @@ import pytest
 from src import generera
 from src.fordonsuppslag import Uppslag, Utfall
 from src.generera import Forfragan, Sparrfalld
+from tests.sentinelpris import SENTINELPRIS, SENTINELPRIS_IHOP
 
 # GRÄNSBILEN. Släpvagnsvikten är exakt 1000, alltså HAR talet en källa och
 # talspärren fäller INTE först. Utan det prövar tröskelraderna fel spärr, vilket
@@ -385,16 +386,16 @@ def test_troskelformer_som_ska_passera(svar, fall):
 # ------------------------------------------------------------------- PRIS
 
 PRIS_SKA_FALLA = [
-    ("Ombyggnaden kostar 25 000 kr.", UTAN_UPPSLAG),
+    (f"Ombyggnaden kostar {SENTINELPRIS} kr.", UTAN_UPPSLAG),
     ("Vad det kostar återkommer vi om.", UTAN_UPPSLAG),
-    ("Det blir 25 000:- rakt av.", UTAN_UPPSLAG),
+    (f"Det blir {SENTINELPRIS}:- rakt av.", UTAN_UPPSLAG),
     ("Vi kan ge dig en offert.", UTAN_UPPSLAG),
     # skiva 31, varv 1
     ("Det går på femton hundra spänn.", UTAN_UPPSLAG),
     ("Vi gör det för en billig peng.", UTAN_UPPSLAG),
-    ("Det brukar hamna runt 25tkr.", UTAN_UPPSLAG),
+    (f"Det brukar hamna runt {SENTINELPRIS_IHOP}tkr.", UTAN_UPPSLAG),
     # skiva 31, varv 2: talet ihopskrivet med enheten
-    ("Vi tar 25000kr för jobbet.", UTAN_UPPSLAG),
+    (f"Vi tar {SENTINELPRIS_IHOP}kr för jobbet.", UTAN_UPPSLAG),
     ("Det blir 1500kr, betala på plats.", UTAN_UPPSLAG),
     # skiva 32, varv 1: PRISORDEN UTAN SIFFRA INTILL.
     #
@@ -430,7 +431,8 @@ PRIS_SKA_FALLA = [
     #
     # `\binkl\.?\s*moms\b` gick att snäva till `\binkl\.\s*moms\b` med grön
     # svit, alltså var punktens valfrihet ett otestat lager. Samma för `\d\s*tkr`,
-    # där den enda raden bar "25tkr".
+    # där den enda raden bar ett tal ihopskrivet med `tkr`. *Raden citerade
+    # "25tkr", som skiva 43 bytte mot sentineltalet. Formen är densamma.*
     ("Det är inkl moms.", UTAN_UPPSLAG),
     ("Det är exkl moms.", UTAN_UPPSLAG),
     # `\s*` tillåter noll blanksteg, och den grenen prövas av raderna nedan.
@@ -705,11 +707,16 @@ def _radtexter(tabellnamn: str) -> list[str]:
 
 # RADERNA I `PRIS_SKA_FALLA` SOM FAKTISKT BÄR ETT PRISORD.
 #
-# **INTE ALLA GÖR DET, och det antagandet var fel.** `Det blir 25 000:- rakt av.`,
-# `Vi tar 25000kr för jobbet.` och `Det blir 1500kr, betala på plats.` fälls av
-# den allmänna talloopen och inte av `PRISORD`: `\bkr\b` har ingen ordgräns när
-# `kr` sitter ihop med en siffra. Uppmätt under bygget i skiva 42, varv 1:s
-# rättelse, av att en första lydelse av raden nedan gick röd på just de tre.
+# **INTE ALLA GÖR DET, och det antagandet var fel.** Raden med `:-` som
+# valutamarkör, raden med talet ihopskrivet med `kr`, och
+# `Det blir 1500kr, betala på plats.` fälls av den allmänna talloopen och inte av
+# `PRISORD`: `\bkr\b` har ingen ordgräns när `kr` sitter ihop med en siffra, och
+# `:-` är ingen pristerm. Uppmätt under bygget i skiva 42, varv 1:s rättelse, av
+# att en första lydelse av raden nedan gick röd på just de tre.
+#
+# *De två första citerades ordagrant med talet `25 000` respektive `25000`. Skiva
+# 43 bytte exempeltalet, och en rad som citerar en tabellrad ordagrant föråldras
+# av varje sådant byte. De beskrivs nu av sin FORM.*
 PRISORDSRADER = [
     text for text in _radtexter("PRIS_SKA_FALLA")
     if generera.PRISORD.search(text)

@@ -16,6 +16,7 @@ import pytest
 from src import biluppgifter, generera, kategorisera, kedja, ometikettera, vy
 from src.fordonsuppslag import UppslagMisslyckades, Utfall
 from src.kedja import Arende, Kallfel, Kedjeutfall, Steg
+from tests.sentinelpris import SENTINELPRIS_IHOP
 from tests.test_vy import FejkHanterare
 
 HINKAR = {
@@ -242,7 +243,7 @@ def test_ett_spärrfällt_svar_ger_INGET_utkast():
     """Spärren fäller, och kedjan bär skälet i stället för en text."""
     klient = FejkKlient(
         "fråga om a-traktorkonvertering",
-        "Hej, det kostar 25000 kr.",
+        f"Hej, det kostar {SENTINELPRIS_IHOP} kr.",
     )
 
     utfall = kedja.kor(
@@ -444,7 +445,7 @@ def test_ett_SPARRAT_utfall_blir_ett_sparrat_granskningsfall():
     den vägran är verkningslös om konverteringen råkar sätta båda.
     """
     klient = FejkKlient(
-        "fråga om a-traktorkonvertering", "Hej, det kostar 25000 kr."
+        "fråga om a-traktorkonvertering", f"Hej, det kostar {SENTINELPRIS_IHOP} kr."
     )
     ar = arende()
 

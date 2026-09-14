@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.61.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
+**Version:** 0.62.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -5346,6 +5346,10 @@ att kunden ska höra att vi återkommer. Jag lade till *"Står inget pris i
 underlaget och"*. Det är samma motsägelse ett led ned, men lydelsen är promptens
 och därmed Lars enligt §8 och §11. Han ändrar den på sitt ord.
 
+*ÖVERTAGET AV LARS I SKIVA 43, se #102. Stycket ovan står kvar som det var när
+det skrevs: villkoret VAR mitt då, och redovisningen av det är en del av
+historiken. Det som ändrats är att lydelsen nu är hans.*
+
 `test_varje_regel_star_ORDAGRANT` binder hela lydelsen.
 `test_REGEL_5_bar_SAMMA_FORBEHALL_som_regel_8` säger vilket led som är
 lastbärande. Fällning av förbehållet ur `SYSTEM` ger RÖD.
@@ -5628,7 +5632,107 @@ ingen post i den här skivan påstår att den klassen är stängd.
 
 ---
 
+## #102 — Skiva 42 GODKÄND. Lucka 55 står öppen på två MÄTTA skäl
+
+Lars beslut i skiva 43, DEL 0.
+
+**SKIVA 42 ÄR GODKÄND SOM LEVERERAD.** Sändvägen godkändes av varv 3, inga
+kodfynd kvarstår, och det som fällde låg varje gång i rättelsetexten. Samma form
+som #67, #71 och #77: godkännandet gäller en enskild skiva och ändrar ingenting i
+§7.
+
+**LUCKA 55 STÅR ÖPPEN, trots att överblockeringen överskrider Lars egen gräns på
+fem falska fällningar av hundra.** Skälen är hans och båda är mätta:
+
+**DET FÖRSTA: hopfogningens eget bidrag är NOLL.** `texter_dar_hopfogningen_lopte`
+är 0 i alla tre underlagen, direkt uppmätt av `scripts/prismatning.py`. Ingenting
+Lars beslutade i skiva 42 införde överblockeringen; nivån fanns före skivan.
+
+**DET ANDRA: talen mäts mot FEL POPULATION.** 7,7 och 15,6 av hundra är mätta mot
+`data/par.jsonl`, alltså mot Mattes historiska svar. Botens egna utkast ger 0 av
+11. Spärren fäller mänskliga svar som blandar ett pris och andra tal i samma
+mening, och boten skriver inte så.
+
+**UNDERLAGET ÄR TUNT OCH DET SKRIVS UT.** Elva utkast är för få för att bära en
+slutsats ensamma. Riktningen är entydig, storleken är det inte.
+
+**ORDERN: MÄT OM NÄR BOTENS UTKAST ÄR FLER.** Öppnas luckan ska det ske på
+botens egen population och aldrig på Mattes. Det är samma hållning som #52 och
+#57: en spärr mäts mot det den faktiskt kommer att pröva.
+
+**REGEL 5:S SLUTMENING ÄR LARS.** Villkoret *"Står inget pris i underlaget och"*
+skrevs av mig i skiva 42 och redovisades där som mitt, eftersom §11 gör promptens
+ordalydelse till Lars. Han antar det som sitt: utan villkoret sade regeln i samma
+andetag att priset får återges och att kunden ska höra att vi återkommer. Texten
+är OFÖRÄNDRAD; det som ändrats är vem som står för den. #96 och posten för lucka
+52 i `docs/sparrar.md` bär noten.
+
+**LUCKA 56 REGISTRERAS SOM ÖPPEN och byggs inte.** Gatad av platthetsvakten. Se
+#100.
+
+---
+
+## #103 — Testkorpusen byter exempeltal. Verkligheten byter inte
+
+Lars beslut i skiva 43, DEL A.
+
+**PROBLEMET, MÄTT I SKIVA 42.** Elva vakter gick röda när `a_traktorkonvertering`
+fylldes med `25 000 kr`, och bara EN av dem var §10-tripwiren. De tio andra gick
+röda därför att korpusen använde samma tal som sitt kanoniska pris UTAN källa.
+
+**BESLUTET, ORDAGRANT LARS:** korpusen ska byta exempeltal, inte verkligheten.
+Vad Auto Stockholm tar betalt får inte styras av vilket tal ett test råkar
+använda.
+
+**TALET ÄR `99 999 999`, och skälen står i `tests/sentinelpris.py`.** Det kan
+aldrig vara ett riktigt pris här, det krockar inte med någon vikt, tröskel,
+ledtid eller post i `ALLTID_TILLATNA_TAL`, och en repsiffra läses direkt som en
+testmarkör och inte som en avläsning.
+
+**TVÅ VAKTER VAR §10-TRIPWIRES I FÖRKLÄDNAD, och de är ombyggda.**
+`test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal` jämförde kommentarernas
+TAL mot `_tillatna_tal`, med `25000` ur `_formen` som bärande exempel. Den prövar
+nu att ingen kommentarTEXT går vidare till `_varden_ur`, vilket är strikt
+starkare och överlever varje fyllning.
+`test_prompten_sager_att_priser_inte_finns` läste den riktiga filen för att pröva
+en MEKANISM; den använder nu en tom fil och har fått en negativkontroll som
+saknades.
+
+**EN VAKT BYTTE NAMN TILL VAD DEN FAKTISKT PRÖVAR.**
+`test_ett_pris_faller_med_repots_egen_TOMMA_prisfil` hette efter filtillståndet
+och bar en docstring som sade att raden SKA gå röd när Lars fyller filen. Den
+heter nu `test_ett_pris_UTAN_KALLA_faller_mot_repots_egen_prisfil`.
+
+**VERIFIERAT MED EN KÖRNING, och målet är nått.** Med
+`a_traktorkonvertering` satt till `25 000 kr` i en fällning: RÖD,
+`1 failed, 1494 passed, 54 skipped, 16 xfailed`, och den enda är
+`test_prisfilen_i_repot_har_BARA_TOMMA_varden`. Samma utfall med `rekond` satt
+till `18 000 kr inklusive moms`, alltså är resultatet inte specifikt för en
+nyckel eller ett belopp.
+
+**FILEN ÄR TOM NÄR SKIVAN SKEPPAS.** Fällningarna är återställda av
+`scripts/sparr-prova.sh`, och varje återställning är kvitterad med `filens
+sha256 identisk med utgångsläget` och `git diff identisk med utgångsdiffen`. Lars
+fyller filen själv.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.62.0 — 2026-09-14
+
+**#102 OCH #103 TILLKOMMER.** Skiva 43. Skiva 42 godkänd, lucka 55 öppen på två
+mätta skäl, regel 5:s slutmening övertagen av Lars, och testkorpusens exempeltal
+bytt.
+
+**#96:s OCH LUCKA 52:s NOT OM ATT SLUTMENINGEN ÄR MIN ÄR ÖVERTAGEN, inte
+struken.** Villkoret var mitt när det skrevs, och redovisningen av det hör till
+historiken. Noterna säger nu att Lars antagit det.
+
+**ELVA RÖDA VAKTER BLEV EN.** Verifierat med en fällning, och den enda som står
+kvar är §10-tripwiren.
+
+Nya poster ⇒ MINOR.
 
 ### 0.61.0 — 2026-09-14
 

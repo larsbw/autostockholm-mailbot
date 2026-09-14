@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.12.10 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #101
+**Version:** 0.12.11 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #103
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -518,6 +518,38 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.12.11 — 2026-09-14
+
+**`Speglar` följer med till beslutslogg #103.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 43:s två poster lagts till.
+
+**SKIVA 42 ÄR GODKÄND AV LARS, se #102.** §7:s tre granskningsvarv är
+OFÖRÄNDRADE: godkännandet gäller en enskild skiva, precis som i #34, #54, #67,
+#71 och #77.
+
+**0.12.9:s RAD OM ATT REGEL 5:s SLUTMENING ÄR MIN ÄR ÖVERTAGEN AV LARS.**
+Villkoret *"Står inget pris i underlaget och"* var mitt när det skrevs i skiva
+42, och §11 gör promptens ordalydelse till hans. Han antog det som sitt i skiva
+43. Regeltexten är OFÖRÄNDRAD; det som ändrats är vem som står för den.
+
+**§7.1 FICK EN LÄRDOM SOM ÄNNU INTE ÄR EN REGEL, och den hör hemma i regeltexten
+först när Lars vill ha den där.** Den skulle lyda ungefär: ett test som bär ett
+exempelvärde ur samma domän som en §10-fil blir en tripwire i förklädnad, och då
+går tio vakter röda av ett beslut som bara en av dem vaktar. Skiva 43 mätte upp
+elva röda vakter och fick ner det till en. Jag skriver inte in den i §7.1 på eget
+bevåg, se §8.
+
+**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
+är tom sedan 0.12.0.
+
+**§10 ÄR OBRUTEN.** `config/priser.json` och `config/fakta.json` är orörda i den
+här skivan. Fällningarna som mätte tripwiren är återställda och kvitterade.
+
+**§0:s styrdokumentlista är oförändrad.** Skiva 43 skapade
+`tests/sentinelpris.py`, alltså en testmodul och inget styrdokument.
+
+Ren synk ⇒ PATCH.
 
 ### 0.12.10 — 2026-09-14
 
