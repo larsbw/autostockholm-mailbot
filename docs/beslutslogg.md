@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.63.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
+**Version:** 0.64.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -5861,7 +5861,87 @@ skivan.
 
 ---
 
+## #106 — Lars fyller `config/priser.json` och `config/fakta.json`. Fyra följdbeslut
+
+**§10-BESLUTET SJÄLVT.** Fem prisposter och telefonnumret är ifyllda. Värdena
+kommer ur autostockholm.se/prislista. `tillbehor` står kvar TOM, eftersom
+prislistan inte bär något fast tillbehörspris, och den posten fylls inte av kod.
+
+**BESLUT A: VAKTERNA BINDS OM MOT HELA INNEHÅLLET, inte mot "ifylld".** De två
+§10-tripwirarna band att värdena var TOMMA. Det ledet gick röd av Lars egen
+fyllning, alltså vaktade det precis det det skulle. Att lösa upp det till
+"posterna är ifyllda" hade gjort tripwiren SVAGARE än före fyllningen: ett ÄNDRAT
+belopp är lika mycket en §10-ändring som ett infört, och en sådan hade passerat
+grön. Vakterna binder nu hela innehållet ordagrant.
+
+**LUCKA 57:s GATNINGSFYND STÄNGS PÅ KÖPET.** Posten sade att ingenting band
+`bokningar`:s värde och att ett årtal där gav HELT GRÖN SVIT. Exakt den
+mutationen ger nu `1 failed`.
+
+**BESLUT B: TELEFONNUMRET ÄR EN KÄLLA OCKSÅ I EN PRISSATS, MEN BARA ORDAGRANT.**
+Prompten fick en fjortonde regel: ett svar som nämner ett pris ska följa det med
+telefonnumret, eftersom priset är ett intervall och varje bygge är unikt.
+Prisgrenen fällde den formen, därför att numrets siffergrupper inte kommer ur
+`config/priser.json`. Uppmätt över tjugo körda a-traktormail: FYRA spärrades på
+`talet 076 står i en prismening`, alltså på svar som var korrekta för kunden.
+
+Lars valde att låta prisgrenen godta numret, mot två alternativ: att låta
+fällningarna stå, och att stryka regelns krav på en egen mening. Skälet är att
+det andra kostar fyra av tjugo goda svar och det tredje är sämre än det andra,
+medan regel 14 samtidigt kräver att numret står i svaret.
+
+**DET ÄR INGEN SÄNKT TRÖSKEL, och skillnaden är exaktheten.** Villkoret är att
+värdet står ORDAGRANT i satsen, alltså en identisk delsträng ur en §10-grindad
+källa. Samma nummer skrivet med bindestreck i VARJE avskiljarposition har
+identisk talmängd och faller ändå. Numrets tal DRAS BORT ur satsens tal i stället
+för att läggas till de tillåtna, så att invarianten står kvar: en prissats måste
+fortfarande bära minst ett tal ur priskällan. En mening som bär numret och ett
+prisord men inget belopp faller alltså som förut.
+
+*Skrivformerna står beskrivna och inte utskrivna. `scripts/persondatakontroll.py`
+fällde posten när de stod som strängar, och repots svar på det är sedan lucka 58
+att beskriva formen i stället för att vidga vaktens `TILLATNA`. Undantaget för
+verkstadens eget nummer, BESLUT E, gäller den ena skrivform filen faktiskt bär.*
+
+**BESLUT C: ETT PRIS ÅTERGES I SIN HELHET ELLER INTE ALLS.** Boten skrev
+*"priser för konvertering till A-traktor startar från 20 000 kr"* om en post vars
+värde är `från 20 000 till 25 000 kr ...`. Varje tal hade en källa, alltså fällde
+ingen spärr, men kunden läser 20 000 som priset. `PRISFOT` bär nu helhetskravet
+och binds ordagrant. Det är en promptregel och ingen spärr, av samma skäl som
+lucka 29:s åtgärd: en spärr fäller påhittet i efterhand och lämnar orsaken orörd.
+
+**BESLUT D: `inklusive moms` SKRIVS IN I FILEN i stället för att fällas.** Boten
+skrev det i två av fem lästa utkast utan att någon källa bar det; formuleringen
+står i prisfilens kommentar `_formen`, som filtreras bort ur prompten. Lars
+§10-beslut gör påståendet sant och källbelagt.
+
+**BESLUT E: VERKSTADENS EGET NUMMER UNDANTAS I `persondatakontroll`.** Hooken
+fällde commit:en på `config/fakta.json:5`. Numret är företagets och publicerat,
+alltså samma klass som `info@autostockholm.se`, som redan står i `TILLATNA`.
+Undantaget rör orsaken och tystar inte vaktens eget bevis:
+`test_telefonnummer_falls` använder en annan sträng.
+
+**LUCKA 59 REGISTRERAD OCH INTE BYGGD**, se `docs/sparrar.md`. Boten bekräftar
+arbete som ingen källa bär.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.64.0 — 2026-09-14
+
+**#106 TILLKOMMER: Lars fyller båda §10-filerna, och fyra följdbeslut.** Vakterna
+binds om mot hela innehållet, telefonnumret blir en ordagrann källa i en
+prissats, `PRISFOT` får ett helhetskrav, och `inklusive moms` skrivs in i filen.
+
+**LUCKA 57:s GATNINGSLED STÄNGT**, och dess mätning om telefonnummer rättad: den
+gällde ett nummer vars siffergrupper råkade sakna korpusens tal.
+
+**LUCKA 58:s RAD FÖR `15` STÄNGD**, korpusraden bär sentineltalet.
+
+**LUCKA 59 REGISTRERAD.**
+
+Nya beslut och en ny lucka ⇒ MINOR.
 
 ### 0.63.0 — 2026-09-14
 

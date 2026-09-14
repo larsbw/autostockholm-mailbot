@@ -369,66 +369,151 @@ def test_ett_IFYLLT_telefonvarde_nar_prompten_ORDAGRANT(tmp_path):
     assert "INGA" not in rader
 
 
-def test_faktafilen_i_repot_har_TOM_telefon():
-    """Binder att jag inte fyllt i ett nummer åt Lars.
+# VAD LARS HAR BESLUTAT ATT `config/fakta.json` BÄR. Samma form och samma skäl
+# som `PRISER_SOM_LARS_BESLUTAT`.
+#
+# **BÅDA VÄRDENA BINDS ORDAGRANT, och det andra ledet är nytt.** Vakten band
+# förut `telefon == ""` plus nyckelmängden, alltså INTE vad `bokningar`
+# innehåller. Det var LUCKA 57:s gatningsfynd: uppmätt gav ett årtal i
+# `bokningar`, *"vi har funnits sedan 1995 och tar emot bokningar löpande"*, HELT
+# GRÖN SVIT. Ett tal kunde alltså skrivas in i den här filen och bli en citerbar
+# källa i ett utgående mail utan att en enda rad gick röd. Med hela innehållet
+# bundet är det ledet stängt.
+FAKTA_SOM_LARS_BESLUTAT = {
+    "bokningar": "vi tar emot bokningar löpande och kommer överens om tid "
+                 "med kunden",
+    "telefon": "076-860 38 15",
+}
+
+
+def test_faktafilen_i_repot_bar_EXAKT_det_Lars_BESLUTAT():
+    """Binder att jag inte ändrat filen åt Lars.
 
     §10 gör `config/fakta.json` till ett uttryckligt stopp. Skiva 36 skapade
-    filen på Lars order; att FYLLA den är hans beslut och inte mitt. Raden blir
-    röd den dag någon sätter ett värde, och då ska den dagen vara Lars val.
+    filen på Lars order och skiva 44 fyllde `telefon` på hans beslut. Raden blir
+    röd den dag någon rör ett värde, och då ska den dagen vara Lars val.
+
+    *Raden hette `..._har_TOM_telefon` och band `telefon == ""`. Det ledet gick
+    röd av Lars egen fyllning, alltså vaktade det hans beslut på precis det sätt
+    det skulle. Det är UPPDATERAT och inte upplöst.*
     """
     data = json.loads(generera.FAKTA.read_text(encoding="utf-8"))
+    poster = {n: v for n, v in data.items() if not n.startswith("_")}
 
-    assert data["telefon"] == "", "ett värde är infört utan Lars beslut"
-
-    # **HELA NYCKELMÄNGDEN BINDS, inte bara `telefon`.** HEAD band
+    # **HELA INNEHÅLLET BINDS, inte bara `telefon`.** HEAD band
     # `las_fakta() == {}`, alltså att ingen post med värde fanns alls. Skiva 37
     # bytte det mot en kontroll av enbart `telefon`, och då gick en NY post in
     # med grön svit. Filen är ett §10-stopp: varje post ska kräva ett medvetet
     # beslut, och den här raden är tripwiren. Fällt av §7-granskningen av
     # skiva 37, varv 2.
-    assert set(generera.las_fakta()) == {"bokningar"}, (
-        "config/fakta.json har fått eller tappat en post. Filen är ett "
-        "§10-stopp: ändra den här raden bara när Lars har beslutat ändringen."
+    assert poster == FAKTA_SOM_LARS_BESLUTAT, (
+        "config/fakta.json har fått, tappat eller ändrat en post. Filen är ett "
+        "§10-stopp: ändra tabellen här bara när Lars har beslutat ändringen."
     )
 
-    # Och att det tomma värdet FAKTISKT utelämnas, alltså aldrig når prompten.
-    # RADEN prövas, inte strängen: rubriken innehåller ordet "telefonnummer",
-    # så en delsträngskontroll hade varit grön av fel skäl.
+    # Och att numret FAKTISKT når prompten, ordagrant. RADEN prövas, inte
+    # strängen: rubriken innehåller ordet "telefonnummer", så en
+    # delsträngskontroll hade varit grön av fel skäl.
     rader = [r.strip() for r in generera._faktarader().splitlines()]
-    assert not [r for r in rader if r.startswith("telefon:")]
+    assert f"telefon: {FAKTA_SOM_LARS_BESLUTAT['telefon']}" in rader
 
 
 # --- SKIVA 41 DEL A: config/priser.json --------------------------------------
 
 
-PRISNYCKLAR = {"a_traktorkonvertering", "rekond", "reparation", "service",
-               "dack", "tillbehor"}
+# VAD LARS HAR BESLUTAT ATT `config/priser.json` BÄR. Avläst ur filen efter hans
+# §10-beslut i skiva 44; värdena kommer ur autostockholm.se/prislista.
+#
+# **HELA INNEHÅLLET BINDS, inte bara nyckelmängden och inte bara att en post är
+# ifylld.** Vakten band förut `set(poster) == PRISNYCKLAR` plus att varje värde
+# var TOMT. Det andra ledet gick inte att behålla när Lars fyllde filen, och att
+# lösa upp det till "posterna är ifyllda" hade gjort tripwiren svagare än den var:
+# ett ÄNDRAT belopp är lika mycket en §10-ändring som ett infört, och en sådan
+# ändring hade då passerat med grön svit.
+#
+# Raden går alltså röd på tre former: en ny post, en borttagen post, och ett
+# ändrat värde. Alla tre kräver Lars beslut, och den som har hans beslut ändrar
+# tabellen här i samma svep.
+PRISER_SOM_LARS_BESLUTAT = {
+    # `inklusive moms` ÄR LARS §10-BESLUT I SKIVA 44. Boten skrev det ändå, i
+    # två av fem lästa utkast, utan att någon källa bar det: formuleringen står
+    # i prisfilens kommentar `_formen`, som filtreras bort ur prompten, alltså
+    # kom den ur få-exemplen eller ur modellen. Åtgärden är att göra påståendet
+    # SANT OCH KÄLLBELAGT i stället för att fälla det i efterhand.
+    "a_traktorkonvertering":
+        "från 20 000 till 25 000 kr inklusive moms, och priset gäller arbetet "
+        "och de delar som ingår i grundpaketet",
+    "rekond":
+        "Premium rekond 3 500 kr, Guldtvätt 1 500 kr, glasförsegling 1 000 kr, "
+        "sanering av djurhår 500 kr, fälgbehandling 500 kr, invändig tvätt "
+        "800 kr, utvändig tvätt 900 kr, keramisk lackförsegling från 4 500 kr",
+    "reparation":
+        "diagnostik och felsökning från 1 250 kr, bromsbelägg fram 2 500 till "
+        "4 500 kr, bromsskivor och belägg fram 5 000 till 7 000 kr, "
+        "kamremsbyte 12 000 till 20 000 kr, kopplingsbyte 8 000 till "
+        "15 000 kr, stötdämparbyte 3 000 till 6 000 kr, hjulinställning "
+        "1 000 till 1 500 kr",
+    "service":
+        "stor service 4 650 kr, mellan service 3 950 kr, liten service "
+        "2 850 kr, oljebyte från 1 500 kr, efterkontroll besiktning från "
+        "300 kr, motortvätt 500 kr",
+    "dack":
+        "däckhotell med skifte 1 695 kr per säsong, däckskifte 600 kr, "
+        "punktering 600 kr, däckomläggning med balansering 2 400 kr för 13 "
+        "till 16 tum, 3 000 kr för 17 till 18 tum, 3 600 kr för 19 till 21 tum",
+    # TOM MED FLIT, och det är Lars beslut. Auto Stockholm säljer tillbehör,
+    # men prislistan bär inget fast pris för dem, och §0:s ramverksregel 3 säger
+    # att ett pris som inte står i filen aldrig får skrivas. Posten står kvar
+    # tom i stället för att tas bort, så att den dag den fylls är ett beslut och
+    # inte ett tillägg.
+    "tillbehor": "",
+}
+
+PRISNYCKLAR = set(PRISER_SOM_LARS_BESLUTAT)
 
 
-def test_prisfilen_i_repot_har_BARA_TOMMA_varden():
+def test_prisfilen_i_repot_bar_EXAKT_det_Lars_BESLUTAT():
     """§10-VAKTEN FÖR PRISFILEN, byggd som den för `config/fakta.json`.
 
-    Filen skapades i skiva 41 på Lars §10-beslut. Att FYLLA den är hans beslut
-    och inte mitt, och den här raden blir röd den dag någon sätter ett värde.
+    Filen skapades i skiva 41 på Lars §10-beslut och FYLLDES av honom i skiva
+    44. Att ändra den är hans beslut och inte mitt, och den här raden blir röd
+    den dag någon rör den.
 
-    **HELA NYCKELMÄNGDEN BINDS, inte bara att filen är tom.** Skiva 37 visade
-    att en vakt som bara prövar ETT fält går att kringgå: en ny post gick in med
-    grön svit. Varje post ska kräva ett medvetet beslut.
+    **HELA INNEHÅLLET BINDS, inte bara att filen har rätt nycklar.** Skiva 37
+    visade att en vakt som bara prövar ETT fält går att kringgå: en ny post gick
+    in med grön svit. Skälet att värdena binds ORDAGRANT står vid
+    `PRISER_SOM_LARS_BESLUTAT`: ett ändrat belopp är lika mycket en §10-ändring
+    som ett infört.
+
+    *Raden hette `..._har_BARA_TOMMA_varden` och band `all(v == "")`. Det ledet
+    gick röd av Lars egen fyllning, alltså vaktade det hans beslut på precis det
+    sätt det skulle. Det är UPPDATERAT och inte upplöst.*
     """
     data = json.loads(generera.PRISER.read_text(encoding="utf-8"))
     poster = {n: v for n, v in data.items() if not n.startswith("_")}
 
-    assert set(poster) == PRISNYCKLAR, (
-        "config/priser.json har fått eller tappat en post. Filen är ett "
-        "§10-stopp: ändra den här raden bara när Lars har beslutat ändringen."
-    )
-    assert all(v == "" for v in poster.values()), (
-        "ett pris är infört utan Lars beslut"
+    assert poster == PRISER_SOM_LARS_BESLUTAT, (
+        "config/priser.json har fått, tappat eller ändrat en post. Filen är ett "
+        "§10-stopp: ändra tabellen här bara när Lars har beslutat ändringen."
     )
 
-    # OCH ATT TOMMA VÄRDEN FAKTISKT UTELÄMNAS, alltså att prompten säger INGA.
-    assert generera.las_priser() == {}
-    assert generera._prisrader() == generera.INGA_PRISER
+    # `tillbehor` ÄR TOM OCH SKA FÖRBLI TOM tills Lars säger annat. Ledet står
+    # för sig, så att den dag posten fylls säger felmeddelandet vad som hände i
+    # stället för att bara visa två olika dictar.
+    assert poster["tillbehor"] == "", (
+        "tillbehor har fått ett pris. Lars beslut i skiva 44 var att den står "
+        "tom, eftersom prislistan inte bär något fast tillbehörspris."
+    )
+
+    # OCH ATT DET TOMMA VÄRDET FAKTISKT UTELÄMNAS, alltså aldrig når prompten
+    # och aldrig blir en källa. De fyllda posterna ska däremot nå hela vägen.
+    assert generera.las_priser() == {
+        n: v for n, v in PRISER_SOM_LARS_BESLUTAT.items() if v
+    }
+
+    rader = generera._prisrader()
+    assert rader != generera.INGA_PRISER
+    assert "tillbehor" not in rader
 
 
 def _med_priser(monkeypatch, poster: dict) -> None:
@@ -561,6 +646,118 @@ def test_ett_PRISORD_UTAN_TAL_faller_aven_nar_filen_ar_fylld(monkeypatch):
     assert "utan att ange ett tal" in fel.value.skal
 
 
+# --- SKIVA 44, LARS VÄG TVÅ: TELEFONNUMRET I EN PRISSATS --------------------
+
+
+def _med_konfig(monkeypatch, priser: dict, fakta: dict) -> None:
+    """Låtsas att BÅDA §10-filerna bär `priser` respektive `fakta`.
+
+    **BÅDA PATCHAS, och det är LUCKA 58:s föreskrivna form.** Tre äldre
+    spärrtest patchar EN konfigfil och låter den andra vara den riktiga, medan
+    `_tillatna_tal` läser båda. Ett sådant test går rött av en laglig post i den
+    opatchade filen, alltså av Lars beslut i stället för av en defekt.
+
+    Byter ut den RÅA läsningen, `las_konfig`, av samma skäl som `_med_priser`:
+    filen har två läsare med olika krav och båda går den vägen.
+    """
+    riktig = generera.las_konfig
+
+    def las(fil):
+        if fil == generera.PRISER:
+            return dict(priser)
+        if fil == generera.FAKTA:
+            return dict(fakta)
+        return riktig(fil)
+
+    monkeypatch.setattr(generera, "las_konfig", las)
+
+
+def test_telefonnumret_ORDAGRANT_ar_en_kalla_i_en_prissats(monkeypatch):
+    """LARS VÄG TVÅ I SKIVA 44. Prompten beordrar formen, spärren fällde den.
+
+    Regel 14 säger att ett svar som nämner ett pris ska följa det med
+    telefonnumret. Prisgrenen kräver att varje tal i en prissats kommer ur
+    `config/priser.json`, och numrets siffergrupper gör det inte, alltså fälldes
+    ett svar som var korrekt för kunden. FYRA av tjugo körda mail spärrades på
+    just den formen.
+    """
+    _med_konfig(monkeypatch, {"a_traktorkonvertering": "25 000 kr"},
+                {"telefon": "076-860 38 15"})
+
+    generera.krav_pa_tal_med_kalla(
+        "Ombyggnaden kostar 25 000 kr, ring oss på 076-860 38 15.",
+        forfragan(),
+    )
+
+
+def test_ett_OMSKRIVET_telefonnummer_faller_FORTFARANDE_i_en_prissats(monkeypatch):
+    """LEDET SOM GÖR `ORDAGRANT` LASTBÄRANDE, och utan det är väg två en sänkt
+    tröskel.
+
+    Samma siffror, annan skrivform. Det är inte det värde `config/fakta.json`
+    bär, alltså är det ingen avläsning. Utan den här raden vore "dra alltid bort
+    numrets siffergrupper" en grön lösning, och då hade villkoret slutat pröva
+    satsen alls.
+
+    **SKRIVFORMEN ÄR VALD SÅ ATT DEN GER IDENTISK TALMÄNGD, och det ledet är
+    fällt fram.** En första lydelse bytte bindestrecket mot ett BLANKSTEG. Då gav
+    `_tal_i` tokenet `076860` i stället för `076` och `860`, eftersom
+    `TAL_I_TEXT` tar en blankstegsavskiljare följd av exakt tre siffror som en
+    del av talet. Raden gick alltså röd av att talmängden BLEV EN ANNAN, inte av
+    att strängen inte matchade, och en fällning av `telefon in sats` till
+    `telefon` gav GRÖN svit. Uppmätt med `scripts/sparr-prova.sh`.
+
+    `076-860-38-15` ger exakt samma talmängd som värdet i config. Det enda som
+    skiljer är strängen, alltså är det bara `in`-prövningen som kan fälla den.
+    """
+    _med_konfig(monkeypatch, {"a_traktorkonvertering": "25 000 kr"},
+                {"telefon": "076-860 38 15"})
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla(
+            "Ombyggnaden kostar 25 000 kr, ring oss på 076-860-38-15.",
+            forfragan(),
+        )
+
+    assert "076" in fel.value.skal
+
+
+def test_telefonnumret_ENSAMT_ar_INGET_prisbesked(monkeypatch):
+    """INVARIANTEN STÅR KVAR: en prissats måste bära minst ett tal ur priskällan.
+
+    **DÄRFÖR DRAS NUMRETS TAL BORT I STÄLLET FÖR ATT LÄGGAS TILL.** Ett tillägg
+    hade gjort den här meningen till ett godkänt prisbesked utan belopp, alltså
+    tagit bort den gren som fäller ett prisord utan tal. Skillnaden mellan de två
+    lydelserna syns bara här.
+    """
+    _med_konfig(monkeypatch, {"a_traktorkonvertering": "25 000 kr"},
+                {"telefon": "076-860 38 15"})
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla(
+            "Ring oss på 076-860 38 15 för pris.", forfragan())
+
+    assert "utan att ange ett tal" in fel.value.skal
+
+
+def test_en_TOM_telefonpost_ger_INGEN_ratt_i_en_prissats(monkeypatch):
+    """Ett tomt värde är ingen avläsning, och undantaget vilar på värdet.
+
+    Utan den här raden hade en fällning som läser nyckeln i stället för värdet
+    varit grön, och då hade siffergrupperna släppts igenom av att posten FANNS.
+    """
+    _med_konfig(monkeypatch, {"a_traktorkonvertering": "25 000 kr"},
+                {"telefon": ""})
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla(
+            "Ombyggnaden kostar 25 000 kr, ring oss på 076-860 38 15.",
+            forfragan(),
+        )
+
+    assert "076" in fel.value.skal
+
+
 def test_prisblockets_ram_star_ORDAGRANT():
     """SÄNDVÄGSTEXT SOM VAR OBUNDEN, och kommentaren påstod motsatsen.
 
@@ -574,8 +771,16 @@ def test_prisblockets_ram_star_ORDAGRANT():
         "Priser, avlästa ur config/priser.json. Du har inga andra priser, och "
         "du uppskattar aldrig ett pris som inte står här:\n"
     )
+    # HELHETSKRAVET ÄR LARS BESLUT I SKIVA 44, och det kom ur ett läst utkast:
+    # boten skrev *"startar från 20 000 kr"* om en post vars värde är
+    # `från 20 000 till 25 000 kr ...`. Varje tal hade en källa, alltså fällde
+    # ingen spärr, men kunden läser ett annat prisbesked än filen bär. Foten är
+    # det som bär, och därför binds den ORDAGRANT här.
     assert generera.PRISFOT == (
-        "Varje pris här återges ordagrant och ändras aldrig.\n"
+        "Varje pris här återges ORDAGRANT och ändras aldrig, och det återges i "
+        "SIN HELHET eller inte alls. Är priset ett intervall skriver du båda "
+        "gränserna. Plocka aldrig ut en del av en prisrad, och gör aldrig om "
+        "ett pris till ett ungefärligt.\n"
     )
     assert generera.INGA_PRISER == (
         "Priser: INGA. Du har inga prisuppgifter alls."
@@ -1079,7 +1284,14 @@ def test_kundens_VIKT_faller():
         # Formen, ett fristående tal utan enhet, är oförändrad. Fällt av
         # §7-granskningen av skiva 43, varv 2.*
         f"Tillsammans blir det {SENTINELPRIS_IHOP}.",
-        "Vi hinner på 15 dagar.",
+        # *Raden bar `15 dagar`. Talet gick röd när Lars fyllde
+        # `config/fakta.json` med verkstadens telefonnummer, `076-860 38 15`,
+        # vars sista grupp `_tal_i` normaliserar till just `15`. Formen, ett tal
+        # följt av sin enhet som eget ord, är oförändrad. Det är LUCKA 58:s
+        # föreskrivna åtgärd för den här raden, och lucka 57:s mätning
+        # *"ETT TELEFONNUMMER UTLÖSER DEN INTE"* är därmed falsifierad: den mätte
+        # ett nummer vars siffergrupper råkade sakna korpusens tal.
+        f"Vi hinner på {SENTINELPRIS_IHOP} dagar.",
     ],
 )
 def test_ett_tal_UTAN_KALLA_faller_i_varje_skrivform(svar):
@@ -1719,6 +1931,33 @@ REGLER_I_PROMPTEN = {
         "att vi kan montera en om det behövs. Ber du kunden bekräfta om det "
         "sitter en dragkrok, så skriv i samma mening att vi kan montera en. "
         "Utan det läser frågan som ett villkor kunden måste uppfylla själv.",
+    # SKIVA 44, LARS ORDER NÄR HAN FYLLDE `config/priser.json`. Skälet är hans:
+    # a-traktorpriset är ett INTERVALL och sajten säger att varje bygge är
+    # unikt, alltså är beloppet inte ett besked om vad den enskilda bilen
+    # kostar, och kunden behöver en väg vidare i samma svep.
+    #
+    # **"I EN EGEN MENING" BÄR FORTFARANDE, MEN INTE AV DET SKÄL SOM STOD HÄR.**
+    #
+    # *Kommentaren sade att ledet är lastbärande därför att priset och numret i
+    # SAMMA mening faller på prisgrenen. Det var sant när regeln skrevs och blev
+    # falskt av Lars VÄG TVÅ i samma skiva, som gör telefonnumret till en källa i
+    # en prissats när det står ordagrant. Skälet mättes dessutom upp som
+    # otillräckligt: FYRA av tjugo körda mail spärrades på just den formen,
+    # alltså lyder modellen inte ledet varje gång, och en promptregel som bara
+    # skyddar mot en spärr den inte hindrar är inget skydd.*
+    #
+    # **DET SKÄL SOM STÅR KVAR ÄR EXAKTHETEN.** Väg två kräver att numret står
+    # ORDAGRANT som i `config/fakta.json`. Ett omskrivet nummer, `076 860 38 15`
+    # i stället för `076-860 38 15`, är inte det värdet och faller fortfarande i
+    # en prissats. Numret i en EGEN mening håller det utanför prissatsen helt och
+    # hållet, alltså är ledet ett andra lager och inte stil. Bunden av
+    # `test_REGEL_14_beordrar_en_form_som_PRISSPARREN_slapper_igenom`.
+    14: "NÄMNER DU ETT PRIS, SKRIV TELEFONNUMRET DIREKT EFTER I EN EGEN "
+        "MENING. Priset är ett intervall och varje bygge är unikt, alltså är "
+        "beloppet aldrig ett besked om vad just den här bilen kostar. Återge "
+        "priset som det står i underlaget, sätt punkt, och be kunden ringa oss "
+        "på numret i underlaget så tittar vi på just den bilen. Priset och "
+        "numret får ALDRIG stå i samma mening.",
 }
 
 
@@ -2000,6 +2239,64 @@ def test_REGEL_5_bar_SAMMA_FORBEHALL_som_regel_8():
         "regel 5 har tappat förbehållet, alltså förbjuder prompten åter det "
         "PRISRUBRIK ber om. Lucka 52 är då återöppnad."
     )
+
+
+def test_REGEL_14_beordrar_en_form_som_PRISSPARREN_slapper_igenom():
+    """REGEL 14 FÅR INTE BE OM DET `krav_pa_tal_med_kalla` FÄLLER.
+
+    **DET ÄR LUCKA 52:s DEFEKTFORM.** Regel 5 sade *"ALDRIG ETT PRIS"* medan
+    `PRISRUBRIK` bad modellen återge priset ordagrant, alltså beordrade prompten
+    och spärren varandras motsatser. §9.1 säger att utvägen då inte är att skriva
+    om texten tills den slinker igenom, så regeln ska vara skriven mot spärren
+    från början.
+
+    **RADEN LÄSER DE RIKTIGA KONFIGFILERNA**, och det är avsiktligt: frågan är
+    inte om mekanismen fungerar i allmänhet utan om regel 14 går att lyda med
+    just det pris och det nummer Lars har beslutat.
+
+    **TRE FORMER, OCH DE BINDER VAR SITT LED.** De två första är de former regel
+    14 respektive Lars VÄG TVÅ i skiva 44 gör möjliga, och båda ska passera. Den
+    tredje är den som bär `ORDAGRANT`: ett OMSKRIVET nummer är inte det värde
+    `config/fakta.json` bär, alltså faller det i en prissats även efter väg två.
+
+    *Raden band först att numret i SAMMA mening som priset faller, och angav det
+    som regel 14:s skäl. Väg två upphävde det ledet med flit, och FYRA av tjugo
+    körda mail hade spärrats på just den formen. Skälet som står kvar är det
+    tredje ledet nedan.*
+    """
+    pris = PRISER_SOM_LARS_BESLUTAT["a_traktorkonvertering"]
+    telefon = FAKTA_SOM_LARS_BESLUTAT["telefon"]
+
+    # DEN FORM REGELN BEORDRAR: priset, punkt, numret i en egen mening.
+    generera.krav_pa_svaret(
+        f"Ombyggnaden kostar {pris}. "
+        f"Ring oss på {telefon} så tittar vi på just den bilen.",
+        forfragan(),
+    )
+
+    # LARS VÄG TVÅ: numret ORDAGRANT i samma mening som priset passerar också.
+    # Det är den form modellen faktiskt skrev i fyra av tjugo körda mail.
+    generera.krav_pa_svaret(
+        f"Ombyggnaden kostar {pris}, ring oss på {telefon}.", forfragan())
+
+    # OCH DET LED SOM GÖR `ORDAGRANT` LASTBÄRANDE. Samma siffror, annan
+    # skrivform, alltså inte det värde config bär.
+    #
+    # **BLANKSTEGEN BLIR BINDESTRECK OCH INTE TVÄRTOM.** Formen måste ge SAMMA
+    # talmängd som värdet i config, annars faller raden på att talen ändrades och
+    # inte på att strängen inte matchade. Skälet i sin helhet står i
+    # `test_ett_OMSKRIVET_telefonnummer_faller_FORTFARANDE_i_en_prissats`.
+    omskrivet = telefon.replace(" ", "-")
+    assert omskrivet != telefon
+    assert generera._tal_i(omskrivet) == generera._tal_i(telefon), (
+        "skrivformen ändrade talmängden, alltså prövar raden inte ordagrannheten"
+    )
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_svaret(
+            f"Ombyggnaden kostar {pris}, ring oss på {omskrivet}.", forfragan())
+
+    assert fel.value.sparr == "genererat-tal-har-kalla"
 
 
 # ------------------------------------------------- generera_utkast, helt

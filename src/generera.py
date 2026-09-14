@@ -135,6 +135,13 @@ class Forfragan:
 # och hålls kort med flit: varje tillägg är ett hål i spärren.
 ALLTID_TILLATNA_TAL = frozenset({"1", "2", "3"})
 
+# NYCKELN I `config/fakta.json` VARS VÄRDE FÅR STÅ I EN PRISSATS.
+#
+# Egen konstant därför att `krav_pa_tal_med_kalla` slår upp just den posten, och
+# ett nyckelnamn som bara står inuti en spärr är ett obundet led. Lars beslut i
+# skiva 44; skälet står i spärrens docstring.
+TELEFONNYCKEL = "telefon"
+
 # VARJE SIFFERFÖLJD, med tusengruppering som en del av talet.
 #
 # **INGA ORDGRÄNSER, och det ledet är fällt fram två gånger.** Första lydelsen
@@ -633,13 +640,48 @@ def krav_pa_tal_med_kalla(svar: str, forfragan: Forfragan) -> None:
     `krav_pa_belagt_franvaropastaende`. Ett prisord i en sats ska inte kunna
     hämta sin källa ur ett tal i en annan. Vilka satser som prövas avgörs av
     `_prissatser`, som fogar ihop de par delningen klöv mitt i en prisfras.
+
+    **TELEFONNUMRET ÄR EN KÄLLA OCKSÅ I EN PRISSATS, MEN BARA ORDAGRANT.** Lars
+    beslut i skiva 44, se `docs/beslutslogg.md`. Prompten beordrar sedan samma
+    skiva att ett svar som nämner ett pris ska följa det med numret, och
+    prisgrenen fällde den formen: numrets siffergrupper kommer inte ur
+    `config/priser.json`. Uppmätt över tjugo körda mail spärrades FYRA på just
+    `talet 076 står i en prismening`, alltså på ett svar som var korrekt för
+    kunden.
+
+    **DET ÄR INGEN SÄNKT TRÖSKEL, och skillnaden är exaktheten.** Villkoret är
+    att `config/fakta.json`:s telefonvärde står ORDAGRANT i satsen, alltså en
+    identisk delsträng ur en §10-grindad källa. Ett godtyckligt tal går inte att
+    tvätta den vägen, och en omskriven form av numret, `076 860 38 15` i stället
+    för `076-860 38 15`, matchar inte och fäller. Det är samma krav som
+    `PRISFOT` och `FAKTAFOT` ställer: ett värde härifrån återges som det står.
+
+    **INVARIANTEN STÅR KVAR: en prissats måste bära minst ett tal ur
+    priskällan.** Numrets siffergrupper DRAS BORT ur satsens tal innan regeln
+    tillämpas, i stället för att läggas till de tillåtna. Skillnaden är
+    lastbärande: ett tillägg hade gjort *"Ring oss på 076-860 38 15 för pris."*
+    till ett godkänt prisbesked utan belopp, alltså tagit bort den gren som
+    fäller ett prisord utan tal.
+
+    **SUBTRAKTIONEN ÖVERBLOCKERAR I ETT FALL, och det är den säkra riktningen.**
+    Bär samma sats både numret och ett pris vars belopp är IDENTISKT med en av
+    numrets siffergrupper, faller satsen på att inget tal återstår. Det kräver
+    ett pris på 76, 860, 38 eller 15 kronor i samma mening som numret. Utfallet
+    blir `utkast`, som Lars läser ändå. Samma avvägning som lucka 55.
     """
     priskallans_tal: set[str] = set()
     for varde in las_priser().values():
         priskallans_tal |= _tal_i(varde)
 
+    telefon = las_fakta().get(TELEFONNYCKEL, "")
+    telefonens_tal = _tal_i(telefon) if telefon else set()
+
     for sats in _prissatser(svar):
         talen = _tal_i(sats)
+        # ORDAGRANT, och därför `in` mot satsen och inte mot talen. Ett nummer
+        # som är omskrivet är inte det värde `config/fakta.json` bär.
+        if telefon and telefon in sats:
+            talen -= telefonens_tal
         if not talen:
             raise Sparrfalld(
                 "genererat-tal-har-kalla",
@@ -1203,6 +1245,11 @@ bil och inte om vår databas.
 kan montera en om det behövs. Ber du kunden bekräfta om det sitter en dragkrok, \
 så skriv i samma mening att vi kan montera en. Utan det läser frågan som ett \
 villkor kunden måste uppfylla själv.
+14. NÄMNER DU ETT PRIS, SKRIV TELEFONNUMRET DIREKT EFTER I EN EGEN MENING. \
+Priset är ett intervall och varje bygge är unikt, alltså är beloppet aldrig ett \
+besked om vad just den här bilen kostar. Återge priset som det står i \
+underlaget, sätt punkt, och be kunden ringa oss på numret i underlaget så \
+tittar vi på just den bilen. Priset och numret får ALDRIG stå i samma mening.
 
 Skriv kort, konkret och vänligt. Svara på det kunden faktiskt frågar."""
 
@@ -1416,7 +1463,24 @@ PRISRUBRIK = (
     "uppskattar aldrig ett pris som inte står här:\n"
 )
 
-PRISFOT = "Varje pris här återges ordagrant och ändras aldrig.\n"
+# **HELHETSKRAVET ÄR LARS BESLUT I SKIVA 44, och det kom ur ett läst utkast.**
+# Foten sade bara ORDAGRANT, och boten skrev *"priser för konvertering till
+# A-traktor startar från 20 000 kr"* om en post vars värde är
+# `från 20 000 till 25 000 kr ...`. Varje tal i den meningen hade en källa,
+# alltså fällde ingen spärr, men kunden läser 20 000 som priset. Ett halvt
+# återgivet intervall är ett annat prisbesked än det filen bär.
+#
+# **REGELN ÄR HELHET, inte en uppräkning av vad man inte får stryka.** Ett pris
+# ur `config/priser.json` återges i sin helhet eller inte alls. Foten är
+# sändvägstext och binds ORDAGRANT av `test_prisblockets_ram_star_ORDAGRANT`, av
+# samma skäl som rubriken: en lydelse som bara sade "ordagrant" passerade ett
+# test som söker en delsträng.
+PRISFOT = (
+    "Varje pris här återges ORDAGRANT och ändras aldrig, och det återges i SIN "
+    "HELHET eller inte alls. Är priset ett intervall skriver du båda gränserna. "
+    "Plocka aldrig ut en del av en prisrad, och gör aldrig om ett pris till ett "
+    "ungefärligt.\n"
+)
 
 # BESKEDET NÄR FILEN ÄR TOM. Ordagrant den rad som stod hårdkodad före skiva 41,
 # eftersom den var bunden och fungerade: den säger rakt ut att inga priser finns.

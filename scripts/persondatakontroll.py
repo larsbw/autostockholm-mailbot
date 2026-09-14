@@ -72,6 +72,17 @@ MONSTER: list[tuple[str, re.Pattern]] = [
 TILLATNA = {
     # Brevlådan själv står i CLAUDE.md §0 och är företagets, inte en persons.
     "info@autostockholm.se",
+    # Verkstadens eget växelnummer, av SAMMA klass som brevlådan ovan: det är
+    # publicerat på autostockholm.se och tillhör företaget, inte en person.
+    # Lars §10-beslut i skiva 44 skrev in det i `config/fakta.json`, som är en
+    # bevakad katalog, och spärren fällde commit:en. Undantaget rör orsaken:
+    # numret ÄR ett telefonnummer, och det är inte persondata.
+    #
+    # **UNDANTAGET TYSTAR INTE VAKTENS EGET BEVIS.** Skiva 33:s lärdom nedan är
+    # att ett undantag aldrig får göra spärren blind för den sträng dess eget
+    # test använder som kanariefågel. `test_telefonnummer_falls` använder en
+    # annan sträng, alltså står beviset kvar.
+    "076-860 38 15",
     # Exempeladresser i regler och mallar.
     "noreply@example.com",
     "kund@exempel.se",

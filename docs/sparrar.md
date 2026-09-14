@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.53.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.54.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -2629,16 +2629,29 @@ Mot `tests/test_generera.py`, som bar 129 test vid mätningen.
 **BYGGD I SKIVA 31.** Generatorns första spärr.
 
 - **Spärr.** `src/generera.py::krav_pa_tal_med_kalla` kastar `Sparrfalld` när ett
-  genererat svar bär ett tal utan källa. **FEM villkor**, och alla fem ska fällas
+  genererat svar bär ett tal utan källa. **SEX villkor**, och alla sex ska fällas
   av den som prövar spärren enligt §7.1:
 
   | Beslutsrad | Vad den fäller |
   | --- | --- |
   | `while j + 1 < len(delar) and _prisord_over_skarven(delar[j], delar[j + 1]):` i `_prissatser` | fogar ihop en prisfras som meningsdelningen klöv |
+  | `if telefon and telefon in sats:` | avgör om satsen bär telefonnumret ORDAGRANT. Fälls den till `if telefon:` går sviten RÖD på två rader; se noten nedan om vilken skrivform som isolerar den |
   | `if not talen:` | ett prisord i en sats som inte bär något tal |
   | `for tal in sorted(talen - priskallans_tal):` | ett tal i en prissats som inte kommer ur `config/priser.json` |
   | `if traff_i_ord:` | varje tal skrivet i ord, `TAL_I_ORD` |
   | `if tal not in tillatna:` | varje siffertal utan källa i uppslaget eller `config/` |
+
+  **ATT FÄLLA TELEFONVILLKORET KRÄVER RÄTT KANARIEFÅGEL, och det ledet är fällt
+  fram.** Prövningen måste använda en omskriven form med IDENTISK talmängd.
+  Numret med BLANKSTEG där värdet bär ett bindestreck duger INTE: `TAL_I_TEXT`
+  tar en blankstegsavskiljare följd av exakt tre siffror som en del av talet,
+  alltså slås de två första grupperna ihop till ETT token. En fällning prövad med
+  den formen gav GRÖN svit, eftersom raden gick röd av att talmängden blev en
+  annan och inte av strängjämförelsen. Numret med BINDESTRECK i varje
+  avskiljarposition ger samma talmängd som värdet i config och isolerar
+  villkoret. Skrivformerna står beskrivna och inte utskrivna, av samma skäl som
+  lucka 58:s post: en vakt vidgas inte för att en mening ska bli kortare.
+  Uppmätt i skiva 44.
 
   Verkställs av `krav_pa_svaret`, som anropas av `generera_utkast` innan texten
   returneras.
@@ -2656,10 +2669,21 @@ Mot `tests/test_generera.py`, som bar 129 test vid mätningen.
   posten hade alltså fällt en rad som inte går att hitta, vilket är precis det
   falska vakuöstverdikt dokumentets egen ingress varnar för. Fällt i skiva 42.*
 - **Vad den skyddar mot.** §7.2 i utgående text: ett tal som ser trovärdigt ut
-  men inte är avläst. **Prisfilen finns och är TOM:** `config/priser.json`
-  upprättades i skiva 41 på Lars §10-beslut och bidrar med noll tillåtna tal,
-  alltså faller varje svar som nämner ett pris. Det är avsiktligt och inte ett
-  provisorium.
+  men inte är avläst. **Prisfilen är FYLLD sedan skiva 44:** fem poster bär
+  värden ur autostockholm.se/prislista, `tillbehor` är tom. Ett svar som nämner
+  ett pris prövas alltså mot filen i stället för att falla ovillkorligt.
+  *Här stod "Prisfilen finns och är TOM" och att "varje svar som nämner ett pris"
+  faller, båda i presens. Det blev falskt av Lars §10-beslut i skiva 44. Fällt av
+  skiva 44.*
+- **TELEFONNUMRET ÄR EN KÄLLA OCKSÅ I EN PRISSATS, MEN BARA ORDAGRANT.** Lars
+  beslut i skiva 44, VÄG TVÅ, se `docs/beslutslogg.md` #106. Regel 14 beordrar
+  att ett prissvar följs av numret, och prisgrenen fällde den formen: FYRA av
+  tjugo körda mail spärrades på `talet 076 står i en prismening`. Villkoret är en
+  identisk delsträng ur `config/fakta.json`, alltså ingen sänkt tröskel.
+  **Numrets tal DRAS BORT ur satsens tal i stället för att läggas till de
+  tillåtna**, så att invarianten står kvar: en prissats måste fortfarande bära
+  minst ett tal ur priskällan, och *"Ring oss på 076-860 38 15 för pris."* faller
+  som förut.
 - **PRISER PRÖVAS MOT PRISKÄLLAN OCH INTE MOT ALLA TILLÅTNA TAL.** En sats som
   bär ett prisord får bara bära tal ur `config/priser.json`, och den måste bära
   minst ett. Utan den avgränsningen blev uppslagets TJÄNSTEVIKT ett tillåtet
@@ -3476,8 +3500,24 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   **OCH DET KRÄVS INTE EN LEDTID.** Ett öppettidsintervall, *"vi har öppet 7 till
   17 på vardagar"*, gör två rader röda, och ingen av dem är en §10-tripwire.
 
-  **ETT TELEFONNUMMER UTLÖSER DEN INTE.** Mätt i skiva 42: `telefon` satt till
-  ett nummer ger `1 failed`, alltså bara §10-tripwiren.
+  *Här stod **"ETT TELEFONNUMMER UTLÖSER DEN INTE. Mätt i skiva 42: `telefon`
+  satt till ett nummer ger `1 failed`, alltså bara §10-tripwiren."** Det är
+  FALSKT som allmän sats. Mätningen gällde ett nummer vars siffergrupper råkade
+  sakna korpusens tal. Lars nummer, `076-860 38 15`, normaliseras av `_tal_i`
+  till `076`, `860`, `38` och `15`, och `15` är korpusens okällade ledtid i
+  `test_ett_tal_UTAN_KALLA_faller_i_varje_skrivform`. Den raden gick röd av
+  fyllningen i skiva 44 och bär nu sentineltalet. Ett telefonnummer utlöser
+  luckan närhelst någon av dess siffergrupper är ett tal korpusen använder.
+  Fällt av skiva 44.*
+
+  **GATNINGSLEDET ÄR STÄNGT I SKIVA 44.** `test_faktafilen_i_repot_bar_EXAKT_det_Lars_BESLUTAT`
+  binder hela filens innehåll och inte bara `telefon`. Exakt den mutation posten
+  anger, ett årtal i `bokningar`, ger nu `1 failed` i stället för HELT GRÖN SVIT.
+
+  **VAD SOM KVARSTÅR.** Korpusens `14` står kvar som okällad ledtid i
+  `test_ett_tal_utan_kalla_faller` och `test_en_LEDTID_ur_kundens_text_faller`,
+  alltså är kollisionen möjlig den dag Lars skriver ett `14` i
+  `config/fakta.json`. Byte av korpusens ledtider är fortfarande ett eget beslut.
 
   *Posten sade först att luckan "öppnar först den dag Lars skriver in en ledtid",
   att `config/fakta.json` "bär i dag inget tal", och namngav
@@ -3498,7 +3538,7 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   | --- | --- |
   | `7 kr`, `10 kr` | tre spärrtest som läser den OPATCHADE konfigfilen, se nedan |
   | `14 kr` | samma tre plus tre ledtidsrader |
-  | `15 kr` | `test_ett_tal_UTAN_KALLA_faller_i_varje_skrivform[Vi hinner på 15 dagar.]` |
+  | `15 kr` | ~~`test_ett_tal_UTAN_KALLA_faller_i_varje_skrivform[Vi hinner på 15 dagar.]`~~ STÄNGD i skiva 44: raden bär sentineltalet |
   | `50 kr`, `156 kr` | `test_en_BETECKNING_faller_FORTFARANDE`, en modellbeteckning respektive ett konstruerat registreringsnummer i korpusen |
   | `70 kr` | `test_kundens_tal_gor_ALDRIG_ett_svarstal_tillatet`, beteckningen `V70` |
   | `90 kr` | `test_talformer_som_ska_falla[… cirka 90 procent.]` |
@@ -3526,6 +3566,35 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   ur posten, inte tillagd i vaktens `TILLATNA`: fyndet bärs av talet och
   testnamnet, och en vakt ska inte vidgas för att en mening ska bli kortare.
   Stoppet är utskrivet i skivans rapport enligt §9.1.*
+
+- **Lucka 59. BOTEN BEKRÄFTAR ETT ARBETE SOM INGEN KÄLLA BÄR. ÖPPEN OCH MÄTT.
+  REGISTRERAD, INTE BYGGD. Lars beslut i skiva 44.**
+
+  Ett av tjugo körda a-traktormail bad om flera arbeten på en gång. Botens utkast
+  lovade ett *"kostnadsförslag med X3M, DPF och EGR-delete samt gallren du
+  nämner"*. Ingen av de tjänsterna står i `config/priser.json` eller
+  `config/fakta.json`, alltså är svaret ett påstående om vad Auto Stockholm
+  utför, byggt enbart på att kunden bad om det.
+
+  **VARFÖR INGEN SPÄRR FÅNGADE DET.** `krav_pa_tal_med_kalla` prövar TAL, och
+  meningen bär inget tal utan källa. `krav_pa_fordonsfakta_ur_uppslag` prövar
+  fordonsfakta. Ett åtagande är varken, precis som ett frånvaropåstående var
+  varken när `pastaende-om-franvaro` byggdes.
+
+  **DET ÄR LUCKA 29:s FORM.** Regel 8 förbjuder redan påståenden om vad Auto
+  Stockholm har, erbjuder eller innehåller utöver underlaget, och regeln fångade
+  det inte: modellen läser kundens uppräkning som underlag för vad vi gör.
+  Skillnaden mot lucka 29 är källan till påhittet. Där fyllde modellen ett
+  tomrum i RÖTT-svaret; här ekar den kundens egen lista.
+
+  **VARFÖR DEN INTE ÄR BYGGD.** En ordlista över tjänster vi inte utför är en
+  uppräkning som aldrig blir färdig, alltså samma form som
+  `biluppgifter._varde_bar_markup` bär lärdomen om. Det som skulle bära är en
+  promptregel, och vilken lydelse den ska ha är §11, alltså Lars. Han har
+  registrerat luckan och inte beställt regeln.
+
+  **VAD SOM MÄTER DEN.** Ett enda utkast av tjugo, alltså är frekvensen inte
+  mätt. `scripts/generator-matning.py` är verktyget den dag den ska mätas.
 
 - **Lucka 50. STÄNGD SOM SÄNDVÄG I SKIVA 41, VÄG TRE. Ett kvarstående led rör
   HÄRKOMSTRADEN och inte kundmailet.**
@@ -5005,6 +5074,27 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.54.0 — 2026-09-14
+
+**LUCKA 59 REGISTRERAD.** Boten bekräftar ett arbete som ingen källa bär. Ett
+utkast av tjugo lovade ett kostnadsförslag med tjänster kunden räknat upp.
+Registrerad och inte byggd: det som skulle bära är en promptregel, och dess
+lydelse är §11, alltså Lars.
+
+**LUCKA 57:s MÄTNING OM TELEFONNUMMER VAR FALSK SOM ALLMÄN SATS.** Den gällde ett
+nummer vars siffergrupper råkade sakna korpusens tal. Lars nummer bär `15`.
+Gatningsledet är däremot STÄNGT: faktafilens vakt binder nu hela innehållet.
+
+**LUCKA 58:s RAD FÖR `15` ÄR STÄNGD.** Korpusraden bär sentineltalet.
+
+**`genererat-tal-har-kalla` HAR ETT SJÄTTE VILLKOR**, telefonnumret ordagrant i
+en prissats, och posten bär vilken skrivform som isolerar det. En fällning prövad
+med fel skrivform gav GRÖN svit.
+
+**TVÅ PÅSTÅENDEN I PRESENS OM EN TOM PRISFIL ÄR RÄTTADE.** Filen är fylld.
+
+Ny lucka, ett nytt villkor och rättade påståenden ⇒ MINOR.
 
 ### 0.53.0 — 2026-09-14
 
