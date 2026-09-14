@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.52.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.53.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -3342,9 +3342,16 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   Utdatan visar raden `nastlad: {'_internt': 'kostar oss 9 000 kr', ...}`
   renderad under prisrubriken. Tripwiren: `config/priser.json` rad 13
   NEUTRALISERAD till, ordagrant,
-  `  "tillbehor": {"_internt": "kostar oss 9 000 kr"}`: RÖD, `3 failed, 1493
+  `  "tillbehor": {"_internt": "kostar oss 9 000 kr"}`: RÖD, `2 failed, 1494
   passed, 54 skipped, 16 xfailed`, med `test_bada_konfigfilerna_i_repot_ar_PLATTA`
   bland dem.
+
+  *Talet stod som 3. Den tredje röda raden var
+  `test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal`, och den gick inte röd
+  av att VAKTA nästlingen utan av att KRASCHA på den: dess dåvarande lydelse körde
+  `_tal_i` direkt på värdet, och `_tal_i` kastar på en dict. Skiva 43 skriver
+  `_tal_i(str(varde))`, alltså kraschar den inte längre. Fällt av
+  §7-granskningen av skiva 43, varv 3.*
 
   *Vilken nästlad post som användes stod inte utskrivet, och talet beror på den:
   en post som också bär ett prisformat VÄRDE fäller fler rader. Fällt av
@@ -3458,13 +3465,67 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   §3 säger att bara det som uppgiften kräver ska röras. Att byta korpusens
   ledtider är samma arbete en gång till och ska vara ett eget beslut.
 
-  **VAD SOM GATAR DEN.** `config/fakta.json` bär i dag inget tal:
+  **INGENTING GATAR DEN, och det är varv 3:s fynd.**
   `test_faktafilen_i_repot_har_TOM_telefon` binder `telefon` som tom och hela
-  nyckelmängden, och `bokningar` är text utan siffror. Luckan öppnar först den
-  dag Lars skriver in en ledtid.
+  nyckelmängden, men den binder INTE vad `bokningar` innehåller. Uppmätt: ett
+  årtal i `bokningar`, *"vi har funnits sedan 1995 och tar emot bokningar
+  löpande"*, ger HELT GRÖN SVIT. Ett tal kan alltså skrivas in i
+  `config/fakta.json` och bli en citerbar källa i ett utgående mail utan att en
+  enda rad går röd.
+
+  **OCH DET KRÄVS INTE EN LEDTID.** Ett öppettidsintervall, *"vi har öppet 7 till
+  17 på vardagar"*, gör två rader röda, och ingen av dem är en §10-tripwire.
 
   **ETT TELEFONNUMMER UTLÖSER DEN INTE.** Mätt i skiva 42: `telefon` satt till
   ett nummer ger `1 failed`, alltså bara §10-tripwiren.
+
+  *Posten sade först att luckan "öppnar först den dag Lars skriver in en ledtid",
+  att `config/fakta.json` "bär i dag inget tal", och namngav
+  `test_faktafilen_i_repot_har_TOM_telefon` som gate. Alla tre leden är falska:
+  ett öppettidsintervall räcker, filens `_om_filen` bär `§7.2` och `§10`, och
+  vakten binder inte `bokningar`:s värde. Fällt av §7-granskningen av skiva 43,
+  varv 3.*
+
+- **Lucka 58. KORPUSEN BÄR FORTFARANDE OKÄLLADE TAL SOM ÄR RIMLIGA PRISER, OCH
+  TRE SPÄRRTEST LÄSER EN §10-FIL DE INTE PATCHAR. ÖPPEN OCH MÄTT. KVARSTÅENDE
+  FYND NÄR SKIVA 43 STOPPADES.**
+
+  Skiva 43 bytte korpusens kanoniska pris utan källa mot ett sentineltal och
+  mätte `1 failed` för tjugoen belopp. Varv 3 körde fler och fann NIO som ger
+  mer:
+
+  | Belopp i `config/priser.json` | Röda utöver §10-tripwiren |
+  | --- | --- |
+  | `7 kr`, `10 kr` | tre spärrtest som läser den OPATCHADE konfigfilen, se nedan |
+  | `14 kr` | samma tre plus tre ledtidsrader |
+  | `15 kr` | `test_ett_tal_UTAN_KALLA_faller_i_varje_skrivform[Vi hinner på 15 dagar.]` |
+  | `50 kr`, `156 kr` | `test_en_BETECKNING_faller_FORTFARANDE`, en modellbeteckning respektive ett konstruerat registreringsnummer i korpusen |
+  | `70 kr` | `test_kundens_tal_gor_ALDRIG_ett_svarstal_tillatet`, beteckningen `V70` |
+  | `90 kr` | `test_talformer_som_ska_falla[… cirka 90 procent.]` |
+  | `1450 kr` | `test_kundens_VIKT_faller` |
+
+  **DEN TYNGSTA DELEN ÄR EN NY KLASS.** `test_en_NASTLAD_kommentar_vidgar_ALDRIG_talsparren`,
+  `test_en_KOMMENTAR_i_en_LISTA_vidgar_ALDRIG_talsparren` och
+  `test_en_KOMMENTAR_i_konfig_vidgar_ALDRIG_talsparren` patchar EN konfigfil och
+  låter den andra vara den riktiga, medan `_tillatna_tal` läser BÅDA. De hävdar
+  `"7" not in tillatna` och `"10" not in tillatna`, alltså går de röda av en
+  laglig post i den opatchade filen. Det är samma defektform som lucka 57, i en
+  tredje variant, och ingen av de tre vaktar Lars beslut.
+
+  **VARFÖR DEN INTE ÄR STÄNGD.** Fyndet gjordes i varv 3 med grinden förbrukad.
+  §7 säger att kvarstående kodfynd inte rättas då, utan rapporteras öppet.
+
+  **VAD SOM STÄNGER DEN.** De tre spärrtesten ska patcha BÅDA konfigfilerna, inte
+  en. Korpusens övriga tal, `15`, `50`, `70`, `90`, `156` och `1450`, ska prövas
+  mot samma krav som priserna: ett exempeltal ur samma domän som en §10-fil blir
+  en tripwire i förklädnad.
+
+  *`scripts/persondatakontroll.py` FÄLLDE DEN HÄR POSTEN när den först skrevs.
+  Tabellraden citerade korpusens konstruerade registreringsnummer ordagrant, och
+  §6 gäller allt som pushas oavsett om numret är påhittat. Strängen är BORTTAGEN
+  ur posten, inte tillagd i vaktens `TILLATNA`: fyndet bärs av talet och
+  testnamnet, och en vakt ska inte vidgas för att en mening ska bli kortare.
+  Stoppet är utskrivet i skivans rapport enligt §9.1.*
 
 - **Lucka 50. STÄNGD SOM SÄNDVÄG I SKIVA 41, VÄG TRE. Ett kvarstående led rör
   HÄRKOMSTRADEN och inte kundmailet.**
@@ -4945,6 +5006,25 @@ post och inte en spärr som saknar egenskapen.
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.53.0 — 2026-09-14
+
+**VARV 3 UNDERKÄNDE, OCH SKIVAN ÄR STOPPAD.** Se `docs/beslutslogg.md` #105.
+Spärren själv är godkänd: varje lager fälldes och gav RÖD, och samtliga sex rader
+i fällningstabellen reproducerade exakt.
+
+**LUCKA 58 REGISTRERAD SOM KVARSTÅENDE FYND.** Nio lagliga belopp ger mer än
+§10-tripwiren, och tre spärrtest patchar EN konfigfil medan `_tillatna_tal` läser
+båda. Rättas inte: grinden är förbrukad.
+
+**LUCKA 57:s GATNING VAR FALSK I TRE LED.** Ett årtal i `bokningar` ger HELT GRÖN
+SVIT, ett öppettidsintervall räcker för att utlösa luckan, och den vakt posten
+namngav som gate binder inte `bokningar`:s värde.
+
+**NÄSTLINGSTRIPWIRENS TAL ÄR RÄTTAT FRÅN TRE TILL TVÅ**, och skälet står: den
+tredje röda raden kraschade på nästlingen i stället för att vakta den.
+
+Ny lucka och rättade påståenden ⇒ MINOR.
+
 ### 0.52.0 — 2026-09-14
 
 **LUCKA 57 REGISTRERAD.** Korpusens LEDTIDER krockar med `config/fakta.json` på
@@ -4968,9 +5048,10 @@ sviten utan att röra tabellen, alltså stod tabellens tal olästa. Summan är n
 se noten i spärrposten. Fällt av §7-granskningen av skiva 43, varv 2.*
 
 **ETT AV TALEN ÄNDRADE BÅDE `failed` OCH `passed`.** Nästlingstripwiren för
-lucka 53 gick från tre röda till två, därför att skiva 43:s första lydelse
-försvagade `test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal`. Vakten är
-ombyggd och tripwiren är tillbaka på tre.
+lucka 53 gick från tre röda till två. *Raden sade att vakten är ombyggd och
+tripwiren "tillbaka på tre". Den är två, och ska vara det: den tredje röda raden
+gick röd av att KRASCHA på nästlingen och inte av att vakta den. Fällt av
+§7-granskningen av skiva 43, varv 3.*
 
 Omkörda tal ⇒ PATCH.
 

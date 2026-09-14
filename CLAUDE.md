@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.12.13 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #104
+**Version:** 0.12.14 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #105
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -519,6 +519,38 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.12.14 — 2026-09-14
+
+**`Speglar` följer med till beslutslogg #105.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 43:s stoppost lagts till.
+
+**§7:s tre granskningsvarv är OFÖRÄNDRADE, och #105 är en tillämpning av dem.**
+Skivan stoppades därför att fynd kvarstod efter tre varv. Raden står här av samma
+skäl som i 0.9.4, 0.11.4, 0.12.1, 0.12.4, 0.12.6 och 0.12.10.
+
+**§7:s RAD OM RÄTTELSETEXT HAR NU FÅNGAT SEX VARV I RAD ÖVER TRE SKIVOR.** Skiva
+42 underkändes tre gånger och skiva 43 tre gånger, och varje gång låg det tyngsta
+fyndet i den text som skrevs för att rätta föregående varv. Paragrafen är
+oförändrad; det som är nytt är att mönstret nu är sex djupt och att
+`docs/incidentlogg.md` I2:s form är den återkommande.
+
+**TRE UPPMÄTTA TAL VAR OLÄSTA AV MINA EGNA ÄNDRINGAR I VARV 2**, och det är §7.2:s
+omskrivningsregel bruten i rättelsetexten. Rättade i varv 3.
+
+**LUCKA 58 REGISTRERAD SOM KVARSTÅENDE FYND, se `docs/sparrar.md`.** Nio lagliga
+belopp ger mer än §10-tripwiren, och tre spärrtest läser en §10-fil de inte
+patchar. Rättas inte: §7 säger att kvarstående kodfynd rapporteras öppet när
+grinden är förbrukad.
+
+**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
+är tom sedan 0.12.0.
+
+**§10 ÄR OBRUTEN.** `git diff 8492939 HEAD -- config/` är tom över hela skivan.
+
+**§0:s styrdokumentlista är oförändrad.** Varv 3 skapade ingen ny fil.
+
+Ren synk ⇒ PATCH.
+
 ### 0.12.13 — 2026-09-14
 
 **`Speglar` följer med till beslutslogg #104.** Avläst ur
@@ -805,8 +837,9 @@ fyllt något, och den binder HELA nyckelmängden och inte bara ett fält.
 
 **§0:s ramverksregel 3 fick en verkställande rad till, prövad med en KÖRNING.**
 Filens kommentarer bär med flit talet `25 000 kr`. En fällning av `_varden_ur`:s
-kommentarfilter gör 13 test röda, mätt mot skiva 43:s svit, bland dem ett som
-visar att just det talet då blir tillåtet i ett utgående mail. *Talet stod först
+kommentarfilter gör 12 test röda, mätt mot skiva 43:s svit efter varv 2, bland
+dem ett som visar att just det talet då blir tillåtet i ett utgående mail.
+*Talet stod först
 som fjorton, avläst ur en delkörning, och rättades till sjutton i varv 1. Varv 2
 lade två kommentarnycklar i filen och räknade inte om det. Fällt av
 §7-granskningen av skiva 41, varv 1 och varv 3.*
@@ -818,9 +851,10 @@ alltså blev talet oläst i §7.2:s mening. Omkört till 20. Fällt av
 rättelsen gjord när den bara var gjord i `docs/beslutslogg.md` #94.*
 
 *Och omkört en tredje gång i skiva 43, som bytte korpusens exempeltal:
-`13 failed, 1483 passed, 54 skipped, 16 xfailed`. Sju av de tjugo gick röda
-därför att kommentarens `25000` gjorde deras exempeltal tillåtet, och det gör det
-inte längre. Fällt av §7-granskningen av skiva 43, varv 1.*
+`12 failed, 1484 passed, 54 skipped, 16 xfailed`. Åtta av de tjugo gick röda
+därför att kommentarens tal gjorde deras exempeltal tillåtet, och det gör de inte
+längre. Fällt av §7-granskningen av skiva 43, varv 1, och omkört igen i varv 3
+efter att varv 2 bytt ytterligare en korpusrad och därmed gjort talet oläst.*
 
 **§0:s styrdokumentlista är oförändrad.** `config/priser.json` står redan i §7.2
 och §10, och skiva 41 skapade ingen ny fil utöver den.

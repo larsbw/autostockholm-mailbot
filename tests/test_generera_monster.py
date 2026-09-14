@@ -477,9 +477,12 @@ PRIS_SKA_FALLA = [
     # *Raden är INTE längre ensam om att bära termen:
     # `test_ett_PRIS_utan_PRISKALLA_faller_aven_nar_filen_ar_fylld` bär sedan
     # skiva 41 fallet `Det blir 1400tkr.` med `GRONT_UPPSLAG`, alltså samma
-    # egenskap i en annan fil. En fällning av termen ger fyra röda rader, inte
-    # en. Formuleringen ovan stod i presens om skiva 33:s läge. Fällt av
-    # §7-granskningen av skiva 43, varv 2.*
+    # egenskap i en annan fil. Termen NEUTRALISERAD till `r"zzzzz\d\s*tkr",` ger
+    # `4 failed, 1489 passed, 54 skipped, 16 xfailed`; RADERAD ger
+    # `2 failed, 1488 passed, 54 skipped, 16 xfailed`, eftersom två av de fyra är
+    # metatest på termlistan och försvinner med raden. Formuleringen ovan stod i
+    # presens om skiva 33:s läge. Fällt av §7-granskningen av skiva 43, varv 2,
+    # och formen på fällningen utskriven i varv 3 enligt §7.1.*
     #
     # *Raden bar `1400` och `GRANSBIL`. Det talet är också ett fullt rimligt
     # pris, och raden gick därför röd den dag en post i `config/priser.json`

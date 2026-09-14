@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.62.2 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
+**Version:** 0.63.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -5244,11 +5244,12 @@ rättelse som namnger rader föråldrar sig själv i samma skrivning, tillämpad
 tallista. Fällt av §7-granskningen av skiva 42, varv 3.*
 
 **KOMMENTAREN BÄR MED FLIT ETT PRISFORMAT TAL.** `_formen` innehåller exemplet
-`25 000 kr`. En fällning av `_`-filtret gör **13 test röda**, mätt mot skiva 43:s
-svit, bland dem `test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal`, som är
-den rad som visar att just det talet då blir tillåtet. Utan filtret hade alltså
-MIN EGEN KOMMENTAR auktoriserat ett pris i ett utgående mail. Hålet är stängt av
-`_varden_ur`, som plockar värden och aldrig nycklar, hela vägen ned.
+`25 000 kr`. En fällning av `_`-filtret gör **12 test röda**, mätt mot skiva 43:s
+svit efter varv 2, bland dem
+`test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal`, som är den rad som visar
+att just det talet då blir tillåtet. Utan filtret hade alltså MIN EGEN KOMMENTAR
+auktoriserat ett pris i ett utgående mail. Hålet är stängt av `_varden_ur`, som
+plockar värden och aldrig nycklar, hela vägen ned.
 
 *Talet stod som 19, mätt i skiva 41 varv 3. Skiva 42 ändrade BÅDE filens
 kommentarer och svitens innehåll, alltså var talet oläst i §7.2:s mening. Omkört
@@ -5257,12 +5258,19 @@ neutraliserad. Vilken svit talet mättes mot står nu utskrivet, eftersom ett an
 röda test utan sin svit inte går att räkna om. Fällt av §7-granskningen av skiva
 42, varv 1.*
 
-*Och omkört en tredje gång i skiva 43, som bytte korpusens exempeltal. Sju av de
-tjugo gick röda därför att kommentarens `25000` gjorde deras exempeltal tillåtet;
-med sentineltalet gör det inte längre det. Omkört:
-`13 failed, 1483 passed, 54 skipped, 16 xfailed`. Talet mäter alltså samma
+*Och omkört en tredje gång i skiva 43, som bytte korpusens exempeltal. Åtta av de
+tjugo gick röda därför att kommentarens tal gjorde deras exempeltal tillåtet; med
+sentineltalet gör de inte längre det. Omkört:
+`12 failed, 1484 passed, 54 skipped, 16 xfailed`. Talet mäter alltså samma
 egenskap som förut, men mot en korpus som inte längre delar tal med kommentaren.
 Fällt av §7-granskningen av skiva 43, varv 1.*
+
+*Talet skrevs som 13 i varv 1 och blev OLÄST av varv 2, som i samma commit bytte
+korpusraden `Tillsammans blir det 55.` mot sentineltalet. `55` är ett
+kommentartal i prisfilen, `LUCKA 55 ÄR ÖPPEN`, alltså gick den raden röd under
+fällningen och gör det inte längre. Omkört till 12. Det är §7.2:s
+omskrivningsregel, utlöst av att talets UNDERLAG ändrades i en grannfil, bruten i
+rättelsetexten. Fällt av §7-granskningen av skiva 43, varv 3.*
 
 *Talet stod först som fjorton, avläst ur en körning av ENBART
 `tests/test_generera.py`. Varv 1 rättade det till sjutton mot hela sviten. Varv
@@ -5736,7 +5744,8 @@ skriver ut. Båda fällda av §7-granskningen av skiva 43, varv 2.*
 och bar en docstring som sade att raden SKA gå röd när Lars fyller filen. Den
 heter nu `test_ett_pris_UTAN_KALLA_faller_mot_repots_egen_prisfil`.
 
-**VERIFIERAT, och målet är nått.** Varje fällning nedan ger RÖD med
+**VERIFIERAT FÖR DE BELOPP SOM ÄR MÄTTA, och målet är nått för dem MEN INTE FÖR
+KLASSEN.** Varje fällning nedan ger RÖD med
 `1 failed, 1495 passed, 54 skipped, 16 xfailed`, och den enda röda är
 `test_prisfilen_i_repot_har_BARA_TOMMA_varden`:
 
@@ -5755,10 +5764,11 @@ Granskningen körde dessutom `500`, `750`, `900`, `1200`, `2000`, `3000`, `5000`
 
 *En första lydelse mätte bara `25 000` och `18 000` och drog slutsatsen att
 resultatet "inte är specifikt för en nyckel eller ett belopp". Granskningen
-falsifierade den två gånger: varv 1 fann `1400`, `1500` och `1000`, varv 2 fann
-`55` och `123456`. Fem korpusrader är därför bytta och `SENTINELBIL` tillagd.
-Generaliseringen gäller nu därför att den är mätt och inte därför att den lät
-rimlig.*
+falsifierade den TRE gånger: varv 1 fann `1400`, `1500` och `1000`, varv 2 fann
+`55` och `123456`, varv 3 fann `7`, `10`, `14`, `15`, `50`, `70`, `90`, `156` och
+`1450`. Fem korpusrader är bytta och `SENTINELBIL` tillagd, men klassen är INTE
+uttömd, och generaliseringen är struken. Det kvarstående är LUCKA 58, och skivan
+stoppades med det öppet. Se #105.*
 
 *Talet `1494` stod här och blev oläst av varv 1:s egen ändring: samma varv lade
 till ett test OCH skrev om det här stycket utan att räkna om. Det är §7.2:s
@@ -5790,14 +5800,85 @@ löste för prisfilen.
 det uppgiften kräver ska röras, och att byta korpusens ledtider är samma arbete
 en gång till. Det ska vara ett eget beslut.
 
-**VAD SOM GATAR DEN.** `config/fakta.json` bär i dag inget tal. Luckan öppnar
-först den dag Lars skriver in en ledtid. Ett telefonnummer utlöser den inte:
-mätt i skiva 42 ger `telefon` satt till ett nummer `1 failed`, alltså bara
-§10-tripwiren.
+**INGENTING GATAR DEN, och det är varv 3:s fynd.**
+`test_faktafilen_i_repot_har_TOM_telefon` binder `telefon` och nyckelmängden men
+INTE vad `bokningar` innehåller. Uppmätt: ett årtal i `bokningar` ger HELT GRÖN
+SVIT, alltså kan ett tal skrivas in i `config/fakta.json` och bli en citerbar
+källa utan att en enda rad går röd. Och det krävs ingen ledtid: ett
+öppettidsintervall gör två rader röda, varav ingen är en §10-tripwire.
+
+*Posten sade först att luckan öppnar "först den dag Lars skriver in en ledtid",
+att filen "bär i dag inget tal", och namngav faktafilens vakt som gate. Alla tre
+leden är falska. Ett telefonnummer utlöser den dock fortfarande inte: mätt i
+skiva 42 ger `telefon` satt till ett nummer `1 failed`. Fällt av
+§7-granskningen av skiva 43, varv 3.*
+
+---
+
+## #105 — Skiva 43 STOPPAD efter tre varv. Sjätte varvet i rad där fyndet låg i rättelsetexten
+
+**§7:s rad för SÄNDVÄG, tillämpad och inte frångången:** fynd kvarstod efter tre
+varv. Samma form som #53, #58, #66, #70, #76, #80, #85, #92, #95 och #101.
+
+**SÄNDVÄGSKODEN STÅR.** Varv 3 fällde varje lager i `_varden_ur`,
+`_tillatna_tal` och `krav_pa_tal_med_kalla` och fick RÖD på alla, och samtliga
+sex rader i fällningstabellen reproducerade exakt.
+
+**DEN OMBYGGDA VAKTEN HÅLLER NU, i sin TREDJE lydelse.** Varv 3 prövade den åt
+båda håll: den fäller varje fällning av kommentarfiltret och rekursionen, och
+den överlever varje laglig fyllning av båda konfigfilerna som granskningen
+konstruerade. Uppslagsbindningen är fällbar och fäller.
+
+**DET SOM STOPPADE SKIVAN.** Fem fynd, fyra av dem i rättelsetexten:
+
+| Fynd | Vad som var fel |
+| --- | --- |
+| tre uppmätta tal, `13`, `21` och `3` | gjordes OLÄSTA av varv 2:s egna korpusbyten och räknades inte om. Rätt: 12, 23 och 2 |
+| korpusbytet | presenterades som färdigt och mätt; nio lagliga belopp falsifierar det |
+| lucka 57:s gatning | påstod att ingenting kan skrivas in i `config/fakta.json` utan att en vakt går röd. Ett årtal i `bokningar` ger HELT GRÖN SVIT |
+| `tests/sentinelpris.py` | sade "tröskeln … är 1 000" i bestämd singular; det finns två, alternativa |
+| noten vid `\d\s*tkr` | redovisade ett fällningstal utan att säga om raden raderades eller neutraliserades |
+
+**MÖNSTRET ÄR NU SEX VARV I RAD ÖVER TRE SKIVOR.** Skiva 42 underkändes tre
+gånger, skiva 43 tre gånger, och varje gång låg det tyngsta fyndet i den text som
+skrevs för att rätta föregående varv. §7:s rad om att rättelsetext granskas som
+ny text är det enda som fångat det, och `docs/incidentlogg.md` I2 bär formen.
+
+**LUCKA 58 REGISTRERAD SOM KVARSTÅENDE FYND**, se `docs/sparrar.md`. Nio lagliga
+belopp ger mer än §10-tripwiren, och den tyngsta delen är en NY klass: tre
+spärrtest patchar EN konfigfil och läser den andra riktiga, medan `_tillatna_tal`
+läser båda. Den rättas INTE nu: §7 säger att kvarstående kodfynd rapporteras
+öppet när grinden är förbrukad.
+
+**VAD SKIVAN ÄNDÅ LEVERERAR.** Korpusens kanoniska PRIS utan källa är bytt mot
+ett sentineltal, och för tjugoen mätta belopp är utfallet `1 failed`, alltså bara
+§10-tripwiren. Det var DEL A:s syfte, och det är uppnått för priser i det
+intervall Auto Stockholm faktiskt tar betalt i. De nio undantagen ligger utanför
+det intervallet med ett undantag, `1450 kr`, och det står utskrivet.
+
+**INGET VÄRDE ÄR SATT.** `git diff 8492939 HEAD -- config/` är tom över hela
+skivan.
 
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.63.0 — 2026-09-14
+
+**#105 TILLKOMMER: skiva 43 STOPPAD efter tre varv.** Sändvägskoden står, och
+den ombyggda vakten håller i sin tredje lydelse. Fynden låg i rättelsetexten.
+
+**FEM KÄNDA FALSKHETER RÄTTADES ÄNDÅ**, självmätt och utan granskare, enligt §7:s
+rättelseplikt som gäller oberoende av grinden.
+
+**TRE TAL VAR OLÄSTA AV VARV 2:s EGNA ÄNDRINGAR.** `13` är 12, `21` är 23, och
+nästlingstripwirens `3` är 2. Det sista är värt sin egen rad: den tredje röda
+raden gick röd av att KRASCHA på nästlingen, inte av att vakta den.
+
+**LUCKA 58 REGISTRERAD SOM KVARSTÅENDE FYND.** Nio lagliga belopp ger mer än
+§10-tripwiren, och tre spärrtest läser en §10-fil de inte patchar.
+
+Ny post och rättade påståenden ⇒ MINOR.
 
 ### 0.62.2 — 2026-09-14
 
