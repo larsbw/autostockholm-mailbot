@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.44.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.45.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -3040,6 +3040,83 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   räknade upp. Det är `docs/incidentlogg.md` I10, tredje varvet i rad i den här
   skivan.
 
+- **Lucka 50. `_sidan_bar_inte_faltet` MÄTER EN TECKENFÖLJD, INTE OM SIDAN
+  RENDERAR FÄLTET. ÖPPEN OCH MÄTT. SÄNDVÄG.**
+
+  Lager 1 prövar att `>Etikett<` står i sidans RÅA källtext. Parsern avkodar
+  entiteter och `strip`:ar noden; kontrollen gör varken eller. Varje skillnad
+  mellan de två mängderna faller mot `SAKNAS_PA_SIDAN`, alltså mot rätten att
+  säga till kunden att registret saknar uppgiften.
+
+  **TVÅ UPPMÄTTA VÄGAR**, §7-granskningen av skiva 40 varv 3:
+
+  | Sidan bär | Utfall |
+  | --- | --- |
+  | etiketttexten ENTITETSKODAD plus ett annat klassnamn | `SAKNAS_PA_SIDAN` |
+  | samma sida med rå UTF-8 i etiketten | `TOLKAS_EJ`, alltså rätt |
+  | ett MJUKT BINDESTRECK i etiketten, klassnamnet ORÖRT | `SAKNAS_PA_SIDAN` |
+
+  **DEN ANDRA KRÄVER INGEN MARKUPÄNDRING ALLS.** Ett långt sammansatt ord som
+  `Släpvagnsvikt` är precis vad en avstavning träffar, medan `Kaross` och
+  `Status` inte får någon. Ankarlagret räddar ingenting då: ankarna parsas
+  korrekt eftersom bara målfältets etikett är ändrad.
+
+  **HELA VÄGEN, uppmätt:** `franvaro_far_pastas` blir `['draganordning']` och
+  spärren släpper igenom *"Din bil saknar tyvärr dragkrok"* för en bil vars sida
+  skriver ut `Draganordning: Ja Kula`. Det är det utkast Lars fällde, återuppstått
+  genom spärren som byggdes mot det.
+
+  **VAD SOM HÅLLER, prövat:** tom sida, felmeddelandesida, radbrytning och
+  blanktecken inuti etikettnoden, och fältet renderat i en tabell. Samtliga
+  `TOLKAS_EJ`. På de sex verkliga sidorna är kontrollen korrekt.
+
+  **VARFÖR DEN INTE ÄR RÄTTAD.** Fyndet gjordes i varv 3 med grinden förbrukad,
+  och det är TREDJE gången samma egenskap bundits som en instans i den här
+  skivan: först `par`, sedan `etiketter`, nu en teckenföljd i råtexten. En
+  fjärde självmätt ändring i samma regel är precis vad §7:s rad för SÄNDVÄG
+  finns för att hindra. Se `docs/incidentlogg.md` I10.
+
+  **VAD SOM STÄNGER LUCKAN, och det är Lars val mellan tre vägar.** Att
+  normalisera jämförelsen som parsern gör, alltså avkoda entiteter och strippa
+  osynliga tecken före jämförelsen. Att kräva att sidan gett SAMTLIGA
+  ankaretiketter i stället för tre. Eller att ta bort rätten att påstå frånvaro
+  ur den saknade-fältet-vägen helt och bara behålla det avlästa `Nej`, vilket är
+  säkrast men tar bort det DEL A byggdes för.
+
+  **`MINSTA_ANKARE` ÄR OBUNDET.** `--ersatt 'MINSTA_ANKARE = 2'` ger grön svit:
+  testen binder att lager 2 finns, aldrig var tröskeln sitter. §4 kräver ett
+  test för gränsvärdet. Talet är dessutom valt som marginal utan mätning, medan
+  mätningen ger 6/6 på samtliga sex ankare.
+
+- **Lucka 51. `pastaende-om-franvaro`:s FRAMLÄNGESRIKTNING ÄR EN UPPRÄKNING.
+  ÖPPEN OCH MÄTT. SÄNDVÄG.**
+
+  Varv 2 gjorde baklängesmängden till en egenskap och lämnade `FRANVAROORD` som
+  en lista om nio former. Fem påståenden går rakt igenom, uppmätta av
+  §7-granskningen av skiva 40 varv 3:
+
+  > Bilen är inte utrustad med dragkrok.
+  > Bilen är inte försedd med draganordning.
+  > Bilen har tyvärr inte dragkrok.
+  > Vi hittar tyvärr inte dragvikten i registret.
+  > Registret är tomt på dragviktsuppgift.
+
+  **`, utan att ` I `SATSBROTT` ÖPPNADE EN EGEN LUCKA.** *"Vi har tittat i
+  registret, utan att hitta någon dragvikt"* släpps igenom medan samma mening
+  UTAN kommatecken fälls. Ett kommatecken avgör, och att lägga till ett tills
+  spärren släpper igenom är den handling §9.1 förbjuder.
+
+  **ÖVERBLOCKERINGEN ÄR OCKSÅ MÄTT.** Fem sanna svar fälls, bland dem
+  *"Dragvikten är 2000 kg så det är inte något problem"* utan kommatecken, medan
+  samma mening MED kommatecken passerar. Den committade negativkontrollen
+  passerar alltså på ett kommatecken. Riktningen är säker, men CLAUDE.md:s eget
+  skäl gäller: en regel som gör systemet oanvändbart börjar ignoreras.
+
+  **VAD SOM STÄNGER LUCKAN.** Samma behandling som baklängesriktningen fick,
+  alltså varje nekande ord i stället för en lista, plus en omprövning av vilka
+  satsbrott som är motsättande. Båda är sändvägsändringar och görs inte efter en
+  förbrukad grind.
+
 - **Lucka 49. ETT FORDON MED OBROMSAD MEN INGEN BROMSAD SLÄPVAGNSVIKT. ÖPPEN,
   OCH AVGÖRS AV EN BESIKTNINGSMAN.**
 
@@ -3528,9 +3605,15 @@ fältet, alltså `Faltstatus.SAKNAS_PA_SIDAN` respektive
 `Dragviktslage.REGISTRET_SAKNAR`, eller att draganordningen LÄSTES som `False`.
 Mängden sätts i `src/kedja.py` och är TOM som förval.
 
-**BÅDA RIKTNINGARNA ÄR NU EGENSKAPER OCH INGA UPPRÄKNINGAR.** Ett nekande ord i
-samma sats som ett fordonsfaktum fäller, oavsett ordning och oavsett vilket
-nekande ord det är.
+**BAKLÄNGESRIKTNINGEN ÄR EN EGENSKAP. FRAMLÄNGESRIKTNINGEN ÄR FORTFARANDE EN
+UPPRÄKNING, och den läcker.** Står nekandet EFTER faktumet fäller varje nekande
+ord. Står det FÖRE prövas `FRANVAROORD`, som är en lista om nio former, och fyra
+alldeles vanliga påståenden går rakt igenom. Se LUCKA 51.
+
+*Här stod "BÅDA RIKTNINGARNA ÄR NU EGENSKAPER OCH INGA UPPRÄKNINGAR". Varv 2
+gjorde bara baklängesmängden till en egenskap och lämnade framlängesmängden som
+den var. Meningen är falsifierad av fyra motexempel, uppmätta av
+§7-granskningen av skiva 40, varv 3.*
 
 *Baklängesmängden var först `saknas|saknar`, sedan en uppräkning om nio former.
 Varv 1 hittade fyra läckor, varv 2 hittade tre till: `framgår inte`, `står
@@ -4371,6 +4454,29 @@ post och inte en spärr som saknar egenskapen.
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.45.0 — 2026-09-14
+
+**TVÅ NYA LUCKOR, BÅDA SÄNDVÄG, BÅDA ÖPPNA.** Skiva 40 stoppades efter tre varv,
+se `docs/beslutslogg.md` #92.
+
+**LUCKA 50: `_sidan_bar_inte_faltet` mäter en TECKENFÖLJD**, inte om sidan
+renderar fältet. Entitetskodad etiketttext och ett mjukt bindestreck i etiketten
+ger båda `SAKNAS_PA_SIDAN`, alltså rätten att säga till kunden att registret
+saknar uppgiften. Den andra kräver ingen markupändring alls.
+
+**DET ÄR TREDJE GÅNGEN SAMMA EGENSKAP BUNDITS SOM EN INSTANS I DEN HÄR SKIVAN**,
+och det är skälet till att den inte rättas i ett fjärde varv: `par`, sedan
+`etiketter`, sedan en teckenföljd i råtexten.
+
+**LUCKA 51: spärrens framlängesriktning är fortfarande en uppräkning.** Fem
+frånvaropåståenden går igenom, och `, utan att ` i `SATSBROTT` gör att ett
+kommatecken avgör.
+
+**TVÅ ÖVERDRIFTER I 0.44.0 OCH I POSTEN ÄR RÄTTADE.** Båda sade att BÅDA
+riktningarna blivit egenskaper. Bara baklängesriktningen blev det.
+
+Två nya luckor ⇒ MINOR.
+
 ### 0.44.0 — 2026-09-14
 
 **RÄTTEN ATT PÅSTÅ FRÅNVARO VILAR NU PÅ SIDAN, inte på vår läsare.**
@@ -4399,8 +4505,12 @@ raden till TOLKAS_EJ i stället för ANNAN_FORM, alltså raderade skivans fjärd
 utfall. Det är samma prefixfälla `EXAKT_ETIKETT` redan bär noter om, återinförd
 och fälld av sviten i samma skrivning.
 
-**`pastaende-om-franvaro` ÄR OMSKRIVEN FRÅN UPPRÄKNING TILL EGENSKAP.** Se
-posten.
+**`pastaende-om-franvaro`:s BAKLÄNGESRIKTNING ÄR OMSKRIVEN FRÅN UPPRÄKNING TILL
+EGENSKAP.** Framlängesriktningen är oförändrad och fortfarande en uppräkning,
+se LUCKA 51.
+
+*Posten sade först att BÅDA riktningarna blev egenskaper. Falskt, och
+falsifierat av fyra motexempel. Fällt av §7-granskningen av skiva 40, varv 3.*
 
 Ändrad spärregenskap ⇒ MINOR.
 

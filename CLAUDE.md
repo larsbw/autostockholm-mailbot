@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.12.3 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #91
+**Version:** 0.12.4 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #92
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -518,6 +518,30 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.12.4 — 2026-09-14
+
+**`Speglar` följer med till beslutslogg #92.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 40:s stoppost lagts till.
+
+**§7:s tre granskningsvarv är OFÖRÄNDRADE, och #92 är en tillämpning av dem.**
+Skivan stoppades därför att fynd kvarstod efter tre varv. Raden står här av
+samma skäl som i 0.9.4, 0.11.4 och 0.12.1: en läsare av CLAUDE.md ska inte
+behöva härleda ett undantag ur beslutsloggen, och det finns inget att härleda.
+
+**§7.1:s LAGRADE FÖRSVAR FICK EN NY INSTANS I REPOT.**
+`biluppgifter._sidan_bar_inte_faltet` bär två lager med avsikt, och varv 3 mätte
+att en fällning av bara det ena ger GRÖN svit, alltså INKONKLUSIVT och inte
+vakuöst. Klausulen gällde redan; det som är nytt är att `docs/sparrar.md` bär
+den för den här spärren.
+
+**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
+är tom sedan 0.12.0. Lucka 50 och 51 rör vad ett utkast PÅSTÅR, inte om ett mail
+får gå ut, och varje utkast läses av Lars.
+
+**§0:s styrdokumentlista är oförändrad.** Varv 3 skapade ingen ny fil.
+
+Ren synk ⇒ PATCH.
 
 ### 0.12.3 — 2026-09-14
 

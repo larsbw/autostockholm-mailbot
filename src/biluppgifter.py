@@ -1511,7 +1511,14 @@ def biluppgifter_hamtning(
         # **METADATA UNDER RESERVERADE NYCKLAR. Skiva 40 DEL A.** Utan dem når
         # skillnaden mellan ett saknat och ett oläsbart fält aldrig fram till
         # `src/generera.py`, och då kan DEL B:s spärr inte veta vad som är
-        # belagt. Nycklarna börjar med `_` och plockas bort av `slag_upp`.
+        # belagt. Nycklarna börjar med `_` och LÄSES av `fordonsuppslag._kontrollera`,
+# som tolererar okända nycklar och bygger `Uppslag` av tre namngivna. Ingen rad
+# tar bort dem.
+#
+# *Här stod "plockas bort av `slag_upp`". Samma falskhet rättades i den här
+# filens kommentar vid `META_STATUS` i varv 2 och lämnades kvar här, 488 rader
+# ned. Det är mönstret modulens egen not beskriver: rättelsen görs på ett ställe
+# och glöms på ett annat. Fällt av §7-granskningen av skiva 40, varv 3.*
         falt[META_STATUS] = {n: f.status.value for n, f in statusar.items()}
         falt[META_DRAGVIKT] = dragviktslage(statusar).value
 

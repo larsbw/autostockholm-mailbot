@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.55.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
+**Version:** 0.56.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -5051,7 +5051,77 @@ Prompten bad alltså om en mening spärren blockerade. Uppmätt av
 
 ---
 
+## #92 — Skiva 40 STOPPAD efter tre varv. Lucka 50 och 51 öppna
+
+**§7:s rad för SÄNDVÄG, tillämpad och inte frångången:** fynd kvarstod efter tre
+varv, alltså stoppa och rapportera öppet. Samma form som #53, #58, #66, #70,
+#76, #80 och #85.
+
+**DET TYNGSTA FYNDET ÄR SAMMA EGENSKAP FÖR TREDJE GÅNGEN.** Rätten att påstå att
+en uppgift saknas ska vila på att SIDAN inte renderar fältet. Den har nu bundits
+tre gånger i rad som en instans:
+
+| Varv | Vad som prövades | Vad som slank igenom |
+| --- | --- | --- |
+| bygget | att PARET saknas | en ostängd tagg gjorde en utskriven vikt till ett registerfaktum |
+| 1 | att ETIKETTNODEN saknas | ett annat klassnamn gjorde hela sidan till ett tomt register |
+| 2 | att teckenföljden `>Etikett<` saknas i råtexten | entitetskodad text, och ett mjukt bindestreck i etiketten |
+
+**DEN TREDJE VÄGEN KRÄVER INGEN MARKUPÄNDRING ALLS.** Ett mjukt bindestreck i
+`Släpvagnsvikt`, alltså precis den avstavning ett långt sammansatt ord får medan
+`Kaross` och `Status` inte får någon, räcker. Registrerad som LUCKA 50 med
+mätningen.
+
+**LUCKA 51: FRAMLÄNGESRIKTNINGEN I SPÄRREN ÄR FORTFARANDE EN UPPRÄKNING.** Varv
+2 gjorde baklängesmängden till en egenskap och lämnade den andra. Fem
+frånvaropåståenden går rakt igenom, och `, utan att ` i `SATSBROTT` öppnade en
+lucka där ett kommatecken avgör.
+
+**VARFÖR INGEN FJÄRDE OMGÅNG.** Varje varv har ändrat samma regel och infört ett
+nytt fel. Att göra det en gång till utan granskare är precis vad grinden finns
+för. `docs/incidentlogg.md` I10 bär mönstret, och skiva 40 är dess tydligaste
+instans hittills: tre varv, samma egenskap, tre olika instanser.
+
+**VAD SOM ÄNDÅ RÄTTADES.** §7 kräver att ett känt falskt påstående alltid
+rättas, på alla tre nivåerna:
+
+| Fynd | Vad som var falskt |
+| --- | --- |
+| `slag_upp` "plockar bort" metanycklarna | rättat i varv 2 på ett ställe och kvarlämnat 488 rader ned |
+| `docs/sparrar.md`: "BÅDA RIKTNINGARNA ÄR NU EGENSKAPER" | bara baklängesriktningen är det, falsifierat av fyra motexempel |
+
+**INGET ÄR SKEPPAT UTAN ATT STATUSEN STÅR UTSKRIVEN.** Rättelserna ovan är
+SJÄLVMÄTTA och inte oberoende granskade.
+
+**SKIVAN ÄR ÄNDÅ EN FÖRBÄTTRING MOT UTGÅNGSLÄGET, och det ska sägas lika rakt.**
+Före skiva 40 fanns ingen spärr alls mot påståenden om frånvaro, vilket är hela
+skälet till att Lars fick se utkastet som bröt ramverksregel 3. Nu fälls varje
+form granskningarna hittat utom de fem i lucka 51, och rätten att påstå frånvaro
+kräver ett belägg utom i de två fall lucka 50 beskriver. Ingenting skickas: `auto`
+är tom sedan 0.12.0, alltså läses varje utkast av Lars först.
+
+**LARS VAL PÅ LUCKA 50 ÄR TRE VÄGAR**, uppräknade i luckposten: normalisera
+jämförelsen som parsern gör, kräv samtliga ankaretiketter, eller ta bort rätten
+att påstå frånvaro ur den saknade-fältet-vägen helt. Den sista är säkrast och tar
+bort det DEL A byggdes för.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.56.0 — 2026-09-14
+
+**#92 tillkommer: skiva 40 STOPPAD efter tre varv.** Två fynd kvarstår, lucka 50
+och 51, båda sändväg. §7:s rad för SÄNDVÄG är tillämpad och inte frångången.
+
+**TVÅ KÄNDA FALSKHETER RÄTTADES ÄNDÅ**, självmätt och utan granskare, enligt
+§7:s rättelseplikt. Båda är uppräknade i #92.
+
+**#87:s STYCKE OM PARSERFELSHINKEN RÄTTADES REDAN I VARV 2** och står kvar som
+det skrevs då. Varv 3 reproducerade det mot `--utfall`: sida 05 faller enbart på
+`draganordning`, alltså utfall 2.
+
+Ny post ⇒ MINOR.
 
 ### 0.55.0 — 2026-09-14
 
