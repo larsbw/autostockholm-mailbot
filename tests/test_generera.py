@@ -712,6 +712,12 @@ def test_prisfrasen_fogas_ihop_over_meningsgransen():
         # formen "ingendera halvan bär ett prisord" låtit paret vara, och
         # `moms 1400.` hade aldrig prövats av prisgrenen.
         "Det kostar 25 000 kr exkl. moms 1400.",
+        # OCH FORMEN SOM KRÄVER ATT HOPFOGNINGEN GÅR I KEDJA. Mittendelen bär
+        # slutet av en prisfras OCH början av nästa. En PARVIS regel som hoppar
+        # två steg efter en hopfogning prövar aldrig den andra skarven, och då
+        # blir `moms 1400.` föräldralös och når aldrig prisgrenen. Uppmätt av
+        # §7-granskningen av skiva 42, varv 1: texten PASSERADE.
+        "Det kostar 25 000 kr exkl. moms är inkl. moms 1400.",
     ],
 )
 def test_en_SONDERKLYVD_prissats_provas_av_PRISGRENEN(monkeypatch, svar):
@@ -732,6 +738,28 @@ def test_en_SONDERKLYVD_prissats_provas_av_PRISGRENEN(monkeypatch, svar):
         generera.krav_pa_tal_med_kalla(svar, forfragan(uppslag=GRONT_UPPSLAG))
 
     assert fel.value.sparr == "genererat-tal-har-kalla"
+
+
+def test_en_SATSBROTT_SKARV_fogas_ALDRIG_ihop(monkeypatch):
+    """HOPFOGNINGEN FÅR ALDRIG TILLVERKA EN PRISFRAS SOM INTE STÅR I SVARET.
+
+    `_delat_pa_mening` tar bort BARA blanktecken, alltså går den att ångra.
+    `_delat_pa_satsbrott` KASTAR sin avskiljare. Fogades en sådan skarv ihop med
+    ett blanksteg blev *"Vi tar det exkl, men moms är inräknad 1400."* till
+    `exkl moms`, och då fälldes en AVLÄST tjänstevikt med motiveringen att den
+    står i en prismening. Texten bär inget prisord alls.
+
+    Uppmätt av §7-granskningen av skiva 42, varv 1. Skyddet är ordningen i
+    `_prissatser`: meningar, hopfogning, sedan `SATSBROTT`.
+    """
+    _med_priser(monkeypatch, {"a_traktorkonvertering": "25 000 kr"})
+    svar = "Vi tar det exkl, men moms är inräknad 1400."
+
+    # LEDET SOM GÖR RADEN ICKE-VAKUÖS: texten bär FAKTISKT inget prisord.
+    assert not generera.PRISORD.search(svar), svar
+
+    assert generera._prissatser(svar) == []
+    generera.krav_pa_tal_med_kalla(svar, forfragan(uppslag=GRONT_UPPSLAG))
 
 
 def test_ett_AVLAST_pris_MED_momsangivelse_slapps_igenom(monkeypatch):

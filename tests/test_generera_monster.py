@@ -703,6 +703,50 @@ def _radtexter(tabellnamn: str) -> list[str]:
     return texter
 
 
+# RADERNA I `PRIS_SKA_FALLA` SOM FAKTISKT BÄR ETT PRISORD.
+#
+# **INTE ALLA GÖR DET, och det antagandet var fel.** `Det blir 25 000:- rakt av.`,
+# `Vi tar 25000kr för jobbet.` och `Det blir 1500kr, betala på plats.` fälls av
+# den allmänna talloopen och inte av `PRISORD`: `\bkr\b` har ingen ordgräns när
+# `kr` sitter ihop med en siffra. Uppmätt under bygget i skiva 42, varv 1:s
+# rättelse, av att en första lydelse av raden nedan gick röd på just de tre.
+PRISORDSRADER = [
+    text for text in _radtexter("PRIS_SKA_FALLA")
+    if generera.PRISORD.search(text)
+]
+
+
+def test_de_KLYVBARA_prisformerna_star_i_urvalet():
+    """URVALET OVAN FILTRERAS, alltså kan det tömmas tyst.
+
+    Går `inkl. moms` och `exkl. moms` ur tabellen, eller slutar de matcha
+    `PRISORD`, så blir raden nedan grön av fel skäl: den skulle inte längre pröva
+    en enda form som `_delat_pa_mening` klyver. De två är hela skälet till att
+    invarianten behöver bindas.
+    """
+    assert "Det är inkl. moms." in PRISORDSRADER
+    assert "Det är exkl. moms." in PRISORDSRADER
+
+
+@pytest.mark.parametrize("text", PRISORDSRADER)
+def test_ett_PRISORD_i_tabellen_nar_ALLTID_prisgrenen(text):
+    """INVARIANTEN SOM BAR RESERVEN, nu buren av kedjefogningen.
+
+    `krav_pa_tal_med_kalla` hade en reserv: bär hela svaret ett prisord men
+    ingen enskild sats, så prövas svaret som EN sats. Skiva 42 tog bort den,
+    eftersom en fällning av raden gav GRÖN svit över hela sviten, alltså band
+    inget test den.
+
+    **DEN HÄR RADEN ÄR VAD SOM GÖR BORTTAGANDET FÖRSVARBART.** Invarianten är
+    att ett svar som bär ett prisord ALLTID ger minst en prissats att pröva.
+    Faller den, så finns ett prisord som ingen sats når, och då är hålet
+    tillbaka.
+    """
+    assert generera._prissatser(text), (
+        f"{text!r} bär ett prisord men ingen sats når prisgrenen"
+    )
+
+
 @pytest.mark.parametrize("monster", sorted(MONSTER_OCH_TABELL))
 def test_ingen_term_gommer_en_alternation(monster):
     """En term får inte innehålla `|` eller en grupp.

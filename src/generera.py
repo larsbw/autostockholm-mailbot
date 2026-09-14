@@ -848,15 +848,17 @@ def krav_pa_belagt_franvaropastaende(svar: str, forfragan: Forfragan) -> None:
             )
 
 
-def _meningar(svar: str) -> list[str]:
-    """Svaret som meningar, och satser skilda av `SATSBROTT` som egna.
+def _delat_pa_mening(svar: str) -> list[str]:
+    """Svaret delat vid meningsslut. Delningen tar bort BARA blanktecken.
 
-    **PRÖVNINGEN SKER PER SATS OCH INTE PER SVAR.** Ett frånvaroord i en sats
-    ska inte kunna kopplas till ett fordonsfaktum i en annan, och `[^.!?]` i
-    mönstret räcker inte: *"Vi saknar tyvärr en ledig tid, men dragvikten är
-    2000 kg"* är EN mening med två satser.
+    Den egenskapen är lastbärande för `_prissatser`, som fogar ihop igen: en
+    delning som kastar tecken går inte att ångra utan att texten ändras.
     """
-    delar = re.split(r"(?<=[.!?])\s+", svar)
+    return re.split(r"(?<=[.!?])\s+", svar)
+
+
+def _delat_pa_satsbrott(delar: list[str]) -> list[str]:
+    """Delarna vidare delade vid `SATSBROTT`. Delningen KASTAR avskiljaren."""
     for brott in SATSBROTT:
         nya: list[str] = []
         for del_ in delar:
@@ -865,8 +867,19 @@ def _meningar(svar: str) -> list[str]:
     return delar
 
 
+def _meningar(svar: str) -> list[str]:
+    """Svaret som meningar, och satser skilda av `SATSBROTT` som egna.
+
+    **PRÖVNINGEN SKER PER SATS OCH INTE PER SVAR.** Ett frånvaroord i en sats
+    ska inte kunna kopplas till ett fordonsfaktum i en annan, och `[^.!?]` i
+    mönstret räcker inte: *"Vi saknar tyvärr en ledig tid, men dragvikten är
+    2000 kg"* är EN mening med två satser.
+    """
+    return _delat_pa_satsbrott(_delat_pa_mening(svar))
+
+
 def _prisord_over_skarven(forsta: str, andra: str) -> bool:
-    """Ligger ett prisord ÖVER skarven mellan två angränsande satser?
+    """Ligger ett prisord ÖVER skarven mellan två angränsande MENINGAR?
 
     Måttet är en MATCHNING SOM SPÄNNER, inte en jämförelse av vad halvorna var
     för sig bär. Skillnaden är lastbärande och uppmätt: *"Det kostar 25 000 kr
@@ -875,6 +888,15 @@ def _prisord_over_skarven(forsta: str, andra: str) -> bool:
     Då prövas `moms 1400.` aldrig av prisgrenen, och 1400 faller ned i den
     allmänna talloopen där uppslagets tjänstevikt är tillåten. Det är lucka 54:s
     egen defekt, flyttad ett steg.
+
+    **BARA MENINGSSKARVAR, ALDRIG `SATSBROTT`-SKARVAR.** Skarvens blanksteg
+    återställer vad `_delat_pa_mening` tog bort, ingenting annat.
+    `_delat_pa_satsbrott` KASTAR sin avskiljare, och en hopfogning över en sådan
+    skarv TILLVERKAR text som aldrig stått i svaret: *"Vi tar det exkl, men moms
+    är inräknad 1400."* bär inget prisord alls, men blir `exkl moms` när `, men `
+    faller bort, och då fälls en avläst tjänstevikt med motiveringen att den står
+    i en prismening som inte finns. Uppmätt av §7-granskningen av skiva 42,
+    varv 1. Skyddet ligger i anropsordningen i `_prissatser`, inte här.
     """
     skarv = len(forsta)
     par = f"{forsta} {andra}"
@@ -899,8 +921,22 @@ def _prissatser(svar: str) -> list[str]:
     citerbart pris.
 
     Regeln är en EGENSKAP och ingen förkortningslista: spänner ett prisord över
-    skarven mellan två angränsande satser, så har delningen förstört frasen och
-    paret prövas som EN sats. Se `_prisord_over_skarven`.
+    skarven mellan två angränsande meningar, så har delningen förstört frasen och
+    de fogas ihop. Se `_prisord_over_skarven`.
+
+    **HOPFOGNINGEN GÅR I KEDJA OCH ALDRIG PARVIS, och det ledet är fällt fram.**
+    En parvis regel som hoppar två steg efter en hopfogning prövar aldrig skarven
+    mellan den andra halvan och nästa mening. Bär en mening slutet av en prisfras
+    OCH början av nästa blir den tredje delen föräldralös och når aldrig
+    prisgrenen: *"Det kostar 25 000 kr exkl. moms är inkl. moms 1400."* passerade,
+    och 1400 är uppslagets tjänstevikt. Det är lucka 54:s defekt igen, flyttad ett
+    steg. Uppmätt av §7-granskningen av skiva 42, varv 1.
+
+    **ORDNINGEN ÄR LASTBÄRANDE: MENINGAR, HOPFOGNING, SEDAN `SATSBROTT`.**
+    Hopfogningen får bara ångra en delning som tog bort blanktecken.
+    `_delat_pa_satsbrott` kastar sin avskiljare, alltså skulle en hopfogning
+    efter den delningen TILLVERKA prisfraser som aldrig stått i svaret. Se
+    `_prisord_over_skarven`.
 
     **DET HÄR ÄR EN AVVÄGNING LARS GJORT, inte en gratis förbättring.** Varje
     hopfogning gör en sats större, och prisgrenen kräver att VARJE tal i en
@@ -909,26 +945,30 @@ def _prissatser(svar: str) -> list[str]:
     överblockering kostar Lars fem sekunders läsning, underblockering kostar ett
     felaktigt prisbesked till en kund. `scripts/prismatning.py` mäter priset.
 
-    **RESERVEN STÅR KVAR**, och den är inte död: en prisfras som spänner över
-    TRE delar fogas inte ihop av en parvis regel, och då är hela svaret det enda
-    som bär frasen. Det är fällningshållet, alltså det säkra.
+    **RESERVEN ÄR BORTTAGEN, och det är ett fynd och ingen förenkling.** Raden
+    `if not satser and PRISORD.search(svar)` prövade hela svaret som en sats när
+    ingen enskild sats bar prisordet. Med kedjefogningen är den ONÅBAR: en
+    fällning av den gav GRÖN svit över hela sviten, alltså band inget test den.
+    Skälet den motiverades med, en prisfras som spänner över TRE delar, kan inte
+    inträffa: de enda fleroordstermerna i `PRISTERMER` är `inkl. moms`,
+    `exkl. moms` och `\\d\\s*tkr`, och ingen av dem kan rymma två klyvpunkter,
+    eftersom `_delat_pa_mening` klyver vid `[.!?]` och `_delat_pa_satsbrott` vid
+    strängar som alla bär ett kommatecken. Bunden av
+    `test_varje_PRISTERM_overlever_delningen`. Uppmätt av §7-granskningen av
+    skiva 42, varv 1.
     """
-    delar = _meningar(svar)
+    delar = _delat_pa_mening(svar)
 
     hopfogade: list[str] = []
     i = 0
     while i < len(delar):
-        if i + 1 < len(delar) and _prisord_over_skarven(delar[i], delar[i + 1]):
-            hopfogade.append(f"{delar[i]} {delar[i + 1]}")
-            i += 2
-            continue
-        hopfogade.append(delar[i])
-        i += 1
+        j = i
+        while j + 1 < len(delar) and _prisord_over_skarven(delar[j], delar[j + 1]):
+            j += 1
+        hopfogade.append(" ".join(delar[i:j + 1]))
+        i = j + 1
 
-    satser = [s for s in hopfogade if PRISORD.search(s)]
-    if not satser and PRISORD.search(svar):
-        return [svar]
-    return satser
+    return [s for s in _delat_pa_satsbrott(hopfogade) if PRISORD.search(s)]
 
 
 def krav_pa_att_troskeln_inte_ar_forfattningstext(svar: str) -> None:

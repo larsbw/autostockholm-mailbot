@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.12.7 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #99
+**Version:** 0.12.8 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #100
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -518,6 +518,43 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.12.8 — 2026-09-14
+
+**`Speglar` följer med till beslutslogg #100.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 42:s varv 1 lagt till en
+post.
+
+**0.12.7-POSTEN PÅSTOD ATT ETT HÅL VAR STÄNGT NÄR DET INTE VAR DET.** Den skrev
+att §0:s ramverksregel 3 fick två hål stängda. Lucka 54 var öppen: hopfogningen
+var parvis och hoppade över varannan skarv, alltså blev fordonets tjänstevikt
+fortfarande ett citerbart pris. Stängt i varv 1 med en kedjefogning, se
+`docs/beslutslogg.md` #98. Posten står kvar som den var, och den här raden är
+rättelsen.
+
+**REGEL 5 BÄR ETT LED SOM ÄR MITT OCH INTE LARS, och det ska stå i det dokument
+som läses vid varje sessionsstart.** Lars gav förbehållet *"utöver det som står i
+underlaget nedan"*. Regelns slutmening lyder nu *"Står inget pris i underlaget
+och kunden frågar vad det kostar: säg att VI återkommer med prisuppgift"*, och
+villkoret *"Står inget pris i underlaget och"* skrev jag, för att regeln annars
+säger emot sig själv. §11 gör promptens ordalydelse till Lars, och han ändrar den
+på sitt ord. 0.12.7 skrev bara att Lars gav förbehållet, vilket var sant men
+utelämnade det här.
+
+**§7.2 BRÖTS AV MIG I FYRA PÅSTÅENDEN, samtliga rättade i varv 1.** Ett tal
+skrivet av ur Lars brief i stället för läst ur repot, ett tal som blev oläst av
+skivans egen ändring i en grannfil, en tabell över en kommentars tal som
+föråldrats, och en slutsats dragen ur ett mått som inte mätte det den påstods
+mäta. Paragrafen är oförändrad.
+
+**LUCKA 56 REGISTRERAD, se `docs/beslutslogg.md` #100.**
+
+**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
+är tom sedan 0.12.0.
+
+**§0:s styrdokumentlista är oförändrad.** Varv 1 skapade ingen ny fil.
+
+Ren synk och en rättelse ⇒ PATCH.
 
 ### 0.12.7 — 2026-09-14
 

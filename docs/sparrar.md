@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.49.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.50.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -2634,7 +2634,7 @@ Mot `tests/test_generera.py`, som bar 129 test vid mätningen.
 
   | Beslutsrad | Vad den fäller |
   | --- | --- |
-  | `if i + 1 < len(delar) and _prisord_over_skarven(delar[i], delar[i + 1]):` i `_prissatser` | fogar ihop en prisfras som satsdelningen klöv |
+  | `while j + 1 < len(delar) and _prisord_over_skarven(delar[j], delar[j + 1]):` i `_prissatser` | fogar ihop en prisfras som meningsdelningen klöv |
   | `if not talen:` | ett prisord i en sats som inte bär något tal |
   | `for tal in sorted(talen - priskallans_tal):` | ett tal i en prissats som inte kommer ur `config/priser.json` |
   | `if traff_i_ord:` | varje tal skrivet i ord, `TAL_I_ORD` |
@@ -2666,12 +2666,21 @@ Mot `tests/test_generera.py`, som bar 129 test vid mätningen.
   pris den dag filen fylls. *Här stod att filen inte existerar och att varje
   prissvar faller, båda i presens. Det första blev falskt av skiva 41, det andra
   är inte längre vad koden gör. Fällt av §7-granskningen av skiva 41, varv 2.*
-- **VILKA SATSER SOM PRÖVAS AVGÖRS AV `_prissatser`, och den fogar ihop par.**
-  Spänner ett prisord över skarven mellan två angränsande satser har
-  meningsdelningen förstört frasen, och paret prövas som EN sats. Det stänger
-  lucka 54 och är Lars beslut i skiva 42, se `docs/beslutslogg.md` #98. Reserven
-  längst ned, att hela svaret prövas som en sats när ingen enskild sats bär
-  prisordet, står kvar för de fall en fras spänner över mer än två delar.
+- **VILKA SATSER SOM PRÖVAS AVGÖRS AV `_prissatser`, och den fogar ihop i
+  KEDJA.** Spänner ett prisord över skarven mellan två angränsande MENINGAR har
+  delningen förstört frasen, och de fogas ihop. Kedjan fortsätter så länge nästa
+  skarv också bärs av ett prisord. Det stänger lucka 54 och är Lars beslut i
+  skiva 42, se `docs/beslutslogg.md` #98.
+- **ORDNINGEN ÄR LASTBÄRANDE: meningar, hopfogning, sedan `SATSBROTT`.**
+  `_delat_pa_mening` tar bort BARA blanktecken och går därför att ångra.
+  `_delat_pa_satsbrott` KASTAR sin avskiljare, alltså skulle en hopfogning efter
+  den delningen tillverka prisfraser som aldrig stått i svaret.
+- **RESERVEN ÄR BORTTAGEN i skiva 42.** Raden `if not satser and
+  PRISORD.search(svar)` prövade hela svaret som en sats när ingen enskild sats
+  bar prisordet. Med kedjefogningen är den ONÅBAR, och en fällning av den gav
+  GRÖN svit. Invarianten den bar, att ett svar med ett prisord alltid ger minst
+  en prissats att pröva, bärs nu av
+  `tests/test_generera_monster.py::test_ett_PRISORD_i_tabellen_nar_ALLTID_prisgrenen`.
 - **Negativkontroll.** `tests/test_generera.py::test_uppslagets_egna_tal_slapps_igenom`
   visar att talen ur ett LYCKAT uppslag passerar, och
   `test_ett_svar_utan_tal_slapps_igenom` att ett vanligt svar gör det. En spärr
@@ -2691,16 +2700,22 @@ Mot `tests/test_generera.py`, som bar 129 test vid mätningen.
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `if i + 1 < len(delar) and _prisord_over_skarven(...)` satt till `if False and ...` | RÖD, `5 failed, 1459 passed, 54 skipped, 16 xfailed` | neutraliserad |
-| `if not talen:` satt till `if False:` | RÖD, `45 failed, 1419 passed, 54 skipped, 16 xfailed` | neutraliserad |
-| `for tal in sorted(talen - priskallans_tal):` satt till `talen - talen` | RÖD, `15 failed, 1449 passed, 54 skipped, 16 xfailed` | neutraliserad |
-| `if traff_i_ord:` satt till `if False:` | RÖD, `10 failed, 1454 passed, 54 skipped, 16 xfailed` | neutraliserad |
-| `if tal not in tillatna:` satt till `if False:` | RÖD, `24 failed, 1440 passed, 54 skipped, 16 xfailed` | neutraliserad |
-| anropet i `krav_pa_svaret` | RÖD, `49 failed, 1415 passed, 54 skipped, 16 xfailed` | raderad |
+| `while j + 1 < len(delar) and _prisord_over_skarven(...)` satt till `while False and ...` | RÖD, `10 failed, 1484 passed, 54 skipped, 16 xfailed` | neutraliserad |
+| `if not talen:` satt till `if False:` | RÖD, `45 failed, 1449 passed, 54 skipped, 16 xfailed` | neutraliserad |
+| `for tal in sorted(talen - priskallans_tal):` satt till `talen - talen` | RÖD, `16 failed, 1478 passed, 54 skipped, 16 xfailed` | neutraliserad |
+| `if traff_i_ord:` satt till `if False:` | RÖD, `10 failed, 1484 passed, 54 skipped, 16 xfailed` | neutraliserad |
+| `if tal not in tillatna:` satt till `if False:` | RÖD, `24 failed, 1470 passed, 54 skipped, 16 xfailed` | neutraliserad |
+| anropet i `krav_pa_svaret` | RÖD, `49 failed, 1445 passed, 54 skipped, 16 xfailed` | raderad |
 
 **SVITEN ÄR HELA `pytest`-KÖRNINGEN, inte två filer.** Talen ovan är omkörda i
 skiva 42 mot hela sviten, och de går därför inte att jämföra med de tal som stod
 här före den skivan.
+
+*Talen kördes om EN GÅNG TILL i samma skiva, efter att varv 1 fällt hopfogningen
+och tvingat fram kedjefogningen, borttagen reserv och fyra nya test. §7.2 gör ett
+tal oläst när dess underlag ändras, och svitens storlek ÄR underlaget här.*
+
+*Här stod tal mätta mot en svit på 1464 test, alltså före de tillkomna raderna.*
 
 *Här stod tal mätta mot `tests/test_generera.py` PLUS
 `tests/test_generera_monster.py`, en svit som då bar 576 test. Raderna gällde
@@ -3069,11 +3084,10 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
 - **Lucka 54. EN SÖNDERKLYVD PRISSATS PRÖVAS INTE AV PRISGRENEN. STÄNGD I SKIVA
   42 PÅ LARS BESLUT, se `docs/beslutslogg.md` #98.**
 
-  **VAD SOM STÄNGDE DEN.** `_prissatser` fogar ihop två angränsande satser när
-  ett prisord SPÄNNER ÖVER SKARVEN mellan dem, alltså när
-  `_prisord_over_skarven` hittar en `PRISORD`-matchning som börjar i den ena och
-  slutar i den andra. Paret prövas då som EN sats. Det är en egenskap och ingen
-  förkortningslista.
+  **VAD SOM STÄNGDE DEN.** `_prissatser` fogar ihop angränsande MENINGAR när ett
+  prisord SPÄNNER ÖVER SKARVEN mellan dem, alltså när `_prisord_over_skarven`
+  hittar en `PRISORD`-matchning som börjar i den ena och slutar i den andra. De
+  prövas då som EN sats. Det är en egenskap och ingen förkortningslista.
 
   **MÅTTET ÄR EN SPÄNNANDE MATCHNING OCH INTE "INGENDERA HALVAN BÄR ETT
   PRISORD".** Den svagare lydelsen hade lämnat *"Det kostar 25 000 kr exkl. moms
@@ -3081,9 +3095,29 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   hade `moms 1400.` aldrig prövats av prisgrenen. Samma defekt, flyttad ett steg.
   Formen står i `tests/test_generera.py` som ett eget fall.
 
-  **PRÖVAD MED EN KÖRNING.** En neutralisering av hopfogningen ger `5 failed,
-  1459 passed, 54 skipped, 16 xfailed`, och de tre mätta lydelserna nedan faller
-  alla med `DID NOT RAISE Sparrfalld`.
+  **HOPFOGNINGEN GÅR I KEDJA OCH ALDRIG PARVIS.** En parvis regel som hoppar två
+  steg efter en hopfogning prövar aldrig skarven mellan den andra halvan och
+  nästa mening. Bär en mening slutet av en prisfras OCH början av nästa blir den
+  tredje delen föräldralös: *"Det kostar 25 000 kr exkl. moms är inkl. moms
+  1400."* PASSERADE hela `krav_pa_svaret`, och 1400 är uppslagets tjänstevikt.
+  Det är samma egenskap en tredje gång i den här luckans historia. Fällt av
+  §7-granskningen av skiva 42, varv 1.
+
+  **ORDNINGEN ÄR LASTBÄRANDE, och den första lydelsen hade den fel.**
+  Hopfogningen låg efter `SATSBROTT`-delningen, som KASTAR sin avskiljare, alltså
+  TILLVERKADE den prisfraser: *"Vi tar det exkl, men moms är inräknad 1400."* bär
+  inget prisord alls, men blev `exkl moms` när `, men ` föll bort, och då fälldes
+  en AVLÄST tjänstevikt med motiveringen att den står i en prismening som inte
+  finns. En ny överblockeringsklass, införd av skivans egen första lydelse och
+  borttagen i samma skiva. Fällt av §7-granskningen av skiva 42, varv 1, bunden
+  av `test_en_SATSBROTT_SKARV_fogas_ALDRIG_ihop`.
+
+  **PRÖVAD MED EN KÖRNING.** Hopfogningen neutraliserad, rad 966 satt till
+  `while False and …`: RÖD, `10 failed, 1484 passed, 54 skipped, 16 xfailed`.
+  Samtliga fall i `test_en_SONDERKLYVD_prissats_provas_av_PRISGRENEN` faller med
+  `DID NOT RAISE Sparrfalld`, och med dem `test_prisformer_som_ska_falla` för
+  `Det är inkl. moms.` och `Det är exkl. moms.`, alltså två committade prisformer
+  som hopfogningen numera är ensam om att bära.
 
   **PRISET ÄR LUCKA 55, och det är Lars avvägning.** Varje hopfogning gör en sats
   större, och prisgrenen kräver att varje tal i en prissats kommer ur
@@ -3191,9 +3225,12 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   och"*. Promptens ordalydelse är Lars enligt §8 och §11, alltså står tillägget
   utskrivet här och i #96 och ändras på hans ord.
 
-  **BUNDEN.** `test_varje_regel_star_ORDAGRANT` binder hela lydelsen,
-  `test_REGEL_5_bar_SAMMA_FORBEHALL_som_regel_8` säger vilket led som bär. En
-  fällning av förbehållet ur `SYSTEM` ger RÖD på den senare.
+  **BUNDEN, OCH PRÖVAD MED EN KÖRNING.** `test_varje_regel_star_ORDAGRANT` binder
+  hela lydelsen, `test_REGEL_5_bar_SAMMA_FORBEHALL_som_regel_8` säger vilket led
+  som bär. Rad 1141 NEUTRALISERAD till regelns lydelse före skivan, alltså utan
+  förbehållet: RÖD, `3 failed, 1491 passed, 54 skipped, 16 xfailed`, och de tre
+  är `test_HELA_systemprompten_ar_bunden`, `test_varje_regel_star_ORDAGRANT[5]`
+  och `test_REGEL_5_bar_SAMMA_FORBEHALL_som_regel_8`.
 
   Nedan står luckan som den var när den mättes upp.
 
@@ -3217,11 +3254,14 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   8:s. Regelns ordalydelse är Lars, se §8 och §11, och ändras inte av mig. Han
   gav lydelsen i skiva 42.
 
-  *De fem styckena ovan står i presens om ett läge som upphörde i skiva 42:
-  motsägelsen blir inte längre live när filen fylls, och regel 5 bär numera
-  förbehållet. De står kvar som beskrivningen av luckan när den mättes upp.
+  *Styckena från "Regel 5 står under rubriken" till och med "SKILLNADEN MOT
+  FAKTAFALLET" står i presens om ett läge som upphörde i skiva 42: motsägelsen
+  blir inte längre live när filen fylls, och regel 5 bär numera förbehållet. De
+  står kvar som beskrivningen av luckan när den mättes upp.
   `config/priser.json`:s kommentar är omskriven i samma skiva och varnar inte
-  längre för den här luckan.*
+  längre för den här luckan. Här stod "De fem styckena ovan", vilket både räknade
+  sin egen omgivning och räknade fel: stycket närmast noten är skrivet i förfluten
+  tid i samma commit. Fällt av §7-granskningen av skiva 42, varv 1.*
 
 - **Lucka 53. `las_konfigvarden` REKURSERAR INTE, och en nästlad prisfil
   renderar sina kommentarer i prompten. STÄNGD I SKIVA 42 PÅ LARS BESLUT, se
@@ -3237,10 +3277,13 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   `test_bada_konfigfilerna_i_repot_ar_PLATTA` är tripwiren för filerna i repot,
   och den gäller BÅDA filerna och hela nyckelmängden.
 
-  **BÅDA PRÖVADE MED EN KÖRNING.** En fällning av `isinstance`-ledet ger `2
-  failed, 1462 passed, 54 skipped, 16 xfailed`, och utdatan visar raden
-  `nastlad: {'_internt': 'kostar oss 9 000 kr', ...}` renderad under
-  prisrubriken. En nästlad post i `config/priser.json` ger RÖD på tripwiren.
+  **BÅDA PRÖVADE MED EN KÖRNING.** `isinstance`-ledet, rad 1329 i
+  `src/generera.py`, RADERAD: RÖD, `2 failed, 1492 passed, 54 skipped, 16
+  xfailed`, båda parametriseringarna av `test_ett_NASTLAT_varde_nar_ALDRIG_prompten`.
+  Utdatan visar raden `nastlad: {'_internt': 'kostar oss 9 000 kr', ...}`
+  renderad under prisrubriken. Tripwiren: `config/priser.json` rad 13
+  NEUTRALISERAD till en nästlad post: RÖD, `3 failed, 1491 passed, 54 skipped,
+  16 xfailed`, med `test_bada_konfigfilerna_i_repot_ar_PLATTA` bland dem.
 
   **ETT NÄSTLAT VÄRDE UTELÄMNAS I STÄLLET FÖR ATT KASTA.** Samma riktning som
   raden ovanför i samma funktion, som ger tomt på giltig JSON av fel typ: en fil
@@ -3287,8 +3330,33 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   **VAD SOM STÄNGDE LUCKAN.** Lars valde det andra av de två alternativ som stod
   här, alltså att en vakt binder att båda filerna är platta, och lade till att
   koden själv utelämnar en nästlad post. `las_konfigvarden` rekurserar alltså
-  fortfarande INTE, och behöver inte göra det: det finns ingen nivå kvar att gå
-  ned i.
+  fortfarande INTE. Det behöver den inte heller så länge filerna är platta, men
+  funktionen är inte längre symmetrisk med `_varden_ur`, och det är LUCKA 56.
+
+- **Lucka 56. DE TVÅ KONFIGLÄSARNA ÄR INTE LÄNGRE SYMMETRISKA. ÖPPEN OCH MÄTT.
+  GATAD AV PLATTHETSVAKTEN.**
+
+  `_varden_ur` går ned genom hela strukturen och gör ett NÄSTLAT värdes tal till
+  ett TILLÅTET TAL i ett utgående mail. `las_konfigvarden` utelämnar sedan skiva
+  42 hela den nästlade posten ur prompten. En nästlad prisfil skulle alltså göra
+  `25000` skrivbart för modellen utan att talet någonsin står i underlaget.
+
+  **UPPMÄTT AV §7-GRANSKNINGEN AV SKIVA 42, VARV 1**, som också mätte att en
+  nästlad post i `config/priser.json` gör bland annat
+  `test_kundens_tal_gor_ALDRIG_ett_svarstal_tillatet` RÖD.
+
+  **VARFÖR DEN INTE ÄR STÄNGD.** De två läsarna har olika krav med avsikt, och
+  `test_en_NASTLAD_kommentar_vidgar_ALDRIG_talsparren` binder uttryckligen att ett
+  nästlat VÄRDES tal SKA nå `_tillatna_tal`. Att ändra det är att riva upp skiva
+  36:s lärdom, och riktningen är dessutom den säkra: ett tal som modellen inte
+  ser i prompten är ett tal den inte kan citera.
+
+  **VAD SOM GATAR DEN.** `test_bada_konfigfilerna_i_repot_ar_PLATTA`. Luckan
+  kräver en nästlad fil, och en nästlad fil gör sviten röd.
+
+  **EN ANDRA HALVA AV SAMMA OBSERVATION:** ett värde som varken är sträng eller
+  behållare, ett `int`, `None` eller `True`, passerar `las_konfigvarden` och
+  `str()`-renderas i prompten. Samma vakt gatar det, eftersom den kräver `str`.
 
 - **Lucka 50. STÄNGD SOM SÄNDVÄG I SKIVA 41, VÄG TRE. Ett kvarstående led rör
   HÄRKOMSTRADEN och inte kundmailet.**
@@ -4768,6 +4836,34 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.50.0 — 2026-09-14
+
+**SKIVA 42 VARV 1 UNDERKÄNDE, och lucka 54 var INTE stängd.** Den parvisa
+hopfogningen hoppade över varannan skarv: *"Det kostar 25 000 kr exkl. moms är
+inkl. moms 1400."* passerade, och 1400 är uppslagets tjänstevikt. Hopfogningen
+går nu i KEDJA. Luckans post bär formen.
+
+**SKIVANS FÖRSTA LYDELSE INFÖRDE EN NY ÖVERBLOCKERINGSKLASS.** Hopfogningen låg
+efter `SATSBROTT`-delningen, som kastar sin avskiljare, alltså tillverkade den
+prisfraser som aldrig stått i svaret. Ordningen är nu meningar, hopfogning,
+`SATSBROTT`, och `test_en_SATSBROTT_SKARV_fogas_ALDRIG_ihop` binder det.
+
+**RESERVEN ÄR BORTTAGEN.** En fällning gav GRÖN svit, alltså band inget test den,
+och skälet den motiverades med kan inte inträffa. Invarianten bärs i stället av
+`test_ett_PRISORD_i_tabellen_nar_ALLTID_prisgrenen`.
+
+**LUCKA 56 REGISTRERAD.** `_varden_ur` och `las_konfigvarden` är inte längre
+symmetriska: ett nästlat värdes tal blir tillåtet utan att värdet når prompten.
+Gatad av platthetsvakten, och att stänga den river upp skiva 36:s lärdom.
+
+**FÄLLNINGSTABELLENS TAL ÄR OMKÖRDA EN ANDRA GÅNG**, mot sviten efter varv 1:s
+rättelser. Två prövningar saknade utdata och form och har fått båda.
+
+**EN MENING SOM RÄKNADE SIN EGEN OMGIVNING ÄR STRUKEN.** "De fem styckena ovan"
+räknade dessutom fel.
+
+Ett öppet sändvägshål stängt, en ny lucka och fyra rättade påståenden ⇒ MINOR.
 
 ### 0.49.0 — 2026-09-14
 

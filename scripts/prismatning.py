@@ -82,6 +82,22 @@ def _gamla_prissatser(svar: str) -> list[str]:
     return satser
 
 
+def _hopfogningen_lopte(svar: str) -> bool:
+    """Fogade kedjefogningen faktiskt ihop två meningar i den här texten?
+
+    **DET ÄR INTE SAMMA SAK SOM ATT UPPDELNINGEN ÄNDRADES.** `nya != gamla` är
+    falskt också när hopfogningen löpte men gamla vägens RESERV gav samma
+    resultat, vilket den gjorde för varje text som bara bar EN prissats. En
+    slutsats om att hopfogningen inte löpte gick alltså inte att dra ur det
+    måttet. Fällt av §7-granskningen av skiva 42, varv 1.
+    """
+    delar = generera._delat_pa_mening(svar)
+    return len(delar) > 1 and any(
+        generera._prisord_over_skarven(delar[i], delar[i + 1])
+        for i in range(len(delar) - 1)
+    )
+
+
 def _icke_pristal(sats: str) -> set[str]:
     """Talen i satsen som INTE sitter ihop med ett valutaord."""
     alla = generera._tal_i(sats)
@@ -101,6 +117,7 @@ def _matt(texter: list[str]) -> dict:
         "prissatser_utan_tal": 0,
         "prissatser_med_bara_pristal": 0,
         "prissatser_med_ovrigt_tal": 0,
+        "texter_dar_hopfogningen_lopte": 0,
         "texter_som_bytte_uppdelning": 0,
         "texter_som_bytte_till_falsk_fallning": 0,
     }
@@ -111,6 +128,8 @@ def _matt(texter: list[str]) -> dict:
 
         if PRISORD.search(text):
             matt["texter_med_prisord"] += 1
+        if _hopfogningen_lopte(text):
+            matt["texter_dar_hopfogningen_lopte"] += 1
         if nya != gamla:
             matt["texter_som_bytte_uppdelning"] += 1
 
@@ -161,6 +180,8 @@ def _skriv(rubrik: str, kalla: str, matt: dict) -> None:
           f"{_per_hundra(falska, matt['texter_med_prisord'])}")
     print("")
     print("  HOPFOGNINGENS EGET BIDRAG, skiva 42:")
+    print(f"    texter där hopfogningen LÖPTE: "
+          f"{matt['texter_dar_hopfogningen_lopte']}")
     print(f"    texter vars uppdelning ändrades: "
           f"{matt['texter_som_bytte_uppdelning']}")
     print(f"    texter som BLEV en falsk fällning av ändringen: "

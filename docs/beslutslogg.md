@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.59.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
+**Version:** 0.60.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -5215,14 +5215,28 @@ läste kommentarnycklarnas tal. Mätt på `priser.json`:
 | --- | --- |
 | `_varden_ur(las_konfig(PRISER))` | `[]` |
 | tal som når `_tillatna_tal` ur filen | inga |
-| tal i filens RÅA innehåll, om filtret inte fanns | `09`, `10`, `14`, `2026`, `25000`, `41`, `5`, `52`, `53`, `8` |
+| tal i filens RÅA innehåll, om filtret inte fanns | ~~`09`, `10`, `14`, `2026`, `25000`, `41`, `5`, `52`, `53`, `8`~~ se noten |
+
+*Uppräkningen är STRUKEN och ersätts inte. Skiva 42 skrev om två av filens
+kommentarnycklar på Lars beslut, och `grep -c` visar att `skiva 42`, `LUCKA 54`
+och `LUCKA 55` nu står i filen, alltså saknar raden minst tre tal. En tabell över
+en KOMMENTARS tal föråldras av varje redigering av kommentaren, och den ska
+därför inte stå som en lista. Det verifierbara är de två raderna ovanför, som
+båda mäter en EGENSKAP och räknas om av en körning. Fällt av §7-granskningen av
+skiva 42, varv 1.*
 
 **KOMMENTAREN BÄR MED FLIT ETT PRISFORMAT TAL.** `_formen` innehåller exemplet
-`25 000 kr`. En fällning av `_`-filtret gör **19 test röda över hela sviten**,
-bland dem `test_ett_tal_UTAN_KALLA_faller_i_varje_skrivform[Vi tar 25000kr för
-jobbet.]`. Utan filtret hade alltså MIN EGEN KOMMENTAR auktoriserat ett pris i
-ett utgående mail. Hålet är stängt av `_varden_ur`, som plockar värden och
+`25 000 kr`. En fällning av `_`-filtret gör **20 test röda**, mätt mot skiva 42:s
+svit, bland dem `test_ett_tal_UTAN_KALLA_faller_i_varje_skrivform[Vi tar 25000kr
+för jobbet.]`. Utan filtret hade alltså MIN EGEN KOMMENTAR auktoriserat ett pris
+i ett utgående mail. Hålet är stängt av `_varden_ur`, som plockar värden och
 aldrig nycklar, hela vägen ned.
+
+*Talet stod som 19, mätt i skiva 41 varv 3. Skiva 42 ändrade BÅDE filens
+kommentarer och svitens innehåll, alltså är talet oläst i §7.2:s mening. Omkört:
+`20 failed, 1474 passed, 54 skipped, 16 xfailed`, rad 575 neutraliserad. Vilken
+svit talet mättes mot står nu utskrivet, eftersom ett antal röda test utan sin
+svit inte går att räkna om. Fällt av §7-granskningen av skiva 42, varv 1.*
 
 *Talet stod först som fjorton, avläst ur en körning av ENBART
 `tests/test_generera.py`. Varv 1 rättade det till sjutton mot hela sviten. Varv
@@ -5359,9 +5373,9 @@ en kostnad till kunden. Lucka 55 fäller en sann mening, alltså ett utkast Lars
 kostar ett felaktigt prisbesked till en kund.
 
 **EGENSKAPEN SOM BYGGDES: ETT PRISORD SOM SPÄNNER ÖVER SKARVEN.** Bär
-sammanfogningen av två angränsande satser en `PRISORD`-matchning som börjar i
-den ena och slutar i den andra, så har delningen förstört frasen och paret prövas
-som EN sats. Ingen förkortningslista.
+sammanfogningen av två angränsande MENINGAR en `PRISORD`-matchning som börjar i
+den ena och slutar i den andra, så har delningen förstört frasen och de fogas
+ihop. Ingen förkortningslista.
 
 **MÅTTET ÄR EN SPÄNNANDE MATCHNING OCH INTE "INGENDERA HALVAN BÄR ETT
 PRISORD".** Skillnaden är lastbärande och uppmätt: *"Det kostar 25 000 kr exkl.
@@ -5370,9 +5384,38 @@ lydelsen låtit paret vara, och `moms 1400.` hade aldrig prövats av prisgrenen.
 Det är lucka 54:s egen defekt flyttad ett steg, och `docs/incidentlogg.md` I10
 bär formen.
 
-**PRÖVAT MED EN KÖRNING.** En neutralisering av hopfogningen ger RÖD på alla
-fyra fallen, samtliga med `DID NOT RAISE Sparrfalld`: de tre lydelser skiva 41
-varv 3 mätte upp som passerande, plus den fjärde formen ovan.
+**HOPFOGNINGEN GÅR I KEDJA OCH ALDRIG PARVIS, och det ledet är fällt fram.** En
+parvis regel som hoppar två steg efter en hopfogning prövar aldrig skarven mellan
+den andra halvan och nästa mening. Bär en mening slutet av en prisfras OCH början
+av nästa blir den tredje delen föräldralös: *"Det kostar 25 000 kr exkl. moms är
+inkl. moms 1400."* PASSERADE, och 1400 är uppslagets tjänstevikt. Det är samma
+defekt en tredje gång, och `docs/incidentlogg.md` I10 bär formen. Fällt av
+§7-granskningen av skiva 42, varv 1.
+
+**ORDNINGEN ÄR LASTBÄRANDE: MENINGAR, HOPFOGNING, SEDAN `SATSBROTT`.** En
+hopfogning får bara ångra en delning som tog bort blanktecken.
+`_delat_pa_satsbrott` KASTAR sin avskiljare, alltså TILLVERKADE en hopfogning
+efter den delningen prisfraser som aldrig stått i svaret: *"Vi tar det exkl, men
+moms är inräknad 1400."* bär inget prisord alls, men blev `exkl moms` när
+`, men ` föll bort, och då fälldes en AVLÄST tjänstevikt med motiveringen att den
+står i en prismening som inte finns. En ny överblockeringsklass, införd av
+skivans egen första lydelse. Fällt av §7-granskningen av skiva 42, varv 1, och
+bunden av `test_en_SATSBROTT_SKARV_fogas_ALDRIG_ihop`.
+
+**RESERVEN ÄR BORTTAGEN, och det är ett fynd och ingen förenkling.** Raden
+`if not satser and PRISORD.search(svar)` prövade hela svaret som en sats när
+ingen enskild sats bar prisordet. Med kedjefogningen är den ONÅBAR: en fällning
+gav GRÖN svit över hela sviten, alltså band inget test den, och skälet den
+motiverades med, en prisfras över TRE delar, kan inte inträffa. `inkl. moms`,
+`exkl. moms` och `\d\s*tkr` är de enda fleroordstermerna, och ingen av dem kan
+rymma två klyvpunkter. Invarianten bärs i stället av
+`test_ett_PRISORD_i_tabellen_nar_ALLTID_prisgrenen`. Fällt av §7-granskningen av
+skiva 42, varv 1.
+
+**PRÖVAT MED EN KÖRNING.** En neutralisering av hopfogningen ger RÖD på samtliga
+fall i `test_en_SONDERKLYVD_prissats_provas_av_PRISGRENEN`, alla med `DID NOT
+RAISE Sparrfalld`: de lydelser skiva 41 varv 3 mätte upp som passerande, formen
+som skiljer de två tänkbara egenskaperna åt, och kedjeformen ovan.
 
 **MÄTNINGEN LARS BESTÄLLDE, ur `scripts/prismatning.py`.** En falsk fällning är
 en text med minst en prissats som också bär ett tal UTAN valutaord. En sådan sats
@@ -5388,16 +5431,23 @@ faller även när priset i den står ordagrant i `config/priser.json`.
 hundra över hela underlaget och 15,6 av hundra på a-traktorsvaren.
 
 **MEN HOPFOGNINGEN BIDROG MED NOLL, och det är den andra halvan av samma
-mätning.** Antalet texter vars satsuppdelning ändrades av skiva 42 är 0 i alla
-tre underlagen, och antalet texter som BLEV en falsk fällning av ändringen är
-likaså 0. Nivån är alltså lucka 55:s, oförändrad sedan före skivan, och inte en
-kostnad den här ändringen infört.
+mätning.** Antalet texter där hopfogningen LÖPTE är 0 i alla tre underlagen,
+antalet texter vars satsuppdelning ändrades likaså 0, och antalet texter som BLEV
+en falsk fällning av ändringen likaså 0. Nivån är alltså lucka 55:s, oförändrad
+sedan före skivan, och inte en kostnad den här ändringen infört.
 
 **VARFÖR DELTAT ÄR NOLL.** Formen hopfogningen lagar kräver ett prisord som
 spänner över en meningsgräns. `grep -c "inkl. moms" data/par.jsonl` ger 1 och
 `grep -ci "exkl. moms"` ger 0, alltså finns formen på en enda rad i hela filen.
-Den raden bär både kundens mail och vårt svar, och eftersom hopfogningen inte
-löpte på något utgående svar ligger träffen i kundens hälft.
+Den raden bär både kundens mail och vårt svar, och eftersom hopfogningen mätt
+inte löpte på ett enda utgående svar ligger träffen i kundens hälft.
+
+*Slutsatsen vilade först på måttet `texter_som_bytte_uppdelning`, alltså på
+`nya != gamla`. Det är inte samma sak som att hopfogningen inte löpte: den gamla
+vägens RESERV gav identiskt resultat för varje text med bara EN prissats, och då
+räknades texten som oförändrad trots att hopfogningen körde.
+`scripts/prismatning.py` mäter sedan dess `texter_dar_hopfogningen_lopte` direkt.
+Fällt av §7-granskningen av skiva 42, varv 1.*
 
 **TALET ÄR EN ÖVRE GRÄNS.** Mätverktygets mönster för vad som är ett pristal
 missar former som *"25 000 svenska kronor"*, och ett missat pristal räknas som
@@ -5435,14 +5485,75 @@ vilka som är stängda, att lucka 55 är öppen och medvetet så, och pekar på
 fortfarande en tom sträng, bundet av
 `test_prisfilen_i_repot_har_BARA_TOMMA_varden`.
 
-**DEL B: KOMMENTARNYCKLARNA BEHÅLLS.** Lars beslut. De fem nycklar jag lade i
-skiva 41 varv 2 utan hans beslut, och som #95 redovisar, står kvar. De bär
-varningarna, och `test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal` binder
-att deras tal aldrig blir tillåtna tal i ett utgående mail.
+**DEL B: KOMMENTARNYCKLARNA BEHÅLLS.** Lars beslut. De nycklar jag lade i skiva
+41 varv 2 utan hans beslut, och som #95 redovisar, står kvar. De bär varningarna,
+och `test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal` binder att deras tal
+aldrig blir tillåtna tal i ett utgående mail.
+
+**DE VAR TVÅ, INTE FEM.** `git diff 3a7772c 675e619 -- config/priser.json` visar
+att varv 2 lade till `_las_detta_forst` och `_platt_fil` och skrev om
+`_nycklarna`. #95 säger ordagrant "två kommentarnycklar", och filen bär sex
+`_`-nycklar totalt, alltså är fem varken antalet tillagda eller antalet
+kommentarer.
+
+*Lars brief till skiva 42 sade "Du lade fem av dem i varv 2", och jag skrev av
+talet i stället för att läsa det ur repot. §7.2 gäller också ett tal som kommer
+ur en order: varje tal är avläst eller utelämnat, och en brief är ingen committad
+källa. Beslutet, att behålla nycklarna, är oförändrat och gäller alla sex. Fällt
+av §7-granskningen av skiva 42, varv 1.*
+
+---
+
+## #100 — Lucka 56 registrerad: de två konfigläsarna är inte längre symmetriska
+
+Uppmätt av §7-granskningen av skiva 42, varv 1. REGISTRERAD, inte byggd.
+
+`_varden_ur` går ned genom hela strukturen och gör ett NÄSTLAT värdes tal till
+ett tillåtet tal i ett utgående mail. `las_konfigvarden` utelämnar sedan skiva 42
+hela den nästlade posten ur prompten. En nästlad prisfil skulle alltså göra
+`25000` skrivbart för modellen utan att talet någonsin står i underlaget.
+
+**DEN STÄNGS INTE, och skälet är att båda leden är avsiktliga.**
+`test_en_NASTLAD_kommentar_vidgar_ALDRIG_talsparren` binder uttryckligen att ett
+nästlat VÄRDES tal SKA nå `_tillatna_tal`. Det är skiva 36:s lärdom, och att
+riva upp den för att laga en symmetri är inte värt priset. Riktningen är dessutom
+den säkra: ett tal modellen inte ser i prompten kan den inte citera.
+
+**GATAD AV PLATTHETSVAKTEN.** Luckan kräver en nästlad fil, och
+`test_bada_konfigfilerna_i_repot_ar_PLATTA` gör en nästlad fil röd. Det är samma
+grund som lucka 53 vilar på, alltså faller båda samtidigt den dag vakten tas
+bort.
+
+**EN ANDRA HALVA:** ett värde som varken är sträng eller behållare, ett `int`,
+`None` eller `True`, passerar `las_konfigvarden` och `str()`-renderas i prompten.
+Samma vakt gatar det, eftersom den kräver `str`.
 
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.60.0 — 2026-09-14
+
+**#100 TILLKOMMER**, och skiva 42:s varv 1 rättade fem påståenden i redan
+committade poster.
+
+**LUCKA 54 VAR INTE STÄNGD NÄR #98 SKREVS.** Den parvisa hopfogningen hoppade
+över varannan skarv. #98 bär nu kedjefogningen, ordningskravet och den
+borttagna reserven, var och en med sin mätning.
+
+**TVÅ TAL I #94 ÄR RÄTTADE PÅ PLATS under huvudets undantag.** Uppräkningen av
+filens råa tal är STRUKEN och ersätts inte: en tabell över en kommentars tal
+föråldras av varje redigering av kommentaren, och skiva 42 redigerade två av dem.
+Fällningstalet 19 är omkört till 20, nu med sin svit utskriven.
+
+**#99:s "de fem nycklar" ÄR RÄTTAT TILL TVÅ.** Talet kom ur Lars brief och inte
+ur repot. §7.2 gäller också ett tal som kommer ur en order.
+
+**#98:s SLUTSATS OM DELTAT VILAR NU PÅ ETT DIREKT MÅTT.**
+`scripts/prismatning.py` mäter `texter_dar_hopfogningen_lopte`, eftersom
+`nya != gamla` inte var samma sak som att hopfogningen inte löpte.
+
+Ny post och fem rättade påståenden ⇒ MINOR.
 
 ### 0.59.0 — 2026-09-14
 
