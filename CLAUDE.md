@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.12.11 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #103
+**Version:** 0.12.12 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #103
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -519,6 +519,34 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.12.12 — 2026-09-14
+
+**`Speglar` STÅR KVAR PÅ #103.** Varv 1 skapade ingen ny beslutspost.
+
+**EN SÄNDVÄGSVAKT FÖRSVAGADES AV MIG I DEN HÄR SKIVAN, och det ska stå här.**
+`test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal` byggdes om till att pröva
+strängidentitet och blev då mätt VAKUÖS mot den historiska defekt den finns för.
+Docstringen påstod samtidigt att ändringen var "strikt starkare", och den
+premissen var falsk. §0:s ramverksregel 3 stod alltså utan sin vakt mellan
+`d772d9a` och rättelsen. Vakten är ombyggd och fäller defekten igen. Regeln är
+oförändrad; det som ändrats är att jag skriver ut att jag försvagade den.
+
+**0.12.11:s TAL "ELVA RÖDA VAKTER" ÄR STRUKET.** Det kom ur Lars brief och inte
+ur repot, alltså samma fel som skiva 42:s "de fem nycklar". §7.2 gäller också ett
+tal som kommer ur en order, och att det upprepades en skiva senare hör till
+bilden.
+
+**0.12.5:s FÄLLNINGSTAL ÄR OMKÖRT EN TREDJE GÅNG**, från 20 till 13, eftersom
+korpusbytet tog bort sju rader som gick röda på kommentarens `25000`.
+
+**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
+är tom sedan 0.12.0.
+
+**§10 ÄR OBRUTEN.** `git diff --stat -- config/` är tom. Fällningarna som mätte
+tripwiren är återställda och kvitterade.
+
+Rättade påståenden ⇒ PATCH.
+
 ### 0.12.11 — 2026-09-14
 
 **`Speglar` följer med till beslutslogg #103.** Avläst ur
@@ -528,17 +556,24 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 OFÖRÄNDRADE: godkännandet gäller en enskild skiva, precis som i #34, #54, #67,
 #71 och #77.
 
-**0.12.9:s RAD OM ATT REGEL 5:s SLUTMENING ÄR MIN ÄR ÖVERTAGEN AV LARS.**
+**0.12.8:s RAD OM ATT REGEL 5:s SLUTMENING ÄR MIN ÄR ÖVERTAGEN AV LARS.**
 Villkoret *"Står inget pris i underlaget och"* var mitt när det skrevs i skiva
 42, och §11 gör promptens ordalydelse till hans. Han antog det som sitt i skiva
 43. Regeltexten är OFÖRÄNDRAD; det som ändrats är vem som står för den.
+*Raden namngav först 0.12.9. Den posten nämner inte slutmeningen; raden står i
+0.12.8. Fällt av §7-granskningen av skiva 43, varv 1.*
 
 **§7.1 FICK EN LÄRDOM SOM ÄNNU INTE ÄR EN REGEL, och den hör hemma i regeltexten
 först när Lars vill ha den där.** Den skulle lyda ungefär: ett test som bär ett
 exempelvärde ur samma domän som en §10-fil blir en tripwire i förklädnad, och då
-går tio vakter röda av ett beslut som bara en av dem vaktar. Skiva 43 mätte upp
-elva röda vakter och fick ner det till en. Jag skriver inte in den i §7.1 på eget
-bevåg, se §8.
+går en rad vakter röda av ett beslut som bara en av dem vaktar. Skiva 43 fick ner
+utfallet till EN röd rad, mätt för fem olika belopp. Jag skriver inte in lärdomen
+i §7.1 på eget bevåg, se §8.
+
+*Här stod att "tio vakter" går röda och att skiva 43 "mätte upp elva röda
+vakter". Talet kom ur Lars brief och inte ur repot, och det gick inte att
+reproducera. Vad som är mätt står i `docs/beslutslogg.md` #103. Fällt av
+§7-granskningen av skiva 43, varv 1.*
 
 **§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
 är tom sedan 0.12.0.
@@ -735,7 +770,7 @@ fyllt något, och den binder HELA nyckelmängden och inte bara ett fält.
 
 **§0:s ramverksregel 3 fick en verkställande rad till, prövad med en KÖRNING.**
 Filens kommentarer bär med flit talet `25 000 kr`. En fällning av `_varden_ur`:s
-kommentarfilter gör 20 test röda, mätt mot skiva 42:s svit, bland dem ett som
+kommentarfilter gör 13 test röda, mätt mot skiva 43:s svit, bland dem ett som
 visar att just det talet då blir tillåtet i ett utgående mail. *Talet stod först
 som fjorton, avläst ur en delkörning, och rättades till sjutton i varv 1. Varv 2
 lade två kommentarnycklar i filen och räknade inte om det. Fällt av
@@ -743,10 +778,14 @@ lade två kommentarnycklar i filen och räknade inte om det. Fällt av
 
 *Talet stod sedan som 19, och den lydelsen sade "över hela sviten" utan att
 säga vilken. Skiva 42 ändrade både filens kommentarer och svitens innehåll,
-alltså blev talet oläst i §7.2:s mening. Omkört: `20 failed, 1474 passed, 54
-skipped, 16 xfailed`. Fällt av §7-granskningen av skiva 42, varv 2, som också
-mätte att 0.12.8 påstod den här rättelsen gjord när den bara var gjord i
-`docs/beslutslogg.md` #94.*
+alltså blev talet oläst i §7.2:s mening. Omkört till 20. Fällt av
+§7-granskningen av skiva 42, varv 2, som också mätte att 0.12.8 påstod den här
+rättelsen gjord när den bara var gjord i `docs/beslutslogg.md` #94.*
+
+*Och omkört en tredje gång i skiva 43, som bytte korpusens exempeltal:
+`13 failed, 1483 passed, 54 skipped, 16 xfailed`. Sju av de tjugo gick röda
+därför att kommentarens `25000` gjorde deras exempeltal tillåtet, och det gör det
+inte längre. Fällt av §7-granskningen av skiva 43, varv 1.*
 
 **§0:s styrdokumentlista är oförändrad.** `config/priser.json` står redan i §7.2
 och §10, och skiva 41 skapade ingen ny fil utöver den.

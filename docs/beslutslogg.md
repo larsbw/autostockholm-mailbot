@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.62.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
+**Version:** 0.62.1 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -5244,18 +5244,25 @@ rättelse som namnger rader föråldrar sig själv i samma skrivning, tillämpad
 tallista. Fällt av §7-granskningen av skiva 42, varv 3.*
 
 **KOMMENTAREN BÄR MED FLIT ETT PRISFORMAT TAL.** `_formen` innehåller exemplet
-`25 000 kr`. En fällning av `_`-filtret gör **20 test röda**, mätt mot skiva 42:s
-svit, bland dem `test_ett_tal_UTAN_KALLA_faller_i_varje_skrivform[Vi tar 25000kr
-för jobbet.]`. Utan filtret hade alltså MIN EGEN KOMMENTAR auktoriserat ett pris
-i ett utgående mail. Hålet är stängt av `_varden_ur`, som plockar värden och
-aldrig nycklar, hela vägen ned.
+`25 000 kr`. En fällning av `_`-filtret gör **13 test röda**, mätt mot skiva 43:s
+svit, bland dem `test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal`, som är
+den rad som visar att just det talet då blir tillåtet. Utan filtret hade alltså
+MIN EGEN KOMMENTAR auktoriserat ett pris i ett utgående mail. Hålet är stängt av
+`_varden_ur`, som plockar värden och aldrig nycklar, hela vägen ned.
 
 *Talet stod som 19, mätt i skiva 41 varv 3. Skiva 42 ändrade BÅDE filens
-kommentarer och svitens innehåll, alltså är talet oläst i §7.2:s mening. Omkört:
-`20 failed, 1474 passed, 54 skipped, 16 xfailed`, med raden
-`if str(namn).startswith("_"):` i `_varden_ur` neutraliserad. Vilken
-svit talet mättes mot står nu utskrivet, eftersom ett antal röda test utan sin
-svit inte går att räkna om. Fällt av §7-granskningen av skiva 42, varv 1.*
+kommentarer och svitens innehåll, alltså var talet oläst i §7.2:s mening. Omkört
+till 20 i skiva 42, med raden `if str(namn).startswith("_"):` i `_varden_ur`
+neutraliserad. Vilken svit talet mättes mot står nu utskrivet, eftersom ett antal
+röda test utan sin svit inte går att räkna om. Fällt av §7-granskningen av skiva
+42, varv 1.*
+
+*Och omkört en tredje gång i skiva 43, som bytte korpusens exempeltal. Sju av de
+tjugo gick röda därför att kommentarens `25000` gjorde deras exempeltal tillåtet;
+med sentineltalet gör det inte längre det. Omkört:
+`13 failed, 1483 passed, 54 skipped, 16 xfailed`. Talet mäter alltså samma
+egenskap som förut, men mot en korpus som inte längre delar tal med kommentaren.
+Fällt av §7-granskningen av skiva 43, varv 1.*
 
 *Talet stod först som fjorton, avläst ur en körning av ENBART
 `tests/test_generera.py`. Varv 1 rättade det till sjutton mot hela sviten. Varv
@@ -5676,9 +5683,20 @@ andetag att priset får återges och att kunden ska höra att vi återkommer. Te
 
 Lars beslut i skiva 43, DEL A.
 
-**PROBLEMET, MÄTT I SKIVA 42.** Elva vakter gick röda när `a_traktorkonvertering`
-fylldes med `25 000 kr`, och bara EN av dem var §10-tripwiren. De tio andra gick
-röda därför att korpusen använde samma tal som sitt kanoniska pris UTAN källa.
+**PROBLEMET.** En rad vakter gick röda när `a_traktorkonvertering` fylldes med
+`25 000 kr`, och bara EN av dem var §10-tripwiren. Resten gick röda därför att
+korpusen använde samma tal som sitt kanoniska pris UTAN källa.
+
+*Posten sade först "Elva vakter", MÄTT I SKIVA 42. Talet kom ur Lars brief och
+inte ur repot: `grep -rn "gick röda" docs/` hittar ingen mätning, och skiva 42:s
+poster #96 till #101 bär ingen. Det är samma fel som #99:s "de fem nycklar", och
+§7.2 gäller också ett tal som kommer ur en order. Vad som ÄR mätt står i nästa
+stycke. Fällt av §7-granskningen av skiva 43, varv 1.*
+
+**HUR STOR EFFEKTEN ÄR, MÄTT PÅ DAGENS KORPUS.** Fylls en post med sentineltalet
+självt, alltså med korpusens kanoniska okällade pris, blir utfallet
+`21 failed, 1475 passed, 54 skipped, 16 xfailed`. Det är formen den gamla
+korpusen hade för ett VERKLIGT pris, och det som skivan tar bort.
 
 **BESLUTET, ORDAGRANT LARS:** korpusen ska byta exempeltal, inte verkligheten.
 Vad Auto Stockholm tar betalt får inte styras av vilket tal ett test råkar
@@ -5703,12 +5721,25 @@ saknades.
 och bar en docstring som sade att raden SKA gå röd när Lars fyller filen. Den
 heter nu `test_ett_pris_UTAN_KALLA_faller_mot_repots_egen_prisfil`.
 
-**VERIFIERAT MED EN KÖRNING, och målet är nått.** Med
-`a_traktorkonvertering` satt till `25 000 kr` i en fällning: RÖD,
-`1 failed, 1494 passed, 54 skipped, 16 xfailed`, och den enda är
-`test_prisfilen_i_repot_har_BARA_TOMMA_varden`. Samma utfall med `rekond` satt
-till `18 000 kr inklusive moms`, alltså är resultatet inte specifikt för en
-nyckel eller ett belopp.
+**VERIFIERAT MED FEM KÖRNINGAR, och målet är nått.** Varje fällning ger RÖD med
+`1 failed, 1494 passed, 54 skipped, 16 xfailed`, och den enda röda är
+`test_prisfilen_i_repot_har_BARA_TOMMA_varden`:
+
+| Fällning i `config/priser.json` | Utfall |
+| --- | --- |
+| `a_traktorkonvertering` = `25 000 kr` | 1 failed |
+| `rekond` = `18 000 kr inklusive moms` | 1 failed |
+| `a_traktorkonvertering` = `1400 kr` | 1 failed |
+| `a_traktorkonvertering` = `1500 kr` | 1 failed |
+| `service` = `1 000 kr` | 1 failed |
+
+*De tre sista lades till i varv 1. En första lydelse mätte bara de två första och
+drog slutsatsen att resultatet "inte är specifikt för en nyckel eller ett
+belopp". Granskningen falsifierade den: `1400` krockade med `GRANSBIL`:s
+tjänstevikt och med tkr-raden, `1500` med en glued-kr-rad, och `1000` med en
+viktrad. Tre korpusrader till är därför bytta, och `SENTINELBIL` är tillagd.
+Generaliseringen gäller nu därför att den är mätt på fem belopp och inte därför
+att den lät rimlig. Fällt av §7-granskningen av skiva 43, varv 1.*
 
 **FILEN ÄR TOM NÄR SKIVAN SKEPPAS.** Fällningarna är återställda av
 `scripts/sparr-prova.sh`, och varje återställning är kvitterad med `filens
@@ -5718,6 +5749,33 @@ fyller filen själv.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.62.1 — 2026-09-14
+
+**VARV 1 UNDERKÄNDE, och det tyngsta fyndet var att en SÄNDVÄGSVAKT FÖRSVAGADES
+av skivans egen ombyggnad.** `test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal`
+prövade strängidentitet i stället för tal och var mätt VAKUÖS mot den historiska
+defekten: en `_varden_ur` som dumpar hela dicten gav GRÖNT. Den prövar nu
+differensen, alltså tal som en kommentar bär men varken ett värde eller
+`ALLTID_TILLATNA_TAL`, och fäller defekten igen.
+
+**"STRIKT STARKARE" VILADE PÅ EN FALSK PREMISS.** `_tillatna_tal` hämtar inte
+sina tal enbart ur `_varden_ur`; den börjar i `ALLTID_TILLATNA_TAL` och lägger
+till uppslagets vikter.
+
+**GENERALISERINGEN I #103 VAR FALSIFIERAD.** `1400`, `1500` och `1000` är också
+fullt rimliga priser, och alla tre krockade med korpusrader. Tre rader till är
+bytta, `SENTINELBIL` är tillagd, och slutsatsen vilar nu på fem mätta belopp i
+stället för två.
+
+**TALET "ELVA" ÄR STRUKET.** Det kom ur Lars brief och inte ur repot, alltså
+samma fel som #99:s "de fem nycklar".
+
+**ÅTTA TAL BLEV OLÄSTA av att sviten växte, och är omkörda.** Ett av dem ändrade
+både `failed` och `passed`: nästlingstripwiren tappade en röd rad av den
+försvagade vakten, vilket den nu har tillbaka.
+
+Rättade påståenden i committade poster ⇒ PATCH.
 
 ### 0.62.0 — 2026-09-14
 

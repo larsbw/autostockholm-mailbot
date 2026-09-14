@@ -32,7 +32,7 @@ import pytest
 from src import generera
 from src.fordonsuppslag import Uppslag, Utfall
 from src.generera import Forfragan, Sparrfalld
-from tests.sentinelpris import SENTINELPRIS, SENTINELPRIS_IHOP
+from tests.sentinelpris import SENTINELPRIS, SENTINELPRIS_IHOP, SENTINELTAL
 
 # GRÄNSBILEN. Släpvagnsvikten är exakt 1000, alltså HAR talet en källa och
 # talspärren fäller INTE först. Utan det prövar tröskelraderna fel spärr, vilket
@@ -57,6 +57,30 @@ UTAN_UPPSLAG = Forfragan(
     kategori="fråga om a-traktorkonvertering",
     utfall=Utfall.OKLART,
     uppslag=None,
+)
+
+# ETT UPPSLAG VARS VIKT ALDRIG KAN VARA ETT PRIS. Skiva 43, Lars beslut i DEL A.
+#
+# **VARFÖR DEN BEHÖVS.** Raden som gör `\d\s*tkr` lastbärande kräver ett tal som
+# HAR en källa, så att prisordet är det enda som kan fälla. Den använde
+# `GRANSBIL`, vars tjänstevikt är 1400, och då gick raden röd den dag en post i
+# `config/priser.json` fylldes med `1400 kr`: talet fick en källa i PRISFILEN
+# också, och prisgrenen släppte igenom det. Uppmätt av §7-granskningen av skiva
+# 43, varv 1.
+#
+# Vikten är `SENTINELTAL`, av samma skäl som `tests/sentinelpris.py` skriver ut:
+# Lars kan aldrig fylla det beloppet, alltså kan kollisionen inte återuppstå. Att
+# vikten är absurd som FORDONSVIKT spelar ingen roll här, eftersom fixturen bara
+# används av prisgrenen och aldrig av en viktavläsning.
+SENTINELBIL = Forfragan(
+    text="x",
+    kategori="fråga om a-traktorkonvertering",
+    utfall=Utfall.GRONT,
+    uppslag=Uppslag(
+        tjanstevikt_kg=int(SENTINELTAL),
+        slapvagnsvikt_kg=1000,
+        draganordning=True,
+    ),
 )
 
 
@@ -396,7 +420,9 @@ PRIS_SKA_FALLA = [
     (f"Det brukar hamna runt {SENTINELPRIS_IHOP}tkr.", UTAN_UPPSLAG),
     # skiva 31, varv 2: talet ihopskrivet med enheten
     (f"Vi tar {SENTINELPRIS_IHOP}kr för jobbet.", UTAN_UPPSLAG),
-    ("Det blir 1500kr, betala på plats.", UTAN_UPPSLAG),
+    # *Raden bar `1500kr`, ett fullt rimligt pris, och gick röd när en post i
+    # `config/priser.json` fylldes med `1 500 kr`. Skiva 43, varv 1.*
+    (f"Det blir {SENTINELPRIS_IHOP}kr, betala på plats.", UTAN_UPPSLAG),
     # skiva 32, varv 1: PRISORDEN UTAN SIFFRA INTILL.
     #
     # `tkr` och `spänn` hade bara rader där ett tal stod bredvid, alltså bar
@@ -444,10 +470,15 @@ PRIS_SKA_FALLA = [
     # skiva 33, varv 1: RADEN SOM GÖR `\d\s*tkr` LASTBÄRANDE.
     #
     # Varje annan tkr-rad bär en siffra UTAN källa, alltså fälls den av
-    # `TAL_I_TEXT` även om prisordet tas bort. Med GRÄNSBILEN har 1400 en källa,
-    # så prisordet är det enda som kan fälla. Utan raden gick `\d\s*tkr` att
-    # radera med hela sviten grön.
-    ("Det blir 1400tkr.", GRANSBIL),
+    # `TAL_I_TEXT` även om prisordet tas bort. Här HAR talet en källa i
+    # uppslaget, så prisordet är det enda som kan fälla. Utan raden gick
+    # `\d\s*tkr` att radera med hela sviten grön.
+    #
+    # *Raden bar `1400` och `GRANSBIL`. Det talet är också ett fullt rimligt
+    # pris, och raden gick därför röd den dag en post i `config/priser.json`
+    # fylldes med `1400 kr`. Se `SENTINELBIL`. Fällt av §7-granskningen av skiva
+    # 43, varv 1.*
+    (f"Det blir {SENTINELPRIS_IHOP}tkr.", SENTINELBIL),
 ]
 
 PRIS_SKA_PASSERA = [
@@ -708,15 +739,17 @@ def _radtexter(tabellnamn: str) -> list[str]:
 # RADERNA I `PRIS_SKA_FALLA` SOM FAKTISKT BÄR ETT PRISORD.
 #
 # **INTE ALLA GÖR DET, och det antagandet var fel.** Raden med `:-` som
-# valutamarkör, raden med talet ihopskrivet med `kr`, och
-# `Det blir 1500kr, betala på plats.` fälls av den allmänna talloopen och inte av
-# `PRISORD`: `\bkr\b` har ingen ordgräns när `kr` sitter ihop med en siffra, och
-# `:-` är ingen pristerm. Uppmätt under bygget i skiva 42, varv 1:s rättelse, av
-# att en första lydelse av raden nedan gick röd på just de tre.
+# valutamarkör och de TVÅ raderna med talet ihopskrivet med `kr` fälls av den
+# allmänna talloopen och inte av `PRISORD`: `\bkr\b` har ingen ordgräns när `kr`
+# sitter ihop med en siffra, och `:-` är ingen pristerm. Uppmätt under bygget i
+# skiva 42, varv 1:s rättelse, av att en första lydelse av raden nedan gick röd
+# på just de tre.
 #
-# *De två första citerades ordagrant med talet `25 000` respektive `25000`. Skiva
-# 43 bytte exempeltalet, och en rad som citerar en tabellrad ordagrant föråldras
-# av varje sådant byte. De beskrivs nu av sin FORM.*
+# *Raderna citerades först ordagrant med talen `25 000`, `25000` och `1500`.
+# Skiva 43 bytte exempeltalen, och en rad som citerar en tabellrad ordagrant
+# föråldras av varje sådant byte, alltså beskrivs de nu av sin FORM. En mellanled
+# sade "raden med talet ihopskrivet med kr" i singular och citerade sedan en
+# andra rad av exakt den formen. Fällt av §7-granskningen av skiva 43, varv 1.*
 PRISORDSRADER = [
     text for text in _radtexter("PRIS_SKA_FALLA")
     if generera.PRISORD.search(text)

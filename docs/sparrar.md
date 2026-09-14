@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.51.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.51.1 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -2705,12 +2705,12 @@ Mot `tests/test_generera.py`, som bar 129 test vid mätningen.
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `while j + 1 < len(delar) and _prisord_over_skarven(...)` satt till `while False and ...` | RÖD, `10 failed, 1484 passed, 54 skipped, 16 xfailed` | neutraliserad |
-| `if not talen:` satt till `if False:` | RÖD, `45 failed, 1449 passed, 54 skipped, 16 xfailed` | neutraliserad |
-| `for tal in sorted(talen - priskallans_tal):` satt till `talen - talen` | RÖD, `16 failed, 1478 passed, 54 skipped, 16 xfailed` | neutraliserad |
-| `if traff_i_ord:` satt till `if False:` | RÖD, `10 failed, 1484 passed, 54 skipped, 16 xfailed` | neutraliserad |
-| `if tal not in tillatna:` satt till `if False:` | RÖD, `24 failed, 1470 passed, 54 skipped, 16 xfailed` | neutraliserad |
-| anropet i `krav_pa_svaret` | RÖD, `49 failed, 1445 passed, 54 skipped, 16 xfailed` | raderad |
+| `while j + 1 < len(delar) and _prisord_over_skarven(...)` satt till `while False and ...` | RÖD, `10 failed, 1486 passed, 54 skipped, 16 xfailed` | neutraliserad |
+| `if not talen:` satt till `if False:` | RÖD, `45 failed, 1451 passed, 54 skipped, 16 xfailed` | neutraliserad |
+| `for tal in sorted(talen - priskallans_tal):` satt till `talen - talen` | RÖD, `16 failed, 1480 passed, 54 skipped, 16 xfailed` | neutraliserad |
+| `if traff_i_ord:` satt till `if False:` | RÖD, `10 failed, 1486 passed, 54 skipped, 16 xfailed` | neutraliserad |
+| `if tal not in tillatna:` satt till `if False:` | RÖD, `24 failed, 1472 passed, 54 skipped, 16 xfailed` | neutraliserad |
+| anropet i `krav_pa_svaret` | RÖD, `49 failed, 1447 passed, 54 skipped, 16 xfailed` | raderad |
 
 **SVITEN ÄR HELA `pytest`-KÖRNINGEN, inte två filer.** Talen ovan är omkörda i
 skiva 42 mot hela sviten, och de går därför inte att jämföra med de tal som stod
@@ -2724,6 +2724,10 @@ tal oläst när dess underlag ändras, och svitens storlek ÄR underlaget här.*
 varv 1:s tillkomna rader. Talet är inte antalet INSAMLADE test: en körning samlar
 också de överhoppade och de förväntat fallerade. Den äldre lydelsen sade "en svit
 på 1464 test". Fällt av §7-granskningen av skiva 42, varv 2.*
+
+*Och omkörda en tredje gång i SKIVA 43, som lade till tre rader. Summan är nu
+1496. Skiva 43:s första lydelse lade till en rad utan att röra tabellen, alltså
+stod åtta av dess tal olästa. Fällt av §7-granskningen av skiva 43, varv 1.*
 
 *Här stod tal mätta mot `tests/test_generera.py` PLUS
 `tests/test_generera_monster.py`, en svit som då bar 576 test. Raderna gällde
@@ -3122,7 +3126,7 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
 
   **PRÖVAD MED EN KÖRNING.** Hopfogningen neutraliserad, raden
   `while j + 1 < len(delar) and _prisord_over_skarven(delar[j], delar[j + 1]):`
-  satt till `while False and …`: RÖD, `10 failed, 1484 passed, 54 skipped, 16
+  satt till `while False and …`: RÖD, `10 failed, 1486 passed, 54 skipped, 16
   xfailed`.
   Samtliga fall i `test_en_SONDERKLYVD_prissats_provas_av_PRISGRENEN` faller med
   `DID NOT RAISE Sparrfalld`, och med dem `test_prisformer_som_ska_falla` för
@@ -3258,7 +3262,7 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   hela lydelsen, `test_REGEL_5_bar_SAMMA_FORBEHALL_som_regel_8` säger vilket led
   som bär. Regel 5:s FÖRSTA rad i `SYSTEM`, den som börjar `5. ALDRIG ETT PRIS
   utöver`, NEUTRALISERAD till, ordagrant,
-  `5. ALDRIG ETT PRIS. Inte ett belopp, inte`: RÖD, `3 failed, 1491 passed, 54
+  `5. ALDRIG ETT PRIS. Inte ett belopp, inte`: RÖD, `3 failed, 1493 passed, 54
   skipped, 16 xfailed`, och de tre är `test_HELA_systemprompten_ar_bunden`,
   `test_varje_regel_star_ORDAGRANT[5]` och
   `test_REGEL_5_bar_SAMMA_FORBEHALL_som_regel_8`.
@@ -3322,12 +3326,12 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
 
   **BÅDA PRÖVADE MED EN KÖRNING.** Raden
   `and not isinstance(v, (dict, list, tuple))` i `las_konfigvarden` RADERAD: RÖD,
-  `2 failed, 1492 passed, 54 skipped, 16
+  `2 failed, 1494 passed, 54 skipped, 16
   xfailed`, båda parametriseringarna av `test_ett_NASTLAT_varde_nar_ALDRIG_prompten`.
   Utdatan visar raden `nastlad: {'_internt': 'kostar oss 9 000 kr', ...}`
   renderad under prisrubriken. Tripwiren: `config/priser.json` rad 13
   NEUTRALISERAD till, ordagrant,
-  `  "tillbehor": {"_internt": "kostar oss 9 000 kr"}`: RÖD, `3 failed, 1491
+  `  "tillbehor": {"_internt": "kostar oss 9 000 kr"}`: RÖD, `3 failed, 1493
   passed, 54 skipped, 16 xfailed`, med `test_bada_konfigfilerna_i_repot_ar_PLATTA`
   bland dem.
 
@@ -4901,6 +4905,18 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.51.1 — 2026-09-14
+
+**FÄLLNINGSTABELLENS TAL ÄR OMKÖRDA EN TREDJE GÅNG.** Skiva 43 lade till rader i
+sviten utan att röra tabellen, alltså stod åtta tal olästa. Summan är nu 1496.
+
+**ETT AV TALEN ÄNDRADE BÅDE `failed` OCH `passed`.** Nästlingstripwiren för
+lucka 53 gick från tre röda till två, därför att skiva 43:s första lydelse
+försvagade `test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal`. Vakten är
+ombyggd och tripwiren är tillbaka på tre.
+
+Omkörda tal ⇒ PATCH.
 
 ### 0.51.0 — 2026-09-14
 

@@ -604,41 +604,73 @@ def test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal():
     innehåller exemplet `25 000 kr`, alltså är den här raden inte teoretisk: utan
     filtret hade boten fått skriva just det talet som ett pris.
 
-    Raden prövar BÅDA leden: att ingen KOMMENTARTEXT går vidare till
-    `_varden_ur`, och att kommentarerna faktiskt bär ett prisformat tal. Utan det
-    andra ledet vore testet grönt även om kommentarerna togs bort, alltså
+    Raden prövar BÅDA leden: att inget tal som BARA står i en kommentar når
+    `_tillatna_tal`, och att kommentarerna faktiskt bär ett prisformat tal. Utan
+    det andra ledet vore testet grönt även om kommentarerna togs bort, alltså
     vakuöst.
 
-    **RADEN PRÖVAR TEXTEN OCH INTE TALET, och det är skiva 43:s ändring.** Den
-    jämförde tidigare kommentarernas TAL mot `_tillatna_tal`, med `25000` som det
-    bärande exemplet. Det talet står i `_formen` och är samtidigt ett fullt
-    rimligt pris, alltså gick raden röd den dag Lars fyllde filen med just det
-    beloppet, trots att filtret fungerade precis som det ska. `_tillatna_tal`
-    hämtar sina tal enbart ur `_varden_ur`:s utdata, så ett villkor på TEXTEN är
-    strikt starkare: går ingen kommentarsträng vidare kan inget tal ur en
-    kommentar göra det heller. Se `docs/beslutslogg.md` #103.
+    **URVALET UTESLUTER TAL SOM HAR EN ANNAN KÄLLA, och det är skiva 43:s
+    ändring.** Raden jämförde tidigare HELA filens tal mot `_tillatna_tal`. Den
+    mängden rymmer `25000` ur `_formen`, som samtidigt är ett fullt rimligt pris,
+    alltså gick raden röd den dag Lars fyllde filen med just det beloppet trots
+    att filtret fungerade precis som det ska. Den prövar nu differensen: tal som
+    står i en kommentar men VARKEN i ett värde eller i `ALLTID_TILLATNA_TAL`. Ett
+    tal som fått en laglig källa är inte längre ett läckage.
+
+    *Skiva 43:s FÖRSTA lydelse prövade i stället STRÄNGIDENTITET, att ingen
+    kommentarTEXT står i `_varden_ur`:s utdatalista, och kallade det "strikt
+    starkare". Den var strikt SVAGARE och mätt vakuös mot just den historiska
+    defekten: en `_varden_ur` som filtrerar `_`-nycklar och sedan dumpar hela
+    dicten returnerar EN sträng som inte är identisk med någon kommentar, medan
+    varje kommentartal ändå går vidare till `_tillatna_tal`. Den fällningen gav
+    GRÖNT på den här raden. Motiveringen var dessutom falsk: `_tillatna_tal`
+    hämtar inte sina tal enbart ur `_varden_ur`, den börjar i
+    `ALLTID_TILLATNA_TAL` och lägger till uppslagets vikter. Fällt av
+    §7-granskningen av skiva 43, varv 1.*
     """
     rat = json.loads(generera.PRISER.read_text(encoding="utf-8"))
-    kommentarer = [v for n, v in rat.items() if n.startswith("_")]
+
+    kommentarernas_tal = set()
+    vardenas_tal = set()
+    for namn, varde in rat.items():
+        if str(namn).startswith("_"):
+            kommentarernas_tal |= generera._tal_i(varde)
+        else:
+            vardenas_tal |= generera._tal_i(varde)
 
     # LEDET SOM GÖR RADEN ICKE-VAKUÖS: kommentarerna bär faktiskt ett prisformat
-    # tal, alltså finns det något att läcka.
-    kommentarernas_tal = set()
-    for kommentar in kommentarer:
-        kommentarernas_tal |= generera._tal_i(kommentar)
+    # tal, alltså finns det något att läcka. Ledet läser BARA kommentarerna och
+    # påverkas därför inte av att Lars fyller en post.
     assert "25000" in kommentarernas_tal, (
         "kommentaren tappade sitt prisformade tal, och då prövar raden inget"
     )
 
-    # LEDET SOM ÄR SPÄRREN: ingen kommentarsträng går vidare.
-    varden = generera._varden_ur(generera.las_konfig(generera.PRISER))
-    for kommentar in kommentarer:
-        assert kommentar not in varden, (
-            "en kommentarnyckels text nådde sändvägens talkälla"
-        )
+    # LEDET SOM ÄR SPÄRREN: ett tal som bara en kommentar bär har ingen källa.
+    utan_annan_kalla = (kommentarernas_tal - vardenas_tal
+                        - set(generera.ALLTID_TILLATNA_TAL))
+    assert utan_annan_kalla, (
+        "varje kommentartal har en annan källa, och då prövar raden inget"
+    )
+
+    tillatna = generera._tillatna_tal(forfragan())
+    for tal in sorted(utan_annan_kalla):
+        assert tal not in tillatna, f"{tal} kom in via en kommentarnyckel"
 
 
 # --- SKIVA 42 DEL 0: LUCKA 53, PLATT FIL -------------------------------------
+
+
+def test_SENTINELTALET_ar_samma_i_varje_skrivform():
+    """`tests/sentinelpris.py`:s centrala påstående, bundet.
+
+    Modulen säger att båda skrivformerna ger samma token ur `_tal_i`, och det är
+    hela grunden för att korpusen kan blanda dem fritt: en fylld prisfil ska
+    antingen göra alla sentinelrader gröna eller ingen. Påståendet var OBUNDET
+    när modulen skrevs. Fällt av §7-granskningen av skiva 43, varv 1.
+    """
+    assert generera._tal_i(f"Det kostar {SENTINELPRIS} kr.") == {SENTINELTAL}
+    assert generera._tal_i(f"Vi tar {SENTINELPRIS_IHOP}kr.") == {SENTINELTAL}
+    assert generera._tal_i(f"Det blir {SENTINELPRIS_IHOP}tkr.") == {SENTINELTAL}
 
 
 def test_bada_konfigfilerna_i_repot_ar_PLATTA():
@@ -846,8 +878,11 @@ def test_ett_pris_UTAN_KALLA_faller_mot_repots_egen_prisfil():
     kategori.
 
     **RADEN LÄSER DEN RIKTIGA FILEN**, till skillnad från raderna ovan som
-    patchar läsningen. Den prövar alltså hela vägen: fil, `_varden_ur`,
-    `las_priser` och prisgrenen.
+    patchar läsningen. Den prövar vägen fil, `las_konfig`, `las_priser`,
+    prisgrenen. *Här stod att den prövar `_varden_ur`. Den vägen är en ANNAN:
+    prisgrenen hämtar sina tal ur `las_priser` och kastar innan `_tillatna_tal`
+    alls nås. En fällning som kopplar bort `_varden_ur` ur `_tillatna_tal` låter
+    den här raden vara GRÖN. Fällt av §7-granskningen av skiva 43, varv 1.*
 
     *Testet hette `test_ett_pris_faller_alltid` och sade att
     `config/priser.json` existerar inte. Filen skapades av skiva 41, och ordet
@@ -856,10 +891,13 @@ def test_ett_pris_UTAN_KALLA_faller_mot_repots_egen_prisfil():
 
     *Och sedan hette det `..._med_repots_egen_TOMMA_prisfil`, med en docstring som
     sade att raden SKA bli röd den dag någon fyller en post. Det var en andra
-    §10-tripwire i förklädnad, och den gjorde att elva vakter gick röda när Lars
-    fyllde filen fast bara en av dem vaktade hans beslut. Raden bär nu
-    `SENTINELPRIS`, alltså ett tal Lars aldrig kan fylla, och prövar det den
-    heter. Lars beslut i skiva 43, se `docs/beslutslogg.md` #103.*
+    §10-tripwire i förklädnad: den gick röd av Lars beslut utan att vakta det.
+    Raden bär nu `SENTINELPRIS`, alltså ett tal Lars aldrig kan fylla, och prövar
+    det den heter. Lars beslut i skiva 43, se `docs/beslutslogg.md` #103.*
+
+    *Noten sade först att den här raden "gjorde att elva vakter gick röda". Ett
+    enskilt test kan på sin höjd göra sig självt rött; de övriga gick röda av
+    korpusens exempeltal. Fällt av §7-granskningen av skiva 43, varv 1.*
     """
     with pytest.raises(Sparrfalld) as fel:
         generera.krav_pa_tal_med_kalla(
@@ -1004,7 +1042,11 @@ def test_kundens_VIKT_faller():
         # Enheten EFTER siffran gör det till en kvantitet, inte en beteckning.
         # Det var skiva 31:s värsta hål och får inte återkomma.
         f"Vi tar {SENTINELPRIS_IHOP}kr för jobbet.",
-        "Bilen klarar 1000kg.",
+        # *Raden bar `1000kg`. Talet är också ett fullt rimligt pris, och raden
+        # gick röd när en post i `config/priser.json` fylldes med `1 000 kr`.
+        # Formen, enheten ihopskriven med siffran, är oförändrad. Fällt av
+        # §7-granskningen av skiva 43, varv 1.*
+        f"Bilen klarar {SENTINELPRIS_IHOP}kg.",
         # Fler än tre siffror är ingen modellbeteckning.
         f"Vi gör det för ca{SENTINELPRIS_IHOP}.",
         # Ett fristående tal är alltid en kvantitet.
@@ -1516,10 +1558,19 @@ def test_prompten_sager_att_priser_inte_finns(monkeypatch):
 
 
 def test_prompten_bar_PRISET_nar_filen_ar_fylld(monkeypatch):
-    """NEGATIVKONTROLL till raden ovan, och den saknades.
+    """NEGATIVKONTROLL till raden ovan, på `bygg_prompt`-nivå.
 
-    Utan den vore "säg alltid `Priser: INGA`" en grön lösning, alltså hade Lars
-    kunnat fylla filen utan att priset nådde prompten.
+    **MEKANISMEN VAR REDAN TÄCKT, och det ska sägas.** En lydelse som alltid
+    säger `Priser: INGA` fälls också av `test_prisblocket_bar_ramen_nar_filen_ar_fylld`
+    och av `test_ett_NASTLAT_varde_nar_ALDRIG_prompten[PRISER-_prisrader]`, båda
+    äldre än skiva 43. Den här raden lägger till att priset når hela vägen ut i
+    PROMPTEN och inte bara ur `_prisrader`, vilket är det led raden ovanför
+    prövar från andra hållet.
+
+    *Här stod att negativkontrollen "saknades" och att "säg alltid Priser: INGA"
+    hade varit en grön lösning. Båda leden är falska: fällningen ger tre röda
+    rader, varav två fanns före skivan. Fällt av §7-granskningen av skiva 43,
+    varv 1.*
     """
     _med_priser(monkeypatch, {"a_traktorkonvertering": "25 000 kr"})
 
