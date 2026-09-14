@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.47.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.48.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -3047,6 +3047,59 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   räknade upp. Det är `docs/incidentlogg.md` I10, tredje varvet i rad i den här
   skivan.
 
+- **Lucka 54. EN SÖNDERKLYVD PRISSATS PRÖVAS INTE AV PRISGRENEN. ÖPPEN OCH MÄTT.
+  SÄNDVÄG. UTLÖSES NÄR LARS FYLLER `config/priser.json`.**
+
+  `PRISORD` bär fraser med punkt i, `inkl. moms` och `exkl. moms`, och
+  `_meningar` klyver dem: `Det är inkl.` plus `moms.`, där ingendera halvan
+  matchar. Reservgrenen fångar det BARA när INGEN sats bär ett prisord. Bär en
+  annan mening ett giltigt prisord blir urvalet icke-tomt, reserven löper aldrig,
+  och den sönderklyvda satsen prövas inte alls av prisgrenen. Den faller då ned i
+  den ALLMÄNNA talloopen, vars mängd bär uppslagets vikter och
+  `ALLTID_TILLATNA_TAL`.
+
+  **UPPMÄTT MOT HELA `krav_pa_svaret`**, med prisfilen fylld med ett pris och ett
+  uppslag med tjänstevikt 1400 och släpvagnsvikt 1500. Samtliga tre passerar:
+
+  > Konverteringen kostar 25 000 kr. Dragkroken blir 1400 extra inkl. moms.
+  > Konverteringen kostar 25 000 kr. Tillägget är 3 extra exkl. moms.
+  > Konverteringen kostar 25 000 kr. Tillägget är 2 inkl. moms.
+
+  **DET ÄR ORDAGRANT DEN DEFEKT VARV 2 SKREV ATT DEN STÄNGDE.** Fordonets
+  tjänstevikt blir ett citerbart pris, och `3` och `2` ur `ALLTID_TILLATNA_TAL`
+  likaså.
+
+  **HÅLET ÄR INTE NÅBART I DAG.** Med en TOM prisfil fäller den första
+  prissatsen alltid, eftersom inget tal kan komma ur en tom källa. Luckan öppnar
+  i samma ögonblick Lars fyller en post, alltså samma utlösare som lucka 52 och
+  53.
+
+  **VARFÖR DEN INTE ÄR RÄTTAD.** Fyndet gjordes i varv 3 med grinden förbrukad,
+  och det är TREDJE gången samma egenskap bundits som en instans i den här
+  skivan: först föll prisordet igenom till den allmänna talloopen, sedan band
+  reserven bara fallet där inget annat prisord finns. Se `docs/incidentlogg.md`
+  I10.
+
+  **VAD SOM STÄNGER LUCKAN.** Att pröva varje ANGRÄNSANDE SATSPAR: bär
+  sammanfogningen ett prisord som ingendera halvan bär, så har delningen
+  förstört frasen och paret ska prövas som en sats. Det är en egenskap och ingen
+  förkortningslista.
+
+- **Lucka 55. PRISSPÄRREN ÖVERBLOCKERAR EN SAMORDNAD MENING. ÖPPEN OCH MÄTT.**
+
+  `, och ` är struket ur `SATSBROTT`, alltså prövas varje samordnad mening som
+  EN prissats. Uppmätt med prisfilen fylld:
+
+  > Din bil väger 1400 kg, och konverteringen kostar 25 000 kr.
+  > Konverteringen kostar 25 000 kr och tar 2 veckor.
+
+  Båda faller, den första på en AVLÄST vikt ur uppslaget och den andra på en
+  tvåa. Riktningen är säker, men §7.1:s eget skäl gäller: en spärr som fäller
+  önskade svar blir avstängd.
+
+  **DEN HÄNGER IHOP MED LUCKA 54.** Att foga samman satspar löser den ena och
+  förvärrar den andra. De ska avgöras tillsammans.
+
 - **Lucka 52. SYSTEMPROMPTENS REGEL 5 FÖRBJUDER DET UNDERLAGET LEVERERAR.
   ÖPPEN. SÄNDVÄG. UTLÖSES NÄR LARS FYLLER `config/priser.json`.**
 
@@ -3092,8 +3145,19 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
 
   **VAD SOM HINDRAR DET I DAG.** För `priser.json`
   `test_prisfilen_i_repot_har_BARA_TOMMA_varden`, som kräver att varje post är
-  en tom sträng. För `config/fakta.json` finns ingen motsvarande vakt: dess test
-  prövar bara `telefon`.
+  en TOM STRÄNG och därmed omöjliggör nästling. För `config/fakta.json` hindrar
+  ingenting det: dess vakt binder hela nyckelmängden och att `telefon` är tom,
+  men inte att `bokningar` är en sträng.
+
+  **UPPMÄTT:** en fällning som gör `bokningar` till
+  `{"_internt": "...", "text": "..."}` ger GRÖN svit, och `_faktarader`
+  renderar då den interna raden under rubriken om vad som får påstås om oss.
+
+  *Bisatsen sade att faktafilens test "prövar bara `telefon`". Det är falskt:
+  `tests/test_generera.py` binder också `set(las_fakta()) == {"bokningar"}`,
+  under en rubrik som ordagrant säger HELA NYCKELMÄNGDEN BINDS. Huvudpåståendet
+  höll, bisatsen inte, och §7.2 prövar bisatsen som huvudsatsen. Fällt av
+  §7-granskningen av skiva 41, varv 3.*
 
   **VAD SOM STÄNGER LUCKAN.** Att `las_konfigvarden` rekurserar som `_varden_ur`
   gör, eller att en vakt binder att båda filerna är platta.
@@ -3143,10 +3207,18 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   `Status` inte får någon. Ankarlagret räddar ingenting då: ankarna parsas
   korrekt eftersom bara målfältets etikett är ändrad.
 
-  **HELA VÄGEN, uppmätt:** `franvaro_far_pastas` blir `['draganordning']` och
-  spärren släpper igenom *"Din bil saknar tyvärr dragkrok"* för en bil vars sida
-  skriver ut `Draganordning: Ja Kula`. Det är det utkast Lars fällde, återuppstått
-  genom spärren som byggdes mot det.
+  **HELA VÄGEN, uppmätt I SKIVA 40 och inte längre nåbar:**
+  `franvaro_far_pastas` blev `['draganordning']` och spärren släppte igenom
+  *"Din bil saknar tyvärr dragkrok"* för en bil vars sida skriver ut
+  `Draganordning: Ja Kula`. Det var det utkast Lars fällde, återuppstått genom
+  spärren som byggdes mot det.
+
+  *Stycket stod i PRESENS efter att VÄG TRE stängt vägen. Mängden sätts aldrig
+  ur ett misslyckat uppslag längre, alltså kan `['draganordning']` inte uppstå
+  den vägen. Skivans motivering för att lämna mätningen kvar, att den beskriver
+  koden som den fortfarande är, höll för fältstatusarna men inte för det här
+  stycket och inte för `MINSTA_ANKARE`-stycket. Fällt av §7-granskningen av
+  skiva 41, varv 2 och varv 3.*
 
   **VAD SOM HÅLLER, prövat:** tom sida, felmeddelandesida, radbrytning och
   blanktecken inuti etikettnoden, och fältet renderat i en tabell. Samtliga
@@ -3708,10 +3780,17 @@ när uppslaget saknas; för dragviktspåståenden finns inget alls. Den som prö
 spärren för vakuositet måste fälla BÅDA för draganordning och bara den här för
 dragvikt. Uppmätt av §7-granskningen av skiva 40, varv 1.
 
-**VAD SOM GÖR ETT PÅSTÅENDE BELAGT.** Bara att sidan bevisligen inte bär
-fältet, alltså `Faltstatus.SAKNAS_PA_SIDAN` respektive
-`Dragviktslage.REGISTRET_SAKNAR`, eller att draganordningen LÄSTES som `False`.
-Mängden sätts i `src/kedja.py` och är TOM som förval.
+**VAD SOM GÖR ETT PÅSTÅENDE BELAGT: ETT AVLÄST VÄRDE, och ingenting annat.**
+Bara `draganordning` kan bli belagd, och bara genom att uppslaget LYCKATS och
+läst `Nej`. Mängden sätts på ett enda ställe i `src/kedja.py` och är TOM som
+förval. `dragvikt` kan aldrig bli belagd.
+
+*Här stod att `Faltstatus.SAKNAS_PA_SIDAN` och `Dragviktslage.REGISTRET_SAKNAR`
+också gör ett påstående belagt. Det blev falskt av VÄG TRE i skiva 41. Samma
+mening rättades i skiva 41 på sex andra ställen i `src/` och `tests/`, och
+missades här, i det dokument §0 namnger som hemvist för varje spärr och vad den
+skyddar mot. Det är samma fel som 0.47.0 själv skrev ut för grannspärren, i
+samma varv. Fällt av §7-granskningen av skiva 41, varv 3.*
 
 **BAKLÄNGESRIKTNINGEN ÄR EN EGENSKAP. FRAMLÄNGESRIKTNINGEN ÄR FORTFARANDE EN
 UPPRÄKNING, och den läcker.** Står nekandet EFTER faktumet fäller varje nekande
@@ -4561,6 +4640,34 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.48.0 — 2026-09-14
+
+**TVÅ NYA LUCKOR UR VARV 3, båda sändväg och båda utlösta av att prisfilen
+fylls.**
+
+**LUCKA 54: en sönderklyvd prissats prövas inte av prisgrenen.** `inkl. moms`
+klyvs av förkortningspunkten, och reserven fångar det bara när INGEN sats bär
+ett prisord. Bär en annan mening ett prisord slipper den klyvda satsen
+prövningen och faller ned i den allmänna talloopen, där uppslagets vikter är
+tillåtna. Uppmätt mot hela `krav_pa_svaret`: fordonets tjänstevikt blir ett
+citerbart pris.
+
+**DET ÄR TREDJE GÅNGEN SAMMA EGENSKAP BUNDITS SOM EN INSTANS I DEN HÄR SKIVAN**,
+och det är skälet till att den inte rättas i ett fjärde varv.
+
+**LUCKA 55: prisspärren överblockerar en samordnad mening.** `, och ` är struket
+ur `SATSBROTT`, alltså fälls *"Konverteringen kostar 25 000 kr och tar 2
+veckor"*. Den hänger ihop med lucka 54: att foga samman satspar löser den ena
+och förvärrar den andra, så de avgörs tillsammans.
+
+**TRE FALSKHETER I FILEN ÄR RÄTTADE.** Spärrposten för `pastaende-om-franvaro`
+sade att ett saknat fält gör ett påstående belagt, alltså den mening skiva 41
+rättade på sex ställen i `src/` och `tests/` och missade här. Lucka 50:s mätning
+stod i presens om en väg VÄG TRE stängde. Lucka 53:s bisats sade att
+faktafilens vakt bara prövar `telefon`.
+
+Två nya luckor och tre rättade påståenden ⇒ MINOR.
 
 ### 0.47.0 — 2026-09-14
 

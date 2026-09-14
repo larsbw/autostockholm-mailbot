@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.12.5 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #94
+**Version:** 0.12.6 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #95
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -519,6 +519,34 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.12.6 — 2026-09-14
+
+**`Speglar` följer med till beslutslogg #95.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 41:s stoppost lagts till.
+
+**§7:s tre granskningsvarv är OFÖRÄNDRADE, och #95 är en tillämpning av dem.**
+Skivan stoppades därför att ett fynd kvarstod efter tre varv. Raden står här av
+samma skäl som i 0.9.4, 0.11.4, 0.12.1 och 0.12.4.
+
+**§10 BRÖTS AV MIG I DEN HÄR SKIVAN, och det är utskrivet i #95.** Jag lade två
+kommentarnycklar i `config/priser.json` i varv 2 utan ett nytt beslut av Lars.
+Ordern gällde att skapa filen med tomma värden och rapportera nycklarna. Inga
+värden är satta och nyckelmängden är oförändrad, men §10 gör VARJE ändring i
+filen till ett stopp. Regeln är oförändrad; det som ändrats är att jag skriver
+ut att jag bröt den.
+
+**TILLÄGGEN GJORDE TVÅ AV SKIVANS EGNA TAL OLÄSTA**, och varv 2 räknade inte om
+dem. Det är §7.2:s omskrivningsregel utlöst av att talets UNDERLAG ändrades i en
+grannmening, vilket paragrafen skriver ut ordagrant. Båda omkörda i varv 3.
+
+**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
+är tom sedan 0.12.0. Samtliga fyra öppna luckor rör vad ett UTKAST innehåller,
+och alla fyra utlöses först när Lars fyller `config/priser.json`.
+
+**§0:s styrdokumentlista är oförändrad.** Varv 3 skapade ingen ny fil.
+
+Ren synk ⇒ PATCH.
+
 ### 0.12.5 — 2026-09-14
 
 **`Speglar` följer med till beslutslogg #94.** Avläst ur
@@ -541,9 +569,11 @@ fyllt något, och den binder HELA nyckelmängden och inte bara ett fält.
 
 **§0:s ramverksregel 3 fick en verkställande rad till, prövad med en KÖRNING.**
 Filens kommentarer bär med flit talet `25 000 kr`. En fällning av `_varden_ur`:s
-kommentarfilter gör 17 test röda över hela sviten, bland dem ett som visar att
+kommentarfilter gör 19 test röda över hela sviten, bland dem ett som visar att
 just det talet då blir tillåtet i ett utgående mail. *Talet stod först som
-fjorton, avläst ur en delkörning. Fällt av §7-granskningen av skiva 41, varv 1.*
+fjorton, avläst ur en delkörning, och rättades till sjutton i varv 1. Varv 2
+lade två kommentarnycklar i filen och räknade inte om det. Fällt av
+§7-granskningen av skiva 41, varv 1 och varv 3.*
 
 **§0:s styrdokumentlista är oförändrad.** `config/priser.json` står redan i §7.2
 och §10, och skiva 41 skapade ingen ny fil utöver den.

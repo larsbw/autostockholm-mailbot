@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.57.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
+**Version:** 0.58.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -5215,23 +5215,92 @@ läste kommentarnycklarnas tal. Mätt på `priser.json`:
 | --- | --- |
 | `_varden_ur(las_konfig(PRISER))` | `[]` |
 | tal som når `_tillatna_tal` ur filen | inga |
-| tal i filens RÅA innehåll, om filtret inte fanns | `09`, `10`, `14`, `2026`, `25000`, `41` |
+| tal i filens RÅA innehåll, om filtret inte fanns | `09`, `10`, `14`, `2026`, `25000`, `41`, `5`, `52`, `53`, `8` |
 
 **KOMMENTAREN BÄR MED FLIT ETT PRISFORMAT TAL.** `_formen` innehåller exemplet
-`25 000 kr`. En fällning av `_`-filtret gör **17 test röda över hela sviten**,
+`25 000 kr`. En fällning av `_`-filtret gör **19 test röda över hela sviten**,
 bland dem `test_ett_tal_UTAN_KALLA_faller_i_varje_skrivform[Vi tar 25000kr för
 jobbet.]`. Utan filtret hade alltså MIN EGEN KOMMENTAR auktoriserat ett pris i
 ett utgående mail. Hålet är stängt av `_varden_ur`, som plockar värden och
 aldrig nycklar, hela vägen ned.
 
-*Här stod "fjorton". Det talet var avläst ur en körning av ENBART
-`tests/test_generera.py` och skrivet som om det gällde sviten; tre av de
-sjutton ligger i `tests/test_generera_monster.py`. Fällt av §7-granskningen av
-skiva 41, varv 1, och omkört mot hela sviten.*
+*Talet stod först som fjorton, avläst ur en körning av ENBART
+`tests/test_generera.py`. Varv 1 rättade det till sjutton mot hela sviten. Varv
+2 lade sedan till två kommentarnycklar i filen, vilket gjorde både talet och
+tabellen ovan OLÄSTA i §7.2:s mening, och räknade inte om någon av dem. Båda är
+omkörda i varv 3: 19 röda, och fyra tal till i tabellen. Fällt av
+§7-granskningen av skiva 41, varv 3.*
+
+---
+
+## #95 — Skiva 41 STOPPAD efter tre varv. Tre luckor gatar prisfilens fyllning
+
+**§7:s rad för SÄNDVÄG, tillämpad och inte frångången:** fynd kvarstod efter tre
+varv. Samma form som #53, #58, #66, #70, #76, #80, #85 och #92.
+
+**DET KVARSTÅENDE KODFYNDET ÄR LUCKA 54, och det är samma egenskap för tredje
+gången i den här skivan.** En prissats som klyvs av en förkortningspunkt, `inkl.
+moms`, prövas inte av prisgrenen när någon ANNAN mening bär ett prisord. Den
+faller då ned i den allmänna talloopen, och fordonets tjänstevikt blir ett
+citerbart pris.
+
+| Lydelse | Vad som slank igenom |
+| --- | --- |
+| varv 1 | prisordet föll igenom till den allmänna talloopen så snart filen bar något |
+| varv 2 | reserven band bara fallet där INGEN sats bär ett prisord |
+| varv 3 | fyndet registrerat, inte rättat |
+
+**INGEN AV LUCKORNA ÄR NÅBAR MEDAN FILEN ÄR TOM.** Lucka 52, 53, 54 och 55
+utlöses alla av samma händelse: att Lars fyller en post i `config/priser.json`.
+Varningen står i filens egen kommentar och på `docs/roadmap.md`:s rad, så att
+den som fyller filen ser den.
+
+**JAG ÄNDRADE `config/priser.json` I VARV 2 UTAN ETT NYTT BESLUT AV LARS, och
+det ska stå här.** §10 gör VARJE ändring i filen till ett stopp, och §7 säger
+att frågan där inte är hur många varv utan om ändringen är tillåten alls. Lars
+order gällde att skapa filen med tomma värden och rapportera nycklarna.
+Tilläggen är kommentarnycklar som varnar för luckorna, alltså inga värden och
+ingen ändrad nyckelmängd, men beslutet var hans och inte mitt. Uppmärksammat av
+§7-granskningen av skiva 41, varv 3. Behåll eller ta bort dem som du vill.
+
+**TILLÄGGEN GJORDE DESSUTOM TVÅ AV SKIVANS EGNA TAL OLÄSTA**, och varv 2 räknade
+inte om dem: fällningstalet och tabellen över filens råa tal. Båda är omkörda i
+varv 3. Det är §7.2:s omskrivningsregel, utlöst av att talets UNDERLAG ändrades.
+
+**VAD SOM ÄNDÅ RÄTTADES.** §7 kräver att ett känt falskt påstående alltid
+rättas:
+
+| Fynd | Vad som var falskt |
+| --- | --- |
+| spärrposten för `pastaende-om-franvaro` | sade att ett saknat fält gör ett påstående belagt. Samma mening rättades på sex ställen i `src/` och `tests/` och missades i det dokument §0 pekar ut |
+| lucka 50:s mätning | stod i presens om en väg VÄG TRE stängde |
+| fällningstalet 17 | är 19 efter varv 2:s egna tillägg |
+| tabellen över filens råa tal | saknade fyra tal, tillagda av varv 2 |
+| lucka 53:s bisats | sade att faktafilens vakt bara prövar `telefon`; den binder hela nyckelmängden |
+
+**RÄTTELSERNA ÄR SJÄLVMÄTTA OCH INTE OBEROENDE GRANSKADE.**
+
+**VAD SKIVAN ÄNDÅ LEVERERAR.** VÄG TRE är byggd och bunden: ett misslyckat
+uppslag ger aldrig rätt att påstå frånvaro, i något av de tre lägena. `auto` är
+tom, alltså läser Lars varje utkast. Prisfilen finns och är tom, och de fyra
+luckorna beskriver exakt vad som måste avgöras innan den fylls.
 
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.58.0 — 2026-09-14
+
+**#95 tillkommer: skiva 41 STOPPAD efter tre varv.** Ett kodfynd kvarstår,
+lucka 54, och tre luckor till gatar det ögonblick Lars fyller prisfilen.
+
+**FEM KÄNDA FALSKHETER RÄTTADES ÄNDÅ**, självmätt och utan granskare. Två av dem
+var tal som varv 2 gjorde olästa genom att ändra prisfilen och inte räkna om.
+
+**JAG ÄNDRADE EN §10-FIL UTAN NYTT BESLUT, och posten skriver ut det.** Tilläggen
+är kommentarnycklar, alltså inga värden, men beslutet var Lars.
+
+Ny post ⇒ MINOR.
 
 ### 0.57.0 — 2026-09-14
 
