@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.54.0 · **Uppdaterad:** 2026-09-11 · **Implementerar** CLAUDE.md §8
+**Version:** 0.55.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -4867,7 +4867,201 @@ tre av de fem talen fanns inte längre någonstans i `docs/`. Fällt av
 
 ---
 
+## #87 — Tre utfall per fält. Ett saknat fält är ett registerfaktum
+
+**Lars fynd i skiva 40, och det är grunden för hela skivan.** En fordonssida
+saknar `Släpvagnsvikt` HELT medan en annan bär den. Biluppgifter renderar bara
+fält som HAR ett värde, alltså betyder ett saknat fält att REGISTRET inte bär
+uppgiften, inte att parsern föll. Modulen behandlade båda likadant.
+
+**TRE UTFALL PER FÄLT**, `biluppgifter.Faltstatus`:
+
+| Utfall | Betyder | Får sägas till kunden |
+| --- | --- | --- |
+| `SAKNAS_PA_SIDAN` | registret bär inte uppgiften | JA, det är ett faktum om bilen |
+| `TOLKAS_EJ` | fältet stod där och vi kunde inte läsa det | NEJ, det är vårt fel |
+| `LAST` | värdet finns och gick att tolka | JA |
+
+**MÄTNINGEN, ur `scripts/faltinventering.py` över skiva 37:s sex sparade sidor,
+2026-09-14.** Noll nya begäran mot biluppgifter.se.
+
+| Etikett | finns på |
+| --- | --- |
+| Tjänstevikt | 6/6 |
+| Släpvagnsvikt | 4/6 |
+| Draganordning | 5/6 |
+| Kaross | 6/6 |
+| Fyrhjulsdrift | 6/6 |
+| Totalvikt | 6/6 |
+| Passagerare | 5/6 |
+| Fordonsår / Modellår | 6/6 |
+| Status | 6/6 |
+
+**ETIKETTEN HETER `Fordonsår / Modellår`, INTE `Modellår`.** Briefen skrev det
+senare och första körningen gav 0/6. Mätverktygets kontroll över sidornas
+FAKTISKA etiketter visade varför. Det är skivans egen skillnad, ett saknat fält
+mot ett fel hos den som letar, begången av mätverktyget självt.
+
+**PARSERFELSHINKEN ÄR I PRAKTIKEN TOM.** Över sex sidor och nio fält faller
+exakt ETT närvarande värde: `Draganordning` med formen `Ja Kula`, som skiva 39
+gjorde `None` med avsikt. Varje uppslagsmisslyckande i skiva 39:s körning var
+alltså utfall 1 eller 4, aldrig utfall 2. Modulen rapporterade MISSLYCKADES om
+saker som inte är fel, och det förklarar varför femton skarpa uppslag per körning
+gav noll gröna och noll röda.
+
+**HÄRKOMSTRADEN I VYN SÄGER NU VILKET UTFALL DET ÄR**, på Lars order, i stället
+för att kalla tre olika saker MISSLYCKADES.
+
+## #88 — Släpvikten finns i fyra former. Ett fjärde dragviktsläge
+
+**LARS BESLUT I SKIVA 40.** `Släpvagnsvikt` är BROMSAD släpvagnsvikt och den
+storhet VVFS 2003:19 4 kap 42 § punkt 2 avser. `Släpvagnsvikt obromsad` är en
+annan storhet och ett lägre tal. `Släp totalvikt (B)` och `(B+)` är
+KÖRKORTSBEHÖRIGHET, alltså vad en förare får dra, inte fordonets konstruktion.
+
+**DE TRE ANDRA LÄSES, MEN ALDRIG SOM ERSÄTTNING.** `Släpvagnsvikt` är enda
+källan för §42-bedömningen.
+
+**MÄTNINGEN SOM GJORDE LÄGET NÖDVÄNDIGT**, samma sex sidor:
+
+| Form | finns på |
+| --- | --- |
+| Släpvagnsvikt | 4/6 |
+| Släpvagnsvikt obromsad | 5/6 |
+| Släp totalvikt (B) | 5/6 |
+| Släp totalvikt (B+) | 5/6 |
+
+En sida saknar `Släpvagnsvikt` men bär de tre andra. En annan saknar alla fyra.
+
+**FYRA LÄGEN, `biluppgifter.Dragviktslage`:**
+
+| Läge | Betyder | Får sägas |
+| --- | --- | --- |
+| `LAST` | ett tal vi kan bedöma mot §42 | ja |
+| `REGISTRET_SAKNAR` | ingen av de fyra formerna finns | ja, registerfaktum |
+| `ANNAN_FORM` | bromsad saknas, en annan form finns | NEJ, varken frånvaro eller besked |
+| `TOLKAS_EJ` | fältet stod där och gick inte att läsa | NEJ, vårt fel |
+
+**`ANNAN_FORM` ÄR LARS AVGÖRANDE, och det är skivans fjärde utfall.** Uppgiften
+FINNS, i en form vi inte kan bedöma mot. Att då säga att registret saknar
+uppgift vore lika falskt som det utkast han fällde.
+
+**SIDA 04 ÄR EN ÖPPEN PUNKT OCH INGET ATT HÄRLEDA.** Att den bär obromsad men
+ingen bromsad släpvagnsvikt betyder TROLIGEN att fordonet inte får dra bromsad
+släpvagn alls. Troligen räcker inte. Frågan avgörs av besked från en
+besiktningsman, och fordonet faller till OKLART tills dess. Registrerad som
+LUCKA 49 i `docs/sparrar.md`.
+
+## #89 — Spärr mot obelagda påståenden om frånvaro
+
+**§0:s RAMVERKSREGEL 3 BRÖTS, i en riktning ingen spärr täckte.** Ett fordon
+vars sida saknade `Släpvagnsvikt` fick svaret *"Tyvärr går denna bil inte att
+bygga om till A-traktor då den saknar dragvikt"*, samtidigt som härkomstraden
+sade att uppslaget MISSLYCKADES. Boten gav ett negativt besked om ett fält den
+just rapporterat att den inte kunde läsa.
+
+**VARFÖR `genererat-fordonsfaktum` INTE FÅNGADE DET.** Den spärren prövar
+VÄRDEN: ett tal eller ett citerat fordonsord. *"saknar dragvikt"* är varken, och
+hela klassen låg utanför dess räckvidd. `FORDONSTERMER` bär dessutom
+`släpvagnsvikt` men inte `dragvikt`. Bundet av
+`test_GENERERAT_FORDONSFAKTUM_fangade_INTE_det_fallda_utkastet`.
+
+**DEN NYA SPÄRREN HETER `pastaende-om-franvaro`** och släpper igenom ett
+frånvaropåstående bara när sidan bevisligen inte bär fältet. Mängden sätts av
+`src/kedja.py` ur mätningen och är TOM som förval.
+
+**ETT AVLÄST `Nej` ÄR OCKSÅ ETT BELÄGG.** Ett lyckat uppslag kastar inget
+undantag, alltså nådde ett fordon med `Draganordning: Nej` aldrig mängden. Då
+hade spärren blockerat regel 12:s egen formulering, som är SANN för just det
+fordonet.
+
+**ETT ERBJUDANDE OM ATT MONTERA ÄR INGET NEGATIVT BESKED**, och undantaget
+gäller BARA draganordningen. En dragkrok går att montera; en dragvikt är
+fordonets konstruktion. *"Vi kan montera en dragkrok, men bilen saknar
+dragvikt"* fälls alltså fortfarande, och det är en testrad.
+
+## #90 — DEL C och D var mätningar, och båda premisserna föll
+
+**INGET I KODEN SPÄRRAR ETT FORMULÄRMAIL FÖR ATT FRITEXTEN ÄR TOM.**
+`src/kanal.py` behandlar redan formulärmail positivt och matar in formulärets
+identitet i prompten. Ingen längdgrind finns i kedjan, generatorn,
+klassificeraren eller urvalet.
+
+**VAD SOM FAKTISKT SPÄRRADE**, ur `scripts/sparrmatning.py` över den sparade
+körningen av tjugo:
+
+| Etikett | utkast | genererat-fordonsfaktum | genererat-tal-har-kalla | summa |
+| --- | --- | --- | --- | --- |
+| boka a-traktorkonvertering | 1 | 1 | 4 | 6 |
+| fråga om a-traktorkonvertering | 5 | 0 | 3 | 8 |
+| fråga om pris a-traktorkonvertering | 5 | 0 | 1 | 6 |
+
+Nio spärrade, åtta av dem därför att svaret nämner ett pris och
+**`config/priser.json` INTE FINNS**. Det är §0:s ramverksregel 3 som arbetar
+precis som den ska.
+
+**INGEN SPÄRR MJUKAS UPP.** Orsaken ligger i en fil som saknas, och att skapa
+den är ett §10-stopp och Lars beslut. Att skriva om texten tills spärren
+släpper igenom den är §9.1:s första förbjudna åtgärd.
+
+**DEL D: BOKNINGSREGELN NÅR INTE UTFALLET DÄRFÖR ATT SVAREN SPÄRRAS FÖRST.** Av
+sex bokningsärenden spärrades fem, fyra av prisspärren och ett av
+fordonsfaktumspärren. Ett enda blev utkast, och det bar inget jakande ord.
+
+Regel 10 står ordagrant i prompten och är bunden av
+`test_varje_regel_star_ORDAGRANT`. **Hypotesen att modellen inte följer regeln
+går alltså inte att pröva på det här materialet:** fem av sex svar nådde aldrig
+Lars ögon. Samma rotorsak som DEL C.
+
+## #91 — Två språkregler i prompten
+
+**Lars läsning av vyn i skiva 40 DEL F, och båda är språkfel och inga
+spärrfrågor.**
+
+**Regel 12, ur det FÖRSTA av de två fallen Lars namnger i briefen.** Svaret sade
+*"har en registrerad draganordning som anger nej"*. Den meningen beskriver vår
+AVLÄSNING i stället för bilen, och kunden läser om sin bil och inte om vår
+databas. Formen är att bilen SAKNAR registrerad draganordning.
+
+**Regel 13, ur det ANDRA fallet.** Svaret bad kunden bekräfta dragkroken, vilket
+är RÄTT vid OKLART. Men utan tillägget att vi kan montera en läser frågan som
+ett villkor kunden ska uppfylla själv.
+
+*Posten bar först de två registreringsnumren, ordagrant ur briefen. §6 gäller
+varje dokument som pushas, också när numret kommer från Lars egen text, och
+`persondatakontroll` fällde dem. Fälten är beskrivna i stället för citerade.*
+
+**REGEL 13 SKAPADE ETT KRAV PÅ DEL B:s SPÄRR.** Dess naturligaste realisering,
+*"Om bilen saknar dragkrok monterar vi en"*, fälldes av en första lydelse.
+Prompten bad alltså om en mening spärren blockerade. Uppmätt av
+§7-granskningen av skiva 40, varv 1, och rättat med `ERBJUDANDE`.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.55.0 — 2026-09-14
+
+**FEM POSTER TILLKOMMER: #87 till #91.** Skiva 40.
+
+**SKIVAN SKREV FÖRST NOLL RADER UNDER `docs/`**, och fyra kodreferenser pekade
+på ett #87 som inte fanns. §8 säger att en ändring utan appendixpost är en
+ospårbar ändring, och en kodreferens till en post som inte finns är värre än
+ingen referens alls. Fällt av §7-granskningen av skiva 40, varv 1.
+
+**#87 BÄR MÄTNINGEN**, alltså fälttabellen över de sex sparade sidorna, och den
+är det referenserna i `src/biluppgifter.py` och `src/generera.py` pekar på.
+
+**#88 BÄR LARS BESLUT OM DE FYRA SLÄPVIKTSFORMERNA** och det fjärde
+dragviktsläget, plus lucka 49 som en öppen punkt.
+
+**#90 ÄR TVÅ MÄTNINGAR OCH INGA ÄNDRINGAR.** Båda premisserna i DEL C och DEL D
+föll, och posten skriver ut vad som faktiskt spärrade i stället.
+
+**INGEN SPÄRR MJUKAS UPP AV #90**, och det står i posten: orsaken är att
+`config/priser.json` inte finns, och att skapa den är ett §10-stopp.
+
+Fem nya poster ⇒ MINOR.
 
 ### 0.54.0 — 2026-09-11
 

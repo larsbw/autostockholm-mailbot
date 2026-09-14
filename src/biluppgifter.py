@@ -144,6 +144,9 @@ EXAKT_ETIKETT = {
 # faktiska etiketter visade varför. Det är skivans egen skillnad, ett saknat
 # fält mot ett fel hos den som letar, begången av mätverktyget självt. Se
 # `docs/beslutslogg.md` #87.
+#
+# **DE TRE ALTERNATIVA SLÄPVIKTSFORMERNA HÖR TILL #88**, som bär Lars beslut om
+# att de läses men aldrig ersätter den bromsade.
 OVRIGA_ETIKETT = {
     "kaross": "Kaross",
     "fyrhjulsdrift": "Fyrhjulsdrift",
@@ -1149,10 +1152,30 @@ def _ett_falt(lasare: _Faltlasare, nyckel: str, etikett: str, *,
         if namn == etikett
     ]
 
-    # **HÄR LIGGER HELA SKIVANS SKILLNAD.** Ingen etikett betyder att sidan inte
-    # renderade fältet, och sidan renderar bara fält som har ett värde.
-    if not varden:
+    # **HÄR LIGGER HELA SKIVANS SKILLNAD, OCH DEN MÄTS PÅ `etiketter` OCH INTE
+    # PÅ `par`.** Sidan renderar bara fält som har ett värde, alltså betyder en
+    # frånvarande ETIKETT att registret inte bär uppgiften. Att ett PAR saknas
+    # betyder något annat: etiketten stod där och parsern kopplade inte ihop den
+    # med sitt värde.
+    #
+    # `_Faltlasare` skiljer redan de två: `etiketter` bär varje etikettnod i
+    # sidans ordning, också de som inte följs av ett värde, medan `par` bara bär
+    # dem som gör det. Skillnaden är inte hypotetisk, den är committad och
+    # mätt: `test_ostangd_tagg_i_etikettens_foralder` bygger en sida som SKRIVER
+    # UT släpvagnsvikten men där paret faller på en ostängd tagg.
+    #
+    # *Här prövades `if not varden`, alltså att paret saknas. Följden var att
+    # just den sidan gav REGISTRET_SAKNAR, att `src/kedja.py` lade `dragvikt` i
+    # mängden, och att boten fick rätt att säga att registret saknar
+    # dragviktsuppgift om ett fordon vars vikt står utskriven. Härkomstraden
+    # sade samtidigt till Lars att det inte är vårt fel. Fällt av
+    # §7-granskningen av skiva 40, varv 1.*
+    if etikett not in lasare.etiketter:
         return Falt(Faltstatus.SAKNAS_PA_SIDAN)
+
+    # ETIKETTEN STOD DÄR MEN BILDADE INGET PAR. Det är vår avläsning som föll.
+    if not varden:
+        return Falt(Faltstatus.TOLKAS_EJ)
 
     ratt, bar_element = varden[0]
 

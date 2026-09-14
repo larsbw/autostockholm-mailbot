@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.12.2 · **Uppdaterad:** 2026-09-11 · **Speglar:** beslutslogg #86
+**Version:** 0.12.3 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #91
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -518,6 +518,36 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.12.3 — 2026-09-14
+
+**`Speglar` följer med till beslutslogg #91.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 40:s fem poster lagts till.
+
+**§0:s RAMVERKSREGEL 3 FICK EN SPÄRR I EN RIKTNING SOM SAKNADE EN.** Regeln
+säger att boten aldrig genererar ett tal. Skiva 40 mätte upp att ett påstående om
+FRÅNVARO av en uppgift bär samma risk och inget värde att pröva, alltså låg hela
+klassen utanför varje befintlig spärr. `pastaende-om-franvaro` stänger den. Se
+`docs/beslutslogg.md` #89.
+
+**REGELTEXTEN ÄR OFÖRÄNDRAD.** Det som ändrats är att en klass av påståenden som
+regeln rimligen täcker nu har kod som verkställer den.
+
+**§0:s styrdokumentlista är oförändrad.** Skiva 40 skapade
+`scripts/faltinventering.py` och `scripts/sparrmatning.py`, alltså mätverktyg
+och inga styrdokument. Samma grund som 0.8.2, 0.8.6, 0.11.7 och 0.11.13: en
+mätning som bär ett styrdokuments påstående ska gå att räkna om, och §9 kräver
+att den ligger i ett committat skript.
+
+**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
+är tom sedan 0.12.0.
+
+**§9 BRÖTS AV MIG EN FJÄRDE GÅNG**, i samma form som I12 beskriver. Jag körde en
+heredoc i ett kommando som inte behövde den alls. Regeln är oförändrad och
+fångade inget den här gången: överträdelsen var verkningslös, och det är tur och
+inte disciplin.
+
+Ren synk och en ny spärr ⇒ PATCH.
 
 ### 0.12.2 — 2026-09-11
 

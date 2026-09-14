@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.42.0 · **Uppdaterad:** 2026-09-11 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.43.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -118,6 +118,7 @@ verdikt som inte betyder vad det ser ut att betyda.
 | `genererat-tal-har-kalla` | Att boten skriver ett tal, särskilt ett pris, som inte är avläst | `test_uppslagets_egna_tal_slapps_igenom`, `test_ett_svar_utan_tal_slapps_igenom` | Ingen. ÖVERLAPPAR med `troskeln-som-forfattningstext` och prövas FÖRE den. Se posten. |
 | `genererat-fordonsfaktum` | Att boten påstår något om kundens bil utan ett lyckat uppslag | `test_fordonsfaktum_MED_uppslag_slapps_igenom` | `fordonsfakta-ur-uppslag` uppströms, men bara delvis: den fäller ett ofullständigt uppslag, aldrig ett svar utan uppslag. |
 | `troskeln-som-forfattningstext` | Att en ofullständig föreskrift går ut som ett besked | `test_troskeln_utan_forfattningsord_slapps_igenom`, `test_forfattningsord_utan_troskeln_slapps_igenom` | Ingen. Nås bara när talet 1 000 har en källa. Se posten. |
+| `pastaende-om-franvaro` | Att boten säger att en uppgift SAKNAS när den bara inte kunnat läsa den | `test_ett_svar_som_INTE_pastar_franvaro_slapps_igenom` | DELVIS med `genererat-fordonsfaktum`, och bara för `draganordning`. `FORDONSTERMER` bär `draganordning` och `dragkrok` men INTE `dragvikt`, alltså finns inget andra lager för dragviktspåståenden. Mätt, se posten. |
 
 **Tabellen räknar SPÄRRAR, alltså sådant som kod verkställer.** Dokumentet bär
 dessutom poster märkta LUCKA UTAN SPÄRR, som ingen kod implementerar och som
@@ -3039,6 +3040,29 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   räknade upp. Det är `docs/incidentlogg.md` I10, tredje varvet i rad i den här
   skivan.
 
+- **Lucka 49. ETT FORDON MED OBROMSAD MEN INGEN BROMSAD SLÄPVAGNSVIKT. ÖPPEN,
+  OCH AVGÖRS AV EN BESIKTNINGSMAN.**
+
+  Ett av skiva 37:s sex sparade fordon bär `Släpvagnsvikt obromsad` och båda
+  körkortsraderna, men ingen `Släpvagnsvikt`. Uppmätt med
+  `scripts/faltinventering.py`, se `docs/beslutslogg.md` #88.
+
+  **VAD DET TROLIGEN BETYDER.** Att fordonet inte får dra bromsad släpvagn alls.
+
+  **TROLIGEN RÄCKER INTE, och det är Lars ord i skiva 40.** Frågan avgörs av
+  besked från en besiktningsman, inte av en slutsats dragen ur att ett fält
+  saknas. Att härleda den hade varit samma fel som skivan i övrigt rättar: att
+  läsa en frånvaro som ett besked.
+
+  **VAD SOM GÄLLER TILLS DESS.** Fordonet faller till OKLART. `dragviktslage`
+  ger `ANNAN_FORM`, alltså får boten varken ge ett besked eller säga att
+  registret saknar uppgiften. Bundet av
+  `test_dragvikt_ANNAN_FORM_nar_bromsad_saknas_men_annan_star_dar` och
+  `test_ANNAN_FORM_ger_INGEN_ratt_att_pasta_franvaro`.
+
+  **VAD SOM STÄNGER LUCKAN.** Ett besked från en besiktningsman om vad ett
+  saknat bromsat värde betyder i registret. Det är inte en kodfråga.
+
 - **Lucka 45. VARJE ICKE-KOMMENTARVÄRDE I `config/fakta.json` ÄR EN TALKÄLLA.
   ÖPPEN, OCH RISKEN VÄXTE I SKIVA 37.**
 
@@ -3473,6 +3497,65 @@ den gick rakt igenom alla tre spärrarna. Mönstret kräver inte längre ordgrä
 efter sista siffran.
 
 ---
+
+## `pastaende-om-franvaro`
+
+**VAD DEN SKYDDAR MOT.** Att boten säger att en uppgift SAKNAS när den i själva
+verket bara inte kunnat läsa den. Byggd i skiva 40 DEL B, se
+`docs/beslutslogg.md` #89.
+
+**INCIDENTEN.** Ett fordon vars sida saknade `Släpvagnsvikt` fick svaret
+*"Tyvärr går denna bil inte att bygga om till A-traktor då den saknar
+dragvikt"*, samtidigt som härkomstraden i vyn sade att uppslaget MISSLYCKADES.
+Boten gav ett negativt besked om ett fält den just rapporterat att den inte
+kunde läsa. Det är §0:s ramverksregel 3 i dess andra riktning: ett påstående
+utan källa, fast om en FRÅNVARO i stället för ett tal.
+
+**VARFÖR INGEN BEFINTLIG SPÄRR FÅNGADE DET.** `genererat-fordonsfaktum` prövar
+VÄRDEN, alltså ett tal eller ett citerat fordonsord. Ett påstående om frånvaro
+bär inget värde att pröva. Bundet av
+`test_GENERERAT_FORDONSFAKTUM_fangade_INTE_det_fallda_utkastet`.
+
+**REDUNDANSEN ÄR DELVIS OCH ASYMMETRISK, och det ska stå utskrivet.**
+`generera.FORDONSTERMER` bär `släpvagnsvikt`, `draganordning` och `dragkrok`,
+men INTE `dragvikt`. För draganordningspåståenden finns alltså ett andra lager
+när uppslaget saknas; för dragviktspåståenden finns inget alls. Den som prövar
+spärren för vakuositet måste fälla BÅDA för draganordning och bara den här för
+dragvikt. Uppmätt av §7-granskningen av skiva 40, varv 1.
+
+**VAD SOM GÖR ETT PÅSTÅENDE BELAGT.** Bara att sidan bevisligen inte bär
+fältet, alltså `Faltstatus.SAKNAS_PA_SIDAN` respektive
+`Dragviktslage.REGISTRET_SAKNAR`, eller att draganordningen LÄSTES som `False`.
+Mängden sätts i `src/kedja.py` och är TOM som förval.
+
+**TVÅ RIKTNINGAR, MED OLIKA ORDMÄNGDER.** Framlänges, alltså nekandet före
+faktumet, bär hela mängden: `utan dragvikt` och `inte se någon släpvagnsvikt` är
+båda äkta. Baklänges krävs en NEKANDE BESTÄMNING av faktumet, aldrig ett löst
+`inte`: `dragvikten saknas`, `är okänd`, `är inte angiven`. Skälet är mätt:
+med hela mängden baklänges fälldes *"Dragvikten är 2000 kg, så det är inte något
+problem"*.
+
+*Baklängesmängden var först bara `saknas|saknar`. Fyra former slank igenom,
+uppmätta av §7-granskningen av skiva 40 varv 1: `finns inte i registret`, `är
+inte angiven`, `är okänd`, `är inte tillgänglig`. Det utlösande utkastet sade
+`saknar dragvikt`, och en omformulering till någon av dem hade passerat.*
+
+**PRÖVNINGEN SKER PER SATS.** `SATSBROTT` delar på `, men`, `, och`, `,
+däremot` och `, fast`, eftersom *"Vi saknar tyvärr en ledig tid, men dragvikten
+är 2000 kg"* är EN mening med två satser och frånvaroordet hör till tiden.
+
+**ETT ERBJUDANDE ÄR INGET NEGATIVT BESKED, och undantaget gäller BARA
+draganordningen.** En dragkrok går att montera; en dragvikt är fordonets
+konstruktion. *"Om bilen saknar dragkrok monterar vi en"* går igenom, *"Vi kan
+montera en dragkrok, men bilen saknar dragvikt"* gör det inte.
+
+Undantaget finns därför att promptens regel 13 BER om den formuleringen. Utan
+det bad prompten om en mening spärren fällde, vilket §7-granskningen av skiva 40
+varv 1 mätte upp.
+
+**NEGATIVKONTROLL:** `test_ett_svar_som_INTE_pastar_franvaro_slapps_igenom`. En
+spärr som fäller allt skyddar ingenting, och tre av dess rader är UPPMÄTTA
+falska träffar från bygget och granskningen.
 
 ## `genererat-fordonsfaktum`
 
@@ -4275,6 +4358,25 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.43.0 — 2026-09-14
+
+**NY SPÄRR: `pastaende-om-franvaro`.** Skiva 40 DEL B. Den står nu i
+översiktstabellen och har en egen post. Att den saknades i den här filen var ett
+blockerande fynd i §7-granskningen av skiva 40 varv 1: §0 gör listan till
+definitionen av vad som finns, och §7.1 gör kolumnen *Redundant med*
+obligatorisk läsning före varje vakuöstprövning.
+
+**REDUNDANSEN ÄR ASYMMETRISK OCH DET ÄR UTSKRIVET.** `FORDONSTERMER` bär
+`draganordning` och `dragkrok` men inte `dragvikt`. För draganordningspåståenden
+finns ett andra lager, för dragviktspåståenden inget. Den som prövar spärren
+måste veta det, och granskaren fick mäta fram det själv.
+
+**NY LUCKA 49.** Ett fordon med obromsad men ingen bromsad släpvagnsvikt.
+Öppen, och avgörs av en besiktningsman enligt Lars order. Att härleda vad det
+betyder hade varit samma fel som skivan rättar.
+
+Ny spärr och ny lucka ⇒ MINOR.
 
 ### 0.42.0 — 2026-09-11
 

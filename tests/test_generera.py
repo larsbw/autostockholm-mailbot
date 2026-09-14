@@ -1131,13 +1131,17 @@ REGLER_I_PROMPTEN = {
         "rimlig bara när uppgiften saknas.",
     # SKIVA 40 DEL F. Två språkfel Lars läste i vyn, inga spärrfrågor.
     #
-    # Regel 12 kommer ur XJZ006, vars svar sade *"har en registrerad
-    # draganordning som anger nej"*. Den meningen beskriver vår AVLÄSNING och
-    # inte bilen, och kunden läser om sin bil.
+    # Regel 12 kommer ur det FÖRSTA av de två fall Lars namnger, vars svar sade
+    # *"har en registrerad draganordning som anger nej"*. Den meningen beskriver
+    # vår AVLÄSNING och inte bilen, och kunden läser om sin bil.
     #
-    # Regel 13 kommer ur EUX864, vars svar bad kunden bekräfta dragkroken. Att
-    # fråga är RÄTT vid OKLART, men utan tillägget läser frågan som ett villkor
-    # kunden ska uppfylla själv.
+    # Regel 13 kommer ur det ANDRA fallet, vars svar bad kunden bekräfta
+    # dragkroken. Att fråga är RÄTT vid OKLART, men utan tillägget läser frågan
+    # som ett villkor kunden ska uppfylla själv.
+    #
+    # *Raderna bar först de två registreringsnumren. §6 gäller allt som pushas,
+    # och `persondatakontroll` bevakar inte `tests/`, alltså fångade den bara
+    # motsvarande rader i `docs/`. Att spärren är tyst är inget belägg.*
     12: "SKRIV OM REGISTRET, INTE OM REGISTERFÄLTET. Säg \"bilen saknar "
         "registrerad draganordning\", aldrig \"bilen har en registrerad "
         "draganordning som anger nej\". Det andra beskriver vår avläsning i "
@@ -1507,6 +1511,18 @@ def test_GENERERAT_FORDONSFAKTUM_fangade_INTE_det_fallda_utkastet():
         "Vi kan tyvärr inte se någon släpvagnsvikt.",
         "Registret har ingen uppgift om draganordning.",
         "Din bil har tyvärr ingen dragvikt registrerad.",
+        # FYRA BAKLÄNGESFORMER SOM SLANK IGENOM en första lydelse, där
+        # `FRANVAROORD_EFTER` bara var `saknas|saknar`. Uppmätta av
+        # §7-granskningen av skiva 40, varv 1. Det utlösande utkastet sade
+        # `saknar dragvikt`, och en omformulering till någon av de här hade
+        # passerat.
+        "Dragkroken finns inte i registret.",
+        "Dragvikten är inte angiven i registret.",
+        "Dragvikten är okänd för denna bil.",
+        "Uppgift om draganordning är inte tillgänglig.",
+        # ETT ERBJUDANDE FRIAR BARA SITT EGET FAKTUM. Dragkroken går att
+        # montera, dragvikten är fordonets konstruktion.
+        "Vi kan montera en dragkrok, men bilen saknar dragvikt.",
     ],
 )
 def test_varje_form_av_franvaropastaende_sparras(svar):
@@ -1530,6 +1546,13 @@ def test_varje_form_av_franvaropastaende_sparras(svar):
         "Vi kan montera en dragkrok om det behövs.",
         "Vi saknar tyvärr tider den veckan.",
         "",
+        # REGEL 13:s EGEN INSTRUKTION i sin naturligaste form. Prompten ber om
+        # den, alltså MÅSTE den gå igenom, och en första lydelse fällde båda.
+        # Uppmätt av §7-granskningen av skiva 40, varv 1.
+        "Om bilen saknar dragkrok monterar vi en.",
+        "Vi monterar gärna en dragkrok om du saknar en sådan.",
+        # SATSBROTT. Frånvaroordet hör till tiden och inte till dragvikten.
+        "Vi saknar tyvärr en ledig tid, men dragvikten är 2000 kg.",
     ],
 )
 def test_ett_svar_som_INTE_pastar_franvaro_slapps_igenom(svar):

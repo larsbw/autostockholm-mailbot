@@ -655,7 +655,7 @@ FRANVAROORD = (
     r"|inte[^.!?]{0,20}?någ\w+"
 )
 
-# BAKLÄNGESRIKTNINGEN HAR EN SNÄVARE ORDMÄNGD, och skälet är uppmätt.
+# BAKLÄNGESRIKTNINGEN HAR EN EGEN ORDMÄNGD, och skälet är uppmätt.
 #
 # `Dragvikten saknas i registret` är ett frånvaropåstående. `Dragvikten är 2000
 # kg, så det är inte något problem` är det inte, men med hela `FRANVAROORD` i
@@ -664,7 +664,44 @@ FRANVAROORD = (
 #
 # Framlängesriktningen behåller hela mängden: där står nekandet FÖRE ordet, och
 # `utan dragvikt` och `inte se någon släpvagnsvikt` är båda äkta.
-FRANVAROORD_EFTER = r"saknas|saknar"
+#
+# **MÄNGDEN VAR FÖRST `saknas|saknar` OCH DET VAR FÖR SNÄVT.** Fyra former
+# slank igenom, uppmätta av §7-granskningen av skiva 40 varv 1: `finns inte i
+# registret`, `är inte angiven`, `är okänd`, `är inte tillgänglig`. Det
+# utlösande utkastet sade `saknar dragvikt`, och en omformulering till
+# `dragvikten är inte angiven` hade passerat. Varje tillagd form är en
+# NEKANDE BESTÄMNING av faktumet, aldrig ett löst `inte`.
+FRANVAROORD_EFTER = (
+    r"saknas|saknar|okänd|okänt|finns inte|inte finns"
+    r"|inte angiven|inte angivet|ej angiven|ej angivet"
+    r"|inte tillgänglig|inte tillgängligt"
+    r"|inte registrerad|inte registrerat|ej registrerad|ej registrerat"
+    r"|inte känd|inte känt|ej känd|ej känt"
+)
+
+# SATSGRÄNSER SOM BRYTER KOPPLINGEN. Uppmätt falsk träff: *"Vi saknar tyvärr en
+# ledig tid, men dragvikten är 2000 kg."* Frånvaroordet hör till tiden och inte
+# till dragvikten, och det är `, men` som visar det.
+#
+# **PUNKT RÄCKER INTE**, eftersom samma sak skrivs i en mening lika ofta som i
+# två. Fällt av §7-granskningen av skiva 40, varv 1.
+SATSBROTT = (", men ", ", och ", ", däremot ", ", fast ")
+
+# ATT ERBJUDA SIG ATT MONTERA ÄR INTE ATT NEKA. Skiva 40 DEL F, regel 13.
+#
+# **PROMPTEN BER OM DEN HÄR FORMULERINGEN**, alltså måste den gå igenom:
+# *"Om bilen saknar dragkrok monterar vi en"* är ett ERBJUDANDE och inte ett
+# negativt besked. Utan undantaget ber regel 13 om en mening spärren fäller,
+# vilket §7-granskningen av skiva 40 varv 1 mätte upp.
+#
+# **UNDANTAGET GÄLLER BARA `draganordning`, och det är avsiktligt.** En dragkrok
+# går att montera, en dragvikt gör det inte: den är fordonets konstruktion.
+# Ett erbjudande kan alltså aldrig göra ett dragviktspåstående ofarligt.
+ERBJUDANDE = re.compile(
+    r"monterar vi|vi monterar|vi kan montera|kan vi montera"
+    r"|ordnar vi|vi ordnar|fixar vi|vi fixar|sätter vi (?:dit|på)",
+    re.IGNORECASE,
+)
 
 # HUR LÅNGT MELLAN FRÅNVAROORDET OCH FAKTUMET. Måttet är tecken inom SAMMA
 # mening: `[^.!?]` slutar vid meningsslut, alltså kan spärren inte koppla ihop
@@ -701,20 +738,46 @@ def krav_pa_belagt_franvaropastaende(svar: str, forfragan: Forfragan) -> None:
     fältet, alltså `Faltstatus.SAKNAS_PA_SIDAN` respektive
     `Dragviktslage.REGISTRET_SAKNAR`. Biluppgifter renderar bara fält som har ett
     värde, så en frånvarande etikett ÄR ett registerfaktum. Se skiva 40 DEL A och
-    `docs/beslutslogg.md` #87.
+    `docs/beslutslogg.md` #87, #88 och #89.
 
     **TRE LÄGEN SOM ALLA SER LIKADANA UT I ETT MISSLYCKAT UPPSLAG är alltså
     skilda här:** registret saknar uppgiften, uppgiften finns i en form vi inte
     kan bedöma mot, och parsern föll. Bara det första får sägas.
     """
-    for namn, monster in FRANVAROPASTAENDE.items():
-        traff = monster.search(svar)
-        if traff and namn not in forfragan.franvaro_far_pastas:
+    for mening in _meningar(svar):
+        for namn, monster in FRANVAROPASTAENDE.items():
+            if namn in forfragan.franvaro_far_pastas:
+                continue
+            if not monster.search(mening):
+                continue
+
+            # ETT ERBJUDANDE OM ATT MONTERA ÄR INGET NEGATIVT BESKED, och bara
+            # draganordningen går att montera. Se `ERBJUDANDE`.
+            if namn == "draganordning" and ERBJUDANDE.search(mening):
+                continue
+
             raise Sparrfalld(
                 "pastaende-om-franvaro",
                 f"svaret påstår att {namn} saknas, och det är inte belagt att "
                 f"registret saknar uppgiften",
             )
+
+
+def _meningar(svar: str) -> list[str]:
+    """Svaret som meningar, och satser skilda av `SATSBROTT` som egna.
+
+    **PRÖVNINGEN SKER PER SATS OCH INTE PER SVAR.** Ett frånvaroord i en sats
+    ska inte kunna kopplas till ett fordonsfaktum i en annan, och `[^.!?]` i
+    mönstret räcker inte: *"Vi saknar tyvärr en ledig tid, men dragvikten är
+    2000 kg"* är EN mening med två satser.
+    """
+    delar = re.split(r"(?<=[.!?])\s+", svar)
+    for brott in SATSBROTT:
+        nya: list[str] = []
+        for del_ in delar:
+            nya.extend(del_.split(brott))
+        delar = nya
+    return delar
 
 
 def krav_pa_att_troskeln_inte_ar_forfattningstext(svar: str) -> None:

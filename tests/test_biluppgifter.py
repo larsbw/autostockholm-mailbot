@@ -2663,6 +2663,41 @@ def test_ostangd_tagg_i_foraldern_paras_inte_med_senare_varde(ostangd):
 
     assert utfallet_av(sidan) == "svaret saknar slapvagnsvikt_kg"
 
+    # SKIVA 40: OCH DET FÅR INTE SE UT SOM ETT REGISTERFAKTUM.
+    #
+    # **SIDAN SKRIVER UT VIKTEN.** Att vi inte kan para ihop etiketten med sitt
+    # värde är VÅR avläsning som faller, alltså `TOLKAS_EJ`. Ett
+    # `SAKNAS_PA_SIDAN` här hade gett boten rätt att säga att registret saknar
+    # dragviktsuppgift om ett fordon vars vikt står på sidan, och
+    # härkomstraden hade samtidigt sagt till Lars att det inte är vårt fel.
+    falt = falt_med_status(sidan)
+    assert falt["slapvagnsvikt_kg"].status is Faltstatus.TOLKAS_EJ
+    assert dragviktslage(falt) is Dragviktslage.TOLKAS_EJ
+
+
+def test_en_etikett_utan_varde_ar_TOLKAS_EJ_och_aldrig_SAKNAS():
+    """SKILLNADEN MELLAN `etiketter` OCH `par`, i sin renaste form.
+
+    **DEN HÄR RADEN ÄR SKIVA 40:s ALLVARLIGASTE FYND.** `_ett_falt` prövade att
+    ett PAR saknas och kallade det ett registerfaktum. `_Faltlasare` skiljer
+    redan de två: `etiketter` bär varje etikettnod, `par` bara de som följs av
+    ett värde. En etikett utan värde betyder att sidan renderade fältet och att
+    vi inte kunde läsa det.
+
+    Fällt av §7-granskningen av skiva 40, varv 1.
+    """
+    sidan = sida(
+        rader=(
+            rad("Tjänstevikt", "2140 kg")
+            + rad("Draganordning", "Nej")
+            + '<li><span class="label">Släpvagnsvikt</span></li>\n'
+        )
+    )
+
+    falt = falt_med_status(sidan)
+    assert falt["slapvagnsvikt_kg"].status is Faltstatus.TOLKAS_EJ
+    assert dragviktslage(falt) is Dragviktslage.TOLKAS_EJ
+
 
 def test_sluttagg_utan_starttagg_stanger_ingenting():
     """Nollfallet till stackens namnsökning: en vilsen sluttagg får inte fälla.
@@ -2939,7 +2974,7 @@ def test_dragvikt_ANNAN_FORM_nar_bromsad_saknas_men_annan_star_dar(annan_form):
 
     **UPPMÄTT PÅ ETT VERKLIGT FORDON.** Sida 04 i skiva 37:s stickprov bär
     obromsad och båda körkortsraderna men ingen bromsad släpvagnsvikt. Se
-    `docs/beslutslogg.md` #87.
+    `docs/beslutslogg.md` #88.
     """
     falt = falt_med_status(sida_med(slapvagnsvikt=None, extra=annan_form))
     assert dragviktslage(falt) is Dragviktslage.ANNAN_FORM
