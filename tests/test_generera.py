@@ -430,6 +430,115 @@ def test_prisfilen_i_repot_har_BARA_TOMMA_varden():
     assert generera._prisrader() == generera.INGA_PRISER
 
 
+def _med_priser(monkeypatch, poster: dict) -> None:
+    """Låtsas att `config/priser.json` bär `poster`. Rör aldrig filen.
+
+    §10 gör filen till ett stopp, alltså får ett test inte skriva i den. Den
+    här hjälparen byter ut den RÅA läsningen, `las_konfig`, och inte
+    `las_priser`.
+
+    **SKÄLET ÄR ATT FILEN HAR TVÅ LÄSARE MED OLIKA KRAV**, och det är avsiktligt:
+    `las_konfigvarden` ger prompten namn och värde i par, `_varden_ur` ger
+    talspärren varje värde var det än ligger. Båda går via `las_konfig`. En
+    hjälpare som bara patchade `las_priser` hade gett prisgrenen en fylld fil
+    och talspärren en tom, alltså ett test som inte liknar något verkligt läge.
+    Uppmätt under bygget: `test_ett_AVLAST_pris_slapps_igenom...` föll på att
+    25000 inte fanns bland de tillåtna talen.
+    """
+    riktig = generera.las_konfig
+
+    def las(fil):
+        return dict(poster) if fil == generera.PRISER else riktig(fil)
+
+    monkeypatch.setattr(generera, "las_konfig", las)
+
+
+def test_ett_pris_FALLER_nar_prisfilen_ar_tom(monkeypatch):
+    """DAGENS LÄGE, och det är oförändrat sedan före skiva 41.
+
+    Filen finns men bär inga priser, alltså har boten ingen prisuppgift och
+    varje prisord fäller.
+    """
+    _med_priser(monkeypatch, {})
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla("Det kostar 25 000 kr.", forfragan())
+
+    assert fel.value.sparr == "genererat-tal-har-kalla"
+    assert "bär inga priser" in fel.value.skal
+
+
+def test_ett_AVLAST_pris_slapps_igenom_nar_Lars_fyllt_filen(monkeypatch):
+    """**DEN DAG LARS FYLLER EN POST MÅSTE PROMPTENS EGET SVAR PASSERA.**
+
+    `_prisrader` skriver in priset och ber modellen återge det ordagrant. Den
+    ovillkorliga prisgrenen hade fällt varje svar som gjorde det, alltså hade
+    prompten beställt en mening spärren fäller. Det är §9.1:s motsägelse, och
+    den fångades av §7-granskningen av skiva 41, varv 1.
+    """
+    _med_priser(monkeypatch, {"a_traktorkonvertering": "25 000 kr"})
+
+    generera.krav_pa_tal_med_kalla(
+        "Konverteringen kostar 25 000 kr.", forfragan())
+
+
+def test_ett_PAHITTAT_pris_faller_aven_nar_filen_ar_fylld(monkeypatch):
+    """SPÄRREN ÄR INTE BORTTAGEN, den vilar på vad filen BÄR.
+
+    Ett annat tal än det avlästa har ingen källa och fälls av loopen längre ned.
+    """
+    _med_priser(monkeypatch, {"a_traktorkonvertering": "25 000 kr"})
+
+    with pytest.raises(Sparrfalld):
+        generera.krav_pa_tal_med_kalla(
+            "Konverteringen kostar 30 000 kr.", forfragan())
+
+
+def test_ett_PRISORD_UTAN_TAL_faller_aven_nar_filen_ar_fylld(monkeypatch):
+    """*"Det kostar en del"* är ett prispåstående utan avläsbar källa.
+
+    Utan den här grenen hade en fylld prisfil gjort varje vagt prisord tillåtet,
+    alltså hade filen köpt fri passage åt meningar som inte nämner något pris.
+    """
+    _med_priser(monkeypatch, {"a_traktorkonvertering": "25 000 kr"})
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla("Det kostar en del.", forfragan())
+
+    assert "utan att ange ett tal" in fel.value.skal
+
+
+def test_prisblockets_ram_star_ORDAGRANT():
+    """SÄNDVÄGSTEXT SOM VAR OBUNDEN, och kommentaren påstod motsatsen.
+
+    **`FAKTARUBRIK` OCH `FAKTAFOT` BINDS ORDAGRANT SEDAN SKIVA 37**, efter att
+    en lydelse som bad modellen hitta på mer om oss passerade hela sviten.
+    Prisblockets ram fick samma kommentar och ingen bindning: en lydelse som bad
+    modellen UPPSKATTA ett pris gav grön svit. Fällt av §7-granskningen av
+    skiva 41, varv 1.
+    """
+    assert generera.PRISRUBRIK == (
+        "Priser, avlästa ur config/priser.json. Du har inga andra priser, och "
+        "du uppskattar aldrig ett pris som inte står här:\n"
+    )
+    assert generera.PRISFOT == (
+        "Varje pris här återges ordagrant och ändras aldrig.\n"
+    )
+    assert generera.INGA_PRISER == (
+        "Priser: INGA. Du har inga prisuppgifter alls."
+    )
+
+
+def test_prisblocket_bar_ramen_nar_filen_ar_fylld(monkeypatch):
+    """Och att ramen FAKTISKT används, inte bara att konstanterna finns."""
+    _med_priser(monkeypatch, {"a_traktorkonvertering": "25 000 kr"})
+
+    block = generera._prisrader()
+    assert block.startswith(generera.PRISRUBRIK)
+    assert block.endswith(generera.PRISFOT)
+    assert "  a_traktorkonvertering: 25 000 kr" in block
+
+
 def test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal():
     """SKIVA 36:s HÅL, prövat på den nya filen INNAN den fylls.
 

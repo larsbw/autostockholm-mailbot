@@ -1,7 +1,7 @@
 {
   "_om_filen": "Priser som boten FÅR nämna. Upprättad i skiva 41 på Lars §10-beslut. Ändras BARA av Lars uttryckliga beslut, se CLAUDE.md §10.",
   "_tomt_varde_betyder": "Ingen uppgift. Ett tomt värde utelämnas ur prompten och räknas aldrig som källa, alltså kan modellen inte skriva ett pris den inte har. Samma form som config/fakta.json.",
-  "_nycklarna": "En nyckel per kategori i config/kategorier.yaml som börjar med 'fråga om pris'. Avlästa ur scripts/kategoristatus.py 2026-09-14. Fyll bara de som har ett FAST pris; en tjänst som prissätts per fall lämnas tom.",
+  "_nycklarna": "En nyckel per kategori i TAXONOMIN som börjar med 'fråga om pris'. Avlästa ur scripts/kategoristatus.py 2026-09-14, som listar sex sådana. Kategorinamnen står i data/taxonomi.json, inte i config/kategorier.yaml: den filen bär hinkar och inte namn. Fyll bara de som har ett FAST pris; en tjänst som prissätts per fall lämnas tom.",
   "_formen": "Skriv hela svaret som text, till exempel '25 000 kr inklusive moms'. Talet blir en tillåten källa via generera._varden_ur, som läser värden och aldrig nycklar.",
   "a_traktorkonvertering": "",
   "rekond": "",

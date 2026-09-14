@@ -1012,13 +1012,16 @@ def _galler_fordonet(sida: str, regnr: str) -> bool:
     return vag.upper() == f"{FORVANTAD_KATALOG}/{regnr}".upper()
 
 
-# RESERVERADE NYCKLAR I HÄMTNINGENS DICT. Skiva 40 DEL A.
+# RESERVERAD NYCKEL I HÄMTNINGENS DICT. Skiva 40 DEL A, EN kvar efter skiva 41.
 #
 # **UNDERSTRECKET ÄR KONTRAKTET.** `fordonsuppslag._kontrollera` prövar de tre
 # fältnycklarna och bryr sig inte om andra: dess docstring skriver ut att OKÄNDA
-# NYCKLAR TOLERERAS, och `Uppslag` byggs av tre namngivna nycklar. Metanycklarna
+# NYCKLAR TOLERERAS, och `Uppslag` byggs av tre namngivna nycklar. Metanyckeln
 # LÄSES av `_kontrollera` och når aldrig `Uppslag`. En nyckel utan understreck
 # hade riskerat att läsas som ett fordonsfält av nästa läsare.
+#
+# *Raden sade METANYCKLARNA i plural. `META_STATUS` togs bort av VÄG TRE i
+# skiva 41, alltså finns en kvar. Fällt av §7-granskningen av skiva 41, varv 1.*
 #
 # *Här stod att `slag_upp` "plockar bort de här innan `Uppslag` byggs". Ingen rad
 # tar bort dem: `slag_upp` returnerar `_kontrollera(hamta(normalt))` rakt av.

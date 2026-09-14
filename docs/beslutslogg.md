@@ -5174,10 +5174,16 @@ samma promptrad som ingen fil: `Priser: INGA. Du har inga prisuppgifter alls.`
 Det är avsiktligt och samma form som `config/fakta.json`: ett tomt värde
 utelämnas, alltså kan modellen inte skriva ett pris den inte har.
 
-**NYCKLARNA ÄR AVLÄSTA, INTE VALDA.** En per kategori i `config/kategorier.yaml`
-som börjar med `fråga om pris`, avläst ur `scripts/kategoristatus.py`
-2026-09-14: `a_traktorkonvertering`, `rekond`, `reparation`, `service`, `dack`,
-`tillbehor`.
+**NYCKLARNA ÄR AVLÄSTA, INTE VALDA.** En per kategori i TAXONOMIN som börjar med
+`fråga om pris`, avläst ur `scripts/kategoristatus.py` 2026-09-14:
+`a_traktorkonvertering`, `rekond`, `reparation`, `service`, `dack`, `tillbehor`.
+
+*Källan stod först som `config/kategorier.yaml`. Den filen bär hinkar och inte
+kategorinamn: en literal sökning efter `pris` i den ger fem träffar, alla i
+kommentarer, och noll kategorinamn. Namnen kommer ur `data/taxonomi.json` via
+statusskriptet. Antalet och namnen stämde; källangivelsen gjorde det inte, och
+den är hela postens bevisvärde eftersom posten själv säger AVLÄSTA OCH INTE
+VALDA. Fällt av §7-granskningen av skiva 41, varv 1.*
 
 **EN TJÄNST SOM PRISSÄTTS PER FALL LÄMNAS TOM.** Det står i filens egen
 kommentar. En ofylld nyckel kostar ingenting.
@@ -5197,11 +5203,16 @@ läste kommentarnycklarnas tal. Mätt på `priser.json`:
 | tal i filens RÅA innehåll, om filtret inte fanns | `09`, `10`, `14`, `2026`, `25000`, `41` |
 
 **KOMMENTAREN BÄR MED FLIT ETT PRISFORMAT TAL.** `_formen` innehåller exemplet
-`25 000 kr`. En fällning av `_`-filtret gör fjorton test röda, bland dem
-`test_ett_tal_UTAN_KALLA_faller_i_varje_skrivform[Vi tar 25000kr för jobbet.]`.
-Utan filtret hade alltså MIN EGEN KOMMENTAR auktoriserat ett pris i ett utgående
-mail. Hålet är stängt av `_varden_ur`, som plockar värden och aldrig nycklar,
-hela vägen ned.
+`25 000 kr`. En fällning av `_`-filtret gör **17 test röda över hela sviten**,
+bland dem `test_ett_tal_UTAN_KALLA_faller_i_varje_skrivform[Vi tar 25000kr för
+jobbet.]`. Utan filtret hade alltså MIN EGEN KOMMENTAR auktoriserat ett pris i
+ett utgående mail. Hålet är stängt av `_varden_ur`, som plockar värden och
+aldrig nycklar, hela vägen ned.
+
+*Här stod "fjorton". Det talet var avläst ur en körning av ENBART
+`tests/test_generera.py` och skrivet som om det gällde sviten; tre av de
+sjutton ligger i `tests/test_generera_monster.py`. Fällt av §7-granskningen av
+skiva 41, varv 1, och omkört mot hela sviten.*
 
 ---
 

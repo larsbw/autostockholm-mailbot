@@ -15,8 +15,10 @@ SPÄRRARNA PÅ DET GENERERADE, var och en med sin negativkontroll:
                                  utkast. De andra SÖKER EFTER SAKER och släppte
                                  därför igenom det tomma.
   `genererat-tal-har-kalla`      Ett tal i svaret ska komma ur uppslaget eller ur
-                                 config. Priser finns inte än, alltså faller ett
-                                 svar som nämner ett pris i känd form.
+                                 config. `config/priser.json` är TOM, alltså
+                                 faller varje svar som nämner ett pris i känd
+                                 form. Fyller Lars en post prövas priset som
+                                 vilket tal som helst, mot sin källa.
   `genererat-fordonsfaktum`      Ett fordonsfaktum kräver ett LYCKAT uppslag.
                                  Kopplar `fordonsfakta-ur-uppslag` uppströms.
   `troskeln-som-forfattningstext` Tröskeln 1 000 kg får inte återges som en
@@ -111,10 +113,15 @@ class Forfragan:
     # att en uppgift saknas. Varje namn här är ett faktum boten FÅR säga saknas,
     # därför att sidan bevisligen inte bär det.
     #
-    # Namnen är `dragvikt` och `draganordning`, se `FRANVAROFAKTA`. De sätts av
-    # `src/kedja.py` ur `biluppgifter.falt_med_status` och
-    # `biluppgifter.dragviktslage`, alltså ur en MÄTNING av sidan och aldrig ur
-    # ett antagande om varför ett uppslag gick fel.
+    # **BARA `draganordning` KAN HAMNA HÄR.** Mängden sätts på ett enda ställe,
+    # `src/kedja.py`, och bara när ett LYCKAT uppslag läst `Draganordning: Nej`.
+    # `dragvikt` står i `FRANVAROFAKTA` och kan aldrig bli belagd: en dragvikt
+    # går bara att LÄSA, aldrig att belägga genom sin frånvaro.
+    #
+    # *Kommentaren sade att namnen sätts ur `biluppgifter.falt_med_status` och
+    # `biluppgifter.dragviktslage`. Den vägen togs bort av VÄG TRE i skiva 41,
+    # och ingendera funktionen rör mängden. Fällt av §7-granskningen av skiva
+    # 41, varv 1.*
     franvaro_far_pastas: frozenset[str] = frozenset()
 
 
@@ -509,9 +516,11 @@ def _tal_i(text: str) -> set[str]:
 def _tillatna_tal(forfragan: Forfragan) -> set[str]:
     """Talen ett svar får nämna: uppslagets egna plus config plus undantagen.
 
-    **PRISER FINNS INTE ÄN.** `config/priser.json` existerar inte, alltså bidrar
-    den med noll tal, och det är avsiktligt: ett svar som nämner ett pris ska
-    falla tills filen finns och är fylld av Lars.
+    **PRISFILEN FINNS OCH ÄR TOM.** `config/priser.json` upprättades i skiva 41
+    på Lars §10-beslut, med varje värde tomt. Den bidrar alltså med noll tal, och
+    det är avsiktligt: ett svar som nämner ett pris faller tills Lars fyllt en
+    post. *Här stod att filen inte existerar, vilket blev falskt av den skiva som
+    skapade den. Fällt av §7-granskningen av skiva 41, varv 1.*
 
     **KUNDENS TEXT ÄR INGEN KÄLLA, och det ledet är fällt fram i två varv.**
     Skiva 33 lade två gånger `forfragan.text` här, för att lösa lucka 30, och
@@ -587,12 +596,39 @@ def krav_pa_tal_med_kalla(svar: str, forfragan: Forfragan) -> None:
 
     Faller svaret på ett tal utan källa är det ett STOPPTECKEN. Texten skrivs
     inte om tills den passerar, se §9.1.
+
+    **PRISGRENEN VILAR PÅ VAD `config/priser.json` BÄR, inte på att den finns.**
+    Före skiva 41 fällde den varje prisord ovillkorligt, med skälet att filen
+    inte existerade. Filen finns nu och är TOM, alltså är utfallet oförändrat.
+
+    *Skälet var dessutom FALSKT så snart filen skapades, och strängen går in i
+    `logg/beslut.jsonl` och i vyn. Fällt av §7-granskningen av skiva 41, varv 1.*
+
+    **DEN DAG LARS FYLLER EN POST HADE DEN GAMLA GRENEN FÄLLT VARJE SVAR SOM
+    PROMPTEN BEDER OM.** `_prisrader` skriver in priset och ber modellen återge
+    det ordagrant; den ovillkorliga grenen hade sedan fällt varje svar som gjorde
+    det. Det är precis den motsägelse §9.1 finns för: nästa skiva möter en spärr
+    som fäller det prompten beställt, och frestelsen blir att skriva om texten
+    tills den slinker igenom. Uppmätt av §7-granskningen av skiva 41, varv 1.
+
+    **ETT PRISORD UTAN TAL FÄLLER FORTFARANDE.** *"Det kostar en del"* är ett
+    prispåstående utan avläsbar källa, och det ska inte passera bara för att
+    filen råkar bära ett pris. Talet prövas sedan av loopen längre ned, som
+    slår upp det mot `_tillatna_tal`, där prisfilens värden ingår via
+    `_varden_ur`.
     """
     if PRISORD.search(svar):
-        raise Sparrfalld(
-            "genererat-tal-har-kalla",
-            "svaret nämner ett pris, och config/priser.json finns inte",
-        )
+        if not las_priser():
+            raise Sparrfalld(
+                "genererat-tal-har-kalla",
+                "svaret nämner ett pris, och config/priser.json bär inga priser",
+            )
+        if not _tal_i(svar):
+            raise Sparrfalld(
+                "genererat-tal-har-kalla",
+                "svaret nämner ett pris utan att ange ett tal som går att "
+                "slå upp mot config/priser.json",
+            )
 
     traff_i_ord = TAL_I_ORD.search(svar)
     if traff_i_ord:
@@ -754,15 +790,21 @@ def krav_pa_belagt_franvaropastaende(svar: str, forfragan: Forfragan) -> None:
     varken. Ett påstående om FRÅNVARO bär inget värde att pröva, och därför fanns
     hela klassen utanför spärrens räckvidd.
 
-    **VAD SOM GÖR PÅSTÅENDET BELAGT.** Bara att sidan bevisligen inte bär
-    fältet, alltså `Faltstatus.SAKNAS_PA_SIDAN` respektive
-    `Dragviktslage.REGISTRET_SAKNAR`. Biluppgifter renderar bara fält som har ett
-    värde, så en frånvarande etikett ÄR ett registerfaktum. Se skiva 40 DEL A och
-    `docs/beslutslogg.md` #87, #88 och #89.
+    **VAD SOM GÖR PÅSTÅENDET BELAGT: ETT AVLÄST VÄRDE, och ingenting annat.**
+    Bara `draganordning` kan bli belagd, och bara genom att uppslaget LYCKATS
+    och läst `Nej`. Lars beslut i skiva 41, VÄG TRE, se `docs/beslutslogg.md`
+    #93.
 
-    **TRE LÄGEN SOM ALLA SER LIKADANA UT I ETT MISSLYCKAT UPPSLAG är alltså
-    skilda här:** registret saknar uppgiften, uppgiften finns i en form vi inte
-    kan bedöma mot, och parsern föll. Bara det första får sägas.
+    **ETT MISSLYCKAT UPPSLAG GER ALDRIG NÅGON RÄTT**, oavsett vilket av de tre
+    lägena härkomstraden rapporterar. En frånvaro är aldrig ett belägg: att
+    sidan bara renderar fält som HAR ett värde är sant om SIDAN och osant om vår
+    läsning av den, och ett mjukt bindestreck i `Släpvagnsvikt` räcker för att
+    fältet ska se saknat ut. LUCKA 50 bär mätningen.
+
+    *Stycket sade att `Faltstatus.SAKNAS_PA_SIDAN` och
+    `Dragviktslage.REGISTRET_SAKNAR` gör ett påstående belagt, och att det
+    första av tre lägen får sägas. Båda blev falska av VÄG TRE, i spärrens EGEN
+    docstring. Fällt av §7-granskningen av skiva 41, varv 1.*
     """
     for mening in _meningar(svar):
         for namn, monster in FRANVAROPASTAENDE.items():

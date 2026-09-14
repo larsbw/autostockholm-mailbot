@@ -65,12 +65,15 @@ class UppslagMisslyckades(Exception):
     uppslag ALDRIG får förväxlas med ett lyckat. Ett returnerat `None` som
     någon glömmer pröva blir tyst; det här blir högljutt.
 
-    **UNDANTAGET BÄR SIDANS FÄLTSTATUSAR. Skiva 40 DEL A, och det är inte en
-    bekvämlighet.** Den information DEL B:s spärr behöver, alltså om registret
-    saknar en uppgift eller om vi inte kunde läsa den, finns PRECIS i de fall
-    uppslaget misslyckas. Ett lyckat uppslag har per definition alla tre fälten.
-    Bärs den inte här når den aldrig fram, och då kan generatorn bara veta ATT
-    något gick fel, aldrig VAD.
+    **UNDANTAGET BÄR DRAGVIKTSLÄGET, och bara för härkomstradens skull.**
+    Skillnaden mellan lägena finns PRECIS i de fall uppslaget misslyckas, och
+    bärs den inte här kan vyn bara säga ATT något gick fel, aldrig VAD.
+
+    *Stycket sade "UNDANTAGET BÄR SIDANS FÄLTSTATUSAR" och att informationen är
+    den DEL B:s spärr behöver. Båda leden blev falska av VÄG TRE i skiva 41:
+    `faltstatus` är borttaget, och ingen spärr läser något härifrån. Falskheten
+    stod tre rader från den not som beskriver borttagningen. Fällt av
+    §7-granskningen av skiva 41, varv 1.*
 
     `dragviktslage` är `None` när hämtningen inte lämnade något, alltså för varje
     annan hämtare än `biluppgifter_hamtning`.

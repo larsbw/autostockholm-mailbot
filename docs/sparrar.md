@@ -3148,8 +3148,16 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
 
   **VÄG TRE TOG BORT DEN FALSKA RÄTTIGHETEN, INTE UPPTÄCKTSGAPET.** De två är
   oberoende: en form spärren inte känner igen passerar oavsett vad mängden
-  innehåller. Luckan är alltså lika kritisk som före skiva 41, och det är ett
-  mätresultat och ingen bedömning.
+  innehåller.
+
+  **DET MÄTTA ÄR ATT DE SEX FORMERNA LÄCKER OFÖRÄNDRAT.** Hur kritisk luckan är
+  därutöver är inte mätt, och före skiva 41 fanns TVÅ oberoende hål där det nu
+  finns ETT.
+
+  *Här stod att luckan är "lika kritisk som före skiva 41, och det är ett
+  mätresultat och ingen bedömning". Det mätta är läckaget; "lika kritisk" är en
+  värdering av konsekvens, och just den formen är vad meningen förnekade att den
+  var. Fällt av §7-granskningen av skiva 41, varv 1.*
 
 - **Lucka 49. ETT FORDON MED OBROMSAD MEN INGEN BROMSAD SLÄPVAGNSVIKT. ÖPPEN,
   OCH AVGÖRS AV EN BESIKTNINGSMAN.**

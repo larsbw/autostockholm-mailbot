@@ -541,8 +541,9 @@ fyllt något, och den binder HELA nyckelmängden och inte bara ett fält.
 
 **§0:s ramverksregel 3 fick en verkställande rad till, prövad med en KÖRNING.**
 Filens kommentarer bär med flit talet `25 000 kr`. En fällning av `_varden_ur`:s
-kommentarfilter gör fjorton test röda, bland dem ett som visar att just det
-talet då blir tillåtet i ett utgående mail.
+kommentarfilter gör 17 test röda över hela sviten, bland dem ett som visar att
+just det talet då blir tillåtet i ett utgående mail. *Talet stod först som
+fjorton, avläst ur en delkörning. Fällt av §7-granskningen av skiva 41, varv 1.*
 
 **§0:s styrdokumentlista är oförändrad.** `config/priser.json` står redan i §7.2
 och §10, och skiva 41 skapade ingen ny fil utöver den.

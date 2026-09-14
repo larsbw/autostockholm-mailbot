@@ -105,6 +105,21 @@ def hamta_dragvikt_i_annan_form(_regnr: str) -> dict:
     }
 
 
+def hamta_dragvikt_olasbar(_regnr: str) -> dict:
+    """Fältet stod på sidan och gick inte att läsa, alltså utfall 2.
+
+    Den tredje av de tre lägen ett misslyckat uppslag kan rapportera. Hämtaren
+    saknades, och ett test som påstod sig pröva alla tre prövade två. Fällt av
+    §7-granskningen av skiva 41, varv 1.
+    """
+    return {
+        "tjanstevikt_kg": GRONT_SVAR["tjanstevikt_kg"],
+        "draganordning": GRONT_SVAR["draganordning"],
+        biluppgifter.META_DRAGVIKT:
+            biluppgifter.Dragviktslage.TOLKAS_EJ.value,
+    }
+
+
 def arende(**andrat) -> Arende:
     grund = {
         "text": "Hej, går det att bygga om min bil till a-traktor?",
@@ -847,9 +862,13 @@ def test_ett_MISSLYCKAT_uppslag_ger_ALDRIG_ratt_att_pasta_franvaro():
 
     **VARJE misslyckat uppslag ger en tom mängd**, oavsett vilket läge
     härkomstraden rapporterar. Raden prövar alla tre lägena tillsammans, så att
-    en framtida gren som lägger tillbaka någon av dem blir röd.
+    en framtida gren som lägger tillbaka något av dem blir röd.
+
+    *Raden påstod tre lägen och prövade två: `TOLKAS_EJ` saknade hämtare. Fällt
+    av §7-granskningen av skiva 41, varv 1.*
     """
-    for hamta in (hamta_registret_saknar_dragvikt, hamta_dragvikt_i_annan_form):
+    for hamta in (hamta_registret_saknar_dragvikt, hamta_dragvikt_i_annan_form,
+                  hamta_dragvikt_olasbar):
         assert _mangden(hamta) == frozenset()
 
 
