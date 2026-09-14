@@ -905,6 +905,14 @@ Tiden bestäms i kontakten, aldrig i det här mailet.
 11. FRÅGA ALDRIG EFTER UPPGIFTER SOM REDAN STÅR I MAILET. Läs mailet först. \
 Står registreringsnumret där, fråga inte efter det. Frågan är rimlig bara när \
 uppgiften saknas.
+12. SKRIV OM REGISTRET, INTE OM REGISTERFÄLTET. Säg "bilen saknar registrerad \
+draganordning", aldrig "bilen har en registrerad draganordning som anger nej". \
+Det andra beskriver vår avläsning i stället för bilen, och kunden läser om sin \
+bil och inte om vår databas.
+13. EN SAKNAD DRAGKROK ÄR INGET HINDER. Behöver bilen en dragkrok, skriv att vi \
+kan montera en om det behövs. Ber du kunden bekräfta om det sitter en dragkrok, \
+så skriv i samma mening att vi kan montera en. Utan det läser frågan som ett \
+villkor kunden måste uppfylla själv.
 
 Skriv kort, konkret och vänligt. Svara på det kunden faktiskt frågar."""
 

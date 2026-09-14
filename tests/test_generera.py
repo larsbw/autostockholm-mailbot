@@ -1129,6 +1129,24 @@ REGLER_I_PROMPTEN = {
     11: "FRÅGA ALDRIG EFTER UPPGIFTER SOM REDAN STÅR I MAILET. Läs mailet "
         "först. Står registreringsnumret där, fråga inte efter det. Frågan är "
         "rimlig bara när uppgiften saknas.",
+    # SKIVA 40 DEL F. Två språkfel Lars läste i vyn, inga spärrfrågor.
+    #
+    # Regel 12 kommer ur XJZ006, vars svar sade *"har en registrerad
+    # draganordning som anger nej"*. Den meningen beskriver vår AVLÄSNING och
+    # inte bilen, och kunden läser om sin bil.
+    #
+    # Regel 13 kommer ur EUX864, vars svar bad kunden bekräfta dragkroken. Att
+    # fråga är RÄTT vid OKLART, men utan tillägget läser frågan som ett villkor
+    # kunden ska uppfylla själv.
+    12: "SKRIV OM REGISTRET, INTE OM REGISTERFÄLTET. Säg \"bilen saknar "
+        "registrerad draganordning\", aldrig \"bilen har en registrerad "
+        "draganordning som anger nej\". Det andra beskriver vår avläsning i "
+        "stället för bilen, och kunden läser om sin bil och inte om vår "
+        "databas.",
+    13: "EN SAKNAD DRAGKROK ÄR INGET HINDER. Behöver bilen en dragkrok, skriv "
+        "att vi kan montera en om det behövs. Ber du kunden bekräfta om det "
+        "sitter en dragkrok, så skriv i samma mening att vi kan montera en. "
+        "Utan det läser frågan som ett villkor kunden måste uppfylla själv.",
 }
 
 

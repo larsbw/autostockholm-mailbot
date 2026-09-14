@@ -13,7 +13,7 @@ import json
 
 import pytest
 
-from src import generera, kategorisera, kedja, ometikettera, vy
+from src import biluppgifter, generera, kategorisera, kedja, ometikettera, vy
 from src.fordonsuppslag import UppslagMisslyckades, Utfall
 from src.kedja import Arende, Kallfel, Kedjeutfall, Steg
 from tests.test_vy import FejkHanterare
@@ -73,6 +73,42 @@ def hamta_saknas(_regnr: str) -> None:
 
 def hamta_kraschar(_regnr: str):
     raise ConnectionError("källan svarar inte")
+
+
+def hamta_utan_draganordning(_regnr: str) -> dict:
+    """Ett LYCKAT uppslag där registret säger Nej på draganordningen."""
+    return {**GRONT_SVAR, "draganordning": False}
+
+
+def hamta_registret_saknar_dragvikt(_regnr: str) -> dict:
+    """Ingen av sidans fyra släpviktsformer finns, alltså utfall 1.
+
+    Formen är den `biluppgifter_hamtning` lämnar: de fält som lästes, plus
+    metadatan under reserverade nycklar. `slapvagnsvikt_kg` saknas, alltså
+    fäller `_kontrollera` och undantaget bär statusarna.
+    """
+    return {
+        "tjanstevikt_kg": GRONT_SVAR["tjanstevikt_kg"],
+        "draganordning": GRONT_SVAR["draganordning"],
+        biluppgifter.META_STATUS: {
+            "slapvagnsvikt_kg": biluppgifter.Faltstatus.SAKNAS_PA_SIDAN.value,
+        },
+        biluppgifter.META_DRAGVIKT:
+            biluppgifter.Dragviktslage.REGISTRET_SAKNAR.value,
+    }
+
+
+def hamta_dragvikt_i_annan_form(_regnr: str) -> dict:
+    """Den bromsade saknas men en annan form finns, alltså utfall 4."""
+    return {
+        "tjanstevikt_kg": GRONT_SVAR["tjanstevikt_kg"],
+        "draganordning": GRONT_SVAR["draganordning"],
+        biluppgifter.META_STATUS: {
+            "slapvagnsvikt_kg": biluppgifter.Faltstatus.SAKNAS_PA_SIDAN.value,
+        },
+        biluppgifter.META_DRAGVIKT:
+            biluppgifter.Dragviktslage.ANNAN_FORM.value,
+    }
 
 
 def arende(**andrat) -> Arende:
@@ -772,3 +808,73 @@ def test_loggen_vagrar_skriva_utanfor_logg_och_data(tmp_path):
             Kedjeutfall(kategori="x", hink="utkast"),
             loggfil=kedja.ROT / "src" / "smugglad.jsonl",
         )
+
+
+# ------------------------------------- SKIVA 40 DEL B: vad som FÅR påstås sakna
+
+
+def _mangden(hamta) -> frozenset[str]:
+    """Kör kedjan och ger den mängd frånvaropåståenden generatorn fick."""
+    sedda: list[generera.Forfragan] = []
+    klient = FejkKlient("fråga om a-traktorkonvertering", "Hej, vi hör av oss.")
+    riktig = generera.generera_utkast
+
+    def fangar(klienten, forfragan, **rest):
+        sedda.append(forfragan)
+        return riktig(klienten, forfragan, **rest)
+
+    generera.generera_utkast = fangar
+    try:
+        kedja.kor(arende(), klient=klient, hamta=hamta, hinkar=HINKAR,
+                  taxonomi=TAXONOMI, exempel=[])
+    finally:
+        generera.generera_utkast = riktig
+
+    return sedda[0].franvaro_far_pastas
+
+
+def test_REGISTRET_SAKNAR_ger_ratt_att_pasta_franvaro_om_dragvikt():
+    """UTFALL 1. Sidan bär ingen av de fyra formerna, alltså är frånvaron ett
+    registerfaktum och något boten får säga."""
+    assert _mangden(hamta_registret_saknar_dragvikt) == frozenset({"dragvikt"})
+
+
+def test_ANNAN_FORM_ger_INGEN_ratt_att_pasta_franvaro():
+    """UTFALL 4, LARS BESLUT. Uppgiften FINNS, i en form vi inte kan bedöma mot.
+
+    **DEN HÄR RADEN ÄR SKILLNADEN MELLAN DE TVÅ UTFALLEN**, och utan den vore
+    hela DEL A:s uppdelning verkningslös i sändvägen.
+    """
+    assert _mangden(hamta_dragvikt_i_annan_form) == frozenset()
+
+
+def test_ett_AVLAST_nej_pa_draganordningen_far_pastas():
+    """DEN ANDRA VÄGEN IN I MÄNGDEN, och den går via ett LYCKAT uppslag.
+
+    Ett fordon vars sida säger `Draganordning: Nej` har bevisligen ingen
+    registrerad draganordning. Att spärra *"bilen saknar registrerad
+    draganordning"* hade blockerat ett SANT besked, och det är precis den
+    formulering DEL F ber om.
+    """
+    assert _mangden(hamta_utan_draganordning) == frozenset({"draganordning"})
+
+
+def test_ett_uppslag_som_hoppades_over_ger_TOM_mangd():
+    """Hoppas uppslaget över vet vi ingenting om registret, och då får boten
+    inte påstå att någon uppgift saknas."""
+    klient = FejkKlient("boka däckbyte", "Hej, vi bokar in dig.")
+    sedda: list[generera.Forfragan] = []
+    riktig = generera.generera_utkast
+
+    def fangar(klienten, forfragan, **rest):
+        sedda.append(forfragan)
+        return riktig(klienten, forfragan, **rest)
+
+    generera.generera_utkast = fangar
+    try:
+        kedja.kor(arende(), klient=klient, hamta=hamta_kraschar, hinkar=HINKAR,
+                  taxonomi=TAXONOMI, exempel=[])
+    finally:
+        generera.generera_utkast = riktig
+
+    assert sedda[0].franvaro_far_pastas == frozenset()

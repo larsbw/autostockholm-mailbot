@@ -240,6 +240,16 @@ def kor(
         uppslag, utfall, uppslagssteg = _uppslagssteg(arende, hamta)
         steg.append(uppslagssteg)
         franvaro_far_pastas = uppslagssteg.franvaro_far_pastas
+
+        # **ETT AVLÄST `Nej` ÄR OCKSÅ ETT BELÄGG, och det är den andra vägen in
+        # i mängden.** Ett lyckat uppslag kastar inget undantag, alltså kommer
+        # det aldrig förbi `_franvaro_far_pastas`. Ett fordon vars sida säger
+        # `Draganordning: Nej` har bevisligen ingen registrerad draganordning,
+        # och att då spärra meningen *"bilen saknar registrerad draganordning"*
+        # hade blockerat ett SANT besked. Det är precis den formulering skiva
+        # 40 DEL F ber om.
+        if uppslag is not None and uppslag.draganordning is False:
+            franvaro_far_pastas |= {"draganordning"}
     else:
         steg.append(Steg("uppslag", "hoppades över", "kategorin gatas inte"))
 
