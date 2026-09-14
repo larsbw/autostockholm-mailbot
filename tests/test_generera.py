@@ -614,29 +614,39 @@ def test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal():
     mängden rymmer `25000` ur `_formen`, som samtidigt är ett fullt rimligt pris,
     alltså gick raden röd den dag Lars fyllde filen med just det beloppet trots
     att filtret fungerade precis som det ska. Den prövar nu differensen: tal som
-    står i en kommentar men VARKEN i ett värde eller i `ALLTID_TILLATNA_TAL`. Ett
-    tal som fått en laglig källa är inte längre ett läckage.
+    står i en kommentar men saknar varje LAGLIG källa. Ett tal som fått en sådan
+    är inte längre ett läckage.
 
-    *Skiva 43:s FÖRSTA lydelse prövade i stället STRÄNGIDENTITET, att ingen
-    kommentarTEXT står i `_varden_ur`:s utdatalista, och kallade det "strikt
-    starkare". Den var strikt SVAGARE och mätt vakuös mot just den historiska
-    defekten: en `_varden_ur` som filtrerar `_`-nycklar och sedan dumpar hela
-    dicten returnerar EN sträng som inte är identisk med någon kommentar, medan
-    varje kommentartal ändå går vidare till `_tillatna_tal`. Den fällningen gav
-    GRÖNT på den här raden. Motiveringen var dessutom falsk: `_tillatna_tal`
-    hämtar inte sina tal enbart ur `_varden_ur`, den börjar i
-    `ALLTID_TILLATNA_TAL` och lägger till uppslagets vikter. Fällt av
-    §7-granskningen av skiva 43, varv 1.*
+    **DE LAGLIGA KÄLLORNA ÄR `_tillatna_tal`:s EGNA, alla fyra.**
+    `ALLTID_TILLATNA_TAL`, uppslagets två vikter, och VÄRDENA i `config/priser.json`
+    OCH `config/fakta.json`. Fixturen ger inget uppslag, och raden binder det, så
+    att vikterna inte tyst börjar bära differensen.
+
+    *Skiva 43:s FÖRSTA lydelse prövade STRÄNGIDENTITET och kallade det "strikt
+    starkare". Den var strikt SVAGARE: en `_varden_ur` utan kommentarfilter
+    släpper varje kommentartal vidare till `_tillatna_tal` medan ingen
+    kommentarsträng behöver vara identisk med en post i utdatalistan. Den
+    fällningen gav GRÖNT. Motiveringen var dessutom falsk: `_tillatna_tal` hämtar
+    inte sina tal enbart ur `_varden_ur`. Fällt av §7-granskningen av skiva 43,
+    varv 1.*
+
+    *ANDRA LYDELSEN DROG BARA BORT VÄRDENA I PRISFILEN och
+    `ALLTID_TILLATNA_TAL`, alltså inte `config/fakta.json` och inte uppslagets
+    vikter. Uppmätt: en fullt laglig ledtid i faktafilen, `vi hör av oss inom 14
+    dagar`, gjorde raden RÖD, eftersom `14` också ligger i datumet i prisfilens
+    `_nycklarna`. Det är exakt den defektklass skivan byggdes för att ta bort,
+    flyttad från `priser.json` till `fakta.json`. Fällt av §7-granskningen av
+    skiva 43, varv 2.*
     """
-    rat = json.loads(generera.PRISER.read_text(encoding="utf-8"))
-
     kommentarernas_tal = set()
-    vardenas_tal = set()
-    for namn, varde in rat.items():
-        if str(namn).startswith("_"):
-            kommentarernas_tal |= generera._tal_i(varde)
-        else:
-            vardenas_tal |= generera._tal_i(varde)
+    lagliga_tal = set(generera.ALLTID_TILLATNA_TAL)
+    for fil in (generera.PRISER, generera.FAKTA):
+        rat = json.loads(fil.read_text(encoding="utf-8"))
+        for namn, varde in rat.items():
+            if not str(namn).startswith("_"):
+                lagliga_tal |= generera._tal_i(str(varde))
+            elif fil == generera.PRISER:
+                kommentarernas_tal |= generera._tal_i(str(varde))
 
     # LEDET SOM GÖR RADEN ICKE-VAKUÖS: kommentarerna bär faktiskt ett prisformat
     # tal, alltså finns det något att läcka. Ledet läser BARA kommentarerna och
@@ -645,19 +655,26 @@ def test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal():
         "kommentaren tappade sitt prisformade tal, och då prövar raden inget"
     )
 
+    # UPPSLAGETS VIKTER ÄR OCKSÅ EN LAGLIG KÄLLA. Fixturen ger inget uppslag, och
+    # raden binder det i stället för att subtrahera en mängd som är tom.
+    fall = forfragan()
+    assert fall.uppslag is None, (
+        "fixturen har fått ett uppslag, och då måste dess vikter dras bort ur "
+        "de lagliga talen innan differensen beräknas"
+    )
+
     # LEDET SOM ÄR SPÄRREN: ett tal som bara en kommentar bär har ingen källa.
-    utan_annan_kalla = (kommentarernas_tal - vardenas_tal
-                        - set(generera.ALLTID_TILLATNA_TAL))
+    utan_annan_kalla = kommentarernas_tal - lagliga_tal
     assert utan_annan_kalla, (
         "varje kommentartal har en annan källa, och då prövar raden inget"
     )
 
-    tillatna = generera._tillatna_tal(forfragan())
+    tillatna = generera._tillatna_tal(fall)
     for tal in sorted(utan_annan_kalla):
         assert tal not in tillatna, f"{tal} kom in via en kommentarnyckel"
 
 
-# --- SKIVA 42 DEL 0: LUCKA 53, PLATT FIL -------------------------------------
+# --- SKIVA 43 DEL A: KORPUSENS SENTINELTAL -----------------------------------
 
 
 def test_SENTINELTALET_ar_samma_i_varje_skrivform():
@@ -671,6 +688,9 @@ def test_SENTINELTALET_ar_samma_i_varje_skrivform():
     assert generera._tal_i(f"Det kostar {SENTINELPRIS} kr.") == {SENTINELTAL}
     assert generera._tal_i(f"Vi tar {SENTINELPRIS_IHOP}kr.") == {SENTINELTAL}
     assert generera._tal_i(f"Det blir {SENTINELPRIS_IHOP}tkr.") == {SENTINELTAL}
+
+
+# --- SKIVA 42 DEL 0: LUCKA 53, PLATT FIL -------------------------------------
 
 
 def test_bada_konfigfilerna_i_repot_ar_PLATTA():
@@ -982,7 +1002,11 @@ def test_en_BETECKNING_faller_FORTFARANDE(svar):
          f"Vi gör det för {SENTINELPRIS_IHOP}."),
         (f"Jag har fått pris SEK{SENTINELPRIS_IHOP} av en annan.",
          f"Det landar på {SENTINELPRIS_IHOP} hos oss."),
-        ("Se annonsen blocket.se/annons123456", "Det blir 123456."),
+        # *Raden bar `123456`, som är osannolikt men inte omöjligt som pris och
+        # gick röd när en post fylldes med `123456 kr`. Formen, ett tal ur en
+        # länk, är oförändrad. Fällt av §7-granskningen av skiva 43, varv 2.*
+        (f"Se annonsen blocket.se/annons{SENTINELPRIS_IHOP}",
+         f"Det blir {SENTINELPRIS_IHOP}."),
         # Varv 2:s fynd om lucka 36: kundens beteckning fick bli en ledtid.
         ("Jag har en A5, går den att bygga om?", "Vi hinner på 5 dagar."),
         ("Min bil är en V70.", "Vi hinner på 70 dagar."),
@@ -1050,7 +1074,11 @@ def test_kundens_VIKT_faller():
         # Fler än tre siffror är ingen modellbeteckning.
         f"Vi gör det för ca{SENTINELPRIS_IHOP}.",
         # Ett fristående tal är alltid en kvantitet.
-        "Tillsammans blir det 55.",
+        # *Raden bar `55`, som är ett fullt rimligt pris för en post under `dack`
+        # eller `tillbehor`, och gick röd när en post fylldes med `55 kr`.
+        # Formen, ett fristående tal utan enhet, är oförändrad. Fällt av
+        # §7-granskningen av skiva 43, varv 2.*
+        f"Tillsammans blir det {SENTINELPRIS_IHOP}.",
         "Vi hinner på 15 dagar.",
     ],
 )

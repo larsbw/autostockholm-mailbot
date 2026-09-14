@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.51.1 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.52.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -2725,9 +2725,14 @@ varv 1:s tillkomna rader. Talet är inte antalet INSAMLADE test: en körning sam
 också de överhoppade och de förväntat fallerade. Den äldre lydelsen sade "en svit
 på 1464 test". Fällt av §7-granskningen av skiva 42, varv 2.*
 
-*Och omkörda en tredje gång i SKIVA 43, som lade till tre rader. Summan är nu
-1496. Skiva 43:s första lydelse lade till en rad utan att röra tabellen, alltså
-stod åtta av dess tal olästa. Fällt av §7-granskningen av skiva 43, varv 1.*
+*Och omkörda en tredje gång i SKIVA 43, som lade till två testfunktioner. Summan
+är nu 1496. Skivans första lydelse lade till en av dem utan att röra tabellen,
+alltså stod tabellens tal olästa. Fällt av §7-granskningen av skiva 43, varv 1.*
+
+*Här stod "tre rader" och "åtta av dess tal". Båda talen var fel:
+`git grep -c "^def test_"` över de tre testfilerna går från 97, 15, 36 till 99,
+15, 36, alltså två funktioner, och tio `passed`-tal ändrades. Fällt av
+§7-granskningen av skiva 43, varv 2.*
 
 *Här stod tal mätta mot `tests/test_generera.py` PLUS
 `tests/test_generera_monster.py`, en svit som då bar 576 test. Raderna gällde
@@ -3226,6 +3231,12 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   **UNDERLAGET ÄR TUNT.** Elva utkast bär ingen slutsats ensamma. Riktningen är
   entydig, storleken är det inte.
 
+  **OCH NOLLAN HAR INGEN NÄMNARE.** Av de elva utkasten bär NOLL ett prisord över
+  huvud taget, och `scripts/prismatning.py` skriver ut `ingen nämnare` på raden.
+  Nollan säger alltså inte att boten låter bli att blanda pris och andra tal, utan
+  att den inte skriver prisord alls medan `config/priser.json` är tom. Uppmätt av
+  §7-granskningen av skiva 43, varv 2. Det är precis därför ordern nedan finns.
+
   **ORDERN: MÄT OM NÄR BOTENS UTKAST ÄR FLER.** Öppnas luckan ska det ske på
   botens egen population och aldrig på Mattes. `scripts/prismatning.py` läser
   redan `data/granskningsfall.jsonl`, alltså är det samma kommando.
@@ -3426,6 +3437,34 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   **EN ANDRA HALVA AV SAMMA OBSERVATION:** ett värde som varken är sträng eller
   behållare, ett `int`, `None` eller `True`, passerar `las_konfigvarden` och
   `str()`-renderas i prompten. Samma vakt gatar det, eftersom den kräver `str`.
+
+- **Lucka 57. KORPUSENS LEDTIDER KROCKAR MED `config/fakta.json` PÅ SAMMA SÄTT
+  SOM PRISERNA GJORDE. ÖPPEN OCH MÄTT. REGISTRERAD, INTE BYGGD.**
+
+  Skiva 43 bytte korpusens kanoniska PRIS utan källa mot ett sentineltal, på Lars
+  beslut. Samma defektform finns kvar för LEDTIDER. Korpusen använder `14` och
+  `15 dagar` som sina okällade ledtider, och §7.2 säger att ledtider läses ur
+  `config/fakta.json`.
+
+  **UPPMÄTT.** En fällning som ger `bokningar` värdet
+  *"vi hör av oss inom 14 dagar"*, alltså exakt vad §7.2 anvisar att filen ska
+  bära, gör fyra rader röda: `test_ett_tal_utan_kalla_faller`,
+  `test_en_LEDTID_ur_kundens_text_faller`,
+  `test_ett_NYCKELNAMN_ar_ALDRIG_en_talkalla[PRISER]` och
+  `test_talformer_som_ska_falla[Vi hinner med det på 14 dagar.]`. Ingen av dem
+  vaktar Lars beslut om faktafilen.
+
+  **VARFÖR DEN INTE ÄR BYGGD.** Lars order i skiva 43 DEL A gällde PRISER, och
+  §3 säger att bara det som uppgiften kräver ska röras. Att byta korpusens
+  ledtider är samma arbete en gång till och ska vara ett eget beslut.
+
+  **VAD SOM GATAR DEN.** `config/fakta.json` bär i dag inget tal:
+  `test_faktafilen_i_repot_har_TOM_telefon` binder `telefon` som tom och hela
+  nyckelmängden, och `bokningar` är text utan siffror. Luckan öppnar först den
+  dag Lars skriver in en ledtid.
+
+  **ETT TELEFONNUMMER UTLÖSER DEN INTE.** Mätt i skiva 42: `telefon` satt till
+  ett nummer ger `1 failed`, alltså bara §10-tripwiren.
 
 - **Lucka 50. STÄNGD SOM SÄNDVÄG I SKIVA 41, VÄG TRE. Ett kvarstående led rör
   HÄRKOMSTRADEN och inte kundmailet.**
@@ -4906,10 +4945,27 @@ post och inte en spärr som saknar egenskapen.
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.52.0 — 2026-09-14
+
+**LUCKA 57 REGISTRERAD.** Korpusens LEDTIDER krockar med `config/fakta.json` på
+samma sätt som priserna gjorde med `config/priser.json`. Registrerad och inte
+byggd: Lars order i skiva 43 gällde priser. Se `docs/beslutslogg.md` #104.
+
+**LUCKA 55:s ANDRA SKÄL FICK EN KVALIFIKATION.** Nollan i botens utkast har ingen
+nämnare: noll av elva bär ett prisord alls. Lars beslut står, och ordern att mäta
+om på botens egen population är just vad som saknas för att skälet ska bära.
+
+**TVÅ PROCESSRÄKNINGAR ÄR STRUKNA** ur 0.51.1 och ur spärrpostens not, och båda
+var dessutom fel.
+
+Ny lucka och en kvalificerad slutsats ⇒ MINOR.
+
 ### 0.51.1 — 2026-09-14
 
 **FÄLLNINGSTABELLENS TAL ÄR OMKÖRDA EN TREDJE GÅNG.** Skiva 43 lade till rader i
-sviten utan att röra tabellen, alltså stod åtta tal olästa. Summan är nu 1496.
+sviten utan att röra tabellen, alltså stod tabellens tal olästa. Summan är nu
+1496. *Raden räknade talen till åtta. Det är en processräkning och dessutom fel,
+se noten i spärrposten. Fällt av §7-granskningen av skiva 43, varv 2.*
 
 **ETT AV TALEN ÄNDRADE BÅDE `failed` OCH `passed`.** Nästlingstripwiren för
 lucka 53 gick från tre röda till två, därför att skiva 43:s första lydelse

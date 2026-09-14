@@ -469,10 +469,17 @@ PRIS_SKA_FALLA = [
     ("Det blir 9tkr.", UTAN_UPPSLAG),
     # skiva 33, varv 1: RADEN SOM GÖR `\d\s*tkr` LASTBÄRANDE.
     #
-    # Varje annan tkr-rad bär en siffra UTAN källa, alltså fälls den av
-    # `TAL_I_TEXT` även om prisordet tas bort. Här HAR talet en källa i
-    # uppslaget, så prisordet är det enda som kan fälla. Utan raden gick
-    # `\d\s*tkr` att radera med hela sviten grön.
+    # Varje annan tkr-rad i den HÄR tabellen bär en siffra UTAN källa, alltså
+    # fälls den av `TAL_I_TEXT` även om prisordet tas bort. Här HAR talet en
+    # källa i uppslaget, så prisordet är det enda som kan fälla. När raden lades
+    # till i skiva 33 gick `\d\s*tkr` att radera med hela sviten grön.
+    #
+    # *Raden är INTE längre ensam om att bära termen:
+    # `test_ett_PRIS_utan_PRISKALLA_faller_aven_nar_filen_ar_fylld` bär sedan
+    # skiva 41 fallet `Det blir 1400tkr.` med `GRONT_UPPSLAG`, alltså samma
+    # egenskap i en annan fil. En fällning av termen ger fyra röda rader, inte
+    # en. Formuleringen ovan stod i presens om skiva 33:s läge. Fällt av
+    # §7-granskningen av skiva 43, varv 2.*
     #
     # *Raden bar `1400` och `GRANSBIL`. Det talet är också ett fullt rimligt
     # pris, och raden gick därför röd den dag en post i `config/priser.json`

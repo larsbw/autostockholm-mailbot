@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.62.1 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
+**Version:** 0.62.2 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -5663,6 +5663,15 @@ mening, och boten skriver inte så.
 **UNDERLAGET ÄR TUNT OCH DET SKRIVS UT.** Elva utkast är för få för att bära en
 slutsats ensamma. Riktningen är entydig, storleken är det inte.
 
+**NOLLAN HAR INGEN NÄMNARE, och det ska stå bredvid skälet.** Av de elva utkasten
+bär NOLL ett prisord över huvud taget, och `scripts/prismatning.py` skriver
+själv ut `ingen nämnare` på raden. Nollan säger alltså inte att boten låter bli
+att blanda pris och andra tal; den säger att boten inte skriver prisord alls,
+vilket är den väntade följden av att `config/priser.json` är tom och prisgrenen
+fäller varje prisord. Lars beslut står, och ordern att mäta om på botens egen
+population är just vad som saknas för att skälet ska bära. Uppmätt av
+§7-granskningen av skiva 43, varv 2.
+
 **ORDERN: MÄT OM NÄR BOTENS UTKAST ÄR FLER.** Öppnas luckan ska det ske på
 botens egen population och aldrig på Mattes. Det är samma hållning som #52 och
 #57: en spärr mäts mot det den faktiskt kommer att pröva.
@@ -5710,19 +5719,25 @@ testmarkör och inte som en avläsning.
 **TVÅ VAKTER VAR §10-TRIPWIRES I FÖRKLÄDNAD, och de är ombyggda.**
 `test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal` jämförde kommentarernas
 TAL mot `_tillatna_tal`, med `25000` ur `_formen` som bärande exempel. Den prövar
-nu att ingen kommentarTEXT går vidare till `_varden_ur`, vilket är strikt
-starkare och överlever varje fyllning.
+nu DIFFERENSEN: tal som en kommentar bär men som saknar varje laglig källa.
 `test_prompten_sager_att_priser_inte_finns` läste den riktiga filen för att pröva
-en MEKANISM; den använder nu en tom fil och har fått en negativkontroll som
-saknades.
+en MEKANISM; den använder nu en tom fil, och har fått en negativkontroll på
+`bygg_prompt`-nivå.
+
+*Här stod att den första vakten prövar "att ingen kommentarTEXT går vidare till
+`_varden_ur`, vilket är strikt starkare och överlever varje fyllning". Den
+lydelsen var strikt SVAGARE och mätt vakuös, se 0.62.1, och den lever inte kvar.
+Här stod också att den andra vakten fick "en negativkontroll som saknades";
+mekanismen var redan täckt av två äldre rader, vilket testets egen docstring
+skriver ut. Båda fällda av §7-granskningen av skiva 43, varv 2.*
 
 **EN VAKT BYTTE NAMN TILL VAD DEN FAKTISKT PRÖVAR.**
 `test_ett_pris_faller_med_repots_egen_TOMMA_prisfil` hette efter filtillståndet
 och bar en docstring som sade att raden SKA gå röd när Lars fyller filen. Den
 heter nu `test_ett_pris_UTAN_KALLA_faller_mot_repots_egen_prisfil`.
 
-**VERIFIERAT MED FEM KÖRNINGAR, och målet är nått.** Varje fällning ger RÖD med
-`1 failed, 1494 passed, 54 skipped, 16 xfailed`, och den enda röda är
+**VERIFIERAT, och målet är nått.** Varje fällning nedan ger RÖD med
+`1 failed, 1495 passed, 54 skipped, 16 xfailed`, och den enda röda är
 `test_prisfilen_i_repot_har_BARA_TOMMA_varden`:
 
 | Fällning i `config/priser.json` | Utfall |
@@ -5732,14 +5747,23 @@ heter nu `test_ett_pris_UTAN_KALLA_faller_mot_repots_egen_prisfil`.
 | `a_traktorkonvertering` = `1400 kr` | 1 failed |
 | `a_traktorkonvertering` = `1500 kr` | 1 failed |
 | `service` = `1 000 kr` | 1 failed |
+| `a_traktorkonvertering` = `55 kr` | 1 failed |
+| `a_traktorkonvertering` = `123456 kr` | 1 failed |
 
-*De tre sista lades till i varv 1. En första lydelse mätte bara de två första och
-drog slutsatsen att resultatet "inte är specifikt för en nyckel eller ett
-belopp". Granskningen falsifierade den: `1400` krockade med `GRANSBIL`:s
-tjänstevikt och med tkr-raden, `1500` med en glued-kr-rad, och `1000` med en
-viktrad. Tre korpusrader till är därför bytta, och `SENTINELBIL` är tillagd.
-Generaliseringen gäller nu därför att den är mätt på fem belopp och inte därför
-att den lät rimlig. Fällt av §7-granskningen av skiva 43, varv 1.*
+Granskningen körde dessutom `500`, `750`, `900`, `1200`, `2000`, `3000`, `5000`,
+`9000`, `12000`, `15000`, `20000`, `30000`, `45000` och `55000` med samma utfall.
+
+*En första lydelse mätte bara `25 000` och `18 000` och drog slutsatsen att
+resultatet "inte är specifikt för en nyckel eller ett belopp". Granskningen
+falsifierade den två gånger: varv 1 fann `1400`, `1500` och `1000`, varv 2 fann
+`55` och `123456`. Fem korpusrader är därför bytta och `SENTINELBIL` tillagd.
+Generaliseringen gäller nu därför att den är mätt och inte därför att den lät
+rimlig.*
+
+*Talet `1494` stod här och blev oläst av varv 1:s egen ändring: samma varv lade
+till ett test OCH skrev om det här stycket utan att räkna om. Det är §7.2:s
+omskrivningsregel bruten i rättelsetexten, och den motsades av 0.62.1:s egen rad
+om omkörda tal. Fällt av §7-granskningen av skiva 43, varv 2.*
 
 **FILEN ÄR TOM NÄR SKIVAN SKEPPAS.** Fällningarna är återställda av
 `scripts/sparr-prova.sh`, och varje återställning är kvitterad med `filens
@@ -5748,7 +5772,58 @@ fyller filen själv.
 
 ---
 
+## #104 — Lucka 57 registrerad: korpusens LEDTIDER krockar med `config/fakta.json`
+
+Uppmätt av §7-granskningen av skiva 43, varv 2. REGISTRERAD, inte byggd.
+
+Skiva 43 bytte korpusens kanoniska PRIS utan källa mot ett sentineltal, på Lars
+beslut i #103. Samma defektform finns kvar för LEDTIDER: korpusen använder `14`
+och `15 dagar` som sina okällade ledtider, och §7.2 säger att ledtider läses ur
+`config/fakta.json`.
+
+**UPPMÄTT.** En fällning som ger `bokningar` värdet *"vi hör av oss inom 14
+dagar"*, alltså exakt vad §7.2 anvisar att filen ska bära, gör fyra rader röda.
+Ingen av dem vaktar Lars beslut om faktafilen. Det är ordagrant det problem #103
+löste för prisfilen.
+
+**VARFÖR DEN INTE ÄR BYGGD.** Lars order i DEL A gällde PRISER. §3 säger att bara
+det uppgiften kräver ska röras, och att byta korpusens ledtider är samma arbete
+en gång till. Det ska vara ett eget beslut.
+
+**VAD SOM GATAR DEN.** `config/fakta.json` bär i dag inget tal. Luckan öppnar
+först den dag Lars skriver in en ledtid. Ett telefonnummer utlöser den inte:
+mätt i skiva 42 ger `telefon` satt till ett nummer `1 failed`, alltså bara
+§10-tripwiren.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.62.2 — 2026-09-14
+
+**VARV 2 UNDERKÄNDE, och det tyngsta fyndet var kodnära igen.** Den ombyggda
+vakten beräknade sin differens mot FEL MÄNGD: `config/fakta.json`:s värden och
+uppslagets vikter drogs inte bort, alltså gick vakten röd av en fullt laglig
+ledtid i faktafilen. Samma defektklass som skivan byggdes för att ta bort,
+flyttad mellan två filer. Differensen räknas nu mot samtliga fyra källor
+`_tillatna_tal` använder, och att fixturen saknar uppslag är BUNDET.
+
+**KORPUSBYTET MISSADE TVÅ BELOPP TILL.** `55` och `123456`. Båda bytta, och
+listan över prövade belopp i #103 är utökad.
+
+**#104 TILLKOMMER: lucka 57.** Samma defektform för LEDTIDER, registrerad och
+inte byggd, eftersom Lars order gällde priser.
+
+**SEX PÅSTÅENDEN I RÄTTELSETEXTEN VAR FALSKA ELLER FÖRÅLDRADE**, bland dem ett
+tal som varv 1 gjorde oläst genom att skriva om samma stycke som det lade till
+ett test i, och "ELVA RÖDA VAKTER" som stod kvar i 0.62.0 medan 0.62.1 skrev att
+det var struket.
+
+**NOLLAN I #102:s ANDRA SKÄL HAR INGEN NÄMNARE, och det står nu bredvid skälet.**
+Noll av elva utkast bär ett prisord alls, vilket är den väntade följden av en tom
+prisfil. Lars beslut står; stödet är kvalificerat.
+
+Ny post och rättade påståenden ⇒ MINOR.
 
 ### 0.62.1 — 2026-09-14
 
@@ -5771,9 +5846,12 @@ stället för två.
 **TALET "ELVA" ÄR STRUKET.** Det kom ur Lars brief och inte ur repot, alltså
 samma fel som #99:s "de fem nycklar".
 
-**ÅTTA TAL BLEV OLÄSTA av att sviten växte, och är omkörda.** Ett av dem ändrade
-både `failed` och `passed`: nästlingstripwiren tappade en röd rad av den
-försvagade vakten, vilket den nu har tillbaka.
+**TALEN I `docs/sparrar.md` BLEV OLÄSTA av att sviten växte, och är omkörda per
+rad.** Ett av dem ändrade både `failed` och `passed`: nästlingstripwiren tappade
+en röd rad av den försvagade vakten, vilket den nu har tillbaka. *Raden räknade
+först talen till åtta. Det är dels en processräkning, dels fel: tio `passed`-tal
+ändrades. Det kontrollerbara står per rad i tabellerna. Fällt av
+§7-granskningen av skiva 43, varv 2.*
 
 Rättade påståenden i committade poster ⇒ PATCH.
 
@@ -5787,8 +5865,10 @@ bytt.
 struken.** Villkoret var mitt när det skrevs, och redovisningen av det hör till
 historiken. Noterna säger nu att Lars antagit det.
 
-**ELVA RÖDA VAKTER BLEV EN.** Verifierat med en fällning, och den enda som står
-kvar är §10-tripwiren.
+**EN RAD VAKTER BLEV EN.** Verifierat med en fällning, och den enda som står
+kvar är §10-tripwiren. *Raden sade "ELVA RÖDA VAKTER". Talet kom ur Lars brief
+och inte ur repot, och 0.62.1 skriver ut att det är struket, medan den här raden
+stod kvar med det. Fällt av §7-granskningen av skiva 43, varv 2.*
 
 Nya poster ⇒ MINOR.
 

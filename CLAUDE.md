@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.12.12 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #103
+**Version:** 0.12.13 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #104
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -519,17 +519,52 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 
 ## Appendix — versionshistorik (nyaste överst)
 
+### 0.12.13 — 2026-09-14
+
+**`Speglar` följer med till beslutslogg #104.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att lucka 57 registrerats.
+
+**JAG BYGGDE OM SAMMA VAKT FEL TVÅ GÅNGER I RAD, och det ska stå.** Först
+prövade den strängidentitet och blev vakuös. Sedan prövade den en differens mot
+fel mängd och gick röd av en fullt laglig ledtid i `config/fakta.json`, alltså
+samma defektklass som skivan byggdes för att ta bort, flyttad mellan två filer.
+Den räknar nu mot samtliga fyra källor `_tillatna_tal` använder. Regeln är
+oförändrad; det som ändrats är att jag skriver ut båda felen.
+
+**LÄRDOMEN I 0.12.11 GÄLLER ALLTSÅ ÅT BÅDA HÅLL.** Ett test som bär ett
+exempelvärde ur samma domän som en §10-fil blir en tripwire i förklädnad, och en
+VAKT som subtraherar fel mängd blir det också. Jag skriver fortfarande inte in
+den i §7.1 på eget bevåg, se §8.
+
+**LUCKA 57 REGISTRERAD, se `docs/beslutslogg.md` #104.** Samma defektform för
+LEDTIDER. Inte byggd: Lars order gällde priser, och §3 säger att bara det
+uppgiften kräver ska röras.
+
+**§0:s ramverksregel 1 släpper fortfarande igenom ingenting**, eftersom `auto`
+är tom sedan 0.12.0.
+
+**§10 ÄR OBRUTEN.** `git diff --stat -- config/` är tom över hela skivan.
+
+**§0:s styrdokumentlista är oförändrad.** Varv 2 skapade ingen ny fil.
+
+Ren synk och rättade påståenden ⇒ PATCH.
+
 ### 0.12.12 — 2026-09-14
 
 **`Speglar` STÅR KVAR PÅ #103.** Varv 1 skapade ingen ny beslutspost.
 
 **EN SÄNDVÄGSVAKT FÖRSVAGADES AV MIG I DEN HÄR SKIVAN, och det ska stå här.**
 `test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal` byggdes om till att pröva
-strängidentitet och blev då mätt VAKUÖS mot den historiska defekt den finns för.
-Docstringen påstod samtidigt att ändringen var "strikt starkare", och den
-premissen var falsk. §0:s ramverksregel 3 stod alltså utan sin vakt mellan
-`d772d9a` och rättelsen. Vakten är ombyggd och fäller defekten igen. Regeln är
-oförändrad; det som ändrats är att jag skriver ut att jag försvagade den.
+strängidentitet och blev då mätt VAKUÖS mot en fällning av `_varden_ur`:s
+kommentarfilter. Docstringen påstod samtidigt att ändringen var "strikt
+starkare", och den premissen var falsk. Vakten är ombyggd och fäller fällningen
+igen. Regeln är oförändrad; det som ändrats är att jag skriver ut att jag
+försvagade dess vakt.
+
+*Här stod att §0:s ramverksregel 3 "stod utan sin vakt" mellan `d772d9a` och
+rättelsen. Det är starkare än mätningen bär: den försvagade lydelsen var RÖD mot
+en fällning av `_`-filtret och GRÖN bara mot en variant som dumpar dicten. Fällt
+av §7-granskningen av skiva 43, varv 2.*
 
 **0.12.11:s TAL "ELVA RÖDA VAKTER" ÄR STRUKET.** Det kom ur Lars brief och inte
 ur repot, alltså samma fel som skiva 42:s "de fem nycklar". §7.2 gäller också ett
