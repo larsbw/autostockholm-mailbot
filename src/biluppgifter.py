@@ -1024,7 +1024,6 @@ def _galler_fordonet(sida: str, regnr: str) -> bool:
 # tar bort dem: `slag_upp` returnerar `_kontrollera(hamta(normalt))` rakt av.
 # Utfallet är detsamma, men ingen kod utför den handling meningen tillskrev den.
 # Fällt av §7-granskningen av skiva 40, varv 1 och varv 2.*
-META_STATUS = "_faltstatus"
 META_DRAGVIKT = "_dragviktslage"
 
 
@@ -1508,18 +1507,23 @@ def biluppgifter_hamtning(
             if statusar[nyckel].status is Faltstatus.LAST
         }
 
-        # **METADATA UNDER RESERVERADE NYCKLAR. Skiva 40 DEL A.** Utan dem når
-        # skillnaden mellan ett saknat och ett oläsbart fält aldrig fram till
-        # `src/generera.py`, och då kan DEL B:s spärr inte veta vad som är
-        # belagt. Nycklarna börjar med `_` och LÄSES av `fordonsuppslag._kontrollera`,
-# som tolererar okända nycklar och bygger `Uppslag` av tre namngivna. Ingen rad
-# tar bort dem.
-#
-# *Här stod "plockas bort av `slag_upp`". Samma falskhet rättades i den här
-# filens kommentar vid `META_STATUS` i varv 2 och lämnades kvar här, 488 rader
-# ned. Det är mönstret modulens egen not beskriver: rättelsen görs på ett ställe
-# och glöms på ett annat. Fällt av §7-granskningen av skiva 40, varv 3.*
-        falt[META_STATUS] = {n: f.status.value for n, f in statusar.items()}
+        # **METADATA UNDER EN RESERVERAD NYCKEL. Skiva 40 DEL A.** Utan den når
+        # dragviktsläget aldrig fram till härkomstraden i vyn, och då kan den
+        # bara säga att uppslaget misslyckades och inte vad som gäller.
+        #
+        # Nyckeln börjar med `_` och LÄSES av `fordonsuppslag._kontrollera`, som
+        # tolererar okända nycklar och bygger `Uppslag` av tre namngivna. Ingen
+        # rad tar bort den.
+        #
+        # *Här stod "plockas bort av `slag_upp`". Samma falskhet rättades på ett
+        # ställe i varv 2 och lämnades kvar här. Fällt av §7-granskningen av
+        # skiva 40, varv 3. Indraget på det här stycket föll samtidigt ur
+        # blocket och är återställt i skiva 41.*
+        #
+        # *`META_STATUS` stod också här. Den var DEL B:s väg till vilka
+        # frånvaropåståenden som var tillåtna, och VÄG TRE i skiva 41 tog bort
+        # den vägen. En oanvänd metanyckel i sändvägen är borttagen och inte
+        # kvarlämnad.*
         falt[META_DRAGVIKT] = dragviktslage(statusar).value
 
         # **DEN HÄR RADEN ÄR SKÄLET TILL ATT LOGGEN FINNS.** Sidan svarade 200,

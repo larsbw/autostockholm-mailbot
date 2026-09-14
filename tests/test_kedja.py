@@ -84,15 +84,12 @@ def hamta_registret_saknar_dragvikt(_regnr: str) -> dict:
     """Ingen av sidans fyra släpviktsformer finns, alltså utfall 1.
 
     Formen är den `biluppgifter_hamtning` lämnar: de fält som lästes, plus
-    metadatan under reserverade nycklar. `slapvagnsvikt_kg` saknas, alltså
-    fäller `_kontrollera` och undantaget bär statusarna.
+    dragviktsläget under en reserverad nyckel. `slapvagnsvikt_kg` saknas, alltså
+    fäller `_kontrollera` och undantaget bär läget.
     """
     return {
         "tjanstevikt_kg": GRONT_SVAR["tjanstevikt_kg"],
         "draganordning": GRONT_SVAR["draganordning"],
-        biluppgifter.META_STATUS: {
-            "slapvagnsvikt_kg": biluppgifter.Faltstatus.SAKNAS_PA_SIDAN.value,
-        },
         biluppgifter.META_DRAGVIKT:
             biluppgifter.Dragviktslage.REGISTRET_SAKNAR.value,
     }
@@ -103,9 +100,6 @@ def hamta_dragvikt_i_annan_form(_regnr: str) -> dict:
     return {
         "tjanstevikt_kg": GRONT_SVAR["tjanstevikt_kg"],
         "draganordning": GRONT_SVAR["draganordning"],
-        biluppgifter.META_STATUS: {
-            "slapvagnsvikt_kg": biluppgifter.Faltstatus.SAKNAS_PA_SIDAN.value,
-        },
         biluppgifter.META_DRAGVIKT:
             biluppgifter.Dragviktslage.ANNAN_FORM.value,
     }
@@ -833,10 +827,30 @@ def _mangden(hamta) -> frozenset[str]:
     return sedda[0].franvaro_far_pastas
 
 
-def test_REGISTRET_SAKNAR_ger_ratt_att_pasta_franvaro_om_dragvikt():
-    """UTFALL 1. Sidan bär ingen av de fyra formerna, alltså är frånvaron ett
-    registerfaktum och något boten får säga."""
-    assert _mangden(hamta_registret_saknar_dragvikt) == frozenset({"dragvikt"})
+def test_REGISTRET_SAKNAR_ger_INGEN_ratt_att_pasta_franvaro():
+    """VÄG TRE, LARS BESLUT I SKIVA 41 PÅ LUCKA 50.
+
+    **EN FRÅNVARO ÄR ALDRIG ETT BELÄGG.** Skiva 40 gav den här vägen rätten att
+    säga att registret saknar dragviktsuppgift, med motiveringen att sidan bara
+    renderar fält som HAR ett värde. Det är sant om sidan och osant om vår
+    läsning av den: ett mjukt bindestreck i `Släpvagnsvikt` räcker för att
+    fältet ska se saknat ut, och det kräver ingen markupändring alls.
+
+    Raden band tidigare motsatsen och är vänd, inte tillagd. Se
+    `docs/beslutslogg.md` #93 och LUCKA 50.
+    """
+    assert _mangden(hamta_registret_saknar_dragvikt) == frozenset()
+
+
+def test_ett_MISSLYCKAT_uppslag_ger_ALDRIG_ratt_att_pasta_franvaro():
+    """EGENSKAPEN, och inte instansen.
+
+    **VARJE misslyckat uppslag ger en tom mängd**, oavsett vilket läge
+    härkomstraden rapporterar. Raden prövar alla tre lägena tillsammans, så att
+    en framtida gren som lägger tillbaka någon av dem blir röd.
+    """
+    for hamta in (hamta_registret_saknar_dragvikt, hamta_dragvikt_i_annan_form):
+        assert _mangden(hamta) == frozenset()
 
 
 def test_ANNAN_FORM_ger_INGEN_ratt_att_pasta_franvaro():

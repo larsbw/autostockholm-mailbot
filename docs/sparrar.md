@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.45.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.46.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -3040,8 +3040,32 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   räknade upp. Det är `docs/incidentlogg.md` I10, tredje varvet i rad i den här
   skivan.
 
-- **Lucka 50. `_sidan_bar_inte_faltet` MÄTER EN TECKENFÖLJD, INTE OM SIDAN
-  RENDERAR FÄLTET. ÖPPEN OCH MÄTT. SÄNDVÄG.**
+- **Lucka 50. STÄNGD SOM SÄNDVÄG I SKIVA 41, VÄG TRE. Ett kvarstående led rör
+  HÄRKOMSTRADEN och inte kundmailet.**
+
+  Lars beslut, se `docs/beslutslogg.md` #93: rätten att påstå frånvaro är
+  borttagen ur den saknade-fältet-vägen. Bara ett AVLÄST `Nej` är ett belägg.
+  Mätfelet nedan finns kvar i koden men når inte längre ett kundmail.
+
+  **VAD SOM KVARSTÅR OCH INTE ÄR SÄNDVÄG.** Härkomstraden kan säga *"REGISTRET
+  BÄR INGEN DRAGVIKTSUPPGIFT för fordonet. Det är ett faktum om bilen och inte
+  ett fel hos oss"* om ett fordon vars sida bär uppgiften, alltså kan den
+  vilseleda LARS när han läser vyn. Loggen kan av samma skäl skriva
+  `falt_saknas` där `falt_olasbart` vore rätt.
+
+  **VAD SOM STÄNGER DET LEDET.** Att normalisera jämförelsen som parsern gör,
+  alltså avkoda entiteter och strippa osynliga tecken före jämförelsen. Det är
+  inte gjort, och det är inte sändväg.
+
+  **`MINSTA_ANKARE` ÄR BUNDEN SEDAN SKIVA 41.** Sex parametrar kring
+  gränsvärdet plus en rad om talet självt. En fällning till 2 gav förut grön
+  svit och ger nu två röda.
+
+  Mätningen som gjorde luckan står kvar nedan, eftersom den beskriver koden som
+  den fortfarande är.
+
+- **Lucka 50, mätningen. `_sidan_bar_inte_faltet` MÄTER EN TECKENFÖLJD, INTE OM
+  SIDAN RENDERAR FÄLTET.**
 
   Lager 1 prövar att `>Etikett<` står i sidans RÅA källtext. Parsern avkodar
   entiteter och `strip`:ar noden; kontrollen gör varken eller. Varje skillnad
@@ -3116,6 +3140,16 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   alltså varje nekande ord i stället för en lista, plus en omprövning av vilka
   satsbrott som är motsättande. Båda är sändvägsändringar och görs inte efter en
   förbrukad grind.
+
+  **OMMÄTT I SKIVA 41 EFTER VÄG TRE, och premissen höll inte.** Lars beslut
+  förutsåg att uppräkningen blir mindre kritisk när ett frånvaropåstående bara
+  får vila på ett avläst värde. Samtliga sex former läcker exakt som förut,
+  uppmätt mot `krav_pa_belagt_franvaropastaende` med tom mängd.
+
+  **VÄG TRE TOG BORT DEN FALSKA RÄTTIGHETEN, INTE UPPTÄCKTSGAPET.** De två är
+  oberoende: en form spärren inte känner igen passerar oavsett vad mängden
+  innehåller. Luckan är alltså lika kritisk som före skiva 41, och det är ett
+  mätresultat och ingen bedömning.
 
 - **Lucka 49. ETT FORDON MED OBROMSAD MEN INGEN BROMSAD SLÄPVAGNSVIKT. ÖPPEN,
   OCH AVGÖRS AV EN BESIKTNINGSMAN.**
@@ -4453,6 +4487,28 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.46.0 — 2026-09-14
+
+**LUCKA 50 STÄNGD SOM SÄNDVÄG, VÄG TRE.** Lars beslut i skiva 41, se
+`docs/beslutslogg.md` #93. Rätten att påstå frånvaro är borttagen ur den
+saknade-fältet-vägen; bara ett avläst `Nej` är ett belägg. Mätfelet finns kvar i
+koden men når inte längre ett kundmail, och det kvarstående ledet rör
+härkomstraden och loggen.
+
+**`MINSTA_ANKARE` ÄR BUNDEN.** Den var obunden, och en fällning till 2 gav grön
+svit. Nu finns sex parametrar kring gränsvärdet plus en rad om talet självt.
+
+**LUCKA 51 ÄR OMMÄTT OCH PREMISSEN HÖLL INTE.** Samtliga sex former läcker exakt
+som förut. Väg tre tog bort den falska rättigheten, inte upptäcktsgapet, och de
+två är oberoende.
+
+**EN NY §10-VAKT: `config/priser.json`.** Filen är upprättad TOM på Lars beslut,
+och vakten binder hela nyckelmängden. Skiva 36:s kommentarhål är prövat på den
+nya filen med en KÖRNING: utan `_`-filtret hade kommentarens exempel `25 000 kr`
+auktoriserat talet `25000` i ett utgående mail.
+
+Stängd lucka och ommätt lucka ⇒ MINOR.
 
 ### 0.45.0 — 2026-09-14
 

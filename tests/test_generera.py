@@ -397,6 +397,73 @@ def test_faktafilen_i_repot_har_TOM_telefon():
     assert not [r for r in rader if r.startswith("telefon:")]
 
 
+# --- SKIVA 41 DEL A: config/priser.json --------------------------------------
+
+
+PRISNYCKLAR = {"a_traktorkonvertering", "rekond", "reparation", "service",
+               "dack", "tillbehor"}
+
+
+def test_prisfilen_i_repot_har_BARA_TOMMA_varden():
+    """§10-VAKTEN FÖR PRISFILEN, byggd som den för `config/fakta.json`.
+
+    Filen skapades i skiva 41 på Lars §10-beslut. Att FYLLA den är hans beslut
+    och inte mitt, och den här raden blir röd den dag någon sätter ett värde.
+
+    **HELA NYCKELMÄNGDEN BINDS, inte bara att filen är tom.** Skiva 37 visade
+    att en vakt som bara prövar ETT fält går att kringgå: en ny post gick in med
+    grön svit. Varje post ska kräva ett medvetet beslut.
+    """
+    data = json.loads(generera.PRISER.read_text(encoding="utf-8"))
+    poster = {n: v for n, v in data.items() if not n.startswith("_")}
+
+    assert set(poster) == PRISNYCKLAR, (
+        "config/priser.json har fått eller tappat en post. Filen är ett "
+        "§10-stopp: ändra den här raden bara när Lars har beslutat ändringen."
+    )
+    assert all(v == "" for v in poster.values()), (
+        "ett pris är infört utan Lars beslut"
+    )
+
+    # OCH ATT TOMMA VÄRDEN FAKTISKT UTELÄMNAS, alltså att prompten säger INGA.
+    assert generera.las_priser() == {}
+    assert generera._prisrader() == generera.INGA_PRISER
+
+
+def test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal():
+    """SKIVA 36:s HÅL, prövat på den nya filen INNAN den fylls.
+
+    **`config/fakta.json` BLEV VÄGEN RUNT KRAVET PÅ KÄLLA.** Två
+    kommentarnycklar nämnde `§7.2` och `§10`, och därmed blev 7 och 10 tillåtna
+    tal i ett utgående mail: *"vi hör av oss inom 10 dagar"* passerade spärren,
+    uppmätt i skiva 36. Det bryter §0:s ramverksregel 3, som är obrytbar.
+
+    **PRISFILENS KOMMENTARER BÄR MED FLIT ETT PRISFORMAT TAL.** `_formen`
+    innehåller exemplet `25 000 kr`, alltså är den här raden inte teoretisk: utan
+    filtret hade boten fått skriva just det talet som ett pris.
+
+    Raden prövar BÅDA leden: att inget tal når `_tillatna_tal` ur filen, och att
+    talen FINNS i den råa filen. Utan det andra ledet vore testet grönt även om
+    kommentarerna togs bort, alltså vakuöst.
+    """
+    rat = json.loads(generera.PRISER.read_text(encoding="utf-8"))
+
+    # LEDET SOM GÖR RADEN ICKE-VAKUÖS: kommentarerna bär faktiskt tal.
+    ratta_tal = set()
+    for varde in rat.values():
+        ratta_tal |= generera._tal_i(varde)
+    assert "25000" in ratta_tal, (
+        "kommentaren tappade sitt prisformade tal, och då prövar raden inget"
+    )
+
+    # LEDET SOM ÄR SPÄRREN: inget av dem når `_tillatna_tal`.
+    assert generera._varden_ur(generera.las_konfig(generera.PRISER)) == []
+
+    tillatna = generera._tillatna_tal(forfragan())
+    for tal in ratta_tal:
+        assert tal not in tillatna, f"{tal} kom in via en kommentarnyckel"
+
+
 @pytest.mark.parametrize("svar", ["", "   ", "\n\n", "\t \n"])
 def test_ett_TOMT_svar_ar_INGET_utkast(svar):
     """SPÄRR: de tre andra spärrarna SÖKER EFTER SAKER och släpper det tomma.

@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 0.12.4 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #92
+**Version:** 0.12.5 · **Uppdaterad:** 2026-09-14 · **Speglar:** beslutslogg #94
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje sessionsstart.
 Ärvd från tradingbot-v2 1.5.0 och SEO-agent, anpassad för ett system som skickar mail
@@ -518,6 +518,36 @@ noll kategorier befordrade utan Lars beslut, och noll persondata i git-historike
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.12.5 — 2026-09-14
+
+**`Speglar` följer med till beslutslogg #94.** Avläst ur
+`grep -n "^## #" docs/beslutslogg.md` efter att skiva 41:s två poster lagts till.
+
+**§7.2:s RAD OM VAR PRISER LÄSES PEKAR NU PÅ EN FIL SOM FINNS.**
+`config/priser.json` har stått i §7.2 och §10 sedan 0.2.0 utan att existera. Den
+är upprättad i skiva 41 på Lars §10-beslut, och den är TOM. Regeltexten är
+oförändrad; det som ändrats är att filen regeln pekar på finns.
+
+Samma grund som 0.11.11, som skrev in exakt detta om `config/fakta.json`, och
+med samma följd: en tom fil är ingen källa, alltså är §0:s ramverksregel 3:s
+tillåtna mängd oförändrad. **DÄRFÖR PATCH OCH INTE MINOR**, till skillnad från
+0.12.0 som ändrade vad ramverksregel 1 släpper igenom.
+
+**§10:s STOPPRAD OM `config/priser.json` GÄLLER OFÖRÄNDRAT.** Ordern var att
+skapa filen med tomma värden och rapportera nycklarna; att FYLLA den är Lars
+beslut. `test_prisfilen_i_repot_har_BARA_TOMMA_varden` binder att jag inte
+fyllt något, och den binder HELA nyckelmängden och inte bara ett fält.
+
+**§0:s ramverksregel 3 fick en verkställande rad till, prövad med en KÖRNING.**
+Filens kommentarer bär med flit talet `25 000 kr`. En fällning av `_varden_ur`:s
+kommentarfilter gör fjorton test röda, bland dem ett som visar att just det
+talet då blir tillåtet i ett utgående mail.
+
+**§0:s styrdokumentlista är oförändrad.** `config/priser.json` står redan i §7.2
+och §10, och skiva 41 skapade ingen ny fil utöver den.
+
+Ren synk och en fil som reglerna redan namngav ⇒ PATCH.
 
 ### 0.12.4 — 2026-09-14
 

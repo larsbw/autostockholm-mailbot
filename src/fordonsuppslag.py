@@ -72,17 +72,25 @@ class UppslagMisslyckades(Exception):
     Bärs den inte här når den aldrig fram, och då kan generatorn bara veta ATT
     något gick fel, aldrig VAD.
 
-    `faltstatus` och `dragviktslage` är `None` när hämtningen inte lämnade
-    några, alltså för varje annan hämtare än `biluppgifter_hamtning`. Ett
-    okänt läge är då just okänt, och DEL B:s spärr håller: en tom mängd
-    tillåter inga frånvaropåståenden alls.
+    `dragviktslage` är `None` när hämtningen inte lämnade något, alltså för varje
+    annan hämtare än `biluppgifter_hamtning`.
+
+    **DET ANVÄNDS BARA AV HÄRKOMSTRADEN I VYN, aldrig av en spärr.** Skiva 40
+    lät det också avgöra vilka frånvaropåståenden som var tillåtna. Skiva 41 tog
+    bort den vägen på Lars beslut: ett misslyckat uppslag ger aldrig rätt att
+    påstå frånvaro, hur väl vi än tror oss veta varför det misslyckades. Se
+    `docs/beslutslogg.md` #93.
+
+    *Undantaget bar också `faltstatus`, som var den andra halvan av samma väg.
+    Den blev oanvänd av VÄG TRE och är borttagen i stället för kvarlämnad: en
+    oanvänd rörledning i sändvägen är något nästa skiva kan koppla tillbaka till
+    en rättighet utan att någon märker det.*
     """
 
-    def __init__(self, skal: str, *, faltstatus: dict | None = None,
+    def __init__(self, skal: str, *,
                  dragviktslage: str | None = None) -> None:
         super().__init__(skal)
         self.skal = skal
-        self.faltstatus = faltstatus
         self.dragviktslage = dragviktslage
 
 
@@ -287,11 +295,9 @@ def _kontrollera(svar: object) -> Uppslag:
     # METADATAN UR HÄMTNINGEN, om den lämnade någon. Skiva 40 DEL A.
     #
     # **HÄMTAS FÖRE NYCKELLAGREN, eftersom det är DE som kastar.** Varje kast
-    # nedan ska bära statusarna, annars vet generatorn bara att något gick fel.
-    meta = {
-        "faltstatus": svar.get("_faltstatus"),
-        "dragviktslage": svar.get("_dragviktslage"),
-    }
+    # nedan ska bära läget, annars kan härkomstraden bara säga att något gick
+    # fel och inte vad.
+    meta = {"dragviktslage": svar.get("_dragviktslage")}
 
     if not _bar_nyckel(svar, "tjanstevikt_kg"):
         raise UppslagMisslyckades("svaret saknar tjanstevikt_kg", **meta)

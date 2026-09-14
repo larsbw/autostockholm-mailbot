@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.56.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
+**Version:** 0.57.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -5107,7 +5107,122 @@ bort det DEL A byggdes för.
 
 ---
 
+## #93 — VÄG TRE på lucka 50. En frånvaro är aldrig ett belägg
+
+**Lars beslut i skiva 41 DEL 0.** Rätten att påstå att en uppgift saknas tas bort
+ur den saknade-fältet-vägen. Bara ett AVLÄST `Nej` är ett belägg.
+
+**SKÄLET, ordagrant ur beslutet:** ett mjukt bindestreck i `Släpvagnsvikt` kräver
+ingen markupändring alls, och följden är att boten säger att bilen saknar
+dragkrok om ett fordon vars sida skriver `Draganordning: Ja Kula`. Det är §0:s
+ramverksregel 3 i en form som uppstår av sig själv.
+
+**ETT AVLÄST `Nej` ÄR ETT BELÄGG. EN FRÅNVARO ÄR DET ALDRIG.** Skillnaden är att
+det första är en LÄSNING och det andra en utebliven läsning. Skiva 40 motiverade
+det motsatta med att sidan bara renderar fält som HAR ett värde, vilket är sant
+om sidan och osant om vår läsning av den.
+
+**JA, DET TAR BORT DET DEL A BYGGDES FÖR**, och Lars skriver ut det själv. DEL A:s
+värde ligger kvar i två saker: härkomstraden säger vilket läge uppslaget är i,
+och de åtta nya fälten läses.
+
+**VAD SOM TOGS BORT I KOD.** `kedja._franvaro_far_pastas` är struken.
+`Steg.franvaro_far_pastas` är struken. `UppslagMisslyckades.faltstatus` och
+`biluppgifter.META_STATUS` är strukna, eftersom de var den andra halvan av samma
+väg. En oanvänd rörledning i sändvägen är något nästa skiva kan koppla tillbaka
+till en rättighet utan att någon märker det.
+
+**`Dragviktslage` OCH `Faltstatus` STÅR KVAR**, och de bär härkomstraden och
+loggens skillnad mellan `falt_saknas` och `falt_olasbart`.
+
+**LUCKA 50 ÄR DÄRMED STÄNGD SOM SÄNDVÄG.** `_sidan_bar_inte_faltet` kan
+fortfarande ta fel på ett mjukt bindestreck, men felet når inte längre ett
+kundmail: det syns bara i härkomstraden och i loggen. Kvarstår gör att
+härkomstraden kan säga *"registret bär ingen dragviktsuppgift"* om ett fordon
+vars sida gör det, alltså att den kan vilseleda LARS. Det är registrerat i
+luckposten och är inte sändväg.
+
+**`MINSTA_ANKARE` ÄR BUNDEN.** Sex parametrar kring gränsvärdet plus en rad om
+talet självt. En fällning till 2 gav förut grön svit och ger nu två röda.
+
+**LUCKA 51 ÄR OMMÄTT, OCH PREMISSEN HÖLL INTE.** Beslutet förutsåg att
+uppräkningen blir mindre kritisk när ett frånvaropåstående bara får vila på ett
+avläst värde. Samtliga sex former läcker exakt som förut:
+
+> Bilen är inte utrustad med dragkrok.
+> Bilen är inte försedd med draganordning.
+> Bilen har tyvärr inte dragkrok.
+> Vi hittar tyvärr inte dragvikten i registret.
+> Registret är tomt på dragviktsuppgift.
+> Vi har tittat i registret, utan att hitta någon dragvikt.
+
+**VÄG TRE TOG BORT DEN FALSKA RÄTTIGHETEN, INTE UPPTÄCKTSGAPET.** De två är
+oberoende: en form som spärren inte känner igen passerar oavsett vad mängden
+innehåller. Lucka 51 står kvar öppen med den här mätningen.
+
+## #94 — `config/priser.json` upprättad, TOM
+
+**Lars §10-beslut i skiva 41 DEL A.** Filen skapas med den struktur generatorn
+behöver och med varje värde TOMT.
+
+**SKÄLET ÄR MÄTT.** Åtta av nio spärrade svar i skiva 40:s körning föll på att
+svaret nämner ett pris medan filen inte fanns, och DEL D:s fråga gick inte att
+pröva av samma skäl. Se #90.
+
+**ATT FILEN FINNS ÄNDRAR INGENTING FÖRRÄN LARS FYLLER EN POST.** En tom fil ger
+samma promptrad som ingen fil: `Priser: INGA. Du har inga prisuppgifter alls.`
+Det är avsiktligt och samma form som `config/fakta.json`: ett tomt värde
+utelämnas, alltså kan modellen inte skriva ett pris den inte har.
+
+**NYCKLARNA ÄR AVLÄSTA, INTE VALDA.** En per kategori i `config/kategorier.yaml`
+som börjar med `fråga om pris`, avläst ur `scripts/kategoristatus.py`
+2026-09-14: `a_traktorkonvertering`, `rekond`, `reparation`, `service`, `dack`,
+`tillbehor`.
+
+**EN TJÄNST SOM PRISSÄTTS PER FALL LÄMNAS TOM.** Det står i filens egen
+kommentar. En ofylld nyckel kostar ingenting.
+
+**§10-VAKTEN BINDER HELA NYCKELMÄNGDEN, inte bara att filen är tom.** Skiva 37
+visade att en vakt som prövar ETT fält går att kringgå: en ny post gick in med
+grön svit.
+
+**SKIVA 36:s HÅL ÄR PRÖVAT PÅ DEN NYA FILEN, OCH PRÖVNINGEN ÄR EN KÖRNING.**
+`config/fakta.json` blev vägen runt kravet på källa därför att `_tillatna_tal`
+läste kommentarnycklarnas tal. Mätt på `priser.json`:
+
+| Vad som mättes | Utfall |
+| --- | --- |
+| `_varden_ur(las_konfig(PRISER))` | `[]` |
+| tal som når `_tillatna_tal` ur filen | inga |
+| tal i filens RÅA innehåll, om filtret inte fanns | `09`, `10`, `14`, `2026`, `25000`, `41` |
+
+**KOMMENTAREN BÄR MED FLIT ETT PRISFORMAT TAL.** `_formen` innehåller exemplet
+`25 000 kr`. En fällning av `_`-filtret gör fjorton test röda, bland dem
+`test_ett_tal_UTAN_KALLA_faller_i_varje_skrivform[Vi tar 25000kr för jobbet.]`.
+Utan filtret hade alltså MIN EGEN KOMMENTAR auktoriserat ett pris i ett utgående
+mail. Hålet är stängt av `_varden_ur`, som plockar värden och aldrig nycklar,
+hela vägen ned.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.57.0 — 2026-09-14
+
+**#93 och #94 tillkommer.** Skiva 41. VÄG TRE på lucka 50, och
+`config/priser.json` upprättad tom på Lars §10-beslut.
+
+**#93 TAR BORT EN RÄTTIGHET OCH INTE EN SPÄRR**, och skillnaden ska synas: koden
+kan fortfarande ta fel på om ett fält saknas, men felet når inte längre ett
+kundmail.
+
+**#94 ÄR DEN ANDRA AV TVÅ TOMMA FILER SOM BLOCKERAT UTFALLET.** `fakta.json`
+väntar på Lars telefonnummer, `priser.json` på hans priser. Båda är §10-stopp
+och båda är redo.
+
+**INGEN AV DEM ÄR FYLLD AV MIG.** Två vakter binder det, en per fil.
+
+Nya poster ⇒ MINOR.
 
 ### 0.56.0 — 2026-09-14
 

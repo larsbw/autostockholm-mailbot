@@ -112,8 +112,11 @@ class Steg:
 
     # SKIVA 40 DEL A. Uppslagssteget bär VILKET läge som gäller, inte bara att
     # något misslyckades. `None` för varje steg som inte är ett uppslag.
+    #
+    # **DET ANVÄNDS BARA AV HÄRKOMSTRADEN.** Skiva 40 lät det också styra vilka
+    # frånvaropåståenden som var tillåtna; skiva 41 tog bort den vägen, se
+    # `docs/beslutslogg.md` #93.
     dragviktslage: str | None = None
-    franvaro_far_pastas: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -158,42 +161,16 @@ def _uppslagssteg(
         # bär en kursiv not om exakt den utelämningen, och den återinfördes i
         # den här kommentaren. Fällt av §7-granskningen av skiva 40, varv 1 och
         # varv 2.*
+        # **ETT MISSLYCKAT UPPSLAG GER ALDRIG RÄTT ATT PÅSTÅ FRÅNVARO.**
+        # Lars beslut i skiva 41, VÄG TRE på lucka 50. Steget bär läget för
+        # HÄRKOMSTRADENS skull och för ingenting annat.
         return None, None, Steg("uppslag", "misslyckades", str(fel),
-                                dragviktslage=fel.dragviktslage,
-                                franvaro_far_pastas=_franvaro_far_pastas(fel))
+                                dragviktslage=fel.dragviktslage)
     except Exception as fel:  # noqa: BLE001
         raise Kallfel(type(fel).__name__, str(fel)) from fel
 
     utfall = fordonsuppslag.utvardera(uppslag)
     return uppslag, utfall, Steg("uppslag", "lyckades", utfall.value)
-
-
-def _franvaro_far_pastas(fel: UppslagMisslyckades) -> frozenset[str]:
-    """Vilka frånvaropåståenden som är BELAGDA av sidan. Skiva 40 DEL B.
-
-    **ETT NAMN KOMMER MED BARA NÄR SIDAN BEVISLIGEN INTE BÄR FÄLTET.**
-    Biluppgifter renderar bara fält som har ett värde, så en frånvarande etikett
-    ÄR ett registerfaktum, och det är något boten får säga till kunden.
-
-    **`ANNAN_FORM` GER INGENTING, och det är Lars beslut i skiva 40.** Saknas
-    `Släpvagnsvikt` men finns en av de tre andra släpviktsformerna, så BÄR
-    registret en uppgift, i en form vi inte kan bedöma §42 punkt 2 mot. Då får
-    boten varken påstå frånvaro eller ge ett besked.
-
-    Saknas metadatan helt, alltså för varje hämtare som inte är
-    `biluppgifter_hamtning`, blir mängden TOM. Ett okänt läge tillåter
-    ingenting.
-    """
-    tillatna: set[str] = set()
-
-    if fel.dragviktslage == biluppgifter.Dragviktslage.REGISTRET_SAKNAR.value:
-        tillatna.add("dragvikt")
-
-    saknas = biluppgifter.Faltstatus.SAKNAS_PA_SIDAN.value
-    if (fel.faltstatus or {}).get("draganordning") == saknas:
-        tillatna.add("draganordning")
-
-    return frozenset(tillatna)
 
 
 def kor(
@@ -244,17 +221,23 @@ def kor(
     if kategori in A_TRAKTORKATEGORIER:
         uppslag, utfall, uppslagssteg = _uppslagssteg(arende, hamta)
         steg.append(uppslagssteg)
-        franvaro_far_pastas = uppslagssteg.franvaro_far_pastas
 
-        # **ETT AVLÄST `Nej` ÄR OCKSÅ ETT BELÄGG, och det är den andra vägen in
-        # i mängden.** Ett lyckat uppslag kastar inget undantag, alltså kommer
-        # det aldrig förbi `_franvaro_far_pastas`. Ett fordon vars sida säger
-        # `Draganordning: Nej` har bevisligen ingen registrerad draganordning,
-        # och att då spärra meningen *"bilen saknar registrerad draganordning"*
-        # hade blockerat ett SANT besked. Det är precis den formulering skiva
-        # 40 DEL F ber om.
+        # **ETT AVLÄST `Nej` ÄR DEN ENDA VÄGEN IN I MÄNGDEN.** Lars beslut i
+        # skiva 41, VÄG TRE på lucka 50, se `docs/beslutslogg.md` #93.
+        #
+        # Ett fordon vars sida säger `Draganordning: Nej` har bevisligen ingen
+        # registrerad draganordning: vi har LÄST ett värde som säger det. Att
+        # spärra meningen *"bilen saknar registrerad draganordning"* hade
+        # blockerat ett SANT besked, och det är den formulering promptens
+        # regel 12 ber om.
+        #
+        # **EN FRÅNVARO ÄR ALDRIG ETT BELÄGG.** Skiva 40 lät ett saknat fält ge
+        # samma rätt, med motiveringen att sidan bara renderar fält som har ett
+        # värde. Det är sant om SIDAN och osant om vår läsning av den: ett mjukt
+        # bindestreck i `Släpvagnsvikt` räcker för att fältet ska se saknat ut,
+        # och det kräver ingen markupändring alls. Lucka 50 bär mätningen.
         if uppslag is not None and uppslag.draganordning is False:
-            franvaro_far_pastas |= {"draganordning"}
+            franvaro_far_pastas = frozenset({"draganordning"})
     else:
         steg.append(Steg("uppslag", "hoppades över", "kategorin gatas inte"))
 
@@ -264,10 +247,8 @@ def kor(
         utfall=utfall,
         uppslag=uppslag,
         uppslag_gjordes=kategori in A_TRAKTORKATEGORIER,
-        # SKIVA 40 DEL B. Mängden kommer ur en MÄTNING av sidan, aldrig ur ett
-        # antagande. Hoppades uppslaget över är den tom, alltså får boten inte
-        # påstå att någon uppgift saknas i ett ärende där vi inte slagit upp
-        # något.
+        # SKIVA 41. Mängden kommer ur ett AVLÄST VÄRDE och ingenting annat.
+        # Hoppades uppslaget över, eller misslyckades det, är den tom.
         franvaro_far_pastas=franvaro_far_pastas,
     )
 

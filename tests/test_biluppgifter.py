@@ -2774,6 +2774,52 @@ def test_EN_SIDA_UTAN_ANKARFALT_ger_INGA_registerfakta():
     assert dragviktslage(falt) is Dragviktslage.TOLKAS_EJ
 
 
+def _sida_med_ankare(antal: int) -> str:
+    """En sida med exakt `antal` ankaretiketter och utan `Släpvagnsvikt`.
+
+    Ankarna tas i `ANKARETIKETTER`:s ordning, och `Tjänstevikt` ligger först,
+    alltså bär varje variant en läsbar tjänstevikt.
+    """
+    varden = {"Tjänstevikt": "2140 kg", "Kaross": "Halvkombi",
+              "Fyrhjulsdrift": "Nej", "Totalvikt": "2500 kg",
+              "Fordonsår / Modellår": "2010 / 2011", "Status": "I Trafik"}
+    return sida(rader="".join(
+        rad(e, varden[e]) for e in biluppgifter.ANKARETIKETTER[:antal]))
+
+
+@pytest.mark.parametrize(
+    ("antal", "vantat"),
+    [
+        (0, Faltstatus.TOLKAS_EJ),
+        (1, Faltstatus.TOLKAS_EJ),
+        (2, Faltstatus.TOLKAS_EJ),
+        (3, Faltstatus.SAKNAS_PA_SIDAN),
+        (4, Faltstatus.SAKNAS_PA_SIDAN),
+        (6, Faltstatus.SAKNAS_PA_SIDAN),
+    ],
+)
+def test_MINSTA_ANKARE_ar_bunden_vid_sitt_gransvarde(antal, vantat):
+    """GRÄNSVÄRDET, §4. Tröskeln var OBUNDEN och det var Lars anmärkning.
+
+    **EN FÄLLNING TILL 2 GAV GRÖN SVIT.** Testen band att lager 2 FINNS, aldrig
+    var det sitter. Raderna nedan sitter på ömse sidor om `MINSTA_ANKARE`, så en
+    ändrad tröskel blir röd i båda riktningarna.
+
+    Uppmätt av §7-granskningen av skiva 40, varv 3, och bundet i skiva 41.
+    """
+    falt = falt_med_status(_sida_med_ankare(antal))
+    assert falt["slapvagnsvikt_kg"].status is vantat
+
+
+def test_MINSTA_ANKARE_ar_tre():
+    """TALET SJÄLVT, så att tabellen ovan inte tyst kan flyttas med det.
+
+    Utan den här raden går tröskeln att ändra till 4 och samtidigt flytta
+    tabellens gräns, och båda förblir gröna.
+    """
+    assert biluppgifter.MINSTA_ANKARE == 3
+
+
 def test_en_etikett_utan_varde_ar_TOLKAS_EJ_och_aldrig_SAKNAS():
     """SKILLNADEN MELLAN `etiketter` OCH `par`, i sin renaste form.
 

@@ -1072,7 +1072,7 @@ def _underlag(forfragan: Forfragan) -> str:
         )
 
     rader.append(f"Bedömning: {_bedomning(forfragan)}")
-    rader.append("Priser: INGA. Du har inga prisuppgifter alls.")
+    rader.append(_prisrader())
     # **BOKNINGSBESKEDET KOMMER NU VIA `_faktarader`**, alltså ur
     # `config/fakta.json`. Regel 8 förbjuder påståenden om vad Auto Stockholm
     # erbjuder UTÖVER underlaget, och att vi kan ta emot en bil är ett sådant
@@ -1180,6 +1180,50 @@ FAKTARUBRIK = (
 )
 
 FAKTAFOT = "Varje TAL här återges ordagrant och ändras aldrig.\n"
+
+# PRISBLOCKETS RAM, egna konstanter av samma skäl som faktablockets: raden är
+# sändvägstext och ska gå att binda ORDAGRANT. En lydelse som bad modellen
+# uppskatta ett pris skulle annars passera ett test som bara söker delsträngen.
+PRISRUBRIK = (
+    "Priser, avlästa ur config/priser.json. Du har inga andra priser, och du "
+    "uppskattar aldrig ett pris som inte står här:\n"
+)
+
+PRISFOT = "Varje pris här återges ordagrant och ändras aldrig.\n"
+
+# BESKEDET NÄR FILEN ÄR TOM. Ordagrant den rad som stod hårdkodad före skiva 41,
+# eftersom den var bunden och fungerade: den säger rakt ut att inga priser finns.
+INGA_PRISER = "Priser: INGA. Du har inga prisuppgifter alls."
+
+
+def las_priser(prisfil: Path | None = None) -> dict:
+    """`config/priser.json`:s värden. Se `las_konfigvarden`.
+
+    Ett TOMT värde utelämnas, alltså når det aldrig prompten och räknas aldrig
+    som källa. En ofylld nyckel kostar ingenting, vilket är hela skälet till att
+    filen kan skapas med varje post tom.
+    """
+    return las_konfigvarden(prisfil or PRISER)
+
+
+def _prisrader(prisfil: Path | None = None) -> str:
+    """Priser som FÅR nämnas, eller beskedet att inga finns.
+
+    **BESKEDET SKRIVS UT I BÅDA FALLEN**, av samma skäl som `_faktarader`: att
+    tiga när filen är tom hade lämnat modellen att gissa om den får nämna ett
+    pris.
+
+    **FILEN FINNS SEDAN SKIVA 41 OCH ÄR TOM.** Lars §10-beslut. Åtta av nio
+    spärrade svar i skiva 40:s mätning föll på att svaret nämner ett pris medan
+    filen inte fanns, se `docs/beslutslogg.md` #90. Att filen finns ändrar
+    ingenting förrän Lars fyller en post: en tom fil ger samma rad som ingen fil.
+    """
+    priser = las_priser(prisfil)
+    if not priser:
+        return INGA_PRISER
+
+    rader = "\n".join(f"  {namn}: {varde}" for namn, varde in priser.items())
+    return PRISRUBRIK + f"{rader}\n" + PRISFOT
 
 
 def _faktarader(faktafil: Path | None = None) -> str:
