@@ -1061,7 +1061,6 @@ def test_baslinjen_ger_ett_uppslag():
     ("led", "nytt_namn", "skal"),
     [
         ("sl", "Släpvikt max", "svaret saknar slapvagnsvikt_kg"),
-        ("dr", "Dragkrok", "svaret saknar draganordning"),
         ("tj", "Egenvikt", "svaret saknar tjanstevikt_kg"),
     ],
 )
@@ -1070,8 +1069,47 @@ def test_omdopt_etikett_faller_till_utkast(led, nytt_namn, skal):
 
     Asserar på SKÄLET och inte bara på att något kastades: utan det blir testet
     grönt även när ett annat fält är det som saknas.
+
+    **RADEN FÖR `Draganordning` ÄR FLYTTAD OCH INTE STRUKEN.** Den formen faller
+    inte längre, och det är LUCKA 71. Se
+    `test_kand_lucka_omdopt_draganordning_ser_ut_som_ett_registerfaktum`, som
+    binder både den svagheten och riktningen på felet.
+
+    De två som står kvar faller av olika skäl, och båda ska hållas isär från
+    luckan: tjänsteviktens fält är aldrig valfritt, och släpvagnsviktens kräver
+    dessutom att INGEN av sidans fyra släpviktsformer finns, vilket en omdöpning
+    av en av dem inte uppfyller.
     """
     assert utfallet_av(sida_med(etiketter={led: nytt_namn})) == skal
+
+
+def test_kand_lucka_omdopt_draganordning_ser_ut_som_ett_registerfaktum():
+    """KÄND LUCKA 71, registrerad i `docs/sparrar.md` och inte stängd.
+
+    **VAD LUCKAN ÄR.** `Släpvagnsvikt` har tre alternativa former på sidan att
+    mätas mot, och `_krav_pa_slapvagnsvikt` kräver att ingen av dem finns innan
+    fältet får kallas frånvarande. `Draganordning` har ingen sådan granne. En
+    källa som döper om etiketten ger därför samma bild som ett fordon utan
+    registrerad draganordning, och skillnaden går inte att avgöra ur en sida.
+
+    **TESTET MÄTER PÅSTÅENDET I STÄLLET FÖR ATT LÅTA DET STÅ SOM ETT RESONEMANG**,
+    och blir rött den dag någon tror sig ha stängt luckan. Samma form som
+    `test_kand_lucka_hopklistring_under_gransen_ser_ut_som_tusengruppering`.
+
+    **ANDRA HALVAN ÄR RIKTNINGEN, och den är skälet att luckan får stå öppen.**
+    Ett `None` kan aldrig ge GRÖNT: `utvardera` svarar OKLART, alltså blir
+    utfallet en fråga och aldrig ett ja. En omdöpt etikett kostar ett svagare
+    svar, aldrig ett falskt.
+    """
+    uppslag = fordonsuppslag.slag_upp(
+        REGNR,
+        hamta=biluppgifter_hamtning(
+            oppna=svarar(sida_med(etiketter={"dr": "Dragkrok"}))
+        ),
+    )
+
+    assert uppslag.draganordning is None
+    assert fordonsuppslag.utvardera(uppslag) is Utfall.OKLART
 
 
 def test_omdopning_till_ett_prefix_faller_ocksa():
@@ -1246,14 +1284,87 @@ def test_ett_JA_MED_KOPPLINGSTYP_faller_till_UTKAST():
 @pytest.mark.parametrize(
     ("led", "skal"),
     [
-        ("slapvagnsvikt", "svaret saknar slapvagnsvikt_kg"),
         ("tjanstevikt", "svaret saknar tjanstevikt_kg"),
-        ("draganordning", "svaret saknar draganordning"),
     ],
 )
 def test_borttaget_falt_faller_till_utkast(led, skal):
-    """FALL 5. Ett fält som försvinner ur sidan ger ett saknat fält."""
+    """FALL 5. Ett fält som försvinner ur sidan ger ett saknat fält.
+
+    **RADEN BAR TRE FÄLT OCH BÄR ETT SEDAN SKIVA 55.** De två andra, släpvagnsvikt
+    och draganordning, faller inte längre: registret saknar dem på var annan till
+    var tredje verklig sida, och ett uppslag som fälls för dem säger till kunden
+    att vi inte kunnat slå upp bilen fast vi har gjort det. Deras nya beteende
+    binds av `test_saknad_slapvagnsvikt_ger_ett_uppslag_utan_dragviktsbesked` och
+    `test_saknad_draganordning_ger_ett_uppslag_utan_dragkroksbesked`.
+
+    Tjänstevikten står kvar därför att den står på 10/10 sparade sidor och 6/6 i
+    skiva 40:s stickprov, alltså är dess frånvaro vår läsning. Se
+    `fordonsuppslag._krav_pa_tjanstevikt`.
+    """
     assert utfallet_av(sida_med(**{led: None})) == skal
+
+
+def test_saknad_slapvagnsvikt_ger_ett_uppslag_utan_dragviktsbesked():
+    """SKIVA 55 DEL B PUNKT 3, den ena halvan. fordonet utan dragviktsuppgift:s fall.
+
+    Saknar sidan SAMTLIGA fyra släpviktsformer bär registret ingen
+    dragviktsuppgift, och då är uppslaget LYCKAT med fältet tomt. Kunden ska inte
+    få veta att vi inte kunnat slå upp bilen, för det har vi gjort.
+
+    **BÅDA LEDEN ASSERAS.** Ett test som bara prövade att uppslaget kommer ut
+    hade varit grönt även om `slapvagnsvikt_kg` fyllts med ett påhittat tal.
+    """
+    uppslag = fordonsuppslag.slag_upp(
+        REGNR,
+        hamta=biluppgifter_hamtning(oppna=svarar(sida_med(slapvagnsvikt=None))),
+    )
+
+    assert uppslag.slapvagnsvikt_kg is None
+    assert uppslag.tjanstevikt_kg == 2140
+
+
+def test_saknad_draganordning_ger_ett_uppslag_utan_dragkroksbesked():
+    """SKIVA 55 DEL B PUNKT 3, den andra halvan.
+
+    `Draganordning` saknas på 4 av 10 sparade sidor, och de fyra är precis de
+    vars `Kaross` är `Ombyggd Bil`. Att fälla uppslaget för dem hade tystat
+    gatingsregel 1, alltså den bedömning skivan finns för att göra.
+    """
+    uppslag = fordonsuppslag.slag_upp(
+        REGNR,
+        hamta=biluppgifter_hamtning(oppna=svarar(sida_med(draganordning=None))),
+    )
+
+    assert uppslag.draganordning is None
+    assert uppslag.slapvagnsvikt_kg == 2400
+
+
+def test_saknat_falt_LOGGAS_aven_nar_uppslaget_lyckas(tmp_path, monkeypatch):
+    """LUCKA 71:S ENDA SKYDD: frånvaron ska SYNAS även när uppslaget går igenom.
+
+    **DET HÄR ÄR TESTET SOM GÖR LUCKAN BÄRBAR.** Ett saknat fält som vi inte kan
+    skilja från en omdöpt etikett får passera, men det får aldrig passera TYST:
+    `logg/uppslag.jsonl` ska bära en `falt_saknas`-rad som går att räkna per
+    dygn. Utan raden ser en markupändring ut som en dag med ovanligt många
+    ombyggda bilar.
+
+    Loggfilen flyttas till `tmp_path`, så att provet varken läser eller skriver
+    repots egen logg.
+    """
+    loggfil = tmp_path / "uppslag.jsonl"
+    monkeypatch.setattr(biluppgifter, "LOGGFIL", loggfil)
+
+    fordonsuppslag.slag_upp(
+        REGNR,
+        hamta=biluppgifter_hamtning(oppna=svarar(sida_med(slapvagnsvikt=None))),
+    )
+
+    rader = [json.loads(r) for r in
+             loggfil.read_text(encoding="utf-8").splitlines() if r]
+    saknade = [r for r in rader if r["skal"] == "falt_saknas"]
+
+    assert saknade, rader
+    assert saknade[0]["saknade"] == ["slapvagnsvikt_kg"]
 
 
 # --- 6: två träffar på samma etikett ----------------------------------------
@@ -1407,12 +1518,37 @@ def test_trunkerad_mitt_i_ett_varde_faller_till_utkast():
     assert utfallet_av(trunkerad) == "svaret saknar slapvagnsvikt_kg"
 
 
-def test_trunkerad_mitt_i_en_etikett_faller_till_utkast():
-    """FALL 10, andra gränsvärdet. Snittet går INUTI etiketten."""
+def test_kand_lucka_trunkerad_sida_ser_ut_som_ett_tunt_register():
+    """FALL 10, andra gränsvärdet, OMSKRIVET I SKIVA 55. KÄND LUCKA 71.
+
+    **TESTET BAND ATT SNITTET FÄLLER UPPSLAGET, och det gör det inte längre.**
+    Snittet går inuti `Släpvagnsvikt`, alltså försvinner både den och allt efter
+    den: den obromsade raden, körkortsraderna och `Draganordning`. Kvar står
+    ankarna, som ligger före snittet. Bilden blir exakt den ett fordon med tunt
+    registerutdrag ger, och koden kan inte skilja dem åt.
+
+    **DET ÄR SAMMA LUCKA SOM DEN OMDÖPTA ETIKETTEN, i en tredje form.** De tre
+    formerna är en omdöpt etikett, en trunkerad sida, och varje markupändring som
+    döljer ETT fält medan minst `MINSTA_ANKARE` ankare står kvar.
+
+    **RIKTNINGEN ÄR DEN SÄKRA OCH DEN ASSERAS.** Med båda fälten tomma är
+    lämpligheten okänd och draganordningen okänd, alltså blir utfallet OKLART.
+    En trunkerad sida kan varken ge GRÖNT eller RÖTT, alltså varken ett falskt ja
+    eller ett falskt nej.
+
+    Att frånvaron dessutom SYNS bärs av
+    `test_saknat_falt_LOGGAS_aven_nar_uppslaget_lyckas`.
+    """
     hel = sida_med()
     trunkerad = hel[: hel.find("Släpvagnsvikt") + len("Släpvagn")]
 
-    assert utfallet_av(trunkerad) == "svaret saknar slapvagnsvikt_kg"
+    uppslag = fordonsuppslag.slag_upp(
+        REGNR, hamta=biluppgifter_hamtning(oppna=svarar(trunkerad))
+    )
+
+    assert uppslag.slapvagnsvikt_kg is None
+    assert uppslag.draganordning is None
+    assert fordonsuppslag.utvardera(uppslag) is Utfall.OKLART
 
 
 # --- markupändringar som listan inte namnger men källan kan göra ------------
@@ -1608,8 +1744,16 @@ def test_saknat_falt_ger_utkast_och_fellast_falt_kastar():
     körs hela vägen genom `slag_upp`. Ett test som bara mätte kastet hade varit
     grönt även om allt annat också började kasta.
     """
-    saknat = sida_med(slapvagnsvikt=None)
-    assert utfallet_av(saknat) == "svaret saknar slapvagnsvikt_kg"
+    # **DEN FÖRSTA RIKTNINGEN ÄR OMSKRIVEN I SKIVA 55.** Raden band att ett
+    # saknat fält FÄLLER uppslaget; nu ger det ett lyckat uppslag med fältet
+    # tomt. Skillnaden mot den andra riktningen står kvar oförändrad, och det är
+    # den testet finns för: ett fält registret inte bär och ett fält vi läste FEL
+    # ska inte se likadana ut för anroparen.
+    saknat = fordonsuppslag.slag_upp(
+        REGNR,
+        hamta=biluppgifter_hamtning(oppna=svarar(sida_med(slapvagnsvikt=None))),
+    )
+    assert saknat.slapvagnsvikt_kg is None
 
     fellast = sida_med(slapvagnsvikt="750 2400 kg")
     with pytest.raises(Hamtningsfel) as fel:

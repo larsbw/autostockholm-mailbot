@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.76.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
+**Version:** 0.77.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -7283,7 +7283,125 @@ maskering av någon logg. Ingen ändring i `config/`.
 
 ---
 
+## #121 — Skiva 55: fem fält gatar, RÖTT får ett andra skäl, och ett prissvar spärras inte bort
+
+**Datum:** 2026-09-15 · **Berör:** `src/fordonsuppslag.py`, `src/biluppgifter.py`,
+`src/generera.py`, `src/kedja.py`
+
+Lars läste tjugo utkast i vyn och lämnade sju fynd med en gemensam orsak:
+modulen läste tre fält av nio, och svaret byggdes på en delmängd av vad
+registret säger.
+
+### Lars order, och vad mätningen gjorde med den
+
+**Ett fält i ordern finns inte på sidan.** Ordern säger `fordonsslag` med värdet
+`Traktor`, och namnger det andra ombyggda fordonet och det ombyggda fordonet med tjänstevikt 2 005 kg som `Typ: Traktor`. Mätt 2026-09-15
+över tio sparade fordonssidor bär sidan **62 etiketter**, och ingen av dem heter
+`Typ` eller `Fordonsslag`. Inget av de 62 fältens värden är `Traktor`.
+
+Det signalen heter på den öppna sidan är **`Kaross: Ombyggd Bil`**, alltså
+orderns ANDRA led. `Kaross` står på 10/10 sidor och bär det värdet på **4** av
+dem, alltså två fordon utöver de Lars namnger.
+
+Det är samma skillnad som skiva 40 mätte upp på sig själv, när `Modellår` visade
+sig heta `Fordonsår / Modellår`. Ordern är byggd på det led som går att läsa.
+
+**De fem övriga fälten fanns.** `kaross`, `fyrhjulsdrift`, `totalvikt`,
+`fordonsår / modellår` och `status` läses redan av `falt_med_status` sedan skiva
+40; det som saknades var vägen in i `Uppslag`.
+
+### Två nya gatingsregler
+
+**REGEL 1, fordonet är redan ombyggt.** `Kaross: Ombyggd Bil` ger RÖTT.
+Prövningen ligger FÖRE lämplighetsprövningen, och ordningen avgör vad kunden
+läser: det ombyggda fordonet med tjänstevikt 2 005 kg har tjänstevikt 2 005 kg och är alltså LÄMPLIG enligt §42, så ett
+avslag med viktskälet hade varit falskt om just den bilen. RÖTT har därmed två
+skäl och två texter.
+
+**REGEL 2, §39 gäller inte fordonet.** Paragrafen kräver BÅDE en tjänstevikt av
+högst 2 000 kg OCH att mindre än 60 % av tjänstevikten vilar på drivhjulen.
+Fyrhjulsdrift fäller andra ledet: är varje hjul ett drivhjul vilar 100 % där.
+det fyrhjulsdrivna fordonet i körningen är fyrhjulsdriven, och prisradens uppräkning säger att barlastflak ingår.
+
+`kraver_barlastflak` svarar `False` som ett besked och `True` bara som *vi kan
+inte utesluta kravet*: sextioprocentsregeln går inte att avgöra ur registret i
+allmänhet, och bara `False` läses av generatorn.
+
+### Ett uppslag får lyckas med hål, och de tre fälten behandlas OLIKA
+
+Skillnaden är mätt och inte vald av symmetri. Avläst över tio sparade sidor, och
+i skiva 40 över sex andra:
+
+| Fält | 2026-09-15 | skiva 40 | Får utelämnas? |
+| --- | --- | --- | --- |
+| `Tjänstevikt` | 10/10 | 6/6 | NEJ. Frånvaron är nästan säkert vår läsning. |
+| `Släpvagnsvikt` | 5/10 | 4/6 | Ja, mot TVÅ oberoende belägg. |
+| `Draganordning` | 6/10 | 5/6 | Ja, mot ETT belägg. |
+
+Släpvagnsvikten kräver både att sidan inte bär etiketten och att INGEN av sidans
+fyra släpviktsformer finns. En omdöpt etikett rör en av dem, alltså står de tre
+andra kvar och uppslaget faller som förut. Draganordningen har ingen sådan
+granne, och den kvarstående svagheten står som LUCKA 71.
+
+**Rätten att PÅSTÅ frånvaro för kunden är oförändrad.** Skiva 41:s VÄG TRE står:
+`franvaro_far_pastas` sätts bara av ett avläst `Draganordning: Nej`, på ett enda
+ställe i `src/kedja.py`. Se #93.
+
+### DEL B: fyra fel i svaren, och vad mätningen visade
+
+**Mätningen av de spärrade ärendena, som Lars beställde före varje ändring.**
+Texten som fälldes sparades aldrig: `till_granskningsfall` skickar `sparr` och
+aldrig `skal`. Mätningen är därför en ny generering på samma indata, körd tre
+gånger över de åtta spärrade ärendena.
+
+Utfallet är entydigt: **prissatsen var aldrig problemet.** I varje ärende bar
+prissatsen exakt priskällans två tal. Fällningen låg någon annanstans, och två
+orsaker återkom:
+
+| Orsak | Exempel ur mätningen |
+| --- | --- |
+| Bilmodellen läses som ett tal, LUCKA 30 | `V70` gav `talet 70`, `E60` gav `talet 60`, `X3M` gav `talet 3 står i en prismening` |
+| Ett prisord i en mening utan belopp | `offert` i *"så kan vi ge dig en mer exakt offert"* gav `svaret nämner ett pris utan att ange ett tal` |
+
+Båda stängs i PROMPTEN, som regel 17 och 18, och **ingen spärr är rörd eller
+sänkt**. Lucka 30 står kvar öppen: skiva 33 försökte tre gånger lära `_tal_i`
+skilja en beteckning från en kvantitet och återställde alla tre, se #56.
+
+**En tredje orsak mättes upp i samma körning och stängs av DEL A.** Ärende 6 och
+16 föll på `svaret nämner dragkrok utan ett lyckat uppslag`, alltså på att
+promptens regel 13 beordrar ett erbjudande som spärren fäller när uppslaget
+föll. Med ett lyckat uppslag finns fältet avläst och meningen passerar.
+
+### Beslut
+
+1. `kaross` och `fyrhjulsdrift` gatar. `totalvikt`, `arsmodell` och `status`
+   bärs men gatar ingenting och når aldrig prompten.
+2. Ett uppslag får lyckas med släpvagnsvikt eller draganordning tom, mot belägg.
+   Tjänstevikten förblir obligatorisk.
+3. RÖTT får ett andra skäl och en andra text.
+4. `genererat-fordonsfaktum` prövas per FÄLT och inte mot uppslaget som helhet.
+   Med ett delvis uppslag är `uppslag is not None` inte längre ett belägg.
+5. Ny spärr `barlastflak-galler-fordonet`, LUCKA 69.
+6. Tre promptregler, 17 till 19.
+
+### Vad som INTE beslutas här, och ligger hos Lars
+
+**`config/priser.json` säger att grundombyggnaden omfattar barlastflak, och för
+de fordonen är det fel oavsett vad boten skriver.** Prompten utelämnar
+uppräkningen för dem och spärren fäller den om modellen skriver den ändå, men
+POSTEN är oförändrad. Att ändra den är §10.
+
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.77.0 — 2026-09-15
+
+**#121 TILLKOMMER.** Skiva 55: fem fält gatar i stället för tre, ett uppslag får
+lyckas med hål mot belägg, RÖTT får ett andra skäl, fordonsfaktumspärren prövas
+per fält, och `barlastflak-galler-fordonet` byggs. Mätningen av Lars åtta
+spärrade ärenden står i posten.
+
+Ny post ⇒ MINOR.
 
 ### 0.76.0 — 2026-09-15
 

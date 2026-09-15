@@ -245,7 +245,47 @@ def _uppslagssteg(
         raise Kallfel(type(fel).__name__, str(fel)) from fel
 
     utfall = fordonsuppslag.utvardera(uppslag)
-    return uppslag, utfall, Steg("uppslag", "lyckades", utfall.value)
+    return uppslag, utfall, Steg("uppslag", "lyckades", _lyckadetalj(uppslag,
+                                                                    utfall))
+
+
+# DE TRE GATANDE FÄLTEN, med de namn härkomstraden skriver ut.
+#
+# **NAMNEN ÄR KUNDVÄNLIGA OCH INTE NYCKLARNA.** Raden läses av Lars i vyn
+# bredvid ett utkast, inte av kod, och `slapvagnsvikt_kg` säger honom inget som
+# `släpvagnsvikt` inte säger bättre.
+_GATANDE_FALT = {
+    "tjanstevikt_kg": "tjänstevikt",
+    "slapvagnsvikt_kg": "släpvagnsvikt",
+    "draganordning": "draganordning",
+}
+
+
+def _lyckadetalj(uppslag: Uppslag, utfall: Utfall) -> str:
+    """Utfallet, och vilka gatande fält registret INTE bar. Skiva 55 DEL A.
+
+    **ETT LYCKAT UPPSLAG KAN NUMERA SAKNA FÄLT, och utan den här raden syns det
+    inte.** Före skiva 55 var `lyckades` liktydigt med att alla tre fälten var
+    avlästa, alltså räckte utfallet som detalj. Nu ger ett fordon utan
+    dragviktsuppgift i registret ett LYCKAT uppslag med tom släpvagnsvikt, och
+    ett OKLART utan förklaring ser i vyn ut som en
+    bot som inte kan bestämma sig.
+
+    **DET ÄR EN UPPGIFT TILL LARS OCH ALDRIG TILL KUNDEN.** Strängen går till
+    `logg/beslut.jsonl` och till härkomstraden. Vad boten får SKRIVA styrs av
+    `generera.Forfragan.franvaro_far_pastas`, som är oförändrad sedan skiva 41.
+
+    **INGA VÄRDEN, BARA FÄLTNAMN.** Raden bär inga vikter: `logg/beslut.jsonl`
+    är gitignorerad, men en detaljsträng som växer med fordonsdata är en
+    persondataväg som ingen bett om. §6.
+    """
+    saknade = [ord_ for nyckel, ord_ in _GATANDE_FALT.items()
+               if getattr(uppslag, nyckel) is None]
+
+    if not saknade:
+        return utfall.value
+
+    return f"{utfall.value}, registret bar ingen {' och ingen '.join(saknade)}"
 
 
 def kor(

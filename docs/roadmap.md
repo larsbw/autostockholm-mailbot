@@ -135,20 +135,35 @@ En sammanfattning ser ut som ett faktum men bär ingen kontrollerbar källa. Ett
 citat gör skillnaden mellan "så här minns vi det" och "så här står det" synlig
 för nästa läsare.
 
-#### TRE FÄLT GATAR OMBYGGNADEN
+#### FEM FÄLT GATAR OMBYGGNADEN
 
-Beslut av Lars i skiva 13, se `docs/beslutslogg.md` #25. Kravbilden är
-**tjänstevikt**, **släpvagnsvikt** och **draganordning**.
+Tre av dem bär §42 och är Lars beslut i skiva 13, se `docs/beslutslogg.md` #25:
+**tjänstevikt**, **släpvagnsvikt** och **draganordning**. Två till kom med hans
+beslut i skiva 55, se #121: **kaross** och **fyrhjulsdrift**.
 
-**Drivning, karosserikod och barlastflak ingår inte i bedömningen.** Vad
-uppslaget i övrigt kan visa är merförsäljning, inte gating, och får inte smyga
-tillbaka in som ett villkor.
+*Här stod att "drivning, karosserikod och barlastflak ingår inte i bedömningen"
+och att allt annat uppslaget kan visa är merförsäljning. Det var sant från skiva
+13 till skiva 55 och är upphävt: karossen avgör om fordonet redan är ombyggt, och
+drivningen tillsammans med tjänstevikten om §39:s barlastflakskrav gäller.
+`src/fordonsuppslag.py` bar samma mening och är rättad där.*
 
 | Fält | Vad det avgör |
 | --- | --- |
-| Tjänstevikt | Ett av två ALTERNATIVA lämplighetskriterier i §42 andra stycket. |
-| Släpvagnsvikt | Det andra av dem. |
+| Tjänstevikt | Ett av två ALTERNATIVA lämplighetskriterier i §42 andra stycket. Och §39:s första led, där samma tal är en ÖVRE gräns. |
+| Släpvagnsvikt | Det andra av §42:s två. |
 | Draganordning | Registrerad dragkrok, ja eller nej. Kravet i §42 första stycket. |
+| Kaross | `Ombyggd Bil` betyder att fordonet REDAN är ombyggt. RÖTT, av ett annat skäl än §42:s. |
+| Fyrhjulsdrift | `Ja` fäller §39:s andra led: vilar varje hjul på drivningen är det inte `mindre än 60 %`. |
+
+**`totalvikt`, `fordonsår / modellår` och `status` läses men gatar ingenting.**
+De bärs av `Uppslag` och visas i vyns härkomstrad, och de når aldrig prompten:
+varje tal i prompten blir ett citerbart tal.
+
+**Ett fält Lars bad om finns inte på sidan.** Briefen till skiva 55 säger
+`fordonsslag` med värdet `Traktor`. Mätt över tio sparade fordonssidor bär sidan
+62 etiketter, och ingen heter `Typ` eller `Fordonsslag`; inget av de 62 värdena
+är `Traktor`. Signalen heter `Kaross: Ombyggd Bil` på den öppna sidan, alltså
+briefens andra led. Se #121.
 
 **Tjänstevikt ströks ur bedömningen i skiva 12 och är tillbaka.** Strykningen
 gjordes på premissen att §42 saknar tal. Premissen kom ur briefen till den skivan
@@ -207,9 +222,21 @@ Invändningen står här för att göra beskedets räckvidd synlig, inte för at
 ifrågasätta det. Hittar någon i framtiden ett fordon där vikterna skiljer sig är
 det **det här beslutet** som ska omprövas, inte en glömd detalj.
 
-#### RÖTT KRÄVER ATT BÅDA LÄMPLIGHETSVILLKOREN FALLER
+#### RÖTT UR §42 KRÄVER ATT BÅDA LÄMPLIGHETSVILLKOREN FALLER, OCH ATT BÅDA ÄR AVLÄSTA
 
 Villkoren är förenade med **eller**, så det räcker att ETT av dem uppfylls.
+
+**SEDAN SKIVA 55 RÄCKER DET INTE ATT DE FALLER, DE MÅSTE OCKSÅ VARA AVLÄSTA.**
+Ett uppslag kan numera lyckas med släpvagnsvikten tom, eftersom registret inte
+bär den för var annan bil. Ett `not lämplig` hade läst den okunskapen som ett NEJ
+och gett kunden ett avslag på en uppgift registret aldrig lämnat, alltså skiva
+12:s defekt i ny form. `ar_lamplig_som_dragfordon` svarar därför `None` i det
+läget, och `utvardera` gör OKLART av det.
+
+**RÖTT HAR DESSUTOM ETT ANDRA SKÄL SEDAN SAMMA SKIVA**, nämligen att fordonet
+redan är ombyggt. De två skälen får inte blandas ihop i svaret: det ombyggda fordonet med tjänstevikt 2 005 kg har
+tjänstevikt 2 005 kg, alltså ÖVER §42:s tröskel, och ett avslag med viktskälet
+hade varit falskt om just den bilen.
 
 **Ett fordon med tjänstevikt 2 100 kg och släpvagnsvikt 800 kg är GRÖNT eller
 GULT beroende på draganordning, aldrig RÖTT.** Skiva 12 prövade bara

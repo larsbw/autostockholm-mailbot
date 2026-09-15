@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from src import generera, vy
+from src import fordonsuppslag, generera, vy
 from src.fordonsuppslag import Uppslag, Utfall
 from src.generera import Forfragan, Sparrfalld
 from tests.sentinelpris import SENTINELPRIS, SENTINELPRIS_IHOP, SENTINELTAL
@@ -2231,6 +2231,62 @@ REGLER_I_PROMPTEN = {
         "bygget eller i grundombyggnaden, och inte att den följer med eller är "
         "inkluderad. Regel 13 står oförändrad och säger vad du DÄREMOT skriver "
         "när bilen behöver en.",
+    # SKIVA 55 DEL B PUNKT 1. **REGELN KOMMER UR EN MÄTNING och inte ur en
+    # invändning mot språket.** Av Lars åtta spärrade ärenden mättes två orsaker,
+    # och den här är den ena: boten skriver kundens egen modellbeteckning, och
+    # beteckningen bär en siffra. `V70` gav `talet 70 kommer varken ur uppslaget
+    # eller ur config`, `E60` gav samma sak inuti en prismening, och `X3M` gav
+    # `talet 3 står i en prismening`. Kunden fick noll svar, och priset var känt
+    # hela tiden.
+    #
+    # **DET ÄR LUCKA 30, OCH REGELN STÄNGER ORSAKEN I STÄLLET FÖR SPÄRREN.**
+    # Skiva 33 försökte tre gånger lära `_tal_i` att skilja en beteckning från en
+    # kvantitet och återställde alla tre: varje regel som gör en siffra intill
+    # bokstäver ofarlig gör också en KVANTITET intill bokstäver ofarlig, se
+    # `docs/beslutslogg.md` #56. Luckan står därför kvar öppen, och spärren är
+    # orörd. Det som ändrats är att prompten inte längre ber om formen.
+    #
+    # **FABRIKATET FÅR SKRIVAS**, och det ledet är avsiktligt: `Volvo` och `Audi`
+    # bär ingen siffra, och ett svar som inte får nämna bilen alls blir stelt.
+    17: "SKRIV ALDRIG BILENS MODELLBETECKNING. Inte V70, inte E60, inte A3, "
+        "inte X3M. Skriv \"bilen\", \"din bil\" eller \"er bil\". Fabrikatet "
+        "får du skriva. Beteckningen bär nästan alltid en siffra, och en siffra "
+        "i ett utgående mail måste ha en källa.",
+    # SKIVA 55 DEL B PUNKT 1, den ANDRA mätta orsaken. Ett prisord i en mening
+    # utan belopp gör meningen till en prissats som prisgrenen kräver ett
+    # källbelagt tal ur, och den får inget: *"skicka gärna med
+    # registreringsnumret så kan vi ge dig en mer exakt offert"* föll på
+    # `svaret nämner ett pris utan att ange ett tal som går att slå upp mot
+    # config/priser.json`, i tre av åtta ärenden i mätningen.
+    #
+    # **GRENEN ÄR INTE SÄNKT, OCH DET ÄR POÄNGEN.** Den finns mot *"det kostar en
+    # del"*, alltså ett prisbesked utan belopp, och den formen ska fortfarande
+    # falla. Regeln säger vilka ord modellen har i stället, och regel 5 bär redan
+    # `prisuppgift`, som med flit INTE står i `PRISTERMER`.
+    18: "ETT PRISORD KRÄVER ETT BELOPP I SAMMA MENING. Orden pris, priset, "
+        "kostar, kostnad, offert, avgift och kronor får bara stå i en mening "
+        "som också bär priset ur underlaget. Vill du säga att vi tittar närmare "
+        "på bilen, skriv det utan prisord: \"hör av dig så tittar vi på just "
+        "din bil\". Behöver du säga att priset beror på bilen, skriv \"vi "
+        "återkommer med prisuppgift\".",
+    # SKIVA 55 DEL B PUNKT 2, LARS ORDER. Tre av hans lästa utkast erbjöd en
+    # dragkrok utan att säga varför den hjälper. Hans skäl, ordagrant: en
+    # dragkrok hjälper inte om vikten är under tröskeln.
+    #
+    # **REGELN ÄR PARAD MED EN UNDERLAGSRAD och står inte ensam.**
+    # `_utfallstext`:s nya OKLART-läge skriver ut att bilen duger som dragfordon
+    # och ber om talet, se `_bara_dragkroken_saknas`. Utan den raden hade regeln
+    # bett om en motivering modellen inte har.
+    #
+    # **INGEN SPÄRR BÄR DEN, och det är samma avvägning som regel 15.** En spärr
+    # som krävde motiveringen hade fällt svaret, alltså gett kunden ingenting i
+    # stället för ett svar utan skäl. Det är den riktning DEL B punkt 1 finns för
+    # att stoppa.
+    19: "NÄR DU ERBJUDER EN DRAGKROK SKA DU SÄGA VARFÖR DEN HJÄLPER. Står det i "
+        "underlaget att bilen duger som dragfordon, skriv ut släpvagnsvikten ur "
+        "underlaget i samma stycke. En dragkrok på en bil som inte duger "
+        "hjälper inte, och ett erbjudande utan skälet läser kunden som ett "
+        "villkor.",
 }
 
 
@@ -2359,6 +2415,43 @@ def test_HELA_systemprompten_ar_bunden():
     assert generera.SYSTEM == forvantad
 
 
+# ETT UPPSLAG SOM GER RÖTT UR §42, alltså där BÅDA lämplighetsvillkoren faller
+# och båda talen är avlästa. `Kaross` är satt och är INTE `Ombyggd Bil`, så att
+# gatingsregel 1 inte tar över: utan det ledet hade raderna nedan prövat fel av
+# de två röda texterna.
+ROTT_UPPSLAG = Uppslag(
+    tjanstevikt_kg=960, slapvagnsvikt_kg=600, draganordning=False,
+    kaross="Halvkombi",
+)
+
+
+def test_rott_for_ett_REDAN_OMBYGGT_fordon_skyller_inte_pa_vikten():
+    """SKIVA 55 DEL A GATINGSREGEL 1. RÖTT har två skäl, och de får inte blandas.
+
+    **DEN HÄR RADEN FINNS FÖR ETT MÄTT FALL.** det ombyggda fordonet med tjänstevikt 2 005 kg bär tjänstevikt 2 005 kg,
+    alltså ÖVER §42:s tröskel, och `Kaross: Ombyggd Bil`. Utfallet är RÖTT därför
+    att bilen redan är ombyggd. Hade texten varit `rott_med_siffror` hade svaret
+    sagt att varken tjänstevikten eller släpvagnsvikten räcker, vilket är falskt
+    om just den bilen, alltså ett påhittat fordonsfaktum.
+
+    **BÅDA RIKTNINGARNA ASSERAS.** Att rätt text väljs, och att viktskälet INTE
+    står kvar i den: ett test som bara sökte den nya frasen hade varit grönt även
+    om båda texterna råkade skrivas ut.
+    """
+    ombyggd = Uppslag(
+        tjanstevikt_kg=2005, slapvagnsvikt_kg=None, draganordning=None,
+        kaross="Ombyggd Bil",
+    )
+
+    assert fordonsuppslag.utvardera(ombyggd) is Utfall.ROTT
+
+    text = generera._utfallstext(Utfall.ROTT, ombyggd)
+
+    assert "redan" in text.lower()
+    assert "tjänstevikten" not in text
+    assert "släpvagnsvikten" not in text
+
+
 def test_rott_utfall_sager_VARFOR_och_vad_kunden_kan_gora():
     """RÖTT-texten är sändväg och var obunden av test.
 
@@ -2369,8 +2462,14 @@ def test_rott_utfall_sager_VARFOR_och_vad_kunden_kan_gora():
     Raden binder de tre leden var för sig: att BÅDA lämplighetsvillkoren namnges,
     att kunden bjuds in med ett annat fordon, och att modellen inte får hänvisa
     till något annat hos oss.
+
+    **UPPSLAGET SKICKAS MED SEDAN SKIVA 55**, och det är inte en formalitet:
+    `_utfallstext` har numera TVÅ röda texter, och bara den här gäller ett fordon
+    vars vikter faller. Den andra gäller ett fordon som redan är ombyggt och
+    binds av `test_rott_for_ett_REDAN_OMBYGGT_fordon_skyller_inte_pa_vikten`.
+    Uppslaget nedan har `Kaross` som inte är `Ombyggd Bil`, alltså väljs den här.
     """
-    text = generera._utfallstext(Utfall.ROTT)
+    text = generera._utfallstext(Utfall.ROTT, ROTT_UPPSLAG)
 
     assert "tjänstevikten" in text
     assert "släpvagnsvikten" in text
@@ -2387,8 +2486,11 @@ def test_rott_UTAN_uppslag_ber_inte_om_siffror():
     `krav_pa_fordonsfakta_ur_uppslag`.
 
     Fällt av §7-granskningen av skiva 33, varv 1.
+
+    **ARGUMENTET ÄR UPPSLAGET SJÄLVT SEDAN SKIVA 55**, inte en `bool`. `None`
+    betyder detsamma som `har_uppslag=False` gjorde.
     """
-    utan = generera._utfallstext(Utfall.ROTT, har_uppslag=False)
+    utan = generera._utfallstext(Utfall.ROTT, None)
 
     # **INGET FORDONSORD, inte bara inga siffror.** Första rättelsen tog bort
     # siffrorna och lät orden `tjänstevikten` och `släpvagnsvikten` stå kvar.
@@ -2573,7 +2675,7 @@ def test_rott_utfall_namner_INTE_troskeln():
     Talet står i VVFS 2003:19 och hör inte i ett kundsvar, se
     `krav_pa_att_troskeln_inte_ar_forfattningstext`.
     """
-    text = generera._utfallstext(Utfall.ROTT)
+    text = generera._utfallstext(Utfall.ROTT, ROTT_UPPSLAG)
 
     assert not generera.TROSKELTAL.search(text), text
 
@@ -3800,6 +3902,20 @@ def test_de_SEX_utkasten_ur_skiva_51_passerar_PRISVAGEN():
 
     **FILEN ÄR GITIGNORERAD OCH BÄR KUNDTEXT.** Raden hoppas över när den saknas,
     och den läser aldrig ut något ur den: bara antal och utfall.
+
+    **URVALET SNÄVADES I SKIVA 55, och skälet är att premissen ovan slutade
+    gälla för en del av materialet.** `uppslag=None` var en SANN förfrågan för
+    varje utkast så länge ett lyckat uppslag krävde alla tre fälten och varje
+    sådant svar ändå nämnde dragkroken. Sedan skiva 55 ber bedömningen om
+    släpvagnsvikten i klartext när bilen duger som dragfordon, och den siffran
+    HAR en källa: uppslagets eget fält. Att då pröva svaret mot `uppslag=None` är
+    inte en strängare prövning utan en FALSK: spärren fäller ett tal som är
+    avläst, och raden blir röd av att boten gör rätt.
+
+    Raden prövar därför bara de utkast vars härkomstrad säger att inget uppslag
+    finns. För dem är `uppslag=None` det som FAKTISKT gällde, och prövningen
+    mäter något. För de övriga går ingen sann förfrågan att bygga ur filen, och
+    §7.2 säger att en uppgift man inte har utelämnas i stället för att gissas.
     """
     fil = generera.ROT / "data" / "granskningsfall.jsonl"
     if not fil.exists():
@@ -3810,8 +3926,13 @@ def test_de_SEX_utkasten_ur_skiva_51_passerar_PRISVAGEN():
         if not rad.strip():
             continue
         post = json.loads(rad)
-        if (post.get("forslag") or "").strip():
-            utkast.append(post)
+        if not (post.get("forslag") or "").strip():
+            continue
+        # HÄRKOMSTRADEN ÄR DET ENDA FILEN BÄR OM UPPSLAGET. Säger den
+        # `lyckades` finns ett uppslag vars fält raden inte kan återskapa.
+        if "lyckades" in post.get("uppslagskalla", ""):
+            continue
+        utkast.append(post)
 
     if not utkast:
         pytest.skip("inga utkast i data/granskningsfall.jsonl")
@@ -3821,3 +3942,131 @@ def test_de_SEX_utkasten_ur_skiva_51_passerar_PRISVAGEN():
                            regnr_i_mailet=False)
         generera.krav_pa_tal_med_kalla(post["forslag"], arende)
         generera.krav_pa_atagande_med_kalla(post["forslag"], arende)
+
+
+# ------------------------------------------------- SKIVA 55: BEDÖMNINGSRADEN
+#
+# De fyra raderna nedan kom till efter en §7.1-prövning: `_barlastrad`:s vakt och
+# `_bara_dragkroken_saknas`:s tre led var samtliga OBUNDNA, alltså gick de att
+# neutralisera med hela sviten grön. De styr PROMPTTEXT och inte en fällning,
+# vilket är precis varför ingen spärrtabell nådde dem.
+
+XJZ_LIK = Uppslag(
+    tjanstevikt_kg=1720, slapvagnsvikt_kg=1600, draganordning=False,
+    kaross="Halvkombi", fyrhjulsdrift=True,
+)
+
+
+def test_bedomningen_blir_ett_JA_nar_bara_dragkroken_saknas():
+    """SKIVA 55 DEL B PUNKT 2 OCH 4. det fyrhjulsdrivna fordonet i körningen skulle ha blivit ett tydligt ja.
+
+    **DEN GAMLA TEXTEN VAR FALSK OM DEN HÄR BILEN.** `OKLART` sade *"vi kan inte
+    avgöra det på uppgifterna vi har"*, medan släpvagnsvikten är avläst till
+    1 600 kg och §42 andra stycket därmed uppfyllt. Det enda registret inte visar
+    är en dragkrok.
+
+    **TALET SKA BEGÄRAS, och det har en källa.** `_tillatna_tal` bär uppslagets
+    släpvagnsvikt, alltså faller ett lydigt svar inte på talspärren. Raden blir
+    röd om texten slutar be om siffran.
+    """
+    text = generera._utfallstext(Utfall.OKLART, XJZ_LIK)
+
+    assert "släpvagnsvikten" in text
+    assert "talet" in text
+    assert "monterar" in text
+    assert "kan inte avgöra" not in text
+
+
+def test_bedomningen_ber_INTE_om_siffran_nar_slapvagnsvikten_saknas():
+    """FÖRSTA LEDET I `_bara_dragkroken_saknas`, bundet för sig.
+
+    **FORDONET ÄR LÄMPLIGT PÅ TJÄNSTEVIKTEN och saknar släpvagnsvikt.** Utan det
+    här ledet hade bedömningen bett modellen skriva ut en släpvagnsvikt som inte
+    står i underlaget, alltså beordrat ett tal utan källa. Varje lydigt svar hade
+    sedan fällts av `krav_pa_tal_med_kalla`, vilket är den garanterade falska
+    fällning §7.1 varnar för.
+    """
+    tung = Uppslag(
+        tjanstevikt_kg=2100, slapvagnsvikt_kg=None, draganordning=False,
+    )
+
+    assert fordonsuppslag.ar_lamplig_som_dragfordon(tung) is True
+    assert generera._bara_dragkroken_saknas(tung) is False
+
+
+def test_bedomningen_blir_inget_JA_nar_fordonet_inte_ar_lampligt():
+    """ANDRA LEDET, bundet för sig.
+
+    Ett fordon vars båda tal är avlästa och faller duger INTE som dragfordon, och
+    då är en dragkrok ingen lösning. Ledet är defensivt: `utvardera` ger ett
+    sådant fordon RÖTT, alltså når kedjan aldrig OKLART med det. Att det ändå
+    binds är §7.1:s krav, och funktionens kontrakt gäller också en direkt
+    konstruerad förfrågan.
+    """
+    olamplig = Uppslag(
+        tjanstevikt_kg=960, slapvagnsvikt_kg=600, draganordning=False,
+    )
+
+    assert fordonsuppslag.ar_lamplig_som_dragfordon(olamplig) is False
+    assert generera._bara_dragkroken_saknas(olamplig) is False
+
+
+def test_bedomningen_blir_inget_JA_nar_dragkroken_ar_okand():
+    """TREDJE LEDET, bundet för sig.
+
+    **ETT `None` ÄR INTE ETT `Nej`.** Vet vi ingenting om dragkroken ska svaret
+    varken påstå att den saknas eller erbjuda sig att montera en: det första är
+    ett obelagt frånvaropåstående, det andra ett fordonsfaktum utan avläst fält.
+    Båda fälls av var sin spärr, alltså hade ledet annars beordrat ett
+    STOPPTECKEN.
+    """
+    okand_krok = Uppslag(
+        tjanstevikt_kg=1720, slapvagnsvikt_kg=1600, draganordning=None,
+    )
+
+    assert generera._bara_dragkroken_saknas(okand_krok) is False
+
+
+def test_barlastraden_skrivs_BARA_for_ett_fordon_som_39_inte_galler():
+    """SKIVA 55 DEL A GATINGSREGEL 2, promptens halva av den.
+
+    **BÅDA RIKTNINGARNA ASSERAS.** Ett test som bara prövade att raden skrivs för
+    det fyrhjulsdrivna fordonet i körningen hade varit grönt även om den skrevs för varje bil, alltså om varje
+    a-traktorsvar tystat prisradens uppräkning utan skäl.
+
+    **TREDJE RADEN ÄR DEN VIKTIGASTE.** Vet vi inget om drivningen säger prompten
+    ingenting: en order byggd på okunskap är ett påstående om bilen.
+    """
+    utan_krav = generera._barlastrad(XJZ_LIK)
+
+    assert "barlastflak" in utan_krav
+    assert "BELOPPET" in utan_krav
+
+    kan_galla = Uppslag(
+        tjanstevikt_kg=1310, slapvagnsvikt_kg=1400, draganordning=False,
+        fyrhjulsdrift=False,
+    )
+    assert generera._barlastrad(kan_galla) == ""
+
+    okand_drivning = Uppslag(
+        tjanstevikt_kg=1310, slapvagnsvikt_kg=1400, draganordning=False,
+    )
+    assert generera._barlastrad(okand_drivning) == ""
+
+    assert generera._barlastrad(None) == ""
+
+
+def test_underlaget_BAR_barlastraden():
+    """Raden ska nå PROMPTEN, inte bara finnas som funktion.
+
+    Utan den här kunde `_underlag` sluta anropa `_barlastrad` med sviten grön,
+    och då vore hela gatingsregel 2 en död funktion med egna test.
+    """
+    text = generera._underlag(
+        Forfragan(
+            text="x", kategori="fråga om a-traktorkonvertering",
+            utfall=Utfall.OKLART, uppslag=XJZ_LIK,
+        )
+    )
+
+    assert "BARLASTFLAK:" in text

@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.61.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.62.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -119,14 +119,27 @@ verdikt som inte betyder vad det ser ut att betyda.
 | `genererat-fordonsfaktum` | Att boten påstår något om kundens bil utan ett lyckat uppslag | `test_fordonsfaktum_MED_uppslag_slapps_igenom` | `fordonsfakta-ur-uppslag` uppströms, men bara delvis: den fäller ett ofullständigt uppslag, aldrig ett svar utan uppslag. |
 | `troskeln-som-forfattningstext` | Att en ofullständig föreskrift går ut som ett besked | `test_troskeln_utan_forfattningsord_slapps_igenom`, `test_forfattningsord_utan_troskeln_slapps_igenom` | Ingen. Nås bara när talet 1 000 har en källa. Se posten. |
 | `pastaende-om-franvaro` | Att boten säger att en uppgift SAKNAS när den bara inte kunnat läsa den | `test_ett_svar_som_INTE_pastar_franvaro_slapps_igenom` | DELVIS med `genererat-fordonsfaktum`, och bara för `draganordning`. `FORDONSTERMER` bär `draganordning` och `dragkrok` men INTE `dragvikt`, alltså finns inget andra lager för dragviktspåståenden. Mätt, se posten. |
+| `barlastflak-galler-fordonet` | Att boten säger att barlastflak ingår för ett fordon som §39 bevisligen inte gäller | `test_barlastformer_som_ska_passera` | Ingen annan spärr. NÄTET UNDER PROMPTEN: `generera._barlastrad` tystar uppräkningen, spärren fångar ordet. Olika former, alltså inte §7.1:s redundans. Se posten. |
 
 **Tabellen räknar SPÄRRAR, alltså sådant som kod verkställer.** Dokumentet bär
 dessutom poster märkta LUCKA UTAN SPÄRR, som ingen kod implementerar och som
-därför inte kan bära någon av kolumnerna ovan: `gmail-etikett-som-ensam-grund`,
-`versalkansligt-monster-i-avlasare` och `pahittat-pastaende-om-oss`. De står i
-egna sektioner före mallen, och listan går att kontrollera med
-`grep -n "LUCKA UTAN SPÄRR" docs/sparrar.md`.
+därför inte kan bära någon av kolumnerna ovan. De står i egna sektioner före
+mallen, och listan hämtas med
+
+```
+grep -n "LUCKA UTAN SPÄRR" docs/sparrar.md
+```
+
 Den som läser den här listan före en prövning enligt §7.1 ska läsa dem också.
+
+**UPPRÄKNINGEN ÄR BORTTAGEN OCH ERSATT AV KOMMANDOT, i skiva 55.** Raden namngav
+`gmail-etikett-som-ensam-grund`, `versalkansligt-monster-i-avlasare` och
+`pahittat-pastaende-om-oss` medan dokumentet bar sju sådana poster, alltså var
+den falsk när skiva 55 läste den. Det är TREDJE gången samma rad blir falsk av
+en commit som lägger till en post, och de två föregående rättelserna lade till
+namn i stället för att ta bort uppräkningen. En lista i löptext över sin egen
+omgivning blir falsk av nästa commit, vilket CLAUDE.md 0.3.1 förbjöd och §7.2
+upprepar.
 
 *Här räknades två poster medan det fanns tre: skiva 32 skapade
 `pahittat-pastaende-om-oss` och uppdaterade inte den här raden. Raden är
@@ -433,21 +446,43 @@ luckan. Fällt av §7-granskningen av skiva 32, varv 1.*
 och ingen negativkontroll. Båda fälten är nu ifyllda i sak, och spärren är prövad
 enligt §7.1.
 
-- **Spärr.** Beslutet ligger i **FYRA funktioner** i `src/fordonsuppslag.py`, och
+- **Spärr.** Beslutet ligger i **SEX funktioner** i `src/fordonsuppslag.py`, och
   delningen är avsiktlig:
 
   | Funktion | Vad den prövar |
   | --- | --- |
-  | `_kontrollera` | Svarets FORM: att det är ett mappningsobjekt och att alla tre nycklarna finns |
-  | `_krav_pa_vikt` | VÄRDENA i de två vikterna, delat mellan dem |
-  | `Uppslag.__post_init__` | Draganordningens värde, och anropar viktkravet |
+  | `_kontrollera` | Svarets FORM: att det är ett mappningsobjekt |
+  | `_krav_pa_tjanstevikt` | Att tjänstevikten FINNS. Den får aldrig utelämnas |
+  | `_krav_pa_slapvagnsvikt` | Att en utelämnad släpvagnsvikt är belagd av TVÅ oberoende mätningar |
+  | `_krav_pa_draganordning` | Att en utelämnad draganordning är belagd av EN |
+  | `_krav_pa_vikt` | VÄRDENA i vikterna, delat mellan dem |
+  | `Uppslag.__post_init__` | Draganordningens och fyrhjulsdriftens värde, textfälten, och anropar viktkravet |
   | `slag_upp` | Att ett registreringsnummer alls finns, INNAN hämtningen anropas |
 
-  **DEN SOM SKA FÄLLA SPÄRREN ENLIGT §7.1 MÅSTE FÄLLA I ALLA FYRA.** En prövning
+  **DEN SOM SKA FÄLLA SPÄRREN ENLIGT §7.1 MÅSTE FÄLLA I ALLA.** En prövning
   som bara rör `_kontrollera` når varken viktlagren eller regnr-lagret och ger ett
-  inkonklusivt verdikt som ser konklusivt ut. Ett femte ställe, `_bar_nyckel`,
+  inkonklusivt verdikt som ser konklusivt ut. Ett ställe till, `_bar_nyckel`,
   bär mappningskravet och kräver en dubbelfällning; det redovisas för sig längre
   ned.
+
+  *Raden sade FYRA funktioner och att `_kontrollera` prövar att ALLA TRE
+  NYCKLARNA FINNS. Båda leden blev falska av skiva 55: nyckelkravet flyttade ut
+  i tre lager med olika strikthet, och tabellen räknade dem inte. Tabellen har
+  fler rader än siffran säger, eftersom `slag_upp` och `_bar_nyckel` redovisas
+  för sig; siffran räknar de funktioner som prövar SVARET.*
+
+  **ETT GATANDE FÄLT FÅR VARA `None` SEDAN SKIVA 55, OCH BARA MOT ETT BELÄGG.**
+  Hämtningen måste säga att SIDAN inte bär fältet, alltså `saknas på sidan` ur
+  `biluppgifter.Faltstatus`. Ett fält som stod på sidan och inte gick att läsa,
+  `tolkas ej`, fäller hela uppslaget precis som förut. Skälet är skiva 55 DEL B
+  punkt 3: ett uppslag som LYCKADES men där registret saknar en uppgift är inte
+  ett uppslag som föll, och kunden ska inte få veta att vi inte kunnat slå upp
+  bilen. Vad belägget INTE skiljer åt står som LUCKA 71.
+
+  **DET GER INGEN RÄTT ATT PÅSTÅ FRÅNVARO FÖR KUNDEN.** Skiva 41:s VÄG TRE står
+  oförändrad: `generera.Forfragan.franvaro_far_pastas` sätts bara av ett avläst
+  `Draganordning: Nej`, på ett enda ställe i `src/kedja.py`. Se
+  `docs/beslutslogg.md` #93 och #121.
 
   **Ett utkast av den här posten sade "två funktioner"** och namngav bara
   `_kontrollera` och `Uppslag.__post_init__`. Det blev falskare av skiva 13, som
@@ -4309,13 +4344,28 @@ falska träffar från bygget och granskningen.
   släpvagnsvikt, draganordning, dragkrok, totalvikt, väger, vikten, krok, släp
   och tung, och *här stod bara de fem första, vilket var en ofullständig
   uppräkning efter varv 1:s utökning. Fällt av §7-granskningen av skiva 31,
-  varv 3.* Villkoret gäller när
-  `forfragan.uppslag` är None. Beslutet fattas på raden
-  `if traff and forfragan.uppslag is None:`.
-- **Vad den skyddar mot.** Att boten påstår något om kundens bil när ingen källa
-  har svarat. `fordonsfakta-ur-uppslag` vaktar att ett uppslag är HELT; den här
-  vaktar att svaret inte påstår fakta när det inte finns något uppslag alls.
-  **De två är olika frågor och båda behövs.**
+  varv 3.*
+
+  **PRÖVNINGEN ÄR PER FÄLT SEDAN SKIVA 55.** Villkoret var
+  `if traff and forfragan.uppslag is None:`, alltså en prövning av uppslaget som
+  HELHET. Den ändringen är tvingad av DEL A: ett uppslag kan nu lyckas med ett
+  gatande fält tomt, och då är `uppslag is not None` inte längre ett belägg för
+  att en viss uppgift är avläst. Med det gamla villkoret hade ett fordon vars
+  sida saknar `Släpvagnsvikt` fått skriva *"släpvagnsvikten räcker"* med spärren
+  nöjd, alltså ett påstående om en uppgift registret aldrig lämnat.
+
+  Uppdelningen bor i `generera.FORDONSFAKTUM_FALT`, och
+  `test_varje_FORDONSTERM_har_ett_falt` kräver att unionen är EXAKT lika med
+  `FORDONSTERMER`. Det är den likheten som gör att `test_varje_term_ar_ISOLERAD`
+  och `test_ingen_term_gommer_en_alternation` fortsätter vakta hela mängden:
+  utan den kan en term leva bara i uppdelningen och därmed utanför dem.
+
+  Träffarna gås igenom i TEXTENS ordning och inte i fältens, så att skälet pekar
+  på samma mening som före skiva 55.
+- **Vad den skyddar mot.** Att boten påstår något om kundens bil som ingen källa
+  har svarat på. `fordonsfakta-ur-uppslag` vaktar att ett uppslag bara bär
+  värden hämtningen lämnat; den här vaktar att svaret inte påstår fakta vi inte
+  har. **De två är olika frågor och båda behövs.**
 - **Negativkontroll.**
   `tests/test_generera.py::test_fordonsfaktum_MED_uppslag_slapps_igenom` visar
   att fakta får nämnas när uppslaget finns.
@@ -5039,6 +5089,71 @@ a-traktorpriset ordagrant, med sitt `ingår i grundpaketet`.
 
 ---
 
+## `barlastflak-galler-fordonet`
+
+**BYGGD I SKIVA 55, LUCKA 69.** Lars order i DEL A, gatingsregel 2. Hans fall är
+det fyrhjulsdrivna fordonet i körningen, som är fyrhjulsdriven: prisradens uppräkning säger att barlastflak ingår
+i grundombyggnaden, vilket för den bilen är fel.
+
+**FÖRESKRIFTEN, ordagrant ur `docs/roadmap.md` fas 4.5, tryckt sida 15:**
+
+> **39 §** Om A-traktorn har en tjänstevikt av högst 2 000 kg, och mindre än 60 %
+> av tjänstevikten vilar på drivhjulen, skall den vara försedd med barlastflak
+> som medger tillräcklig barlast.
+
+**TVÅ LED FÖRENADE MED OCH.** Faller ett av dem gäller kravet inte. Tjänstevikt
+ÖVER 2 000 kg fäller det första; fyrhjulsdrift det andra, eftersom 100 % av
+tjänstevikten då vilar på drivhjulen.
+
+**TALET 2 000 ÄR DETSAMMA SOM §42:s OCH BETYDER MOTSATSEN.** I §42 en NEDRE
+gräns som gör fordonet lämpligt, i §39 en ÖVRE som drar in det under kravet.
+Konstanterna står därför för sig, `TAK_BARLASTFLAK_TJANSTEVIKT_KG` bredvid
+`TROSKEL_TJANSTEVIKT_KG`, och `docs/roadmap.md` bär en rättelse av precis den
+förväxlingen.
+
+- **Spärr.** `src/generera.py::krav_pa_barlastflak_som_galler_fordonet` kastar
+  när svaret nämner barlastflaket och `fordonsuppslag.kraver_barlastflak` säger
+  `False` för ärendets fordon.
+
+- **Negativkontroll.** `test_barlastformer_som_ska_passera`. Båda raderna bär
+  EXAKT samma mening som den första raden i `BARLAST_SKA_FALLA`; hela skillnaden
+  ligger i förfrågan. En spärr som fällde på ordet i sig hade fällt varje
+  a-traktorsvar, eftersom prisraden alltid nämner flaket.
+
+- **Redundant med.** Ingen annan spärr. Den är NÄTET UNDER PROMPTEN:
+  `generera._barlastrad` skriver ut för varje sådant fordon att flaket inte ska
+  nämnas och att priset ska ges som belopp utan uppräkning.
+
+  **DE TVÅ LAGREN LIGGER PÅ OLIKA FORMER**, alltså inte den redundans §7.1
+  varnar för: prompten HINDRAR att uppräkningen skrivs, spärren FÅNGAR ordet om
+  det skrivs ändå. Promptens lager binds av `test_underlaget_BAR_barlastraden`
+  och `test_barlastraden_skrivs_BARA_for_ett_fordon_som_39_inte_galler`,
+  spärrens av tabellerna.
+
+- **Verkställighetspunkter, fällda VAR FÖR SIG med RÖD utfall.**
+
+      if forfragan.uppslag is None: return             → if False:
+      if kraver_barlastflak(...) is not False: return  → if False:
+      if traff: raise                                  → if False:
+
+  I `_barlastrad`, promptens lager:
+
+      if kraver_barlastflak(uppslag) is not False      → if False:
+
+  I `fordonsuppslag.kraver_barlastflak` ligger de tre leden som avgör:
+  `fyrhjulsdrift is True`, viktjämförelsen, och `fyrhjulsdrift is None`.
+
+**SPÄRREN FÄLLER BARA PÅ ETT BEVISAT `False`.** `kraver_barlastflak` svarar
+`None` när registret inte räcker till, och då säger vi ingenting. Samma riktning
+som `pastaende-om-franvaro`: en spärr som fäller på okunskap fäller de flesta
+svaren och blir avstängd.
+
+**DEN KAN INTE STÄNGA HÅLET I `config/priser.json`, och det ska sägas rakt ut.**
+Prisradens uppräkning gäller varje bil, och för de här fordonen är den fel
+oavsett vad boten skriver. Att ändra posten är §10 och Lars beslut.
+
+---
+
 ## LUCKA UTAN SPÄRR: `gmail-etikett-som-ensam-grund`
 
 > **DET HÄR ÄR INTE EN SPÄRR OCH GÅR INTE ATT FÄLLA ENLIGT §7.1.** Ingen kod
@@ -5692,6 +5807,64 @@ annanstans, ska svaret inte behöva härledas på nytt.
 
 ---
 
+## LUCKA UTAN SPÄRR: `barlastflaket-kan-skrivas-utan-ordet`
+
+**LUCKA 70, ÖPPEN.** `BARLASTTERMER` är lika lite uttömmande som `PRISORD` och
+`FORDONSORD`. En modell kan räkna upp grundombyggnadens innehåll utan att skriva
+ordet: *"vi bygger flaket som lagen kräver"* eller *"vi monterar vikterna bak"*.
+
+**VAD SOM BÄR I DET FALLET** är `generera._barlastrad`, som säger till modellen
+att inte räkna upp vad grundombyggnaden omfattar alls. Det är ett bredare lager
+än ordlistan, och det är prompten och inte kod.
+
+**RIKTNINGEN.** En form som slinker igenom ger ett utkast där boten säger att
+barlastflak ingår för en bil som inte behöver ett. Lars läser utkastet. Ingen
+kategori står i `auto`, alltså kan det inte gå ut utan hans beslut.
+
+---
+
+## LUCKA UTAN SPÄRR: `var-lasning-kan-se-ut-som-ett-tunt-register`
+
+**LUCKA 71, ÖPPEN OCH MEDVETET SÅ.** Skiva 55 lät ett UTELÄMNAT gatande fält bli
+`None` i stället för att fälla uppslaget, mot ett belägg ur hämtningen. Belägget
+är `Faltstatus.SAKNAS_PA_SIDAN`, som vilar på `_sidan_bar_inte_faltet`:s två
+lager, och det skiljer inte alla fall åt.
+
+**TRE FORMER DÄR VÅR LÄSNING SER UT SOM ETT REGISTERFAKTUM:**
+
+| Form | Vad som händer |
+| --- | --- |
+| Källan döper om etiketten | Texten finns inte på sidan, ankarna står kvar, fältet kallas frånvarande |
+| Svaret är trunkerat mitt i en etikett | Allt efter snittet försvinner, ankarna före det står kvar |
+| En markupändring döljer ETT fält | Samma sak, så länge `MINSTA_ANKARE` ankare står kvar |
+
+**SLÄPVAGNSVIKTEN ÄR TÄCKT, DRAGANORDNINGEN INTE.** `_krav_pa_slapvagnsvikt`
+kräver ett ANDRA belägg, nämligen att INGEN av sidans fyra släpviktsformer
+finns. En omdöpning rör en av dem, alltså står de tre andra kvar och uppslaget
+faller. `Draganordning` har ingen sådan granne på sidan, och skillnaden går
+därför inte att avgöra ur en sida.
+
+**TJÄNSTEVIKTEN ÄR HELT UNDANTAGEN.** Den får aldrig utelämnas, eftersom den
+står på 10/10 sparade sidor och 6/6 i skiva 40:s stickprov.
+
+**RIKTNINGEN PÅ FELET ÄR DEN SÄKRA, och det är skälet att luckan står öppen.**
+Ett tomt fält kan aldrig ge GRÖNT: `utvardera` svarar OKLART, och
+`krav_pa_fordonsfakta_ur_uppslag` fäller varje mening som nämner fältet. En
+omdöpt etikett kostar ett SVAGARE svar, aldrig ett falskt.
+
+**ATT DEN SYNS ÄR DET ENDA SKYDDET, och det är byggt.**
+`biluppgifter.logga_uppslag` skriver `falt_saknas` till `logg/uppslag.jsonl`
+också när uppslaget lyckas, och raden går att räkna per dygn. Bunden av
+`test_saknat_falt_LOGGAS_aven_nar_uppslaget_lyckas`. Utan den ser en
+markupändring ut som en dag med ovanligt många ombyggda bilar.
+
+**PRÖVAD SOM EN KÄND LUCKA, inte som ett resonemang.**
+`test_kand_lucka_omdopt_draganordning_ser_ut_som_ett_registerfaktum` och
+`test_kand_lucka_trunkerad_sida_ser_ut_som_ett_tunt_register` blir röda den dag
+någon tror sig ha stängt den.
+
+---
+
 ## Mall för en spärrpost
 
 Kopiera blocket nedan per spärr. Varje fält fylls i, tomma fält är en ofärdig
@@ -5714,6 +5887,26 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.62.0 — 2026-09-15
+
+**NY SPÄRR: `barlastflak-galler-fordonet`, LUCKA 69 STÄNGD.** Lars order i skiva
+55 DEL A, gatingsregel 2. Ett svar får inte säga att barlastflak ingår för ett
+fordon där §39:s krav bevisligen inte gäller, alltså ett fyrhjulsdrivet eller ett
+över 2 000 kg. Fyra verkställighetspunkter, var och en fälld FÖR SIG med RÖD.
+
+**TVÅ NYA LUCKOR UTAN SPÄRR.** `barlastflaket-kan-skrivas-utan-ordet`, LUCKA 70,
+är ordlistans vanliga gräns. `var-lasning-kan-se-ut-som-ett-tunt-register`, LUCKA
+71, är priset för att ett uppslag numera får lyckas med hål: tre former där vår
+läsning ser ut som ett registerfaktum, varav släpvagnsvikten är täckt av ett
+andra belägg och draganordningen inte. Båda är prövade som kända luckor, alltså
+med test som blir röda om någon tror sig ha stängt dem.
+
+**UPPRÄKNINGEN AV LUCKA-POSTER I ÖVERSIKTEN ÄR BORTTAGEN.** Den namngav tre av
+sju och var falsk för tredje gången. Ersatt av det `grep`-kommando som hämtar
+listan.
+
+Ny spärr plus två luckor plus en rättelse ⇒ MINOR.
 
 ### 0.61.0 — 2026-09-15
 

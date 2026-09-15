@@ -35,6 +35,10 @@ SPÄRRARNA PÅ DET GENERERADE, var och en med sin negativkontroll:
                                  Rättat i skiva 46.*
   `troskeln-som-forfattningstext` Tröskeln 1 000 kg får inte återges som en
                                  sammanfattad föreskrift.
+  `barlastflak-galler-fordonet`  Barlastflak får inte nämnas för ett fordon där
+                                 §39:s krav bevisligen inte gäller, alltså ett
+                                 fyrhjulsdrivet eller ett över 2 000 kg. Skiva
+                                 55, LUCKA 69.
   `atagande-om-priset`           Ett påstående om att ett arbete INGÅR, är
                                  KOSTNADSFRITT eller TÄCKS av priset är ett
                                  prisbesked, och kräver samma källa som ett
@@ -57,7 +61,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from src import sokvagar
+from src import fordonsuppslag, sokvagar
 from src.fordonsuppslag import Uppslag, Utfall
 
 ROT = Path(__file__).resolve().parent.parent
@@ -331,6 +335,43 @@ FORDONSTERMER = (
 )
 
 FORDONSORD = re.compile("|".join(FORDONSTERMER), flags=re.IGNORECASE)
+
+# VILKET FÄLT VARJE FORDONSTERM PÅSTÅR NÅGOT OM. Skiva 55 DEL A.
+#
+# **UPPDELNINGEN BEHÖVDES FÖRST NÄR ETT UPPSLAG KUNDE BLI DELVIS.** Före skiva 55
+# var `uppslag is not None` liktydigt med att alla tre gatande fälten var avlästa,
+# alltså räckte ett enda villkor. Nu kan uppslaget LYCKAS med `slapvagnsvikt_kg`
+# tom, och då är *"släpvagnsvikten räcker"* ett påstående om en uppgift registret
+# aldrig lämnat, medan *"bilen saknar registrerad draganordning"* är sant i samma
+# svar. Ett villkor som prövar uppslaget som helhet kan inte skilja dem åt.
+#
+# **TERMERNA ÄR INTE OMSKRIVNA, BARA GRUPPERADE.** Varje sträng nedan står
+# ordagrant i `FORDONSTERMER` ovan, och `test_varje_FORDONSTERM_har_ett_falt`
+# kräver att unionen är EXAKT lika med den tupeln. Det är det som gör att
+# `test_varje_term_ar_ISOLERAD` och `test_ingen_term_gommer_en_alternation`
+# fortsätter vakta samma mängd: en term som läggs till i den ena och glöms i den
+# andra blir röd.
+#
+# **`nagon_vikt` ÄR DE OSPECIFIKA ORDEN.** *"bilen väger tillräckligt"* namnger
+# ingen storhet, och att kräva just tjänstevikten hade fällt ett sant svar om
+# totalvikten. Vilken som helst av de tre avlästa vikterna belägger dem.
+FORDONSFAKTUM_FALT = {
+    "tjanstevikt_kg": (r"tjänstevikt", r"tjanstevikt"),
+    "slapvagnsvikt_kg": (r"släpvagnsvikt", r"slapvagnsvikt",
+                         r"\bsläp\b", r"\bslap\b", r"\bsläpet\b"),
+    "draganordning": (r"draganordning", r"dragkrok", r"\bkrok\b"),
+    "totalvikt_kg": (r"totalvikt",),
+    "nagon_vikt": (r"\bväger\b", r"\bvager\b", r"\bvikten\b",
+                   r"\btung\b", r"\btyngd\b"),
+}
+
+# VIKTFÄLTEN SOM BELÄGGER ETT OSPECIFIKT VIKTORD.
+VIKTFALT_I_UPPSLAGET = ("tjanstevikt_kg", "slapvagnsvikt_kg", "totalvikt_kg")
+
+FORDONSFAKTUM_MONSTER = {
+    falt: re.compile("|".join(termer), flags=re.IGNORECASE)
+    for falt, termer in FORDONSFAKTUM_FALT.items()
+}
 
 # TRÖSKELN SOM FÖRFATTNINGSTEXT. Talet 1000 i sällskap med ett ord som gör det
 # till en återgiven föreskrift.
@@ -953,18 +994,79 @@ def krav_pa_tal_med_kalla(svar: str, forfragan: Forfragan) -> None:
             )
 
 
+def _faltet_ar_last(uppslag: Uppslag | None, falt: str) -> bool:
+    """Bär uppslaget ett AVLÄST värde för det fält termen påstår något om?
+
+    **`None` ÄR INTE ETT VÄRDE, oavsett varför det är `None`.** Ett fält
+    registret inte bär och ett fält vi inte kunde läsa ser likadana ut här, och
+    det är rätt: båda betyder att svaret inte har någon uppgift att stå för.
+    Skillnaden mellan dem avgör något annat, nämligen om UPPSLAGET faller, och
+    den frågan är redan avgjord av `fordonsuppslag._krav_pa_gatande_falt` när
+    koden når hit.
+    """
+    if uppslag is None:
+        return False
+
+    if falt == "nagon_vikt":
+        return any(getattr(uppslag, n) is not None for n in VIKTFALT_I_UPPSLAGET)
+
+    return getattr(uppslag, falt) is not None
+
+
+def _faltet_for(ord_: str) -> str | None:
+    """Vilket fält en träffad fordonsterm påstår något om."""
+    for falt, monster in FORDONSFAKTUM_MONSTER.items():
+        if monster.fullmatch(ord_):
+            return falt
+    return None
+
+
 def krav_pa_fordonsfakta_ur_uppslag(svar: str, forfragan: Forfragan) -> None:
-    """SPÄRR: ett fordonsfaktum kräver ett LYCKAT uppslag.
+    """SPÄRR: ett fordonsfaktum kräver ett AVLÄST värde för just det fältet.
 
     Kopplar `fordonsfakta-ur-uppslag` uppströms: den spärren vaktar att ett
-    uppslag är helt, den här att svaret inte påstår fordonsfakta när inget
-    uppslag finns.
+    uppslag bara bär värden som hämtningen faktiskt lämnat, den här att svaret
+    inte påstår fordonsfakta vi inte har.
+
+    **PRÖVNINGEN ÄR PER FÄLT SEDAN SKIVA 55, och den ändringen är tvingad av
+    DEL A.** Ett uppslag kan nu LYCKAS med ett gatande fält tomt, alltså är
+    `uppslag is not None` inte längre ett belägg för att en viss uppgift är
+    avläst. Med det gamla villkoret hade ett fordon vars sida saknar
+    `Släpvagnsvikt` fått skriva *"släpvagnsvikten räcker"* med spärren nöjd.
+    Se `FORDONSFAKTUM_FALT`.
+
+    **TRÄFFARNA GÅS IGENOM I TEXTENS ORDNING och inte i fältens.** Skälet bär
+    det ord som står FÖRST i svaret, precis som före skiva 55, och en ordning
+    som följde `FORDONSFAKTUM_FALT`:s nycklar hade bytt ut skälet på varje svar
+    som nämner två fält. Ett skäl Lars läser ska peka på samma mening som förut.
+
+    **SKÄLET SKILJER DE TVÅ LÄGENA ÅT.** Utan uppslag lyder det som alltid, och
+    det är den formen `tests/test_generera.py` binder. Med ett uppslag som inte
+    bär fältet säger det vilket fält som saknades, eftersom det är den uppgift
+    Lars behöver för att se om spärren fällde rätt.
     """
-    traff = FORDONSORD.search(svar)
-    if traff and forfragan.uppslag is None:
+    for traff in FORDONSORD.finditer(svar):
+        ord_ = traff.group(0)
+        falt = _faltet_for(ord_)
+
+        # **ETT ORD UTAN FÄLT FÄLLER, och grenen är inte död kod.** Unionen binds
+        # av `test_varje_FORDONSTERM_har_ett_falt`, men bindningen gäller den
+        # TUPEL som finns, inte den som skrivs härnäst. Faller en term ur
+        # uppdelningen utan att testet körs ska den behandlas som obelagd, alltså
+        # åt det hållet som inte släpper ut något.
+        if falt is not None and _faltet_ar_last(forfragan.uppslag, falt):
+            continue
+
+        if forfragan.uppslag is None:
+            raise Sparrfalld(
+                "genererat-fordonsfaktum",
+                f"svaret nämner {ord_.lower()} utan ett lyckat uppslag",
+            )
+
         raise Sparrfalld(
             "genererat-fordonsfaktum",
-            f"svaret nämner {traff.group(0).lower()} utan ett lyckat uppslag",
+            f"svaret nämner {ord_.lower()} men uppslaget bär ingen uppgift om "
+            f"{falt}",
         )
 
 
@@ -1289,6 +1391,69 @@ def _prissatser(svar: str) -> list[str]:
     return [s for s in _delat_pa_satsbrott(hopfogade) if PRISORD.search(s)]
 
 
+# BARLASTFLAKET, i de former ett svar skriver det. LUCKA 69.
+#
+# **EN TERM PER RAD, UTAN INTERN ALTERNATION**, samma krav som de fyra mängderna
+# ovan och bundet av `test_ingen_term_gommer_en_alternation`.
+#
+# **ASCII-FORMEN STÅR MED**, till skillnad från `ATAGANDETERMER`. Skälet som
+# stänger den vägen där är att `tacks` ligger en bokstav från `tack`; `barlastflak`
+# bär inget diakritiskt tecken alls, alltså finns ingen ASCII-variant att välja
+# bort. Raden `barlastflak` täcker både `barlastflaket` och `barlastflaken` genom
+# `\w*`.
+BARLASTTERMER = (
+    r"barlastflak\w*",
+    r"barlast\b",
+    r"barlasten\b",
+)
+
+BARLASTORD = re.compile("|".join(BARLASTTERMER), flags=re.IGNORECASE)
+
+
+def krav_pa_barlastflak_som_galler_fordonet(svar: str,
+                                            forfragan: Forfragan) -> None:
+    """SPÄRR: barlastflak får inte nämnas för ett fordon §39 inte gäller. LUCKA 69.
+
+    Faller svaret här är det ett STOPPTECKEN. Texten skrivs inte om tills den
+    passerar, se §9.1.
+
+    **REGELN ÄR LARS, skiva 55 DEL A gatingsregel 2.** `config/priser.json`:s
+    a-traktorpost räknar upp `barlastflak` som en del av grundombyggnaden, och
+    prompten beordrar att priset återges. För ett fordon där §39:s krav
+    bevisligen inte gäller blir uppräkningen ett falskt påstående om just den
+    bilen. Hans fall är det fyrhjulsdrivna fordonet i körningen.
+
+    **SPÄRREN FÄLLER BARA PÅ ETT BEVISAT `False`.** `kraver_barlastflak` svarar
+    `None` när registret inte räcker till, och då säger vi ingenting: ett svar
+    som nämner flaket faller alltså inte bara för att vi är osäkra. Det är samma
+    riktning som `pastaende-om-franvaro` har, och av samma skäl: en spärr som
+    fäller på okunskap fäller de flesta svaren och blir avstängd.
+
+    **DEN ÄR NÄTET UNDER PROMPTEN, inte det enda skyddet.** `_underlag` skriver
+    ut för varje sådant fordon att flaket inte ska nämnas, och `PRISFOT`:s krav
+    på ordagrann återgivning är vikt för den raden. Ordlistan är lika lite
+    uttömmande som `PRISORD` och `FORDONSORD`: en modell kan räkna upp
+    grundombyggnadens innehåll utan att skriva ordet. Formen står som LUCKA 70.
+
+    **SPÄRREN KAN INTE STÄNGA HÅLET I `config/priser.json`, och det ska sägas
+    rakt ut.** Prisradens uppräkning gäller varje bil, och för de här fordonen är
+    den fel oavsett vad boten skriver. Att ändra posten är §10 och Lars beslut.
+    """
+    if forfragan.uppslag is None:
+        return
+
+    if fordonsuppslag.kraver_barlastflak(forfragan.uppslag) is not False:
+        return
+
+    traff = BARLASTORD.search(svar)
+    if traff:
+        raise Sparrfalld(
+            "barlastflak-galler-fordonet",
+            f"svaret nämner {traff.group(0).lower()} för ett fordon som §39 "
+            f"inte gäller",
+        )
+
+
 def krav_pa_att_troskeln_inte_ar_forfattningstext(svar: str) -> None:
     """SPÄRR: tröskeln 1 000 kg får inte återges som en sammanfattad föreskrift.
 
@@ -1506,6 +1671,7 @@ def krav_pa_svaret(svar: str, forfragan: Forfragan) -> None:
     krav_pa_tal_med_kalla(svar, forfragan)
     krav_pa_fordonsfakta_ur_uppslag(svar, forfragan)
     krav_pa_belagt_franvaropastaende(svar, forfragan)
+    krav_pa_barlastflak_som_galler_fordonet(svar, forfragan)
     krav_pa_att_troskeln_inte_ar_forfattningstext(svar)
     krav_pa_atagande_med_kalla(svar, forfragan)
 
@@ -1676,6 +1842,19 @@ veta vad en ombyggnad kostar oavsett vad registret säger om just den bilen.
 16. SKRIV ALDRIG ATT EN DRAGKROK INGÅR. Inte att den ingår i priset, i bygget \
 eller i grundombyggnaden, och inte att den följer med eller är inkluderad. \
 Regel 13 står oförändrad och säger vad du DÄREMOT skriver när bilen behöver en.
+17. SKRIV ALDRIG BILENS MODELLBETECKNING. Inte V70, inte E60, inte A3, inte \
+X3M. Skriv "bilen", "din bil" eller "er bil". Fabrikatet får du skriva. \
+Beteckningen bär nästan alltid en siffra, och en siffra i ett utgående mail \
+måste ha en källa.
+18. ETT PRISORD KRÄVER ETT BELOPP I SAMMA MENING. Orden pris, priset, kostar, \
+kostnad, offert, avgift och kronor får bara stå i en mening som också bär \
+priset ur underlaget. Vill du säga att vi tittar närmare på bilen, skriv det \
+utan prisord: "hör av dig så tittar vi på just din bil". Behöver du säga att \
+priset beror på bilen, skriv "vi återkommer med prisuppgift".
+19. NÄR DU ERBJUDER EN DRAGKROK SKA DU SÄGA VARFÖR DEN HJÄLPER. Står det i \
+underlaget att bilen duger som dragfordon, skriv ut släpvagnsvikten ur \
+underlaget i samma stycke. En dragkrok på en bil som inte duger hjälper inte, \
+och ett erbjudande utan skälet läser kunden som ett villkor.
 
 Skriv kort, konkret och vänligt. Svara på det kunden faktiskt frågar."""
 
@@ -1736,7 +1915,103 @@ def _bedomning(forfragan: Forfragan) -> str:
         )
     if forfragan.uppslag is None and not forfragan.regnr_i_mailet:
         return SAKNAT_REGNR_BEDOMNING
-    return _utfallstext(forfragan.utfall, forfragan.uppslag is not None)
+    return _utfallstext(forfragan.utfall, forfragan.uppslag)
+
+
+# VAD UNDERLAGET SÄGER OM ETT GATANDE FÄLT REGISTRET INTE BÄR. Skiva 55 DEL B
+# punkt 3.
+#
+# **RADEN SÄGER VAD MODELLEN INTE VET, ALDRIG VAD REGISTRET SAKNAR.** Skillnaden
+# är skiva 41:s VÄG TRE, och den är hela skälet till att den här raden är
+# formulerad i första person. Skrev den *"registret saknar släpvagnsvikt"* vore
+# det en inbjudan till exakt det påstående `pastaende-om-franvaro` fäller, alltså
+# en prompt som beställer ett STOPPTECKEN. Se `docs/beslutslogg.md` #93.
+FALT_VI_SAKNAR = {
+    "tjanstevikt_kg": "tjänstevikt",
+    "slapvagnsvikt_kg": "släpvagnsvikt",
+    "draganordning": "draganordning",
+}
+
+
+def _uppslagsrad(u: Uppslag) -> str:
+    """Uppslagets AVLÄSTA fält, och en order att tiga om de övriga.
+
+    **RADEN SKREV FÖRUT ALLA TRE FÄLTEN OVILLKORLIGT.** Efter skiva 55 kan ett
+    fält vara `None`, och en f-sträng hade då skrivit *"släpvagnsvikt None kg"*
+    rakt in i prompten. Det är inte ett tal modellen kan citera, men det är en
+    rad den läser som ett faktum om bilen.
+
+    **DE AVLÄSTA SKRIVS UT, DE ÖVRIGA NAMNGES SOM ICKE-VETANDE.** Att tiga helt
+    om ett saknat fält hade lämnat modellen att gissa om den får nämna det, och
+    `_faktarader` och `_prisrader` bär redan samma val och samma skäl.
+
+    **BARA DE TRE GATANDE FÄLTEN STÅR HÄR.** `kaross`, `fyrhjulsdrift`,
+    `totalvikt`, `arsmodell` och `status` läses och bärs av `Uppslag`, men de når
+    aldrig prompten: varje tal i prompten blir ett citerbart tal via
+    `_tillatna_tal`, och inget av de fem svarar på något kunden frågat. De två
+    som gatar talar i stället genom bedömningsraden och `_barlastrad`.
+    """
+    avlasta = []
+    if u.tjanstevikt_kg is not None:
+        avlasta.append(f"tjänstevikt {u.tjanstevikt_kg} kg")
+    if u.slapvagnsvikt_kg is not None:
+        avlasta.append(f"släpvagnsvikt {u.slapvagnsvikt_kg} kg")
+    if u.draganordning is not None:
+        avlasta.append(f"draganordning {'ja' if u.draganordning else 'nej'}")
+
+    saknade = [ord_ for nyckel, ord_ in FALT_VI_SAKNAR.items()
+               if getattr(u, nyckel) is None]
+
+    rad = "Fordonsuppslag: " + (", ".join(avlasta) if avlasta
+                                else "inga uppgifter alls")
+
+    if not saknade:
+        return rad + "."
+
+    return (
+        f"{rad}. VI HAR INGEN UPPGIFT OM {' och '.join(saknade).upper()} för "
+        "den här bilen. Nämn inte det, varken som ett värde eller som något "
+        "som saknas, och säg ALDRIG att uppslaget misslyckats: vi HAR slagit "
+        "upp bilen och fått de uppgifter som står ovan."
+    )
+
+
+def _barlastrad(uppslag: Uppslag | None) -> str:
+    """Vad prompten säger om barlastflaket. Skiva 55 DEL A gatingsregel 2.
+
+    **RADEN SKRIVS BARA NÄR §39 BEVISLIGEN INTE GÄLLER.** `kraver_barlastflak`
+    svarar `None` när registret inte räcker till, och då säger prompten
+    ingenting: en order byggd på okunskap är ett påstående om bilen.
+
+    **DEN UNDANTAR UPPRÄKNINGEN, INTE PRISET.** Promptens regel 15 kräver att
+    priset skrivs, och `PRISFOT` att det återges ordagrant och i sin helhet.
+    Prisradens värde är två led: ett belopp och en uppräkning av vad
+    grundombyggnaden omfattar. För de här fordonen är uppräkningens `barlastflak`
+    falskt, och raden säger därför uttryckligen att BELOPPET återges medan
+    uppräkningen utelämnas.
+
+    **DET ÄR ETT UNDANTAG FRÅN `PRISFOT` OCH INGET KRINGGÅENDE AV DEN.** Foten
+    finns mot ett HALVT ÅTERGIVET INTERVALL, alltså mot att `från 20 000 till
+    25 000 kr` blir `från 20 000 kr`, vilket skiva 44 mätte upp som ett annat
+    prisbesked än filens. Beloppet står orört här; det som utelämnas är en
+    uppräkning av arbetsmoment, och priset blir inte ett annat av att den saknas.
+
+    **HÅLET LIGGER I `config/priser.json` OCH STÄNGS INTE HÄR.** Posten säger att
+    grundombyggnaden omfattar barlastflak, vilket för de här fordonen är fel
+    oavsett vad boten skriver. Att ändra posten är §10 och Lars beslut.
+    """
+    if uppslag is None:
+        return ""
+
+    if fordonsuppslag.kraver_barlastflak(uppslag) is not False:
+        return ""
+
+    return (
+        "BARLASTFLAK: den här bilen omfattas INTE av barlastflakskravet. Skriv "
+        "inte ordet barlastflak, och räkna inte upp vad grundombyggnaden "
+        "omfattar. Priset skriver du ändå: återge BELOPPET ur prisraden "
+        "ordagrant, båda gränserna, och hoppa över uppräkningen efter det."
+    )
 
 
 def _underlag(forfragan: Forfragan) -> str:
@@ -1764,14 +2039,10 @@ def _underlag(forfragan: Forfragan) -> str:
             "tjänstevikt, släpvagnsvikt eller draganordning."
         )
     else:
-        u = forfragan.uppslag
-        rader.append(
-            f"Fordonsuppslag: tjänstevikt {u.tjanstevikt_kg} kg, "
-            f"släpvagnsvikt {u.slapvagnsvikt_kg} kg, "
-            f"draganordning {'ja' if u.draganordning else 'nej'}."
-        )
+        rader.append(_uppslagsrad(forfragan.uppslag))
 
     rader.append(f"Bedömning: {_bedomning(forfragan)}")
+    rader.append(_barlastrad(forfragan.uppslag))
     # KATEGORIN VÄLJER PRISPOSTEN, skiva 52. Raden skrev tidigare hela
     # `config/priser.json`, se `priser_for`.
     rader.append(_prisrader(forfragan.kategori))
@@ -1782,7 +2053,10 @@ def _underlag(forfragan: Forfragan) -> str:
     # står i den §10-grindade källan, alltså där lucka 29 kräver att fakta om oss
     # bor. Lars beslut i skiva 37, lucka 43 stängd.
     rader.append(_faktarader())
-    return "\n".join(rader)
+    # `_barlastrad` ger tom sträng för varje fordon §39 kan gälla, alltså för de
+    # flesta. En tom rad i underlaget är ingen instruktion, men den ser ut som en
+    # avdelare och delar blocket på ett ställe som inte betyder något.
+    return "\n".join(rad for rad in rader if rad)
 
 
 def las_konfig(fil: Path) -> object:
@@ -2115,10 +2389,23 @@ def _faktarader(faktafil: Path | None = None) -> str:
     return FAKTARUBRIK + f"{rader}\n" + FAKTAFOT
 
 
-def _utfallstext(utfall: Utfall | None, har_uppslag: bool = True) -> str:
+def _utfallstext(utfall: Utfall | None, uppslag: Uppslag | None) -> str:
     """Utfallet i ord, utan att avslöja tröskeln eller föreskriften.
 
-    **`har_uppslag` STYR OM SIFFROR FÅR BEGÄRAS, och det ledet är fällt fram.**
+    **PARAMETERN VAR `har_uppslag: bool` OCH ÄR NU UPPSLAGET SJÄLVT.** Skiva 55
+    behöver veta mer än ATT ett uppslag finns: RÖTT har två skäl som inte får
+    förväxlas, och OKLART har två lägen där bara det ena är ett nej. En `bool`
+    kan inte bära den skillnaden, och ett andra booleskt argument hade blivit
+    fyra kombinationer där bara tre finns.
+
+    **PARAMETERN HAR INGET FÖRVAL, och det är samma skäl som `kor`:s `hamta` och
+    `till_granskningsfall`:s `skarp` anger.** Ett förval hade valt en av de två
+    RÖDA texterna åt den som glömmer argumentet, alltså bett om bilens egna
+    siffror för en bil vi inte slagit upp, eller tigit om dem för en vi har.
+    Utan förval kastar Python i stället, och det syns.
+
+    **ATT SIFFROR FÅR BEGÄRAS STYRS AV ATT ETT UPPSLAG FINNS, och det ledet är
+    fällt fram.**
     Första lydelsen bad ALLTID om bilens egna siffror vid RÖTT. Med
     `utfall=ROTT` och `uppslag=None` producerade `_underlag` då en prompt som i
     samma stycke förbjöd och beordrade viktangivelser:
@@ -2144,6 +2431,8 @@ def _utfallstext(utfall: Utfall | None, har_uppslag: bool = True) -> str:
     precis vad `troskeln-som-forfattningstext` finns för och vad skiva 12:s
     defekt bestod i. Siffrorna kommer ur uppslaget och är alltså avlästa.
     """
+    har_uppslag = uppslag is not None
+
     rott_med_siffror = (
         "bilen ser inte ut att gå att bygga om, eftersom varken "
         "tjänstevikten eller släpvagnsvikten räcker till. SÄG DET SOM "
@@ -2167,12 +2456,87 @@ def _utfallstext(utfall: Utfall | None, har_uppslag: bool = True) -> str:
         "tittar vi på det. Hänvisa inte till något annat hos oss."
     )
 
+    # **REDAN OMBYGGD ÄR ETT ANNAT RÖTT, skiva 55 DEL A regel 1.** Kunden ber om
+    # en ombyggnad av något som registret säger redan är ombyggt.
+    #
+    # **SKÄLET FÅR INTE VARA VIKTERNAS.** `rott_med_siffror` säger att varken
+    # tjänstevikten eller släpvagnsvikten räcker, och för det ombyggda fordon
+    # som väger 2 005 kg är det FALSKT: vikten ligger över §42:s tröskel. RÖTT är
+    # en helt annan orsak, och ett svar som angav vikten som skäl hade varit ett
+    # påhittat fordonsfaktum av precis den klass §0:s ramverksregel 3 förbjuder.
+    #
+    # **INGA SIFFROR HÄR, och det är inte en glömska.** Vad kunden behöver veta
+    # är att bilen redan är registrerad som ombyggd, inte vad den väger.
+    rott_redan_ombyggd = (
+        "REGISTRET SÄGER ATT BILEN REDAN ÄR OMBYGGD. Säg det vänligt och rakt: "
+        "enligt registret är bilen redan registrerad som ombyggd, alltså finns "
+        "det ingen grundombyggnad kvar att göra. Fråga om kunden vill något "
+        "annat med bilen, eller om det gäller en annan bil, så tittar vi på "
+        "den. Nämn ingenting om bilens vikter, och säg inte att den inte duger."
+    )
+
+    # **DEN ENDA SOM SAKNAS ÄR DRAGKROKEN. Skiva 55 DEL B punkt 2 och 4.**
+    #
+    # `OKLART` sade förut *"vi kan inte avgöra det på uppgifterna vi har"* i
+    # BÅDA de lägen som nu skiljs åt, och det var falskt i det ena. För det
+    # fyrhjulsdrivna fordonet är släpvagnsvikten avläst till 1 600 kg, alltså
+    # är §42 andra stycket uppfyllt och det enda registret inte visar är en
+    # dragkrok. Lars läste tre
+    # sådana svar: de erbjöd en dragkrok utan att säga varför den hjälper.
+    #
+    # **SIFFRAN SKA MED, och den har en källa.** `_tillatna_tal` bär uppslagets
+    # släpvagnsvikt, alltså faller svaret inte på talspärren.
+    oklart_bara_dragkroken = (
+        "BILEN DUGER SOM DRAGFORDON. Säg det som ett JA: släpvagnsvikten i "
+        "registret räcker, och skriv ut talet ur underlaget ovan som skälet. "
+        "Det enda registret inte visar är en dragkrok, så skriv i samma "
+        "andetag att vi monterar en om det behövs. Be aldrig kunden ordna "
+        "kroken själv, och gör inte dragkroken till ett villkor."
+    )
+
+    oklart_utan_besked = "vi kan inte avgöra det på uppgifterna vi har."
+
+    if utfall is Utfall.ROTT and uppslag is not None \
+            and fordonsuppslag.ar_redan_ombyggd(uppslag):
+        return rott_redan_ombyggd
+
+    if utfall is Utfall.OKLART and _bara_dragkroken_saknas(uppslag):
+        return oklart_bara_dragkroken
+
     return {
         Utfall.GRONT: "bilen ser ut att gå att bygga om.",
         Utfall.GULT: "bilen kan gå att bygga om, men något behöver åtgärdas.",
-        Utfall.OKLART: "vi kan inte avgöra det på uppgifterna vi har.",
+        Utfall.OKLART: oklart_utan_besked,
         Utfall.ROTT: rott_med_siffror if har_uppslag else rott_utan_siffror,
     }.get(utfall, "vi har inte kunnat slå upp bilen.")
+
+
+def _bara_dragkroken_saknas(uppslag: Uppslag | None) -> bool:
+    """Är §42 andra stycket uppfyllt med ETT AVLÄST tal, och kroken det enda öppna?
+
+    **BÅDA LEDEN BEHÖVS, och de fäller olika fordon.** Lämpligheten skiljer
+    det fyrhjulsdrivna fordonet, vars släpvagnsvikt är avläst till 1 600 kg,
+    från det vars sida inte bär någon släpvagnsvikt alls: båda blir `OKLART`, och
+    bara det första är ett ja. Släpvagnsviktens avläsning skiljer i sin tur det
+    fordonet från ett
+    fordon som är lämpligt på TJÄNSTEVIKTEN, där talet att skriva ut vore ett
+    annat och meningen om släpvagnsvikten falsk.
+
+    **TREDJE LEDET ÄR ATT KROKEN FAKTISKT ÄR DET SOM SAKNAS.** Är
+    `draganordning` avläst till `Nej` är det belagt, och `kedja.py` lägger då
+    fältet i `franvaro_far_pastas`. Är den `None` vet vi ingenting om kroken, och
+    då ska svaret varken påstå att den saknas eller erbjuda sig att montera en.
+    """
+    if uppslag is None:
+        return False
+
+    if uppslag.slapvagnsvikt_kg is None:
+        return False
+
+    if fordonsuppslag.ar_lamplig_som_dragfordon(uppslag) is not True:
+        return False
+
+    return uppslag.draganordning is False
 
 
 # ------------------------------------------------------------------ DEL A

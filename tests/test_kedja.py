@@ -14,7 +14,15 @@ import json
 
 import pytest
 
-from src import biluppgifter, generera, kategorisera, kedja, ometikettera, vy
+from src import (
+    biluppgifter,
+    fordonsuppslag,
+    generera,
+    kategorisera,
+    kedja,
+    ometikettera,
+    vy,
+)
 from src.fordonsuppslag import UppslagMisslyckades, Utfall
 from src.kedja import Arende, Kallfel, Kedjeutfall, Steg
 from tests.sentinelpris import SENTINELPRIS_IHOP
@@ -1327,3 +1335,42 @@ def test_A_TRAKTOR_bygger_fortfarande_en_forfragan():
 
     assert len(sedda) == 1
     assert sedda[0].uppslag_gjordes is True
+
+
+def test_harkomstraden_sager_VILKA_falt_registret_inte_bar():
+    """SKIVA 55 DEL A. Ett LYCKAT uppslag kan sakna fält, och det ska synas.
+
+    **UTAN RADEN SER ETT FORDON UTAN DRAGVIKTSUPPGIFT UT SOM EN OBESLUTSAM
+    BOT.** Uppslaget lyckas,
+    utfallet blir OKLART, och härkomstraden sade bara *"lyckades, utfall
+    oklart"*. Skälet till att det är oklart står i registret och inte hos oss,
+    och det är den skillnaden Lars ska kunna läsa i vyn.
+
+    **INGA VÄRDEN I STRÄNGEN, bara fältnamn.** Raden blir röd om en vikt börjar
+    skrivas ut: `logg/beslut.jsonl` är gitignorerad, men en detaljsträng som
+    växer med fordonsdata är en persondataväg ingen bett om (§6).
+    """
+    uppslag = fordonsuppslag.Uppslag(
+        tjanstevikt_kg=960, slapvagnsvikt_kg=None, draganordning=False,
+    )
+
+    detalj = kedja._lyckadetalj(uppslag, fordonsuppslag.Utfall.OKLART)
+
+    assert "oklart" in detalj
+    assert "släpvagnsvikt" in detalj
+    assert "draganordning" not in detalj
+    assert "960" not in detalj
+
+
+def test_harkomstraden_sager_BARA_utfallet_nar_alla_falt_lastes():
+    """NEGATIVKONTROLLEN. Ett fullständigt uppslag får ingen tilläggstext.
+
+    Utan den här raden vore en lydelse som alltid la till en förklaring lika
+    grön, och då hade varje post i vyn burit en mening om saknade fält.
+    """
+    uppslag = fordonsuppslag.Uppslag(
+        tjanstevikt_kg=1720, slapvagnsvikt_kg=1600, draganordning=False,
+    )
+
+    assert kedja._lyckadetalj(
+        uppslag, fordonsuppslag.Utfall.OKLART) == "oklart"

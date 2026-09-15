@@ -699,6 +699,66 @@ ATAGANDE_SKA_PASSERA = [
     ("Vi bjuder in dig till verkstaden.", UTAN_UPPSLAG),
 ]
 
+# ETT UPPSLAG DÄR §39 BEVISLIGEN INTE GÄLLER. Skiva 55, det fyrhjulsdrivna fordonet i körningen:s avlästa värden:
+# fyrhjulsdriven, tjänstevikt 1 720 kg, släpvagnsvikt 1 600 kg. Det är
+# fyrhjulsdriften som fäller §39:s andra led här, inte vikten.
+UTAN_BARLASTKRAV = Forfragan(
+    text="x",
+    kategori="fråga om a-traktorkonvertering",
+    utfall=Utfall.OKLART,
+    uppslag=Uppslag(tjanstevikt_kg=1720, slapvagnsvikt_kg=1600,
+                    draganordning=False, kaross="Halvkombi",
+                    fyrhjulsdrift=True),
+)
+
+BARLAST_SKA_FALLA = [
+    # DEN UTLÖSANDE FORMEN. Prisradens uppräkning, återgiven av modellen.
+    ("I grundombyggnaden ingår barlastflak och besiktning.", UTAN_BARLASTKRAV),
+    # ISOLERANDE RADER, en per term. Utan dem går `barlast\b` och `barlasten\b`
+    # att stryka med grön svit, eftersom `barlastflak\w*` skuggar dem i varje
+    # rad som skriver ut hela ordet.
+    ("Vi monterar barlast på flaket.", UTAN_BARLASTKRAV),
+    ("Barlasten väljer vi efter bilen.", UTAN_BARLASTKRAV),
+]
+
+BARLAST_SKA_PASSERA = [
+    # **SAMMA MENING, ETT FORDON §39 KAN GÄLLA.** Raden är spärrens
+    # negativkontroll: den fäller inte på ORDET utan på ordet FÖR DEN HÄR BILEN.
+    ("I grundombyggnaden ingår barlastflak och besiktning.", MED_UPPSLAG),
+    # UTAN UPPSLAG VET VI INGENTING OM §39, och då säger spärren ingenting.
+    # Meningen faller på andra spärrar, vilket är rätt, men inte på den här.
+    ("I grundombyggnaden ingår barlastflak och besiktning.", UTAN_UPPSLAG),
+]
+
+
+@pytest.mark.parametrize("svar, fall", BARLAST_SKA_FALLA)
+def test_barlastformer_som_ska_falla(svar, fall):
+    """SPÄRREN PRÖVAS ENSAM, inte genom `krav_pa_svaret`.
+
+    **SKÄLET ÄR ATT RADERNA FALLER PÅ TVÅ ANDRA SPÄRRAR OCKSÅ.** Meningen bär
+    `ingår`, alltså ett `ATAGANDEORD`, och `krav_pa_svaret` prövar
+    `krav_pa_tal_med_kalla` först. Ett test som gick genom hela kedjan hade varit
+    grönt även med den här spärren borttagen, alltså vakuöst enligt §7.1.
+
+    De andra tabellerna går via `krav_pa_svaret` därför att deras rader är
+    isolerade på den nivån. Den här är det inte, och då prövas spärren direkt.
+    """
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_barlastflak_som_galler_fordonet(svar, fall)
+
+    assert fel.value.sparr == "barlastflak-galler-fordonet"
+
+
+@pytest.mark.parametrize("svar, fall", BARLAST_SKA_PASSERA)
+def test_barlastformer_som_ska_passera(svar, fall):
+    """NEGATIVKONTROLLEN. Ordet i sig fäller aldrig.
+
+    Båda raderna bär exakt samma mening som den första raden i
+    `BARLAST_SKA_FALLA`. Skillnaden ligger helt och hållet i FÖRFRÅGAN, alltså i
+    vilket fordon svaret gäller, och det är den egenskapen spärren ska ha.
+    """
+    generera.krav_pa_barlastflak_som_galler_fordonet(svar, fall)
+
 
 @pytest.mark.parametrize("svar, fall", ATAGANDE_SKA_FALLA)
 def test_atagandeformer_som_ska_falla(svar, fall):
@@ -766,6 +826,7 @@ MONSTER_OCH_TABELL = {
     "FORFATTNINGSTERMER": (generera.FORFATTNINGSTERMER, "TROSKEL_SKA_FALLA"),
     "FORDONSTERMER": (generera.FORDONSTERMER, "FORDONSFAKTA_SKA_FALLA"),
     "ATAGANDETERMER": (generera.ATAGANDETERMER, "ATAGANDE_SKA_FALLA"),
+    "BARLASTTERMER": (generera.BARLASTTERMER, "BARLAST_SKA_FALLA"),
 }
 
 TABELLER = {
@@ -773,6 +834,7 @@ TABELLER = {
     "TROSKEL_SKA_FALLA": TROSKEL_SKA_FALLA,
     "FORDONSFAKTA_SKA_FALLA": FORDONSFAKTA_SKA_FALLA,
     "ATAGANDE_SKA_FALLA": ATAGANDE_SKA_FALLA,
+    "BARLAST_SKA_FALLA": BARLAST_SKA_FALLA,
 }
 
 ALLA_TERMER = [
@@ -796,6 +858,7 @@ SPARR_FOR_MONSTER = {
     ),
     "FORDONSTERMER": ("FORDONSORD", "krav_pa_fordonsfakta_ur_uppslag"),
     "ATAGANDETERMER": ("ATAGANDEORD", "krav_pa_atagande_med_kalla"),
+    "BARLASTTERMER": ("BARLASTORD", "krav_pa_barlastflak_som_galler_fordonet"),
 }
 
 # SPÄRRAR SOM INTE TAR EN FÖRFRÅGAN. De prövar svaret ensamt, eftersom
@@ -1048,3 +1111,97 @@ def test_varje_term_ar_ISOLERAD(monster, term):
         f"ingen rad i {tabellnamn} isolerar {term!r} ur {monster}: "
         f"lägg till en där ingen annan term ur {monster} förekommer"
     )
+
+
+# ------------------------------------------------- FORDONSTERMERNAS FÄLT
+#
+# Skiva 55 DEL A. `krav_pa_fordonsfakta_ur_uppslag` prövar per FÄLT sedan dess,
+# och uppdelningen bor i `FORDONSFAKTUM_FALT` medan isoleringsvakterna ovan
+# fortsätter vakta `FORDONSTERMER`. De två får inte glida isär.
+
+
+def test_varje_FORDONSTERM_har_ett_falt():
+    """UNIONEN AV UPPDELNINGEN MÅSTE VARA EXAKT `FORDONSTERMER`.
+
+    **BÅDA RIKTNINGARNA ÄR FEL, och därför asseras likhet och inte delmängd.**
+
+      en term som SAKNAS i uppdelningen  `_faltet_for` svarar `None`, och
+                                         spärren fäller den ovillkorligt. Det är
+                                         säkert men fäller sanna svar, alltså
+                                         den form §7.1 varnar för: en spärr som
+                                         fäller önskade svar blir avstängd.
+      en term som är ÖVERFLÖDIG här      den står i ett fält utan att finnas i
+                                         `FORDONSTERMER`, alltså prövas den av
+                                         ingen isoleringsvakt och kan snävas
+                                         eller tappas med grön svit. Det var
+                                         lucka 34:s form.
+
+    **RADEN ÄR DET SOM GÖR ATT `test_varje_term_ar_ISOLERAD` FORTSÄTTER GÄLLA
+    HELA MÄNGDEN.** Vakterna ovan itererar `FORDONSTERMER`; utan likheten kan en
+    term leva bara i uppdelningen och därmed utanför dem.
+    """
+    ur_uppdelningen = [
+        term
+        for termer in generera.FORDONSFAKTUM_FALT.values()
+        for term in termer
+    ]
+
+    assert sorted(ur_uppdelningen) == sorted(generera.FORDONSTERMER)
+    # INGEN TERM I TVÅ FÄLT. Ordningen i `_faltet_for` hade då avgjort vilket
+    # fält som krävs, alltså en tyst beroende av en dictordning.
+    assert len(ur_uppdelningen) == len(set(ur_uppdelningen))
+
+
+def test_ett_AVLAST_falt_slapper_igenom_sin_egen_term():
+    """NEGATIVKONTROLLEN FÖR UPPDELNINGEN, per fält.
+
+    Utan den här raden vore en uppdelning som pekade varje term på ett fält
+    uppslaget aldrig bär lika grön som den riktiga: alla rader i
+    `FORDONSFAKTA_SKA_FALLA` hade fortsatt falla.
+    """
+    uppslag = Uppslag(
+        tjanstevikt_kg=1720, slapvagnsvikt_kg=1600, draganordning=False,
+        totalvikt_kg=2130,
+    )
+    fall = Forfragan(
+        text="x", kategori="fråga om a-traktorkonvertering",
+        utfall=Utfall.OKLART, uppslag=uppslag,
+    )
+
+    for svar in ("Bilens tjänstevikt är avläst.",
+                 "Bilens släpvagnsvikt räcker.",
+                 "Bilen saknar registrerad draganordning.",
+                 "Bilens totalvikt står i registret.",
+                 "Bilen väger tillräckligt."):
+        generera.krav_pa_fordonsfakta_ur_uppslag(svar, fall)
+
+
+def test_ett_SAKNAT_falt_faller_sin_egen_term_men_inte_grannens():
+    """SKIVA 55: `uppslag is not None` ÄR INTE LÄNGRE ETT BELÄGG.
+
+    **DET HÄR ÄR HELA SKÄLET TILL ATT SPÄRREN BLEV PER FÄLT.** Uppslaget nedan
+    lyckades, och registret bär ingen släpvagnsvikt. Med det gamla villkoret hade
+    *"släpvagnsvikten räcker"* passerat, alltså ett påstående om en uppgift
+    registret aldrig lämnat.
+
+    **ANDRA HALVAN ÄR LIKA VIKTIG:** draganordningen ÄR avläst i samma uppslag,
+    alltså ska meningen om den släppas igenom. En spärr som fällde hela svaret
+    hade tystat ett sant besked.
+    """
+    uppslag = Uppslag(
+        tjanstevikt_kg=960, slapvagnsvikt_kg=None, draganordning=False,
+    )
+    fall = Forfragan(
+        text="x", kategori="fråga om a-traktorkonvertering",
+        utfall=Utfall.OKLART, uppslag=uppslag,
+    )
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_fordonsfakta_ur_uppslag(
+            "Bilens släpvagnsvikt räcker.", fall)
+
+    assert fel.value.sparr == "genererat-fordonsfaktum"
+    assert "slapvagnsvikt_kg" in fel.value.skal
+
+    generera.krav_pa_fordonsfakta_ur_uppslag(
+        "Bilen saknar registrerad draganordning.", fall)

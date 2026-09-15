@@ -1012,7 +1012,10 @@ def _galler_fordonet(sida: str, regnr: str) -> bool:
     return vag.upper() == f"{FORVANTAD_KATALOG}/{regnr}".upper()
 
 
-# RESERVERAD NYCKEL I HÄMTNINGENS DICT. Skiva 40 DEL A, EN kvar efter skiva 41.
+# RESERVERADE NYCKLAR I HÄMTNINGENS DICT. Skiva 40 DEL A, och `META_FALTSTATUS`
+# nedan sedan skiva 55.
+#
+# *Raden sade "EN kvar efter skiva 41", vilket var sant mellan skiva 41 och 55.*
 #
 # **UNDERSTRECKET ÄR KONTRAKTET.** `fordonsuppslag._kontrollera` prövar de tre
 # fältnycklarna och bryr sig inte om andra: dess docstring skriver ut att OKÄNDA
@@ -1028,6 +1031,36 @@ def _galler_fordonet(sida: str, regnr: str) -> bool:
 # Utfallet är detsamma, men ingen kod utför den handling meningen tillskrev den.
 # Fällt av §7-granskningen av skiva 40, varv 1 och varv 2.*
 META_DRAGVIKT = "_dragviktslage"
+
+# STATUSKARTAN FÖR DE TRE GATANDE FÄLTEN. Skiva 55 DEL A.
+#
+# **DEN ÄR TILLBAKA, OCH DEN ÄR INTE `META_STATUS`.** Skiva 41 tog bort en
+# metanyckel med samma form, och skälet var att den var OANVÄND: en oanvänd
+# rörledning i sändvägen är något nästa skiva kan koppla tillbaka till en
+# rättighet utan att någon märker det. Den här läses av EN funktion,
+# `fordonsuppslag._krav_pa_gatande_falt`, och den avgör en enda sak: om ett
+# UTELÄMNAT gatande fält får bli `None` i stället för att fälla uppslaget.
+#
+# **DEN GER INGEN RÄTT ATT PÅSTÅ FRÅNVARO FÖR KUNDEN, och det är skillnaden mot
+# den borttagna.** `META_STATUS` var DEL B:s väg till vilka frånvaropåståenden
+# som var tillåtna, och VÄG TRE i skiva 41 stängde den vägen. Den står stängd:
+# `generera.Forfragan.franvaro_far_pastas` sätts fortfarande bara av ett avläst
+# `Draganordning: Nej`, på ett enda ställe i `src/kedja.py`. Se
+# `docs/beslutslogg.md` #93 och #121.
+#
+# **BARA DE TRE GATANDE FÄLTEN STÅR I KARTAN.** Övriga fält utelämnas tyst när
+# de inte lästes, eftersom inget beslut vilar på skillnaden mellan ett saknat
+# och ett oläsbart `Kaross`: `ar_redan_ombyggd` svarar `False` i båda fallen.
+META_FALTSTATUS = "_faltstatus"
+
+# FÄLTEN SOM FÖLJER MED IN I `fordonsuppslag.Uppslag` UTÖVER DE TRE GATANDE.
+# Lars uppräkning i skiva 55 DEL A, minus det fält som inte finns på sidan.
+#
+# **`passagerare_utover_forare` STÅR MED FLIT INTE HÄR.** Lars räknar inte upp
+# det, ingen regel läser det, och ett fält som bärs utan att avgöra något är en
+# rörledning av samma slag som `META_STATUS` var. Det läses fortfarande av
+# `falt_med_status`, alltså syns det i mätverktygen, men det når inte uppslaget.
+UPPSLAGSFALT = ("kaross", "fyrhjulsdrift", "totalvikt_kg", "arsmodell", "status")
 
 
 class Faltstatus(str, Enum):
@@ -1516,10 +1549,23 @@ def biluppgifter_hamtning(
         # ändrades var att fälten inte längre läses av både `_las_falt` och
         # `falt_med_status`. Fällt av §7-granskningen av skiva 40, varv 1 och
         # varv 2.*
+        # **SAMMA FORM SOM FÖRUT, MED FEM FÄLT TILL. Skiva 55 DEL A.**
+        # `_kontrollera` tolererar okända nycklar och bygger `Uppslag` av
+        # namngivna, alltså är tillägget inte en ändring av kontraktet utan en
+        # utvidgning av det. Ett fält som inte lästes UTELÄMNAS, precis som de
+        # tre gatande, och `Uppslag`:s förval gör det till `None`.
         falt = {
             nyckel: statusar[nyckel].varde
-            for nyckel in EXAKT_ETIKETT
+            for nyckel in tuple(EXAKT_ETIKETT) + UPPSLAGSFALT
             if statusar[nyckel].status is Faltstatus.LAST
+        }
+
+        # **STATUSKARTAN FÖR DE TRE GATANDE FÄLTEN.** Utan den kan
+        # `fordonsuppslag._krav_pa_gatande_falt` inte skilja ett fält registret
+        # inte bär från ett vi inte kunde läsa, och då faller uppslaget i båda
+        # fallen, alltså som före skiva 55. Se `META_FALTSTATUS`.
+        falt[META_FALTSTATUS] = {
+            nyckel: statusar[nyckel].status.value for nyckel in EXAKT_ETIKETT
         }
 
         # **METADATA UNDER EN RESERVERAD NYCKEL. Skiva 40 DEL A.** Utan den når
