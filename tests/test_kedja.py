@@ -9,6 +9,7 @@ argument, alltså är båda utbytbara mot fejkar. Ingen rad rör en brevlåda, o
 
 from __future__ import annotations
 
+import dataclasses
 import json
 
 import pytest
@@ -157,10 +158,20 @@ def test_hela_vagen_ger_ett_utkast():
     ]
 
 
-def test_kategori_utanfor_a_traktor_hoppar_over_uppslaget():
-    """Uppslaget gatar bara a-traktor, `docs/roadmap.md` fas 4.5.
+def test_en_kategori_UTANFOR_a_traktor_ger_INGET_SVAR():
+    """GRINDEN. Lars beslut i skiva 51 DEL B.
 
-    Hämtningen kraschar med flit: nås den alls är steget inte överhoppat.
+    *Raden hette `test_kategori_utanfor_a_traktor_hoppar_over_uppslaget` och
+    band att en sådan kategori hoppade över UPPSLAGET men gick vidare till
+    generatorn. Grinden gör mer än så: den stannar före generatorn också.*
+
+    **RADEN OM `klient.anrop` ÄR DEN SOM BÄR.** Utan den är testet grönt även om
+    kedjan anropar generatorn och sedan kastar utkastet, alltså exakt den kostnad
+    grinden finns för. Samma skäl som i `test_hinken_ALDRIG_...`.
+
+    Hämtningen kraschar med flit: nås uppslaget alls är det inte överhoppat.
+    Hinken är `utkast` och inte `aldrig`, alltså är det GRINDEN och ingenting
+    annat som fäller den här posten.
     """
     klient = FejkKlient("boka däckbyte", "Hej, vi bokar in dig.")
 
@@ -169,10 +180,56 @@ def test_kategori_utanfor_a_traktor_hoppar_over_uppslaget():
     )
 
     assert utfall.hink == "utkast"
+    assert utfall.inget_svar
+    assert utfall.inget_svar_skal == kedja.SKAL_OGATAD
     assert utfall.uppslag is None
     assert utfall.utfall is None
-    assert utfall.steg[1] == Steg("uppslag", "hoppades över",
-                                  "kategorin gatas inte")
+    assert utfall.utkast is None
+    assert utfall.sparr is None
+    # ETT ANROP, alltså klassificeringen och ingenting mer.
+    assert klient.anrop == 1, "generatorn ska inte ha anropats"
+    assert [s.namn for s in utfall.steg] == ["klassificering", "generering"]
+    assert utfall.steg[-1] == Steg("generering", "hoppades över",
+                                   kedja.SKAL_OGATAD)
+
+
+def test_de_TVA_skalen_till_INGET_SVAR_HALLS_ISAR():
+    """Hinken `aldrig` och grinden är olika saker, och loggen ska visa vilket.
+
+    **UTAN DEN HÄR RADEN GÅR DE TVÅ SKÄLEN ATT SLÅ IHOP med grön svit.** Båda
+    ger `inget_svar=True`, alltså skiljer inget annat fält dem åt. Skälet står i
+    vyn ovanför ett mail Lars läser: en rekondbokning med texten *"kategorin står
+    i hinken aldrig"* skickar honom till en rad i `config/kategorier.yaml` som
+    inte finns.
+
+    **ORDNINGEN PRÖVAS OCKSÅ, och `inget kundärende` är valt för just det.**
+    Kategorin står i `aldrig` OCH är ogatad, alltså träffar båda villkoren i
+    `kor` samma ärende och det som prövas först bestämmer skälet. Byter grenarna
+    plats blir raden om `SKAL_ALDRIG` röd.
+
+    *Första lydelsen lade i stället en A-TRAKTORKATEGORI i `aldrig` och påstod
+    att den band ordningen. Den gör inte det: grinden släpper igenom en
+    a-traktorkategori oavsett var den står, alltså faller ärendet till
+    hinkgrenen i båda ordningarna och raden var grön för båda. Fällt av §7.1-
+    prövningen av den här skivan.*
+    """
+    ogatad = kedja.kor(
+        arende(), klient=FejkKlient("boka däckbyte", "onådd"),
+        hamta=hamta_kraschar, hinkar=HINKAR, taxonomi=TAXONOMI, exempel=[],
+    )
+    i_aldrig = kedja.kor(
+        arende(), klient=FejkKlient("inget kundärende", "onådd"),
+        hamta=hamta_kraschar, hinkar=HINKAR, taxonomi=TAXONOMI, exempel=[],
+    )
+
+    assert "inget kundärende" not in kedja.A_TRAKTORKATEGORIER, (
+        "ordningsprövningen kräver en kategori som BÅDA villkoren träffar"
+    )
+
+    assert ogatad.inget_svar and i_aldrig.inget_svar
+    assert ogatad.inget_svar_skal != i_aldrig.inget_svar_skal
+    assert ogatad.inget_svar_skal == kedja.SKAL_OGATAD
+    assert i_aldrig.inget_svar_skal == kedja.SKAL_ALDRIG
 
 
 def test_en_ogatad_kategori_far_INGEN_uppslagsbedomning():
@@ -293,11 +350,20 @@ def test_hinken_UTKAST_genererar_fortfarande():
 
     Skuggläget står och faller med att `utkast`-hinken fortfarande producerar
     något att läsa, och skiva 49 rörde bara `aldrig`.
+
+    *Raden använde `boka däckbyte`, som sedan skiva 51 fälls av GRINDEN och
+    aldrig når generatorn. Kategorin är bytt mot en a-traktorkategori, alltså
+    prövar raden nu det den alltid påstod sig pröva: att hinken `utkast` inte i
+    sig stoppar genereringen. `HINKAR` lägger `fråga om a-traktorkonvertering` i
+    `auto`, och därför står den här i en egen hinkuppsättning.*
     """
-    klient = FejkKlient("boka däckbyte", "Hej, vi bokar in dig.")
+    hinkar = {**HINKAR, "auto": []}
+    klient = FejkKlient(
+        "fråga om a-traktorkonvertering", "Hej, din bil går bra att bygga om."
+    )
 
     utfall = kedja.kor(
-        arende(), klient=klient, hamta=hamta_kraschar, hinkar=HINKAR,
+        arende(), klient=klient, hamta=hamta_gront, hinkar=hinkar,
         taxonomi=TAXONOMI, exempel=[],
     )
 
@@ -586,6 +652,124 @@ def test_kedjans_a_traktorkategorier_matchar_vyns():
     då behövs en rad som binder att de säger samma sak.
     """
     assert set(kedja.A_TRAKTORKATEGORIER) == set(vy.A_TRAKTORETIKETTER)
+
+
+def test_vyns_INGET_SVAR_skal_matchar_kedjans():
+    """De två uppräkningarna får inte glida isär, samma skäl som raden ovan.
+
+    `src/vy.py` kan inte importera `src/kedja.py`: importen går åt andra hållet.
+    Vyns tabell bär därför strängarna skrivna en gång till, och utan den här
+    raden faller varje post tyst till `_INTETSKAL_OKANT` den dag en konstant
+    formuleras om. Sidan hade då sagt *"posten är sparad av en körning före
+    skiva 51"* om en post som kördes i dag.
+    """
+    assert set(vy._INTETSKAL) == {kedja.SKAL_ALDRIG, kedja.SKAL_OGATAD}
+
+
+def test_VYN_sager_vilket_av_de_tva_skalen_det_var():
+    """Skälet ovanför mailet ska stämma med posten.
+
+    **RADEN BINDER RENDERAREN, alltså att `rendera_granskning` skriver OLIKA
+    meningar för de två skälen.** Visade den samma mening för båda vore den
+    falsk för det ena: en rekondbokning får inget svar av GRINDEN, inte av en
+    rad i `config/kategorier.yaml`, och Lars som letar efter den raden hittar
+    ingen.
+
+    *Här stod att `inget_svar_skal` GÅR ATT KOPPLA UR med grön svit utan den
+    här raden. Påståendet var för brett: raden prövar renderaren och säger
+    ingenting om VÄGEN dit. Fältet gick att strypa i `bygg_hanterare._granskning`
+    med hela sviten grön, den här raden inräknad. Det ledet bärs sedan
+    §7-granskningen av skiva 51 av `test_SKALET_nar_sidan_GENOM_RUTTEN` i
+    `tests/test_vy.py`, och de två raderna vaktar alltså var sitt led.*
+    """
+    sidor = {}
+    for skal in (kedja.SKAL_ALDRIG, kedja.SKAL_OGATAD):
+        sidor[skal] = vy.rendera_granskning(
+            vy.Fall(etikett="boka rekond", kalla="kedjan", text="Hej.",
+                    tidsstampel="2026-01-01T00:00:00+00:00",
+                    avsandare_hash="0" * 16),
+            "", inget_svar=True, inget_svar_skal=skal,
+        )
+
+    assert sidor[kedja.SKAL_ALDRIG] != sidor[kedja.SKAL_OGATAD]
+    assert "aldrig" in sidor[kedja.SKAL_ALDRIG]
+    assert "aldrig" not in sidor[kedja.SKAL_OGATAD]
+    assert "a-traktor" in sidor[kedja.SKAL_OGATAD]
+    for sida in sidor.values():
+        assert "INGET SVAR SKRIVS" in sida
+        assert "<textarea" not in sida
+
+
+def test_en_post_UTAN_skal_far_ingen_uppfunnen_forklaring():
+    """En fil sparad före skiva 51 bär ingen nyckel, och gissningen vore fel.
+
+    `_INTETSKAL_OKANT` säger att skälet inte står i posten. Att låta den falla
+    till den vanligaste meningen hade gett en gammal post en förklaring ingen
+    körning skrivit.
+    """
+    sida = vy.rendera_granskning(
+        vy.Fall(etikett="boka rekond", kalla="kedjan", text="Hej.",
+                    tidsstampel="2026-01-01T00:00:00+00:00",
+                    avsandare_hash="0" * 16),
+        "", inget_svar=True, inget_svar_skal="",
+    )
+
+    assert "INGET SVAR SKRIVS" in sida
+    assert "bär inget skäl" in sida
+    assert "hinken" not in sida
+
+
+def test_SKALET_overlever_vagen_till_disk_och_tillbaka(tmp_path, monkeypatch):
+    """Vyn läser posterna ur `data/granskningsfall.jsonl` mellan körningar.
+
+    Utan den här raden går fältet att utelämna ur `spara_granskningsfall` med
+    grön svit, och varje post som lästes tillbaka hade då renderats som en post
+    utan skäl.
+    """
+    klient = FejkKlient("boka däckbyte", "onådd")
+    utfall = kedja.kor(
+        arende(), klient=klient, hamta=hamta_kraschar, hinkar=HINKAR,
+        taxonomi=TAXONOMI, exempel=[],
+    )
+    # `krav_pa_skrivbar_sokvag` binder `data/` ELLER `logg/` UNDER REPOTS ROT,
+    # alltså måste roten peka om innan filen får skrivas.
+    monkeypatch.setattr(vy, "ROT", tmp_path)
+    fil = tmp_path / "data" / "granskningsfall.jsonl"
+    fil.parent.mkdir(parents=True)
+
+    vy.spara_granskningsfall(
+        [kedja.till_granskningsfall(arende(), utfall, skarp=True)], fil=fil)
+    tillbaka = vy.las_granskningsfall(fil)
+
+    assert tillbaka[0].inget_svar
+    assert tillbaka[0].inget_svar_skal == kedja.SKAL_OGATAD
+
+
+def test_SPARRENS_SKAL_nar_ALDRIG_granskningsfallet():
+    """§6. `Sparrfalld.skal` bär text lyft ORDAGRANT ur modellens svar.
+
+    Skrivs ett telefonnummer ut lyder skälet *"talet ... kommer varken ur
+    uppslaget eller ur config"* med numret inbakat. `Granskningsfall` skrivs till
+    disk och renderas på sidan, alltså får `skal` aldrig följa med dit.
+    `inget_svar_skal` får det, och skillnaden är att den bär en av kedjans egna
+    två fasta strängar.
+
+    Raden finns därför att de två fälten ligger bredvid varandra på
+    `Kedjeutfall` och är ett tangenttryck isär.
+    """
+    klient = FejkKlient(
+        "fråga om a-traktorkonvertering",
+        f"Hej, det kostar {SENTINELPRIS_IHOP} kr.",
+    )
+    utfall = kedja.kor(
+        arende(), klient=klient, hamta=hamta_gront, hinkar=HINKAR,
+        taxonomi=TAXONOMI, exempel=[],
+    )
+    post = kedja.till_granskningsfall(arende(), utfall, skarp=True)
+
+    assert utfall.skal, "spärren ska ha lämnat ett skäl att pröva mot"
+    assert post.inget_svar_skal == ""
+    assert utfall.skal not in dataclasses.asdict(post).values()
 
 
 def test_a_traktorkategorierna_FINNS_i_taxonomin():
@@ -1059,10 +1243,21 @@ def test_ett_AVLAST_nej_pa_draganordningen_far_pastas():
     assert _mangden(hamta_utan_draganordning) == frozenset({"draganordning"})
 
 
-def test_ett_uppslag_som_hoppades_over_ger_TOM_mangd():
-    """Hoppas uppslaget över vet vi ingenting om registret, och då får boten
-    inte påstå att någon uppgift saknas."""
-    klient = FejkKlient("boka däckbyte", "Hej, vi bokar in dig.")
+def test_en_OGATAD_kategori_bygger_INGEN_forfragan_alls():
+    """Grinden är starkare än den gamla raden här band.
+
+    *Raden hette `test_ett_uppslag_som_hoppades_over_ger_TOM_mangd` och band att
+    en ogatad kategori nådde generatorn med en TOM `franvaro_far_pastas`. Den
+    vägen finns inte längre: grinden stannar före generatorn, alltså byggs ingen
+    `Forfragan` alls. Att lämna raden som den var hade gjort den grön på en
+    `IndexError` som aldrig inträffar, eller röd utan att något var fel.*
+
+    **EGENSKAPEN SOM RADEN SKYDDADE ÄR INTE HEMLÖS.** Att ett uppslag som inte
+    gav ett avläst `Nej` ger en tom mängd binds av
+    `test_ett_MISSLYCKAT_uppslag_ger_ALDRIG_ratt_att_pasta_franvaro`, som prövar
+    alla tre lägena.
+    """
+    klient = FejkKlient("boka däckbyte", "onådd")
     sedda: list[generera.Forfragan] = []
     riktig = generera.generera_utkast
 
@@ -1077,4 +1272,28 @@ def test_ett_uppslag_som_hoppades_over_ger_TOM_mangd():
     finally:
         generera.generera_utkast = riktig
 
-    assert sedda[0].franvaro_far_pastas == frozenset()
+    assert sedda == [], "grinden släppte fram en ogatad kategori till generatorn"
+
+
+def test_A_TRAKTOR_bygger_fortfarande_en_forfragan():
+    """Motsatsen. Utan den här raden är testet ovan grönt även om kedjan
+    slutat bygga `Forfragan` helt, alltså slutat generera för a-traktor med."""
+    klient = FejkKlient(
+        "fråga om a-traktorkonvertering", "Hej, din bil går bra att bygga om."
+    )
+    sedda: list[generera.Forfragan] = []
+    riktig = generera.generera_utkast
+
+    def fangar(klienten, forfragan, **rest):
+        sedda.append(forfragan)
+        return riktig(klienten, forfragan, **rest)
+
+    generera.generera_utkast = fangar
+    try:
+        kedja.kor(arende(), klient=klient, hamta=hamta_gront, hinkar=HINKAR,
+                  taxonomi=TAXONOMI, exempel=[])
+    finally:
+        generera.generera_utkast = riktig
+
+    assert len(sedda) == 1
+    assert sedda[0].uppslag_gjordes is True

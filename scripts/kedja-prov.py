@@ -367,8 +367,11 @@ def _kor_och_visa(args) -> int:
         # eller spärr att skriva ut.
         if utfall.inget_svar:
             raknare["inget svar"] += 1
-            print(f"\nINGET SVAR. Kategorin {utfall.kategori!r} står i hinken "
-                  "aldrig, generatorn anropades inte.")
+            # SKÄLET UR UTFALLET OCH INTE EN FAST MENING. Skiva 51 gav `INGET
+            # SVAR` ett andra skäl, grinden, och raden påstod hinken `aldrig`
+            # för varje sådan post.
+            print(f"\nINGET SVAR ({utfall.inget_svar_skal}). Kategorin "
+                  f"{utfall.kategori!r} nådde aldrig generatorn.")
         elif utfall.blev_utkast:
             raknare["utkast"] += 1
             print("\nUTKAST, maskerat:")

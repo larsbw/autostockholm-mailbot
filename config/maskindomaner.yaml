@@ -1,4 +1,25 @@
-# Domäner som ALLTID är maskinmail, oavsett huvuden.
+# Domäner vars post DET HÄR LAGRET tystar. Når posten hit svarar vi inte på den.
+#
+# **RUBRIKEN SADE "ALLTID MASKINMAIL" OCH PÅSTOD MER ÄN MÄTNINGEN BÄR.**
+# Lars beslut, skiva 51. Sikten mäts mot ett SVAR FRÅN OSS och inte mot om
+# posten är maskinskriven: `sunmaskin.se`, `ekvallautoteknik.se` och
+# `mekonomen.se` bär handskrivna säljarbrev och betalningspåminnelser, alltså
+# människor. Ingen av dem är en kund, så att sikten tystar dem är önskat
+# utfall. Skälet var bara fel, och rubriken ska inte påstå mer än mätningen
+# bär.
+#
+# *Första omskrivningen löd "vars post vi ALDRIG svarar på, oavsett huvuden".
+# Den påstod mer än lagerordningen bär: `skal_maskinmail` prövar förbudslistan
+# och `relayar_manniska` FÖRE domänlagret och returnerar tom sträng där, alltså
+# tystas en rad nedan inte om något av de två friat posten först. "ALDRIG" var
+# falskt som skrivet, och "oavsett huvuden" var det redan i den gamla lydelsen:
+# huvudlagren prövas också de före. Rubriken gäller nu sitt EGET lager, vilket
+# är vad raden längre ned om lagerordningen säger. Fällt av §7-granskningen av
+# skiva 51.*
+#
+# Fältnamnet `maskindomaner` står kvar. `klassa_maskin.las_domaner` läser just
+# den nyckeln, och `--harled-domaner` skriver den till kandidatfilen. En
+# omdöpning hade rört kod §3 säger att låta vara.
 #
 # VARJE POST HÄR ÄR LARS BESLUT, ALDRIG KODENS. Filen stod tom till skiva 50.
 #

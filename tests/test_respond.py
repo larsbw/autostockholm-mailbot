@@ -508,6 +508,37 @@ def test_ett_SPARRAT_forslag_raknas_aldrig_som_utkast(loggfil):
     assert korning.granskningsfall[0].forslag == ""
 
 
+def test_INGET_SVAR_delas_upp_pa_SINA_TVA_SKAL(loggfil):
+    """Summeringen ska visa hur mycket grinden står för och hur mycket hinken.
+
+    **ETT ODELAT TAL DÖLJER FÖRDELNINGEN.** Grinden gör `INGET SVAR` av varje
+    kategori som inte är a-traktor, alltså av nästan hela en körning mot
+    brevlådan, och hinken `aldrig` försvinner då i massan. Skuggläget ska kunna
+    räkna maskinmailen för sig, vilket är skälet fältet `inget_svar` finns.
+
+    Raden prövar BÅDA skälen i samma körning, så att en uppdelning som råkar
+    skriva samma nyckel för båda blir röd.
+    """
+    # BÅDA ETIKETTERNA STÅR I `TAXONOMI`. Ett namn utanför den blir
+    # `utanför listan` av pass 2:s filtrering, och då prövar raden fel skäl:
+    # fixturens hinkar lägger inte det namnet i `aldrig`.
+    korning = respond.Korning(tradar=2)
+    for etikett in ("boka däckbyte", "inget kundärende"):
+        respond.kor_alla(
+            [_arende()], klient=FejkKlient(etikett, "onådd"),
+            hamta=hamta_gront, hinkar=HINKAR, taxonomi=TAXONOMI, exempel=[],
+            skarp=True, korning=korning, loggfil=loggfil,
+            skriv=lambda *_: None)
+
+    assert korning.inget_svar == 2
+    assert korning.utkast == 0
+    assert korning.per_inget_svar[kedja.SKAL_OGATAD] == 1
+    assert korning.per_inget_svar[kedja.SKAL_ALDRIG] == 1
+    # OCH ATT DELARNA GÅR IHOP MED HELHETEN. Två räknare som inte summerar till
+    # samma tal är värre än en.
+    assert sum(korning.per_inget_svar.values()) == korning.inget_svar
+
+
 def test_VARJE_arende_lamnar_exakt_en_loggrad(loggfil):
     """Skugglägets underlag räknas ur loggen, alltså ska raderna vara lika
     många som ärendena, oavsett hur de gick."""

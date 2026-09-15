@@ -60,6 +60,30 @@ A_TRAKTORETIKETTER = (
     "fråga om pris a-traktorkonvertering",
 )
 
+# VAD SIDAN SÄGER FÖR VART OCH ETT AV KEDJANS TVÅ `INGET SVAR`-SKÄL.
+# Skiva 51 DEL B.
+#
+# **NYCKLARNA ÄR `kedja.SKAL_ALDRIG` OCH `kedja.SKAL_OGATAD`, skrivna som
+# strängar här och INTE importerade.** `src/kedja.py` importerar den här
+# modulen, alltså vore en import åt andra hållet cirkulär. Det är samma val som
+# `A_TRAKTORETIKETTER` ovan gör, och det binds på samma sätt:
+# `test_vyns_INGET_SVAR_skal_matchar_kedjans` fäller om de glider isär.
+_INTETSKAL = {
+    "hinken aldrig":
+        "Kategorin står i hinken <code>aldrig</code> i "
+        "<code>config/kategorier.yaml</code>.",
+    "ingen a-traktorkategori":
+        "Kedjan skriver svar på a-traktorförfrågningar och på ingenting annat, "
+        "och kategorin är ingen av de tre. Klassningen gjordes ändå: den står "
+        "ovanför mailet och i <code>logg/beslut.jsonl</code>.",
+}
+
+# En post SPARAD FÖRE SKIVA 51 bär inget skäl, och en sådan ska inte få en
+# uppfunnen förklaring. Raden säger att skälet inte står i posten, vilket är
+# sant, i stället för att gissa på det vanligaste.
+_INTETSKAL_OKANT = ("Posten bär inget skäl: den är sparad av en körning före "
+                    "skiva 51.")
+
 # De fyra utfallen ur `src/fordonsuppslag.py`. Skrivna som strängar här och
 # INTE importerade därifrån, eftersom en import av den modulen drar in
 # fordonsuppslaget i vyn utan att vyn behöver det. Tom sträng betyder att Lars
@@ -617,6 +641,7 @@ def rendera_referens(fall: Fall, index: int, antal: int) -> str:
 def rendera_granskning(
     fall: Fall, forslag: str, sparr: str = "", index: int = 0,
     uppslagskalla: str = "", inget_svar: bool = False,
+    inget_svar_skal: str = "",
 ) -> str:
     """GRANSKNINGSLÄGE: förslag med fyra omdömen.
 
@@ -655,6 +680,13 @@ def rendera_granskning(
     visa, och att falla till spärrgrenen hade påstått att ett fällt förslag
     fanns. Ingen av de två grenarna renderar ett textfält, alltså är ordningen
     mellan dem en fråga om vad läsaren får veta, inte om säkerhet.
+
+    **`inget_svar_skal` SÄGER VILKET AV DE TVÅ SKÄLEN DET ÄR.** Skiva 51. Fram
+    till dess fanns ett skäl, och raden stod som en fast mening om hinken
+    `aldrig`. Med grinden på plats är den meningen falsk för de flesta posterna:
+    de allra flesta får inget svar därför att kategorin inte är a-traktor, och
+    deras hink är `utkast`. En läsare som ser <code>aldrig</code> ovanför en
+    rekondbokning letar efter en rad i `config/kategorier.yaml` som inte finns.
     """
     if inget_svar:
         return (
@@ -662,9 +694,9 @@ def rendera_granskning(
             + f"<p class='etikett'>{html.escape(fall.etikett)}</p>"
             + f"<div class='mail'>{html.escape(fall.text)}</div>"
             + "<div class='intet'><p><strong>INGET SVAR SKRIVS.</strong></p>"
-            + "<p>Kategorin står i hinken <code>aldrig</code> i "
-            + "<code>config/kategorier.yaml</code>. Generatorn anropades inte, "
-            + "alltså finns här inget utkast och ingenting att omdöma.</p>"
+            + f"<p>{_INTETSKAL.get(inget_svar_skal, _INTETSKAL_OKANT)} "
+            + "Generatorn anropades inte, alltså finns här inget utkast och "
+            + "ingenting att omdöma.</p>"
             + "</div>"
             + SIDFOT
         )
@@ -768,14 +800,27 @@ class Granskningsfall:
     fall: Fall
     forslag: str = ""
     sparr: str = ""
-    # SKIVA 49 DEL B. Posten är ett mail kedjan INTE skrev något svar på, därför
-    # att kategorin står i hinken `aldrig`. Den visas som en egen sorts post:
-    # mailet, kategorin, och beskedet. Inget textfält, inga omdömesknappar.
+    # SKIVA 49 DEL B. Posten är ett mail kedjan INTE skrev något svar på. Den
+    # visas som en egen sorts post: mailet, kategorin, och beskedet. Inget
+    # textfält, inga omdömesknappar.
+    #
+    # **FLAGGAN SÄGER INTE VARFÖR, och sedan skiva 51 finns två skäl.** Här stod
+    # att posten bär flaggan därför att kategorin står i hinken `aldrig`. Det var
+    # sant i skiva 49 och är falskt sedan DEL B: grinden i `kedja.kor` sätter
+    # samma flagga för varje kategori utanför `A_TRAKTORKATEGORIER`, och de är de
+    # flesta. Skälet står i `inget_svar_skal` nedan och ingen annanstans.
     #
     # **INTE SAMMA SAK SOM `sparr`, och renderingen får inte slå ihop dem.** En
     # spärrad post bär ett svar som fälldes, alltså något att titta på. Den här
     # bär ingenting: generatorn anropades aldrig.
     inget_svar: bool = False
+    # SKIVA 51 DEL B. VILKET av de två skälen posten bär, ordagrant ur
+    # `kedja.SKAL_ALDRIG` eller `kedja.SKAL_OGATAD`. Vyn renderar det.
+    #
+    # **BARA KEDJANS EGNA FASTA STRÄNGAR.** Fältet skrivs till
+    # `data/granskningsfall.jsonl` och HTML-escapas in på sidan. `Sparrfalld.skal`
+    # bär text lyft ordagrant ur modellens svar och hör aldrig hemma här.
+    inget_svar_skal: str = ""
     # HÄRKOMSTEN PER POST, inte per körning. Skiva 35 satte en varning på hela
     # vyn, och den var trubbig av två skäl: den sade inte VILKEN post den gällde,
     # och den kunde inte skilja ett skarpt uppslag från ett uteblivet. Lars
@@ -820,6 +865,7 @@ def spara_granskningsfall(fall: list[Granskningsfall],
                 "forslag": post.forslag,
                 "sparr": post.sparr,
                 "inget_svar": post.inget_svar,
+                "inget_svar_skal": post.inget_svar_skal,
                 "uppslagskalla": post.uppslagskalla,
             }, ensure_ascii=False) + "\n")
 
@@ -856,6 +902,9 @@ def las_granskningsfall(fil: Path | None = None) -> list[Granskningsfall]:
             # och en gammal post ska då renderas som förut och inte som ett
             # INGET SVAR.
             inget_svar=post.get("inget_svar", False),
+            # FÖRVALET ÄR TOMT av samma skäl som raden ovan: en fil skriven före
+            # skiva 51 bär inte nyckeln, och renderingen har ett läge för det.
+            inget_svar_skal=post.get("inget_svar_skal", ""),
             uppslagskalla=post.get("uppslagskalla", ""),
         ))
     return fall
@@ -908,7 +957,8 @@ def bygg_hanterare(
             self._svara(
                 rendera_granskning(post.fall, post.forslag, post.sparr, index,
                                    uppslagskalla=post.uppslagskalla,
-                                   inget_svar=post.inget_svar)
+                                   inget_svar=post.inget_svar,
+                                   inget_svar_skal=post.inget_svar_skal)
                 + f"<p><a href='/granskning/{index + 1}'>nästa</a></p>"
             )
 
@@ -992,8 +1042,8 @@ def bygg_hanterare(
             if post.inget_svar:
                 self._svara(
                     rendera_fel(ValueError(
-                        "posten har inget svar att omdöma: kategorin står i "
-                        "hinken aldrig"
+                        "posten har inget svar att omdöma: generatorn "
+                        "anropades aldrig för den"
                     )),
                     400,
                 )

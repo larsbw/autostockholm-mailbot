@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.72.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
+**Version:** 0.73.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -6565,7 +6565,148 @@ Fällt av §7-granskningen av den här skivan.
 
 ---
 
+## #117 — Lars beslut: kedjan gatar på a-traktor. Allt annat blir INGET SVAR.
+
+**Datum:** 2026-09-15 · **Berör:** `src/kedja.py`, `src/vy.py`,
+`scripts/respond.py`, `scripts/kedja-prov.py`, `config/maskindomaner.yaml`
+
+**Beslut.** `kedja.kor` skriver svar på de tre kategorierna i
+`A_TRAKTORKATEGORIER` och på ingen annan. Varje annan kategori blir `INGET
+SVAR` utan att generatorn anropas. Klassningen görs ändå, och kategorin skrivs
+till `logg/beslut.jsonl` och visas i vyn, så att materialet finns den dag fas 6
+tar nästa kategori.
+
+**Underlag.** Mätt denna dag mot de tre materialen, med sikten ur
+`respond.arende_ur_trad` och etiketterna ur `data/ometiketterade.jsonl`:
+
+| Material | Trådar | Ärenden till kedjan | Mätbara | A-traktor | I `aldrig` | Gatas bort |
+| --- | --- | --- | --- | --- | --- | --- |
+| `data/tradar.jsonl` | 555 | 207 | 118 | 47 | 7 | 64 |
+| `data/tradar_obesvarade.jsonl` | 1604 | 654 | 80 | 1 | 10 | 69 |
+| `data/inkorg-dagens.jsonl` | 53 | 21 | 0 | 0 | 0 | 0 |
+
+Sista kolumnen är det tal beslutet gäller: ärenden som i dag blir ett utkast och
+efter grinden inte gör det. Summan är **133**.
+
+**TALET ÄR EN UNDRE GRÄNS OCH INTE EN MÄTNING AV HELA POPULATIONEN.** 684 av de
+882 ärendena bär ingen etikett kedjan kan jämföras med, och de fördelar sig så:
+`data/tradar.jsonl` 89, `data/tradar_obesvarade.jsonl` 574,
+`data/inkorg-dagens.jsonl` 21. Skälet är att `ometikettera` inte etiketterar om
+det pass 1 kallat `inget kundärende` eller `oklart`, och pass 2 kan inte svara
+något av de två: dess svar filtreras mot taxonomin. 647 av de 684 bär `inget
+kundärende` och 12 bär `oklart`, alltså hade 659 av dem fått ett TAXONOMINAMN
+av kedjan, och vilket
+går inte att veta utan ett modellanrop per rad. De återstående 25 saknar rad i
+den etiketterade korpusen helt: 7 i `data/tradar.jsonl` och 18 i
+`data/inkorg-dagens.jsonl`.
+
+**VAD DE 133 UTKASTEN VAR VÄRDA.** Ingenting av dem kunde gå ut: `auto` är tom,
+alltså stoppar ramverksregel 1 varje kategori utom de tre grinden nu släpper
+fram, och de tre står i `utkast`. Vart och ett kostade ett modellanrop och en
+post i vyn som ingen kan skicka.
+
+**`INGET SVAR` HAR NU TVÅ SKÄL, OCH DE HÅLLS ISÄR.** `Kedjeutfall.
+inget_svar_skal` bär `SKAL_ALDRIG` eller `SKAL_OGATAD`, och skälet följer med
+till `logg/beslut.jsonl`:s steg, till summeringen i `scripts/respond.py` och till
+sidan i vyn. Fram till nu fanns ett skäl, och vyn skrev en fast mening om hinken
+`aldrig` ovanför varje sådan post. Med grinden på plats är den meningen falsk
+för de flesta: en rekondbokning får inget svar av GRINDEN och står i hinken
+`utkast`, och den som letar efter dess rad i `config/kategorier.yaml` hittar
+ingen.
+
+**HINKEN PRÖVAS FÖRE GRINDEN, och ordningen avgör något.** Varje kategori i
+`aldrig` är i dag också ogatad, alltså träffar båda villkoren samma ärende och
+det som står först bestämmer vilket skäl som redovisas. Hinken går först därför
+att den är ramverksregel 1:s gräns och står kvar när grinden vidgas.
+`test_de_TVA_skalen_till_INGET_SVAR_HALLS_ISAR` fäller om grenarna byter plats,
+och prövningen är gjord: sviten går röd på tre rader när de byts.
+
+**EN GREN ÄR STRUKEN OCH EN ÄR VILANDE.** `kor`:s `else`-gren, som la ett
+`Steg("uppslag", "hoppades över", ...)` för en ogatad kategori, blev oåtkomlig i
+samma stund grinden byggdes och är struken: en oåtkomlig gren går inte att fälla
+(§7.1). `uppslagskalla`:s gren med samma text står kvar med en skylt på sig. Den
+nås inte heller ur `kor`, men den är funktionens kontrakt för en direkt
+konstruerad `Kedjeutfall` och är inte ett påstående om en väg kedjan tar.
+`Forfragan.uppslag_gjordes` skrivs nu som `True` utan villkor, av samma skäl.
+
+**VAD SOM BLIR VILANDE I KONFIGURATIONEN, och vad som INTE blir det.**
+
+  `auto`  rörde aldrig kedjan och gör det inte nu. Den är fas 4:s sändgrind,
+      och den här modulen har ingen sändväg. Den är tom.
+  `aldrig`  BITER FORTFARANDE, men bara för de tre a-traktorkategorierna: för
+      varje annan hade grinden stoppat ärendet ändå. Ingen av de tre står där i
+      dag, alltså avgör hinken i praktiken inget utkast just nu. Flyttar Lars en
+      av de tre dit stoppar den genereringen, och den vägen är prövad.
+  `standardhink`  sätter fortfarande `utkast` på en kategori som inte står i
+      filen, och hinken loggas och visas. Den avgör inte längre om ett utkast
+      skrivs. 18 av taxonomins 28 kategorier hamnar där och gatas bort.
+
+**PRISPOSTERNA ÄR INTE VILANDE, och skivans instruktion antog att de blev det.**
+`generera._prisrader` skriver ut HELA `config/priser.json` i prompten, oberoende
+av kategori, och `las_priser().values()` är tillåtna källor för prisspärrarna.
+Avläst denna dag: blocket som når varje a-traktorprompt bär posterna
+`a_traktorkonvertering`, `rekond`, `reparation`, `service` och `dack`, medan
+`tillbehor` är tom och utelämnas. Det var sant före den här skivan också, alltså
+är det ingen följd av grinden. **Ingen post är rörd**, §3 och §10.
+
+**RUBRIKEN I `config/maskindomaner.yaml` ÄR ÄNDRAD, Lars beslut.** Den löd
+*"Domäner som ALLTID är maskinmail, oavsett huvuden"* och lyder nu *"Domäner
+vars post DET HÄR LAGRET tystar. Når posten hit svarar vi inte på den."* Måttet
+räknar ett SVAR FRÅN OSS och inte om posten är maskinskriven: `sunmaskin.se`,
+`ekvallautoteknik.se` och `mekonomen.se` bär säljarbrev och betalningspåminnelser
+skrivna av människor. Ingen av dem är en kund, alltså är utfallet önskat och bara
+skälet var fel. Raderna är orörda.
+
+**§7-GRANSKNINGEN AV SKIVAN GAV FYRA BÄRANDE FYND. Alla fyra är rättade före
+skepp, på Lars beslut.**
+
+  1. `src/vy.py` LÄT SKÄLET STRYPAS MED GRÖN SVIT. `bygg_hanterare._granskning`
+     skickar `inget_svar_skal` till renderaren, och ersattes det ledet med tom
+     sträng blev hela sviten grön medan `/granskning/N` skrev
+     `_INTETSKAL_OKANT` om VARJE post utan svar. Sidan hade då påstått att en
+     post körd i dag är sparad av en körning före skiva 51, alltså precis det
+     falska besked DEL B finns för att ta bort. Det är samma lucka §7-granskningen
+     av skiva 49 fällde för `inget_svar`, ett fält senare.
+     `test_SKALET_nar_sidan_GENOM_RUTTEN` binder ledet och prövar BÅDA skälen,
+     så att en hårdkodad sträng inte går grön. Prövad med
+     `scripts/sparr-prova.sh`: RÖD på två rader, återställningen kvitterad.
+  2. `Granskningsfall.inget_svar`:s fältkommentar sade att posten bär flaggan
+     därför att kategorin står i hinken `aldrig`. Sant i skiva 49 och falskt
+     sedan grinden: flaggan sätts för båda skälen, vilket fältet två rader ned
+     säger rakt ut. Rättad.
+  3. `Korning.inget_svar` i `scripts/respond.py` bar samma falska påstående.
+     Rättad.
+  4. DEN NYA RUBRIKEN I `config/maskindomaner.yaml` PÅSTOD MER ÄN LAGERORDNINGEN
+     BÄR. Den löd *"vars post vi ALDRIG svarar på, oavsett huvuden"*, men
+     `skal_maskinmail` prövar förbudslistan och `relayar_manniska` FÖRE
+     domänlagret och returnerar tom sträng där. En rad i filen tystar alltså
+     ingenting som något av de två redan friat, och "oavsett huvuden" var
+     dessutom falskt redan i den gamla lydelsen: huvudlagren prövas också de
+     före. Rubriken gäller nu sitt EGET lager. Lars beslut.
+
+**ETT FALSKT PÅSTÅENDE I EN TESTDOCSTRING ÄR OCKSÅ RÄTTAT.**
+`test_VYN_sager_vilket_av_de_tva_skalen_det_var` sade att `inget_svar_skal` går
+att koppla ur med grön svit utan just den raden. Raden binder RENDERAREN och
+säger ingenting om vägen dit; fältet gick att strypa i rutten med den raden på
+plats. De två raderna vaktar var sitt led, och docstringen säger det nu.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.73.0 — 2026-09-15
+
+**#117 TILLKOMMER: Lars beslut, kedjan gatar på a-traktor.** Varje annan
+kategori blir `INGET SVAR` utan att generatorn anropas. Klassningen behålls.
+`INGET SVAR` får ett andra skäl, och skälet bärs hela vägen till vyn, som
+tidigare skrev en fast mening om hinken `aldrig` ovanför varje sådan post.
+
+**Posten skriver också ut vad som blir vilande och vad som INTE blir det.**
+Skivans instruktion räknade prisposterna för rekond, reparation, service och
+däck som vilande. Avläst denna dag är de det inte: `generera._prisrader` skriver
+hela `config/priser.json` i prompten oberoende av kategori. Ingen post är rörd.
+
+Ny beslutspost ⇒ MINOR.
 
 ### 0.72.0 — 2026-09-15
 

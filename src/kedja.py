@@ -11,8 +11,19 @@ här filen: den vandrar importgrafen och läser källtexten i varje modul den n�
 
 Ordningen är:
 
-    mail -> klassificering -> uppslag om a-traktor -> generering -> spärrar
-         -> utkast
+    mail -> klassificering -> GRIND: a-traktor? -> uppslag -> generering
+         -> spärrar -> utkast
+
+**KEDJAN SKRIVER SVAR PÅ A-TRAKTOR OCH PÅ INGENTING ANNAT.** Lars beslut i
+skiva 51 DEL B. En kategori utanför `A_TRAKTORKATEGORIER` blir `INGET SVAR`
+utan att generatorn anropas. Klassningen görs ändå och kategorin loggas och
+visas, så att materialet finns den dag fas 6 tar nästa kategori.
+
+*Skivan mätte vad grinden kostar. Med de pass-2-etiketter som finns att mäta
+mot i `data/ometiketterade.jsonl` skriver kedjan i dag ett utkast för 133
+ärenden som grinden nu tystar; talen per material står i `docs/beslutslogg.md`
+#117. Utkasten var inte efterfrågade av någon: ingen kategori står i `auto`,
+alltså kunde inget av dem gå ut, och var och en kostade ett modellanrop.*
 
 **`kor` LOGGAR INTE SJÄLV, och skissen framställde det som om den gjorde det.**
 Loggningen är ett eget anrop, `logga_beslut` eller `logga_kallfel`, och det görs
@@ -22,7 +33,9 @@ inräknat. Fällt av §7-granskningen av skiva 34, varv 2.
 
 **TRE UTFALL, och `INGET SVAR` är det tredje.** `kor` returnerar en
 `Kedjeutfall` som bär antingen ett utkast, en fälld spärr, eller `inget_svar`.
-Det sista är kategorier i hinken `aldrig`: generatorn anropas inte alls.
+Det sista har sedan skiva 51 TVÅ skäl, och `inget_svar_skal` säger vilket:
+hinken `aldrig`, eller en kategori grinden inte släpper fram. I båda fallen
+anropas generatorn inte alls.
 
 *Här stod att HINKEN AVGÖR INGENTING HÄR, och att ett utkast produceras för
 varje kategori också de i `aldrig`, med motiveringen att skuggläget annars inte
@@ -65,6 +78,24 @@ A_TRAKTORKATEGORIER = (
     "boka a-traktorkonvertering",
     "fråga om pris a-traktorkonvertering",
 )
+
+# DE TVÅ SKÄLEN TILL `INGET SVAR`. Strängarna står här och inte som literaler
+# på användningsstället, eftersom de skrivs på två ställen i `kor`: i
+# `Steg.detalj`, som går till `logg/beslut.jsonl`, och i
+# `Kedjeutfall.inget_svar_skal`, som går till vyn. Går de isär säger loggen och
+# sidan olika saker om samma post.
+#
+# **VYN BÄR SAMMA STRÄNGAR SKRIVNA EN GÅNG TILL**, som nycklar i `vy._INTETSKAL`.
+# `src/vy.py` kan inte importera härifrån: importen går åt andra hållet. Samma
+# val som `A_TRAKTORETIKETTER`, och `test_vyns_INGET_SVAR_skal_matchar_kedjans`
+# fäller om de två uppräkningarna glider isär.
+#
+# **DE ÄR VÅRA EGNA FASTA STRÄNGAR och bär ingenting ur ett modellsvar.** Det
+# är villkoret för att de får nå `data/granskningsfall.jsonl` och vyn. Jämför
+# `Sparrfalld.skal`, som byggs av text lyft ordagrant ur utkastet och därför
+# varken loggas eller renderas omaskerad.
+SKAL_ALDRIG = "hinken aldrig"
+SKAL_OGATAD = "ingen a-traktorkategori"
 
 
 class Kallfel(Exception):
@@ -137,7 +168,8 @@ class Kedjeutfall:
 
       UTKAST      `utkast` är en text. Spärrarna passerade.
       SPÄRRAD     `sparr` bär spärrens namn. Ett svar skrevs och fälldes.
-      INGET SVAR  `inget_svar` är sant. Generatorn anropades ALDRIG.
+      INGET SVAR  `inget_svar` är sant och `inget_svar_skal` säger varför.
+                  Generatorn anropades ALDRIG.
 
     **DE TVÅ SISTA ÄR INTE SAMMA SAK, och det är hela skälet att det tredje
     finns.** En spärr säger att modellen skrev något den inte fick skriva, alltså
@@ -161,6 +193,15 @@ class Kedjeutfall:
     # SKIVA 49 DEL B. Sant när generatorn hoppades över. Ett eget fält och inte
     # en spärrsträng, se klassens docstring.
     inget_svar: bool = False
+    # SKIVA 51 DEL B. VILKET av de två skälen. `SKAL_ALDRIG` eller
+    # `SKAL_OGATAD`, tom när `inget_svar` är falskt.
+    #
+    # **ETT EGET FÄLT OCH INTE `skal`.** `skal` bär `Sparrfalld.skal`, som är
+    # byggt av strängar lyfta ordagrant ur modellens svar och därför kan bära
+    # ett telefonnummer eller ett registreringsnummer. Det fältet får varken
+    # loggas eller renderas omaskerat. Den här bär två fasta strängar ur den
+    # här modulen, och det är skillnaden som gör att den får gå till vyn.
+    inget_svar_skal: str = ""
     skal: str = ""
     steg: tuple[Steg, ...] = field(default_factory=tuple)
 
@@ -253,45 +294,82 @@ def kor(
     # Ingen av kategorierna i `aldrig` står i `A_TRAKTORKATEGORIER` i dag, så
     # uppslaget hade hoppats över ändå. Ordningen är ändå den här, eftersom den
     # inte ska bero på att de två listorna aldrig överlappar.
+    #
+    # *Stycket ovan gäller UPPSLAGET och skrevs i skiva 49, när nästa steg var
+    # generering för alla kategorier. Sedan skiva 51 följer en andra grind
+    # nedanför den här, och ordningen mellan de TVÅ grindarna avgör något helt
+    # annat: vilket skäl som redovisas. Det står vid grinden.*
     if hink == "aldrig":
-        steg.append(Steg("generering", "hoppades över", "hinken aldrig"))
+        steg.append(Steg("generering", "hoppades över", SKAL_ALDRIG))
         return Kedjeutfall(
-            kategori=kategori, hink=hink, inget_svar=True, steg=tuple(steg),
+            kategori=kategori, hink=hink, inget_svar=True,
+            inget_svar_skal=SKAL_ALDRIG, steg=tuple(steg),
         )
 
-    uppslag: Uppslag | None = None
-    utfall: Utfall | None = None
+    # **GRINDEN. KEDJAN SVARAR BARA PÅ A-TRAKTOR.** Lars beslut i skiva 51
+    # DEL B. Allt annat är material för en fas som inte är påbörjad, och ett
+    # utkast ingen bett om kostar ett modellanrop och en post i vyn som ingen
+    # kan skicka: `auto` är tom, alltså kunde inget av de utkasten gå ut ändå.
+    #
+    # **RADEN STÅR EFTER `aldrig` OCH INTE FÖRE, och ordningen avgör något.**
+    # Varje kategori i `aldrig` är i dag också ogatad, alltså träffar båda
+    # villkoren samma ärende, och det som står först bestämmer vilket skäl som
+    # redovisas i loggen, i summeringen och i vyn.
+    #
+    # Hinken går först därför att den är ramverksregel 1:s gräns och står kvar
+    # när grinden vidgas: en kategori som Lars flyttar ur `aldrig` byter skäl,
+    # medan en som ligger kvar där ska redovisas som `aldrig` också den dag fas 6
+    # släpper fram den. `test_de_TVA_skalen_till_INGET_SVAR_HALLS_ISAR` fäller om
+    # grenarna byter plats.
+    #
+    # Ordningen avgör alltså vilket skäl som redovisas, aldrig om svaret skrivs:
+    # båda vägarna slutar i `INGET SVAR` och ingen av dem anropar generatorn.
+    #
+    # **KLASSNINGEN GÖRS ÄNDÅ**, och det är hela skillnaden mot att sålla bort
+    # posten. Kategorin står i `logg/beslut.jsonl` och i vyn, så att fas 6 har
+    # materialet när nästa kategori tas.
+    if kategori not in A_TRAKTORKATEGORIER:
+        steg.append(Steg("generering", "hoppades över", SKAL_OGATAD))
+        return Kedjeutfall(
+            kategori=kategori, hink=hink, inget_svar=True,
+            inget_svar_skal=SKAL_OGATAD, steg=tuple(steg),
+        )
+
+    # HÄRIFRÅN ÄR KATEGORIN EN AV DE TRE, och grinden ovan är enda vägen förbi.
+    # Grenen för en ogatad kategori är struken med den: den var oåtkomlig i samma
+    # stund grinden byggdes, och en oåtkomlig gren går inte att fälla (§7.1).
     franvaro_far_pastas: frozenset[str] = frozenset()
 
-    if kategori in A_TRAKTORKATEGORIER:
-        uppslag, utfall, uppslagssteg = _uppslagssteg(arende, hamta)
-        steg.append(uppslagssteg)
+    uppslag, utfall, uppslagssteg = _uppslagssteg(arende, hamta)
+    steg.append(uppslagssteg)
 
-        # **ETT AVLÄST `Nej` ÄR DEN ENDA VÄGEN IN I MÄNGDEN.** Lars beslut i
-        # skiva 41, VÄG TRE på lucka 50, se `docs/beslutslogg.md` #93.
-        #
-        # Ett fordon vars sida säger `Draganordning: Nej` har bevisligen ingen
-        # registrerad draganordning: vi har LÄST ett värde som säger det. Att
-        # spärra meningen *"bilen saknar registrerad draganordning"* hade
-        # blockerat ett SANT besked, och det är den formulering promptens
-        # regel 12 ber om.
-        #
-        # **EN FRÅNVARO ÄR ALDRIG ETT BELÄGG.** Skiva 40 lät ett saknat fält ge
-        # samma rätt, med motiveringen att sidan bara renderar fält som har ett
-        # värde. Det är sant om SIDAN och osant om vår läsning av den: ett mjukt
-        # bindestreck i `Släpvagnsvikt` räcker för att fältet ska se saknat ut,
-        # och det kräver ingen markupändring alls. Lucka 50 bär mätningen.
-        if uppslag is not None and uppslag.draganordning is False:
-            franvaro_far_pastas = frozenset({"draganordning"})
-    else:
-        steg.append(Steg("uppslag", "hoppades över", "kategorin gatas inte"))
+    # **ETT AVLÄST `Nej` ÄR DEN ENDA VÄGEN IN I MÄNGDEN.** Lars beslut i
+    # skiva 41, VÄG TRE på lucka 50, se `docs/beslutslogg.md` #93.
+    #
+    # Ett fordon vars sida säger `Draganordning: Nej` har bevisligen ingen
+    # registrerad draganordning: vi har LÄST ett värde som säger det. Att
+    # spärra meningen *"bilen saknar registrerad draganordning"* hade
+    # blockerat ett SANT besked, och det är den formulering promptens
+    # regel 12 ber om.
+    #
+    # **EN FRÅNVARO ÄR ALDRIG ETT BELÄGG.** Skiva 40 lät ett saknat fält ge
+    # samma rätt, med motiveringen att sidan bara renderar fält som har ett
+    # värde. Det är sant om SIDAN och osant om vår läsning av den: ett mjukt
+    # bindestreck i `Släpvagnsvikt` räcker för att fältet ska se saknat ut,
+    # och det kräver ingen markupändring alls. Lucka 50 bär mätningen.
+    if uppslag is not None and uppslag.draganordning is False:
+        franvaro_far_pastas = frozenset({"draganordning"})
 
     forfragan = Forfragan(
         text=arende.text,
         kategori=kategori,
         utfall=utfall,
         uppslag=uppslag,
-        uppslag_gjordes=kategori in A_TRAKTORKATEGORIER,
+        # SANT UTAN VILLKOR SEDAN SKIVA 51: grinden ovan släpper bara fram de
+        # tre kategorier uppslaget görs för. `uppslag_gjordes=False` når
+        # generatorn bara via en direkt konstruerad `Forfragan`, alltså ur ett
+        # test och inte ur kedjan.
+        uppslag_gjordes=True,
         # SKIVA 46 DEL B. **SAMMA UTTRYCK SOM FÄLLER UPPSLAGET.**
         # `fordonsuppslag.slag_upp` kastar "registreringsnummer saknas" när just
         # `normalisera_regnr` ger tomt, alltså är det här villkoret inte en egen
@@ -398,6 +476,11 @@ def uppslagskalla(arende: Arende, utfall: Kedjeutfall, *, skarp: bool) -> str:
     kalla = "biluppgifter.se" if skarp else "FIXTUR, konstruerad ur regnr"
 
     steg = {s.namn: s for s in utfall.steg}.get("uppslag")
+    # **DEN HÄR GRENEN ÄR VILANDE SEDAN SKIVA 51 och nås inte ur `kor`.**
+    # Grinden gör `INGET SVAR` av varje ogatad kategori, och grenen ovan
+    # returnerar tomt för dem. Kvar går den att nå ur en direkt konstruerad
+    # `Kedjeutfall`, alltså ur ett test. Den står kvar som funktionens kontrakt
+    # för den indatan och är inte ett påstående om en väg kedjan tar.
     if steg is None or steg.utfall == "hoppades över":
         return "Inget uppslag gjordes: kategorin gatar det inte."
 
@@ -476,6 +559,10 @@ def till_granskningsfall(arende: Arende, utfall: Kedjeutfall,
         forslag=utfall.utkast or "",
         sparr=utfall.sparr or "",
         inget_svar=utfall.inget_svar,
+        # `inget_svar_skal` OCH ALDRIG `skal`. Den första bär en av modulens två
+        # fasta strängar, den andra text lyft ur modellens svar. Bara den första
+        # får nå disken och sidan, se `Kedjeutfall`.
+        inget_svar_skal=utfall.inget_svar_skal,
         uppslagskalla=uppslagskalla(arende, utfall, skarp=skarp),
     )
 

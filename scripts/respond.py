@@ -253,12 +253,21 @@ class Korning:
     sallade: list[tuple[str, str]] = field(default_factory=list)
     kallfel: int = 0
     utkast: int = 0
-    # SKIVA 49 DEL B. Ärenden vars kategori står i hinken `aldrig`. Före
-    # ändringen gick de genom generatorn och räknades i `utkast`: kedjan
-    # producerade ett utkast för varje kategori, också de i `aldrig`. Avläst i
-    # `logg/beslut.jsonl`, de sju raderna 2026-09-15T10:15 och 10:16 UTC:
-    # `blev_utkast` sant och `sparr` null i samtliga sju.
+    # SKIVA 49 DEL B. Ärenden kedjan inte skrev något svar på, oavsett vilket av
+    # de två skälen. Före ändringen gick de genom generatorn och räknades i
+    # `utkast`: kedjan producerade ett utkast för varje kategori, också de i
+    # `aldrig`. Avläst i `logg/beslut.jsonl`, de sju raderna 2026-09-15T10:15
+    # och 10:16 UTC: `blev_utkast` sant och `sparr` null i samtliga sju.
+    #
+    # *Här stod att talet räknar ärenden vars kategori står i hinken `aldrig`.
+    # Sant i skiva 49, falskt sedan skiva 51 DEL B lade grinden: talet räknar
+    # båda skälen, och `per_inget_svar` nedan är det som skiljer dem åt.*
     inget_svar: int = 0
+    # SKIVA 51 DEL B. SAMMA TAL UPPDELAT PÅ DE TVÅ SKÄLEN, formen lånad från
+    # `per_sparr`. Grinden gör `INGET SVAR` av varje kategori som inte är
+    # a-traktor, alltså av nästan hela körningen, och ett odelat tal hade då
+    # dolt hur många av dem hinken `aldrig` stod för.
+    per_inget_svar: Counter = field(default_factory=Counter)
     per_kategori: Counter = field(default_factory=Counter)
     per_hink: Counter = field(default_factory=Counter)
     per_sparr: Counter = field(default_factory=Counter)
@@ -344,13 +353,18 @@ def kor_alla(
         # ingen: före skiva 49 fanns inget tredje utfall, och ett ärende i
         # `aldrig` föll i `blev_utkast`-grenen med ett färdigt utkast.
         #
+        # **SEDAN SKIVA 51 ÄR DEN HÄR GRENEN DEN BREDA.** Grinden i `kedja.kor`
+        # släpper bara fram a-traktor, alltså går varje annan kategori hit.
+        # `utfall.inget_svar_skal` säger vilket av de två skälen det var.
+        #
         # **UTAN EN EGEN GREN HADE DEN FALLIT I `else`**, och då hade varje
         # maskinmail räknats som spärrat med `None` som spärrnamn. Det är
         # motivet till grenen och inte en beskrivning av vad koden gjorde.
         if utfall.inget_svar:
             korning.inget_svar += 1
+            korning.per_inget_svar[utfall.inget_svar_skal] += 1
             skriv(f"{nummer:>4}  INGET SVAR  {utfall.kategori}  "
-                  f"[{utfall.hink}]")
+                  f"[{utfall.hink}]  {utfall.inget_svar_skal}")
         elif utfall.blev_utkast:
             korning.utkast += 1
             skriv(f"{nummer:>4}  UTKAST   {utfall.kategori}  [{utfall.hink}]")
@@ -388,7 +402,9 @@ def summera(korning: Korning, skriv=print) -> None:
     skriv(f"  ärenden genom kedjan    {korning.arenden}")
     skriv(f"  källfel                 {korning.kallfel}")
     skriv(f"  utkast                  {korning.utkast}")
-    skriv(f"  inget svar, hink aldrig {korning.inget_svar}")
+    skriv(f"  inget svar              {korning.inget_svar}")
+    for skal, antal in sorted(korning.per_inget_svar.items()):
+        skriv(f"      {skal:<30} {antal}")
     skriv(f"  spärrade                {korning.sparrade}")
     for sparr, antal in sorted(korning.per_sparr.items()):
         skriv(f"      {sparr:<30} {antal}")

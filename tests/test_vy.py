@@ -617,6 +617,11 @@ def test_varje_strangparameter_till_renderarna_escapas():
             argument = {"fall": ett_fall(), namn: OND}
             if renderare is vy.rendera_granskning:
                 argument.setdefault("forslag", "ett förslag")
+                # `inget_svar_skal` RENDERAS BARA I INTET-GRENEN, alltså prövar
+                # raden ingenting utan flaggan. Utan de här två raderna är
+                # tripwiren grön för en parameter den aldrig lät nå sidan.
+                if namn == "inget_svar_skal":
+                    argument["inget_svar"] = True
             sida = renderare(**argument)
             assert OND not in sida, f"{renderare.__name__} escapar inte {namn}"
 
@@ -628,7 +633,13 @@ def test_varje_strangparameter_till_renderarna_escapas():
     # av sitt argument, och skulle någon en dag skriva ut det ska raden fälla.
     # Att hoppa över den hade gjort tripwiren beroende av att nästa läsare gör
     # samma bedömning en gång till.
-    assert provade == ["forslag", "sparr", "uppslagskalla", "inget_svar"]
+    # `inget_svar_skal` NÅR SIDAN GENOM EN UPPSLAGSTABELL och inte genom
+    # interpolation: `_INTETSKAL.get(...)` ger `_INTETSKAL_OKANT` för varje värde
+    # som inte är en av kedjans två, alltså kan ett fientligt värde inte nå
+    # sidan alls. Raden prövas ändå, av samma skäl som `inget_svar`: byts
+    # tabellen mot en f-sträng ska den bli röd.
+    assert provade == ["forslag", "sparr", "uppslagskalla", "inget_svar",
+                       "inget_svar_skal"]
 
 
 def test_felmeddelandet_escapas_innan_det_reflekteras():
@@ -1280,3 +1291,38 @@ def test_en_post_UTAN_SVAR_visar_INGET_formular_GENOM_RUTTEN():
     assert "<textarea" not in fejk.svar
     for omdome in vy.OMDOMESVARDEN:
         assert f"value='{omdome}'" not in fejk.svar
+
+
+@pytest.mark.parametrize("skal", sorted(vy._INTETSKAL))
+def test_SKALET_nar_sidan_GENOM_RUTTEN(skal):
+    """`inget_svar_skal` ska nå renderaren via `/granskning/N`, inte bara direkt.
+
+    **SAMMA LUCKA SOM RADEN OVAN, ETT FÄLT SENARE.** §7-granskningen av skiva 49
+    fällde att `inget_svar=post.inget_svar` var obundet. Skiva 51 lade
+    `inget_svar_skal` bredvid det och gav det ingen sådan rad:
+    `test_VYN_sager_vilket_av_de_tva_skalen_det_var` i `tests/test_kedja.py`
+    anropar `vy.rendera_granskning` DIREKT och går förbi
+    `bygg_hanterare._granskning`.
+
+    Fälls det ledets `inget_svar_skal=post.inget_svar_skal` till `""` blir hela
+    sviten grön, och `/granskning/N` skriver då `_INTETSKAL_OKANT` om VARJE post
+    utan svar. Sidan påstår att posten är sparad av en körning före skiva 51 om
+    en post som kördes i dag, alltså precis det falska besked DEL B finns för att
+    ta bort, bara med en annan text. Fällt av §7-granskningen av skiva 51.
+
+    **BÅDA SKÄLEN PRÖVAS.** En rad som bara prövat det ena hade gått grön om
+    ledet ersattes med den andra strängen hårdkodad.
+    """
+    hanterare = vy.bygg_hanterare(
+        [],
+        granskning=[
+            _granskningsfall(forslag="", sparr="", inget_svar=True,
+                             inget_svar_skal=skal)
+        ],
+    )
+
+    fejk = FejkHanterare(hanterare, "/granskning/0")
+    fejk.get()
+
+    assert vy._INTETSKAL[skal] in fejk.svar
+    assert vy._INTETSKAL_OKANT not in fejk.svar
