@@ -47,6 +47,25 @@ def ett_fall(**andrat) -> Fall:
 # ---------------------------------------------------------------- DEL B
 
 
+
+def peka_om_katalogerna(monkeypatch, rot) -> None:
+    """Låtsas att vyns data- och loggkatalog ligger under `rot`.
+
+    **TRE NAMN OCH INTE ETT, skiva 53.** Raderna löd
+    `monkeypatch.setattr(vy, "ROT", tmp_path)`, och det räckte när
+    `krav_pa_skrivbar_sokvag` mätte `relative_to(ROT)`. Spärren mäter numera mot
+    `DATAKATALOG` och `LOGGKATALOG`, som kommer ur `src/sokvagar.py` och kan
+    ligga var som helst. En rad som bara pekade om `ROT` hade låtit spärren mäta
+    mot det RIKTIGA repot medan testet skrev i sin temporärkatalog, vilket är
+    `docs/incidentlogg.md` I1 en gång till.
+
+    `ROT` pekas om också, eftersom andra led i vyn fortfarande läser den.
+    """
+    monkeypatch.setattr(vy, "ROT", rot)
+    monkeypatch.setattr(vy, "DATAKATALOG", rot / "data")
+    monkeypatch.setattr(vy, "LOGGKATALOG", rot / "logg")
+
+
 def test_vyn_har_ingen_sandvag():
     """SPÄRRENS HUVUDFALL. Vyn drar inte in något som kan skicka mail.
 
@@ -442,7 +461,7 @@ def test_repotet_sjalvt_kastar_skrivfel_och_inte_indexerror(tmp_path, monkeypatc
     igenom ett fel den trodde sig täcka. §4 kräver nollfallet, och det här är
     det. Funnet av §7-granskningen av skiva 27, varv 1.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
 
     with pytest.raises(vy.Skrivfel):
         vy.krav_pa_skrivbar_sokvag(tmp_path)
@@ -472,7 +491,7 @@ def test_referenssvar_kan_inte_sparas_utanfor_data(tmp_path, monkeypatch):
     efter sig en `docs/x.jsonl` med två poster i arbetsträdet, upptäckt först av
     `git status` inför committen.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     (tmp_path / "docs").mkdir()
 
     with pytest.raises(vy.Skrivfel):
@@ -498,7 +517,7 @@ def test_omdome_kan_inte_loggas_utanfor_logg(tmp_path, monkeypatch):
 
     Funnen av §7-granskningen av skiva 27, varv 1.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     (tmp_path / "docs").mkdir()
 
     with pytest.raises(vy.Skrivfel):
@@ -692,7 +711,7 @@ def test_kundtexten_escapas_i_sidan():
 
 def test_referenssvar_skrivs_som_ett_par(tmp_path, monkeypatch):
     """Referenssvaret hamnar i par.jsonl med de fyra ursprungliga nycklarna."""
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     parfil = tmp_path / "data" / "par.jsonl"
 
     post = vy.spara_referenssvar(ett_fall(), "  Hej, det kostar X.  ", "gront", parfil)
@@ -712,7 +731,7 @@ def test_referenssvaret_ar_markt_som_referenssvar(tmp_path, monkeypatch):
     Utan markören hade en senare läsare räknat referenssvaren som svar vi
     faktiskt skickat till en kund.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     post = vy.spara_referenssvar(
         ett_fall(), "ett svar", "rott", tmp_path / "data" / "par.jsonl"
     )
@@ -722,14 +741,14 @@ def test_referenssvaret_ar_markt_som_referenssvar(tmp_path, monkeypatch):
 
 
 def test_tomt_referenssvar_sparas_inte(tmp_path, monkeypatch):
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     with pytest.raises(ValueError):
         vy.spara_referenssvar(ett_fall(), "   ", parfil=tmp_path / "data" / "par.jsonl")
 
 
 def test_okant_utfall_avvisas(tmp_path, monkeypatch):
     """De fyra utfallen är en sluten lista, precis som i `fordonsuppslag`."""
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     with pytest.raises(ValueError):
         vy.spara_referenssvar(
             ett_fall(), "ett svar", "kanske", tmp_path / "data" / "par.jsonl"
@@ -743,7 +762,7 @@ def test_de_fem_tillatna_utfallen_gar_igenom(tmp_path, monkeypatch, utfall):
     Tom betyder att Lars inte angett något, och det ska gå: DEL C säger att
     utfallet anges MANUELLT när det inte går att avgöra.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     post = vy.spara_referenssvar(
         ett_fall(), "ett svar", utfall, tmp_path / "data" / "par.jsonl"
     )
@@ -755,7 +774,7 @@ def test_de_fem_tillatna_utfallen_gar_igenom(tmp_path, monkeypatch, utfall):
 
 def test_de_fyra_omdomena_loggas_atskilt(tmp_path, monkeypatch):
     """De fyra slås aldrig ihop till godkänt och icke godkänt."""
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     fil = tmp_path / "logg" / "omdomen.jsonl"
 
     for omdome in ("godkann", "forkasta", "neka"):
@@ -767,7 +786,7 @@ def test_de_fyra_omdomena_loggas_atskilt(tmp_path, monkeypatch):
 
 def test_forbattra_skriver_ocksa_ett_par(tmp_path, monkeypatch):
     """`forbattra` är den enda av de fyra som tränar rösten."""
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     parfil = tmp_path / "data" / "par.jsonl"
 
     vy.spara_omdome(
@@ -780,7 +799,7 @@ def test_forbattra_skriver_ocksa_ett_par(tmp_path, monkeypatch):
 
 
 def test_okant_omdome_avvisas(tmp_path, monkeypatch):
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     with pytest.raises(ValueError):
         vy.spara_omdome(ett_fall(), "kanske", omdomesfil=tmp_path / "logg" / "o.jsonl")
 
@@ -864,17 +883,24 @@ class FejkHanterare:
     `__init__`. Metoderna anropas obundna med ett objekt som bär det de rör.
     """
 
-    def __init__(self, hanterarklass, vag: str, kropp: str = ""):
+    def __init__(self, hanterarklass, vag: str, kropp: str = "",
+                 kaka: str = ""):
         self._klass = hanterarklass
         self.path = vag
-        self.headers = {"Content-Length": str(len(kropp.encode("utf-8")))}
+        self.headers = {
+            "Content-Length": str(len(kropp.encode("utf-8"))),
+            "Cookie": kaka,
+        }
         self.rfile = io.BytesIO(kropp.encode("utf-8"))
         self.svar = ""
         self.kod = 200
+        self.huvuden: list[tuple[str, str]] = []
 
-    def _svara(self, kropp: str, kod: int = 200) -> None:
+    def _svara(self, kropp: str, kod: int = 200,
+               extra: list[tuple[str, str]] | None = None) -> None:
         self.svar = kropp
         self.kod = kod
+        self.huvuden.extend(extra or [])
 
     # De privata hjälparna anropas obundna med fejken som `self`, precis som
     # `do_GET` och `do_POST`. Utan raderna når anropen inte fram, eftersom
@@ -884,6 +910,36 @@ class FejkHanterare:
 
     def _omdome(self, falt: dict) -> None:
         self._klass._omdome(self, falt)
+
+    # INLOGGNINGENS LED, skiva 53. Samma skäl som raderna ovan.
+    #
+    # **FEJKEN BÄR ETT TOMT `headers`-UPPSLAG SOM BÄR `Cookie`**, alltså ser
+    # `_inloggad` ingen session. Utan `konfiguration` spelar det ingen roll:
+    # `_inloggad` svarar ja när inloggningen är av, vilket är vad varje äldre
+    # rad i den här filen förutsätter.
+    def _inloggad(self) -> bool:
+        return self._klass._inloggad(self)
+
+    def _kravs_inloggning(self) -> bool:
+        return self._klass._kravs_inloggning(self)
+
+    def _borja_inloggning(self) -> None:
+        self._klass._borja_inloggning(self)
+
+    def _atervand(self) -> None:
+        self._klass._atervand(self)
+
+    # `send_response`, `send_header` och `end_headers` finns på den riktiga
+    # hanteraren och inte här. Omdirigeringarna i inloggningsflödet skriver
+    # genom dem, alltså fångas de upp så att ett test kan läsa dem.
+    def send_response(self, kod: int) -> None:
+        self.kod = kod
+
+    def send_header(self, namn: str, varde: str) -> None:
+        self.huvuden.append((namn, varde))
+
+    def end_headers(self) -> None:
+        pass
 
     def get(self) -> None:
         self._klass.do_GET(self)
@@ -926,7 +982,7 @@ def test_formularet_postar_till_SAMMA_index_som_visas():
 
 def test_ett_omdome_sparas_pa_den_post_vagen_pekar_ut(tmp_path, monkeypatch):
     """Samma fynd, prövat hela vägen genom POST och inte bara i renderingen."""
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     omdomesfil = tmp_path / "logg" / "omdomen.jsonl"
     poster = [
         _granskningsfall(fall=ett_fall(avsandare_hash="a" * 64)),
@@ -965,7 +1021,7 @@ def test_ett_omdome_utan_ENTYDIG_post_sparas_INTE(vag, tmp_path, monkeypatch):
     då ett par av FEL KUNDS text till `data/par.jsonl`, som generatorn läser.
     Fällt av §7-granskningen av skiva 34, varv 2.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     omdomesfil = tmp_path / "logg" / "omdomen.jsonl"
     poster = [
         _granskningsfall(fall=ett_fall(avsandare_hash="a" * 64)),
@@ -989,7 +1045,7 @@ def test_en_SPARRAD_post_vagrar_ta_emot_ett_omdome(tmp_path, monkeypatch):
     Renderingen visar inget formulär för den, men den här raden gäller ÄVEN ett
     direkt anrop mot rutten. Utan den vore förbudet bara en sak som inte syns.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     omdomesfil = tmp_path / "logg" / "omdomen.jsonl"
     poster = [_granskningsfall(forslag="", sparr="genererat-tal-har-kalla")]
     hanterare = vy.bygg_hanterare(
@@ -1015,7 +1071,7 @@ def test_en_post_UTAN_SVAR_vagrar_ta_emot_ett_omdome(tmp_path, monkeypatch):
 
     Posten bär `sparr=""`, alltså kan raden inte bli grön av spärrgrenen ovan.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     omdomesfil = tmp_path / "logg" / "omdomen.jsonl"
     poster = [_granskningsfall(forslag="", sparr="", inget_svar=True)]
     hanterare = vy.bygg_hanterare(
@@ -1039,7 +1095,7 @@ def test_INGET_SVAR_overlever_en_tur_genom_disken(tmp_path, monkeypatch):
     igen. Tappas nyckeln där renderas maskinmailen på nytt som tomma förslag med
     textfält och omdömesknappar, alltså precis det DEL B tog bort.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     fil = tmp_path / "data" / "granskningsfall.jsonl"
     vy.spara_granskningsfall(
         [_granskningsfall(forslag="", sparr="", inget_svar=True),
@@ -1084,7 +1140,7 @@ def test_ett_REFERENSSVAR_utan_ENTYDIG_post_sparas_INTE(vag, tmp_path, monkeypat
     `/referens/999` av tre fall skrev på post 2, `/` skrev på post 0, och
     `/referens/0/../1` skrev på post 1.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     parfil = tmp_path / "data" / "par.jsonl"
     fall = [
         ett_fall(avsandare_hash="a" * 64),
@@ -1114,7 +1170,7 @@ def test_ett_REFERENSSVAR_med_entydig_post_sparas(vag, tmp_path, monkeypatch):
     skriva för hand i adressfältet. Utan raden gick `.rstrip("/")` att ta bort
     med grön svit, alltså var permissiviteten oprövad enligt §7.1.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     parfil = tmp_path / "data" / "par.jsonl"
     fall = [
         ett_fall(avsandare_hash="a" * 64),
@@ -1139,7 +1195,7 @@ def test_sparade_granskningsfall_kommer_tillbaka_ORORDA(tmp_path, monkeypatch):
     Ett referenssvar skrivet mot ett utkast som aldrig kommer tillbaka är inte
     kopplat till något. Raden binder att varje fält överlever rundturen.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     fil = tmp_path / "data" / "granskningsfall.jsonl"
     fore = [
         _granskningsfall(forslag="Hej, det löser vi.",
@@ -1161,7 +1217,7 @@ def test_en_ny_korning_ERSATTER_de_gamla_fallen(tmp_path, monkeypatch):
     append-only enligt §0:s ramverksregel 4. Blandas de ihop får vyn dubbletter
     ur två körningar och Lars läser samma mail två gånger.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     fil = tmp_path / "data" / "granskningsfall.jsonl"
 
     vy.spara_granskningsfall([_granskningsfall(), _granskningsfall()], fil)
@@ -1178,7 +1234,7 @@ def test_granskningsfall_VAGRAR_skrivas_utanfor_data_och_logg(tmp_path, monkeypa
     Samma spärr som `spara_referenssvar` vilar på. Skulle sökvägen peka i repot
     hamnade kundtext i en katalog som pushas.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
 
     with pytest.raises(vy.Skrivfel):
         vy.spara_granskningsfall([_granskningsfall()], tmp_path / "src" / "x.jsonl")

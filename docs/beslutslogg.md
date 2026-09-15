@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.74.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
+**Version:** 0.75.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -6831,7 +6831,380 @@ med kvitterad återställning:
 
 ---
 
+## #119 — Driften byggs: Railway, inloggning och ett dagligt schema. #38 rättas.
+
+**Datum:** 2026-09-15 · **Berör:** `src/sokvagar.py`, `src/inloggning.py`,
+`src/vy.py`, `src/auth.py`, `src/kedja.py`, `src/generera.py`,
+`scripts/serva.py`, `scripts/dagligen.py`, `Dockerfile`, `.dockerignore`,
+#20, #37, #38
+
+**Beslut av Lars.** Boten körs på Railway bakom `mailagent.dasher.se`. Vyn nås
+med Sign in with Google som `info@autostockholm.se`. En daglig körning av
+`scripts/respond.py --inkorg`, utan sändning.
+
+---
+
+### EN SERVICE OCH INTE TVÅ, och det är Railway som avgör det
+
+Avläst ur `docs.railway.com` 2026-09-15, tre rader:
+
+  *"Each service can only have a single volume attached"*
+  Railways cron kör en services STARTKOMMANDO på schema.
+  *"If you see that a previous execution of your Cron service has a status of
+  `Active`, the execution is still running and any new executions will not be
+  run."*
+
+**DEN TREDJE RADEN ÄR DEN SOM AVGÖR.** En service vars startkommando är en
+webbserver avslutas aldrig, alltså är den permanent `Active`, alltså kör cron
+ALDRIG på den servicen. Inte "ibland" och inte "opålitligt": aldrig.
+
+Vyn läser `data/granskningsfall.jsonl` och den dagliga körningen skriver den. De
+måste dela katalog, och med ett volume per service betyder det samma service —
+varpå den servicens cron är utesluten av raden ovan. Schemat ligger därför i
+containern: `start.sh` startar `scripts/dagligen.py` i bakgrunden och
+`scripts/serva.py` i förgrunden.
+
+*Här stod att ett volume INTE KAN DELAS mellan två services, som en avläsning ur
+dokumentationen. Det står ingenstans där; det som står är att en service bara kan
+ha ETT volume. Slutsatsen är densamma, men premissen var påhittad och den
+verkliga är starkare. Fällt av §7-granskningen av skivan.*
+
+**#38 FÖRUTSÅG INTE DEN BEGRÄNSNINGEN.** Posten skrev att Railway ger "volume,
+cron och miljövariabler", vilket är sant var för sig och inte kombinerbart så
+som fasen antog.
+
+**SLINGAN STARTAR RESPOND SOM EN SUBPROCESS, och det ledet är lastbärande.**
+`scripts/respond.py` drar in `googleapiclient` genom `src/inkorg.py`.
+`vy.FORBJUDNA_MODULER` bär `googleapiclient`, och `vy.krav_pa_sandvagsfrihet`
+körs utan undantag för vyns egen graf. En slinga som IMPORTERADE respond hade
+fällt vyns spärr eller krävt att den mjukades upp. En subprocess rör inte
+importgrafen alls.
+
+---
+
+### #38 RÄTTAS: `token.json` SKA INTE UPP PÅ SERVERN
+
+#38 skrev riskförflyttningen som två poster, `data/par.jsonl` och `token.json`,
+och band att båda ligger på volymen.
+
+**DEN ANDRA POSTEN VAR ETT ANTAGANDE OCH INTE ETT KRAV.** Avläst denna dag:
+`scripts/respond.py --inkorg` hämtar sina credentials genom
+`src/inkorg.py::Lastjanst`, som kräver `token-las.json` med `gmail.readonly`.
+Vyn kräver ingen Gmail-token alls. **Ingen kod som körs på servern öppnar
+`token.json`.**
+
+**Lars beslut i den här skivan: bara `token-las.json` läggs på volymen.**
+Ordagrant hans skäl: sändförmågan ska inte finnas i miljön, inte bara vara
+bortbyggd. Det är samma skäl som §10-beslutet i skiva 48, där fyra kodlager
+ersattes av ett scope Google upprätthåller.
+
+**FÖLJDEN:** #38:s andra riskpost upphör. Ett intrång på Railway når ingen
+credential som kan skicka mail. Fas 7 kräver ett eget beslut och en egen
+auktorisering på servern, vilket §10 ändå kräver.
+
+---
+
+### VAD SOM FAKTISKT FLYTTAR, mätt och inte antaget
+
+Lars beslut: bara de filer servern läser. Avläst denna dag:
+
+| Fil | Byte | Poster | e-post | mobil | fastnät | regnr | personnr |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `data/par.jsonl` | 249 305 | 222 | 321 | 87 | 19 | 57 | 4 |
+| `data/ometiketterade.jsonl` | 1 147 810 | 861 | 777 | 215 | 291 | 267 | 28 |
+| `data/granskningsfall.jsonl` | 18 970 | 20 | 16 | 14 | 7 | 4 | 0 |
+| `data/taxonomi.json` | 703 | 28 | 0 | 0 | 0 | 0 | 0 |
+| **Summa** | **1 416 788** | | | | | | |
+
+**TABELLEN KOMMER UR `scripts/persondatamatning.py`, som är committad.**
+§7-granskningen kunde först inte räkna om kolumnerna e-post, mobil och fastnät:
+mönstren låg i en ogitad fil, och repots enda committade uppsättning,
+`scripts/persondatakontroll.py`, bär ett enda telefonmönster och inget för
+fastnät. Ett tal som bara författaren kan räkna om är i praktiken oläst (§7.2),
+alltså är mätskriptet nu en del av repot.
+
+**TALEN ÄR MÖNSTERTRÄFFAR OCH INTE BEKRÄFTADE UPPGIFTER.** `personnr` räknar
+strängar på formen `ÅÅMMDD-NNNN`; ett ordernummer med samma form räknas med.
+Ett första mätvarv med lösare mönster gav `logg/beslut.jsonl` 168 telefonnummer
+och `data/par.jsonl` 69 personnummer. Båda var falska: den lösa telefonformen
+matchar en ISO-tidsstämpel. Mätningen gjordes om per fält.
+
+**SIFFRAN ÄR EN ÖVRE GRÄNS FÖR SIN EGEN SORT och säger ingenting om resten.** Ett
+namn eller en adress fångas inte av något mönster alls.
+
+**VAD SOM STANNAR PÅ LARS MASKIN:**
+
+| Fil | Byte |
+| --- | ---: |
+| `data/tradar.jsonl` | 18 305 983 |
+| `data/tradar_obesvarade.jsonl` | 86 589 733 |
+| `data/kategorisvar.jsonl` | 1 148 519 |
+| **Summa** | **106 044 235** |
+
+**75 GÅNGER MER KUNDMAIL STANNAR ÄN FLYTTAR.** Ingen kod på servern öppnar de
+tre: de är miningens skördar och etiketteringens utdata. Lars ordagranna skäl:
+att de rymdes i planen är inget skäl att flytta dem.
+
+---
+
+### VAD SERVERN SJÄLV SKAPAR, och det är MER än det som flyttar dit
+
+Riskförflyttningen slutar inte vid det som laddas upp. `respond.py --inkorg`
+SKRIVER `data/inkorg-dagens.jsonl` vid varje körning, och den filen är i dag
+3 194 225 byte för 53 trådar och 75 meddelanden.
+
+**DEN BÄR GMAILS RÅA NYTTOLAST**, alltså mer än `par.jsonl`: huvudena `From`,
+`To`, `CC`, **`Bcc`**, `Reply-To`, `Return-Path`, `Delivered-To` och `Subject`,
+plus `snippet` och brödtexten base64-kodad. `Bcc` är uppgifter mottagarna själva
+inte ser.
+
+**DET ÄR DEN STÖRSTA POSTEN I RISKFÖRFLYTTNINGEN och den stod inte i #38.**
+Posten räknade vad som flyttar och inte vad som uppstår.
+
+Loggarna bär mindre: `logg/beslut.jsonl` gav **noll** träffar på samtliga
+mönster över 285 poster, vilket bekräftar `respond.py`:s egen utfästelse att den
+skriver räknare och aldrig kundtext. `logg/uppslag.jsonl` bär 87
+registreringsnummer i 87 poster, alltså ett per uppslag. **De unika är 13**: samma
+fordon slås upp om vid varje körning.
+
+---
+
+### INLOGGNINGEN: vad som byttes mot vad
+
+**FRAM TILL NU HINDRADES OMVÄRLDEN AV EN SAK:** `vy.starta` band `127.0.0.1`.
+Den spärren är absolut och kan inte brytas av en rad i vår kod.
+`test_servern_binder_bara_loopback` vaktar den, och §7-granskningen av skiva 27
+fällde att påståendet dessförinnan var ovaktat.
+
+Railway kräver `0.0.0.0`. **Bytet är från ett starkt skydd till ett svagare**,
+och villkoret är att de två inte går att skilja åt:
+`vy.krav_pa_inloggning_utanfor_loopback` kastar `Oskyddad` om adressen inte är
+loopback medan inloggningen är osatt. Utan den raden går bindningen att vidga
+med en miljövariabel medan inloggningen saknas, och då ligger rå kundtext öppet
+utan att något blir rött.
+
+**SCOPE: `openid email`, OCH INTE `profile`. Lars §10-beslut.** `profile` hämtas
+bara för att kunna visa ett namn, och med ett delat konto finns inget namn att
+visa. Vyn skriver adressen i stället. Samma princip som `LASSCOPES`.
+
+**TRE LED I PRÖVNINGEN, plus tre till.** `hd` ur SVARET och inte parametern i
+begäran, `email` exakt lika med `info@autostockholm.se`, och `state` mot CSRF.
+Därtill `iss`, `aud` och `exp`. Sju rader, var och en fällbar för sig.
+
+**DET VIKTIGASTE TESTFALLET ÄR EN ANNAN ADRESS PÅ SAMMA DOMÄN.** En sådan
+klarar `hd`-kontrollen och Googles Internal-spärr, alltså släpper båda de leden
+igenom den. Bara adressledet fäller den, och #37 säger att inloggningen sker som
+info@ och som ingen annan. INGEN WHITELIST: det finns ingen lista, det finns en
+adress.
+
+*Här stod en bokstavlig adress på domänen. Persondatakontrollen fällde
+commit:en, och §9.1 gör en fälld spärr till ett stopptecken. Lars beslut: beskriv
+formen i stället för att skriva ut en sträng som har den. Det är samma åtgärd
+skiva 33 landade i, och skälet står i `scripts/persondatakontroll.py`: ett
+undantag som tystar en spärrs eget bevis är inget undantag.*
+
+**`anspraken_ur` PRÖVAR INGEN SIGNATUR, och det håller bara i ett läge.**
+Tokenet hämtas av `vaxla_kod` direkt från Googles tokenslutpunkt över TLS med
+vår klienthemlighet, och OpenID Connect säger att ett token som tas emot så inte
+behöver signaturprövas. `test_id_token_kommer_BARA_ur_tokenslutpunkten` läser
+källtexten och fäller om en andra anropare tillkommer. Kommer ett id_token någon
+annan väg krävs signaturprövning mot Googles JWKS.
+
+---
+
+### SÖKVÄGARNA LÄGGS OM, och förvalen är repots egna
+
+`src/sokvagar.py` är enda platsen som avgör var `data/`, `logg/` och
+hemligheterna bor. Utan miljövariabler pekar allt precis där det pekade före
+skivan; det var villkoret för att omläggningen fick göras alls.
+
+**`config/` OCH `mallar/` FLYTTAR INTE.** De är §10-grindade och versionerade
+och ska ändras genom en deploy, aldrig genom att någon redigerar en fil på en
+server. Att de inte går att flytta är en egenskap.
+
+**FEM MODULER LADES OM, inte alla.** `src/auth.py`, `src/vy.py`, `src/kedja.py`,
+`src/generera.py` och `scripts/respond.py`, alltså exakt de som läser filer i
+driftvägen. Offlineverktygen under `scripts/` pekar fortfarande på repots
+`data/`, och det är riktigt: de körs på Lars maskin.
+
+**EN DRIFTBUGG FÅNGADES AV OMLÄGGNINGEN.** `vy.krav_pa_skrivbar_sokvag` mätte
+`relative_to(ROT)` plus ett krav på att första leden heter `data` eller `logg`.
+På volymen ligger katalogerna utanför repot helt, alltså hade VARJE skrivning
+kastat `Skrivfel` och boten stått still första dagen. Spärren mäter nu mot
+katalogerna, som pekas ut på ett enda ställe. Den blev inte svagare: de är
+fortfarande exakt två.
+
+---
+
+### SCHEMAT: 05:10 UTC
+
+**TIDPUNKTEN ÄR VALD OCH INTE MÄTT.** 05:10 UTC är 07:10 svensk sommartid och
+06:10 vintertid, alltså ligger utkasten i vyn när verkstaden öppnar. Kvarten
+över är medveten: hel timme är när allt annat kör, och både Anthropics API och
+biluppgifter.se är tredjeparter.
+
+**SOMMARTIDEN FLYTTAR KÖRNINGEN EN TIMME.** Ett UTC-schema betyder att det
+svenska klockslaget rör sig vid omställningen. Alternativet vore en
+tidszonsberoende slinga, och en timmes glidning två gånger om året är inte värd
+den komplexiteten.
+
+**INGEN SÄNDNING.** `respond.py` har ingen `--send`, och
+`test_dagliga_kommandot_bar_INGEN_sandflagga` läser kommandoraden som ett andra
+lager. §10:s stopp om första sändningen i en ny miljö gäller oförändrat.
+
+---
+
+### KÄND LUCKA: ETT MISSLYCKANDE SYNS BARA I LOGGEN
+
+**En misslyckad körning loggas till `logg/korningar.jsonl` och till Railways
+logg. Ingenting når Lars.** Han märker det genom att vyn inte har några nya
+utkast den dagen.
+
+Slingan fångar allt och kastar aldrig vidare, alltså kostar ett misslyckande ETT
+dygn och inte alla följande. `test_en_MISSLYCKAD_korning_DODAR_INTE_slingan`
+binder det.
+
+**VÄRRE FALLET ÄR ATT SJÄLVA SLINGAN DÖR.** Vyn är förgrundsprocessen och det är
+den Railway mäter, alltså lever containern vidare med ett dött schema. Då står
+boten still utan att något larmar, och den enda signalen är utebliven post i vyn.
+
+**DET ÄR EN ÖPPEN PUNKT OCH INTE EN LÖST SAK.** En avisering, en
+hälsokontroll som läser `logg/korningar.jsonl`, eller en rad i vyn som visar när
+senaste körningen lyckades är tre möjliga vägar. Ingen av dem är byggd, och
+vilken som väljs är Lars beslut.
+
+---
+
+### ÖPPNA PUNKTEN UR #20 OCH #38 ÄR DELVIS STÄNGD
+
+#38 lämnade öppet hur `token.json` och `client_secret.json` skyddas från annat
+som kör på servern.
+
+**DELVIS STÄNGD:** `token.json` läggs inte upp alls, och webbklientens hemlighet
+är en miljövariabel och inte en fil. `MAILBOT_HEMLIGHETER` är en EGEN variabel
+skild från `MAILBOT_DATA`, så att credentials och kundtext går att lägga på var
+sitt ställe med var sina rättigheter.
+
+**KVAR ÄR:** `token-las.json` ligger som en fil på volymen, läsbar av allt som
+kör i containern. Containern kör vår kod och ingenting annat, alltså är den
+faktiska ytan liten, men det är en begränsning av vad som körs och inte en
+rättighetsgräns.
+
+---
+
+
+### §7-GRANSKNINGEN GAV SEX FYND. Alla sex är rättade före skepp.
+
+Därtill ett sjunde som jag hittade själv medan granskningen kördes, och som är
+det allvarligaste efter F1.
+
+  1. **HELA INLOGGNINGEN GICK ATT KOPPLA UR MED GRÖN SVIT.** `starta` prövar
+     spärren och `bygg_hanterare` upprätthåller den, men ingen rad band att
+     konfigurationen når fram. Uppmätt: `konfiguration=konfiguration)` ersatt med
+     `konfiguration=None)` gav 1722 gröna, och då svarar `GET /referens/0` UTAN
+     kaka med 200 och kundtexten i kroppen. Skälet: varje grindtest byggde
+     hanteraren direkt, och det enda test som gick genom `starta` läste bara
+     `server_address`. `test_starta_LAMNAR_VIDARE_konfigurationen_till_hanteraren`
+     binder tråden, med formen lånad ur skiva 36:s motsvarande rad. RÖD.
+  2. **`src/smugglad.jsonl` LÅG I `src/` OCH FÖLJDE MED IN I AVBILDEN.**
+     `test_loggen_vagrar_skriva_utanfor_logg_och_data` pekade på det RIKTIGA
+     repot. Så länge spärren höll skrevs ingenting, men ett negativtest vars enda
+     skydd är den spärr det prövar är fel konstruerat: en §7.1-prövning skapade
+     filen på riktigt, i en spårad katalog. Innehållet var syntetiskt, alltså
+     läckte ingen persondata. Orphanen är städad och testet pekar på `tmp_path`.
+  3. **`.dockerignore` HAR INTE GITIGNORE-SEMANTIK.** Ett mönster utan `**/`
+     matchar bara i byggkontextens rot. Uppmätt: `hemligheter/token.json`,
+     `hemligheter/token-las.json`, `hemligheter/client_secret.json` och
+     `underkatalog/.env` hamnade ALLA i avbilden medan `git check-ignore`
+     ignorerade dem. Det är levande just här: `MAILBOT_HEMLIGHETER` finns för
+     att credentials ska kunna ligga i en underkatalog. Beviset låg redan i den
+     byggda avbilden: `__pycache__` stod listat och `/app/src/__pycache__/*.pyc`
+     fanns ändå där. Båda formerna står nu, och
+     `test_dockerignore_utesluter_hemligheter_PA_VARJE_DJUP` MÄTER mot mönstren
+     i stället för att jämföra radlistor.
+  4. `src/vy.py`:s modulhuvud sade *"DEN HÄR SKIVAN KÖR BARA LOKALT. Ingen
+     Railway, ingen inloggning."* Sant till och med skiva 52, falskt av den här
+     skivan. Rättat till två driftlägen.
+  5. `peka_om_katalogerna` i `tests/test_vy.py` citerade den NYA formen som den
+     gamla. Rättat.
+  6. **RAILWAY-PREMISSEN VAR PÅHITTAD**, se avsnittet ovan. Slutsatsen står kvar
+     och grunden är nu den som faktiskt går att läsa.
+
+**DET SJUNDE, funnet under granskningen och inte av den:** en miljövariabel
+kunde peka data- eller loggkatalogen IN I REPOT. Uppmätt med `MAILBOT_LOGG`
+pekad på `src/`: `krav_pa_skrivbar_sokvag` släppte igenom en skrivning dit.
+
+Före skivan hårdkodade spärren `data/` och `logg/` under repots rot, alltså var
+det omöjligt. När katalogerna blev flyttbara blev de flyttbara också tillbaka in
+i repot, och vyn hade då skrivit rå kundtext till en SPÅRAD katalog. **Det är den
+tystaste formen av §6-läcka:** filen hamnar i git i stället för hos Railway,
+alltså på ett ställe där den inte går att ta bort i efterhand.
+
+`sokvagar._krav_pa_lage` kastar `Sokvagsfel` för varje läge inuti repot utom de
+som är gitignorerade var för sig: `data/` för `MAILBOT_DATA`, `logg/` för
+`MAILBOT_LOGG` och repotets rot för `MAILBOT_HEMLIGHETER`, där tokenfilerna
+ligger. Utanför repot prövas ingenting: `/volym/data` är driftens sak.
+
+**NITTON SPÄRRAR PRÖVADES MED `scripts/sparr-prova.sh`, en rad i taget**, och
+samtliga blev röda med kvitterad återställning: vyns fyra grindar, inloggningens
+sex anspråksled, signaturen, sessionens utgång, adressen i kakan, den korta
+nyckeln, http-omdirigeringen, `saknas`-ledet, `state`, sökvägarnas tomma värde
+och den dagliga slingans breda `except`.
+
+**NOTERING, INTE EN LUCKA: `scripts/persondatakontroll.py` GRANSKAR INTE
+`src/`.** Hooken läser stagade filer under `docs/`, `mallar/`, `config/`,
+`scripts/` och `CLAUDE.md`. Följden är att fyra committade strängar på
+registreringsnummerform passerar oprövade: en ruff-kod för bred `except`, som
+står som `noqa`-kommentar i `src/kedja.py`, `src/kanal.py`, `src/ometikettera.py`
+och `src/kategorisera.py`. Samma sträng i `scripts/dagligen.py` fällde commit:en
+i den här skivan.
+
+*Koden skrivs inte ut här. Den bär tre versaler följda av tre siffror, alltså
+exakt regnr-formen, och att skriva den i ett dokument fäller spärren en gång
+till. Det hände under den här skivan: den första lydelsen av det här stycket
+citerade strängen och blev fälld.*
+
+De fyra är orörda (§3): de är inte den här skivans. **Att bredda hooken är en
+egen skiva och ett eget beslut**, och ska inte glida in här. Lars beslut.
+
+**SPÄRREN FÄLLDE OCH ORSAKEN TOGS BORT, inte spärren.** Två träffar: en adress
+på domänen i den här posten, och ruff-koden ovan. §9.1 gör en fälld spärr till
+ett stopptecken, och båda åtgärderna är Lars beslut. Adressen är ersatt av en
+BESKRIVNING av formen, `noqa`-kommentaren är struken eftersom ruff inte finns i
+`requirements.txt` och inte körs någonstans. Ingen sträng lades i `TILLATNA`:
+listan rymmer företagets strängar, aldrig en persons, och rad 91 säger att inget
+registreringsnummer får stå där.
+
+**EN KVARSTÅENDE AVGRÄNSNING, och den ska stå utskriven.** Att `token.json` inte
+behövs på servern gäller vad containern STARTAR, inte vad den KAN köra.
+`src/mine.py` och `src/auth.py` ligger i avbilden och når `hamta_credentials`
+med `SCOPES` genom sina CLI-`main()`. `start.sh` anropar ingen av dem, och utan
+filen faller de på `AuthFel`. Inget test binder det.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.75.0 — 2026-09-15
+
+**#119 TILLKOMMER: driften byggs.** Railway med ett volume, Sign in with Google
+som info@, och ett dagligt schema utan sändning.
+
+**#38 RÄTTAS PÅ EN PUNKT.** `token.json` behövs inte på servern: avläst denna
+dag kräver `respond.py --inkorg` bara `token-las.json`, och vyn kräver ingen
+Gmail-token alls. Lars beslut: bara läsatokenet läggs upp. Riskförflyttningens
+andra post upphör.
+
+**RISKFÖRFLYTTNINGEN ÄR OMMÄTT**, och mätskriptet är committat som
+`scripts/persondatamatning.py`. 1 416 788 byte flyttar, 106 044 235 byte stannar.
+Den största posten är den servern SJÄLV skapar, `data/inkorg-dagens.jsonl`, som
+#38 inte räknade.
+
+**§7-GRANSKNINGEN GAV SEX FYND, alla rättade före skepp**, plus ett sjunde funnet
+under tiden. Det allvarligaste: hela inloggningen gick att koppla ur med grön
+svit, eftersom ingen rad band tråden mellan `starta` och `bygg_hanterare`.
+
+Ny beslutspost ⇒ MINOR.
 
 ### 0.74.0 — 2026-09-15
 

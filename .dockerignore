@@ -1,0 +1,65 @@
+# VAD SOM ALDRIG FÅR HAMNA I AVBILDEN. CLAUDE.md §6.
+#
+# **DEN HÄR FILEN ÄR §6-GRÄNSEN MOT RAILWAY.** Allt som inte står här kopieras
+# in av `COPY . .` i Dockerfile och följer med till en tredjepartsleverantör vid
+# varje deploy. En avbild går dessutom att ladda ner av den som har åtkomst till
+# registret, alltså är en fil i avbilden lika exponerad som en fil på disken.
+#
+# Det som ska finnas i drift ligger på VOLYMEN och läggs dit av Lars en gång.
+# Inget av det passerar genom en deploy.
+
+# **`.dockerignore` HAR INTE GITIGNORE-SEMANTIK, och det ledet är fällt fram.**
+# Ett mönster utan `**/` matchar mot HELA den relativa sökvägen, alltså bara i
+# byggkontextens rot. `.gitignore` utan snedstreck matchar på VARJE djup.
+#
+# Uppmätt i skiva 53: med bara rotformerna hamnade `hemligheter/token.json`,
+# `hemligheter/token-las.json`, `hemligheter/client_secret.json` och
+# `underkatalog/.env` ALLA i den byggda avbilden, medan `git check-ignore`
+# ignorerade dem. Det är levande just här: `MAILBOT_HEMLIGHETER` finns för att
+# credentials ska kunna ligga någon annanstans än i roten, och pekas den mot en
+# underkatalog blir tokenfilerna gitignorerade och ändå skeppade.
+#
+# Beviset låg redan i avbilden: `__pycache__` och `*.pyc` stod listade och
+# `/app/src/__pycache__/*.pyc` fanns ändå där.
+#
+# **BÅDA FORMERNA STÅR DÄRFÖR, rot och varje djup.** Fällt av §7-granskningen av
+# skiva 53.
+
+# KUNDTEXT. `data/` bär par, korpusar och skördar; `logg/` bär besluten.
+# Gitignorerade av samma skäl.
+data/
+logg/
+**/data/
+**/logg/
+
+# CREDENTIALS. `token.json` kan skicka mail som info@autostockholm.se.
+# `token-las.json` kan läsa brevlådan. `client_secret.json` är desktopklientens.
+# Webbklientens hemlighet kommer ur en miljövariabel och finns inte som fil.
+token.json
+token-las.json
+client_secret.json
+.env
+**/token*.json
+**/client_secret.json
+**/.env
+
+# ARBETSMATERIAL. `scratchpad/` bär rapporter som citerar kundtext.
+scratchpad/
+**/scratchpad/
+
+# UTVECKLINGSMILJÖN. Ingen av dem behövs i drift, och `.venv/` bär dessutom en
+# byggd Python som inte matchar avbildens.
+.venv/
+.git/
+__pycache__/
+*.pyc
+.DS_Store
+tests/
+pytest.ini
+.pytest_cache/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+
+# DOKUMENTATIONEN. Beslutsloggen är 6700 rader och behövs inte i drift.
+docs/

@@ -59,14 +59,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-from src import biluppgifter, fordonsuppslag, generera, ometikettera
+from src import biluppgifter, fordonsuppslag, generera, ometikettera, sokvagar
 from src.fordonsuppslag import UppslagMisslyckades, Uppslag, Utfall
 from src.generera import Forfragan, Sparrfalld
 from src.vy import Fall, Granskningsfall, krav_pa_skrivbar_sokvag
 
 ROT = Path(__file__).resolve().parent.parent
-BESLUTSLOGG = ROT / "logg" / "beslut.jsonl"
-TAXONOMIFIL = ROT / "data" / "taxonomi.json"
+
+# KATALOGERNA UR `src/sokvagar.py`, skiva 53. Se den modulens huvud.
+BESLUTSLOGG = sokvagar.LOGG / "beslut.jsonl"
+TAXONOMIFIL = sokvagar.DATA / "taxonomi.json"
 
 # KATEGORIERNA SOM GATAS AV FORDONSUPPSLAGET, ur `docs/roadmap.md` fas 4.5.
 # Samma tre som `vy.A_TRAKTORETIKETTER`, och de står här som en egen tupel

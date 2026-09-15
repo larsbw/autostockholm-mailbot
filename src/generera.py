@@ -57,11 +57,18 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from src import sokvagar
 from src.fordonsuppslag import Uppslag, Utfall
 
 ROT = Path(__file__).resolve().parent.parent
-PAR = ROT / "data" / "par.jsonl"
-OMETIKETTERADE = ROT / "data" / "ometiketterade.jsonl"
+
+# KORPUSARNA UR `src/sokvagar.py`, skiva 53. Se den modulens huvud.
+PAR = sokvagar.DATA / "par.jsonl"
+OMETIKETTERADE = sokvagar.DATA / "ometiketterade.jsonl"
+
+# **`config/` FLYTTAR INTE, och det är avsiktligt.** Båda filerna är §10-grindade
+# och versionerade: de ska ändras genom en deploy och aldrig genom att någon
+# redigerar en fil på en server. Se `src/sokvagar.py`.
 PRISER = ROT / "config" / "priser.json"
 FAKTA = ROT / "config" / "fakta.json"
 

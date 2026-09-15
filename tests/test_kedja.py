@@ -19,6 +19,7 @@ from src.fordonsuppslag import UppslagMisslyckades, Utfall
 from src.kedja import Arende, Kallfel, Kedjeutfall, Steg
 from tests.sentinelpris import SENTINELPRIS_IHOP
 from tests.test_vy import FejkHanterare
+from tests.test_vy import peka_om_katalogerna
 
 HINKAR = {
     "standardhink": "utkast",
@@ -427,7 +428,7 @@ def test_INGET_SVAR_star_i_loggraden(tmp_path, monkeypatch):
     `blev_utkast: false` med `sparr: null` betyder annars antingen ett källfel
     eller ett INGET SVAR, och de två är olika saker.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     loggfil = tmp_path / "logg" / "beslut.jsonl"
     klient = FejkKlient("inget kundärende", "onådd")
 
@@ -752,7 +753,7 @@ def test_SKALET_overlever_vagen_till_disk_och_tillbaka(tmp_path, monkeypatch):
     )
     # `krav_pa_skrivbar_sokvag` binder `data/` ELLER `logg/` UNDER REPOTS ROT,
     # alltså måste roten peka om innan filen får skrivas.
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     fil = tmp_path / "data" / "granskningsfall.jsonl"
     fil.parent.mkdir(parents=True)
 
@@ -833,7 +834,7 @@ def test_en_kategori_i_TVA_hinkar_larmar():
 
 def test_loggen_bar_det_lars_bad_om(tmp_path, monkeypatch):
     """Kategori, uppslagets utfall, spärrar, och om det blev ett utkast."""
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     loggfil = tmp_path / "logg" / "beslut.jsonl"
     utfall = Kedjeutfall(
         kategori="fråga om a-traktorkonvertering",
@@ -980,7 +981,7 @@ def test_ett_KALLFEL_lamnar_ocksa_en_rad(tmp_path, monkeypatch):
     ofta källan svek, och den skillnaden är vad `Kallfel` byggdes för att
     bevara. Fällt av §7-granskningen av skiva 34, varv 2.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     loggfil = tmp_path / "logg" / "beslut.jsonl"
 
     post = kedja.logga_kallfel(
@@ -1012,7 +1013,7 @@ def test_KALLFELSRADEN_bar_ALDRIG_undantagets_MEDDELANDE(tmp_path, monkeypatch):
     satt till tom sträng: vakuös enligt §7.1. Fällt av §7-granskningen av skiva
     34, varv 3.*
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     loggfil = tmp_path / "logg" / "beslut.jsonl"
 
     fel = Kallfel(
@@ -1047,7 +1048,7 @@ def test_loggen_bar_ALDRIG_utkastets_text(tmp_path, monkeypatch):
     En logg som bär texten blir en persondatafil som lever kvar. Raden säger att
     ett utkast blev till och hur långt det var, aldrig vad det stod i.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     loggfil = tmp_path / "logg" / "beslut.jsonl"
     hemligt = "Hej Sigrid, din Volvo V50 går bra att bygga om."
     utfall = Kedjeutfall(kategori="x", hink="utkast", utkast=hemligt)
@@ -1071,7 +1072,7 @@ def test_loggen_bar_ALDRIG_SPARRENS_SKAL(tmp_path, monkeypatch):
     Det maskinläsbara som skuggläget behöver är VILKEN spärr som fällde, och det
     står i `sparr`. Fällt av §7-granskningen av skiva 34, varv 1.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     loggfil = tmp_path / "logg" / "beslut.jsonl"
     utfall = Kedjeutfall(
         kategori="x",
@@ -1089,7 +1090,7 @@ def test_loggen_bar_ALDRIG_SPARRENS_SKAL(tmp_path, monkeypatch):
 
 def test_loggen_bar_ALDRIG_en_avsandaradress(tmp_path, monkeypatch):
     """§6: loggar bär hashade avsändare, aldrig adresser."""
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     loggfil = tmp_path / "logg" / "beslut.jsonl"
     utfall = Kedjeutfall(kategori="x", hink="utkast")
 
@@ -1109,7 +1110,7 @@ def test_beslutsloggen_ar_APPEND_ONLY(tmp_path, monkeypatch):
     öppning i `w`-läge är en enda bokstavs skillnad, och den skillnaden skulle
     tysta hela underlaget för skuggläget utan att något annat test märkte det.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     loggfil = tmp_path / "logg" / "beslut.jsonl"
 
     kedja.logga_beslut(arende(), Kedjeutfall(kategori="ett", hink="utkast"),
@@ -1124,12 +1125,22 @@ def test_beslutsloggen_ar_APPEND_ONLY(tmp_path, monkeypatch):
 
 
 def test_loggen_vagrar_skriva_utanfor_logg_och_data(tmp_path):
-    """`krav_pa_skrivbar_sokvag` gäller även den här loggen."""
+    """`krav_pa_skrivbar_sokvag` gäller även den här loggen.
+
+    **MÅLET LIGGER I `tmp_path` OCH INTE I REPOT, och det ledet är fällt fram.**
+    Raden pekade på `kedja.ROT / "src" / "smugglad.jsonl"`, alltså på det
+    RIKTIGA repot. Så länge spärren håller skrivs ingenting, men ett negativtest
+    vars enda skydd är den spärr det prövar är fel konstruerat: fälls spärren av
+    en §7.1-prövning skapas filen på riktigt, i en SPÅRAD katalog, och varken
+    `.gitignore`, `.dockerignore` eller `scripts/persondatakontroll.py` hindrar
+    att den committas. Uppmätt: filen fanns i arbetsträdet och följde med in i
+    den byggda avbilden. Fällt av §7-granskningen av skiva 53.
+    """
     with pytest.raises(vy.Skrivfel):
         kedja.logga_beslut(
             arende(),
             Kedjeutfall(kategori="x", hink="utkast"),
-            loggfil=kedja.ROT / "src" / "smugglad.jsonl",
+            loggfil=tmp_path / "src" / "smugglad.jsonl",
         )
 
 

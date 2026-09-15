@@ -71,7 +71,7 @@ import yaml  # noqa: E402
 
 from src import (biluppgifter, extract, generera, inkorg,  # noqa: E402
                  kanal, kategorisera, kedja, klassa_maskin, maskera,
-                 urval, vy)
+                 sokvagar, urval, vy)
 from src.kedja import Arende, Kallfel  # noqa: E402
 
 ROT = Path(__file__).resolve().parent.parent
@@ -106,7 +106,7 @@ ANTAL_FORVAL = 20
 # skiljer sig från `data/tradar.jsonl` och `data/tradar_obesvarade.jsonl`, som är
 # miningens skördar: en skuggkörning får inte skriva över materialet paren och
 # taxonomin vilar på.
-SKORD = ROT / "data" / "inkorg-dagens.jsonl"
+SKORD = sokvagar.DATA / "inkorg-dagens.jsonl"
 
 
 def bygg_kalla(paus_s: float = PAUS_S):

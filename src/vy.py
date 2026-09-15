@@ -1,12 +1,24 @@
-"""Utkastvyn, fas 5.5. Lokal körning, ingen inloggning, INGEN SÄNDVÄG.
+"""Utkastvyn, fas 5.5. INGEN SÄNDVÄG.
 
 Vyn är där Lars läser inkommande mail och skriver referenssvar, och där botens
 förslag senare granskas med fyra omdömen. `docs/roadmap.md` fas 5.5 bär specen,
 och `docs/beslutslogg.md` #39 och #40 bär besluten.
 
-**DEN HÄR SKIVAN KÖR BARA LOKALT.** Ingen Railway, ingen inloggning. Hosting och
-auth är en egen skiva, se #37 och #38. Vyn ska gå att se och rätta innan den
-exponeras.
+**TVÅ DRIFTLÄGEN SEDAN SKIVA 53.**
+
+  LOKALT   `starta` binder `127.0.0.1` och kräver ingen inloggning. Det är
+           förvalet, och det är vad `scripts/kor-vy.py`, `respond.py --vy` och
+           `scripts/kedja-prov.py` får.
+  UTÅT     `scripts/serva.py` binder `0.0.0.0` bakom Sign in with Google, se
+           `src/inloggning.py` och #37. Då kräver VARJE rutt en giltig session.
+
+**DE TVÅ GÅR INTE ATT SKILJA ÅT.** `krav_pa_inloggning_utanfor_loopback` kastar
+om bindningen vidgas medan inloggningen är osatt.
+
+*Här stod att den här skivan kör BARA LOKALT, att det inte finns någon Railway
+och ingen inloggning, och att hosting och auth är en egen skiva. Det var sant
+till och med skiva 52 och blev falskt av skiva 53, som är den skivan. Fällt av
+§7-granskningen av skiva 53.*
 
 TVÅ LÄGEN.
 
@@ -41,16 +53,28 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs
 
+from src import inloggning, sokvagar
+
 ROT = Path(__file__).resolve().parent.parent
-OMETIKETTERADE = ROT / "data" / "ometiketterade.jsonl"
-PAR = ROT / "data" / "par.jsonl"
-OMDOMEN = ROT / "logg" / "omdomen.jsonl"
+
+# DE TVÅ KATALOGER VYN FÅR SKRIVA I, skiva 53. Egna namn på modulnivå därför att
+# `krav_pa_skrivbar_sokvag` slår upp dem VID ANROPET: ett test som flyttar dem
+# ska flytta spärren med sig. Se `skrivbara_kataloger`.
+DATAKATALOG = sokvagar.DATA
+LOGGKATALOG = sokvagar.LOGG
+
+# KATALOGERNA UR `src/sokvagar.py`, skiva 53. Förvalen är `ROT / "data"` och
+# `ROT / "logg"`, alltså oförändrat lokalt. På Railway pekar de in i volymen,
+# eftersom containern töms vid varje deploy (#38).
+OMETIKETTERADE = sokvagar.DATA / "ometiketterade.jsonl"
+PAR = sokvagar.DATA / "par.jsonl"
+OMDOMEN = sokvagar.LOGG / "omdomen.jsonl"
 
 # GRANSKNINGSFALLEN, alltså utkasten vyn visar. Ligger i `data/` och INTE i
 # `logg/`, av två skäl som pekar åt samma håll: skiva 34 beslutade att
 # `logg/beslut.jsonl` aldrig bär utkastets text (#62), och `data/` är
 # gitignorerad och bär redan `par.jsonl` med rå kundtext.
-GRANSKNINGSFALL = ROT / "data" / "granskningsfall.jsonl"
+GRANSKNINGSFALL = sokvagar.DATA / "granskningsfall.jsonl"
 
 # Kategorierna vyn visar. DEL C i skiva 27: Lars ska kunna välja fall som täcker
 # de fyra utfallen, och a-traktor är den enda ärendetyp fas 4.5 gatar.
@@ -374,29 +398,69 @@ def krav_pa_sandvagsfrihet(start: str = "src.vy", rot: Path | None = None,
             )
 
 
+def skrivbara_kataloger(rot: Path | None = None) -> tuple[Path, Path]:
+    """De två katalogerna vyn får skriva i, uppslagna VID ANROPET.
+
+    **URSPRUNGET FLYTTADE I SKIVA 53.** Katalogerna hette `data/` och `logg/`
+    UNDER REPOTS ROT, och det räckte så länge allt låg i repot. På Railway ligger
+    de på ett volume, alltså utanför roten helt, och den gamla formen hade fällt
+    varje skrivning i drift. Se `src/sokvagar.py`.
+
+    **UPPSLAGET SKER VID ANROPET och inte i en förvalsparameter.** Ett förval i
+    en signatur binds när modulen laddas, alltså före varje test som pekar om
+    katalogerna. `docs/incidentlogg.md` I1 bär precis den defekten, och `_rot`
+    ovan finns av samma skäl.
+
+    `rot` är kvar och styr fortfarande: pekas den om gäller katalogerna under
+    DEN roten. Den formen används av `tests/test_kedja.py`, som prövar spärren
+    mot en konstruerad rot.
+    """
+    if rot is not None:
+        return (rot / "data", rot / "logg")
+    return (DATAKATALOG, LOGGKATALOG)
+
+
 def krav_pa_skrivbar_sokvag(sokvag: Path, rot: Path | None = None) -> None:
-    """Kastar när vyn skriver utanför `data/` och `logg/`.
+    """Kastar när vyn skriver utanför datakatalogen och loggkatalogen.
 
     §6: vyn visar rå kundtext, och den texten får inte hamna i `docs/`, i ett
     commitmeddelande eller i en logg utanför de två gitignorerade katalogerna.
     Kontrollen ligger i SKRIVFUNKTIONEN och inte hos anroparen, eftersom en
     kontroll hos anroparen är en kontroll någon kan glömma.
-    """
-    try:
-        relativ = sokvag.resolve().relative_to(_rot(rot).resolve())
-    except ValueError:
-        raise Skrivfel(f"{sokvag} ligger utanför repot") from None
 
-    # `relativ.parts` är TOM när sökvägen ÄR repoteten, och `parts[0]` kastade då
-    # `IndexError` i stället för `Skrivfel`. Ingen skrivväg öppnades, men en spärr
-    # ska fälla med sitt eget undantag: den som fångar `Skrivfel` runt en
-    # skrivning hade annars sluppit igenom ett fel den trodde sig täcka.
-    # Funnet av §7-granskningen av skiva 27, varv 1.
-    if relativ.parts[:1] != ("data",) and relativ.parts[:1] != ("logg",):
-        raise Skrivfel(
-            f"{relativ} ligger varken under data/ eller logg/. Vyn skriver rå "
-            f"kundtext och får bara skriva till gitignorerade kataloger (§6)."
-        )
+    **PRÖVNINGEN MÄTER MOT KATALOGERNA OCH INTE MOT REPOT, skiva 53.** Formen var
+    `relative_to(rot)` plus ett krav på att första leden heter `data` eller
+    `logg`. Den formen band två saker samtidigt: att skrivningen går till rätt
+    katalog, och att katalogen ligger i repot. Det andra ledet slutade vara sant
+    när katalogerna flyttade till ett volume, och det första är det som bär.
+
+    **SPÄRREN BLEV INTE SVAGARE AV FLYTTEN.** Villkoret är fortfarande att
+    sökvägen ligger INUTI en av två utpekade kataloger, och ingenting annat
+    duger. Att de två går att flytta betyder inte att fler blir skrivbara: de är
+    fortfarande exakt två, och de pekas ut på ett enda ställe.
+    """
+    losta = [k.resolve() for k in skrivbara_kataloger(rot)]
+    mal = sokvag.resolve()
+
+    for katalog in losta:
+        try:
+            relativ = mal.relative_to(katalog)
+        except ValueError:
+            continue
+        # `relativ.parts` är TOM när sökvägen ÄR katalogen själv. Att skriva
+        # ÖVER en katalog är inget en skrivfunktion ska göra, och en spärr ska
+        # fälla med sitt eget undantag: den som fångar `Skrivfel` runt en
+        # skrivning hade annars sluppit igenom ett fel den trodde sig täcka.
+        # Formen är fälld fram av §7-granskningen av skiva 27, varv 1.
+        if relativ.parts:
+            return
+        break
+
+    raise Skrivfel(
+        f"{sokvag} ligger varken under {losta[0]} eller {losta[1]}. Vyn "
+        f"skriver rå kundtext och får bara skriva till gitignorerade "
+        f"kataloger (§6)."
+    )
 
 
 # ---------------------------------------------------------------- DEL C
@@ -611,6 +675,41 @@ SIDHUVUD = """<!doctype html>
 """
 
 SIDFOT = "</body></html>"
+
+
+def _inloggningssida() -> str:
+    """Sidan en oinloggad begäran får. Bär INGEN kundtext.
+
+    **DEN HÄR SIDAN ÄR DET ENDA EN OINLOGGAD SER, och den säger ingenting om
+    materialet.** Inga räknare, inga kategorinamn, ingen uppgift om hur många
+    utkast som väntar. §6: den som inte får läsa kundtexten får inte heller veta
+    hur mycket av den som finns.
+    """
+    return (
+        SIDHUVUD.format()
+        + "<h1>Utkastvyn</h1>"
+        + f"<p>Logga in som <code>{html.escape(inloggning.INLOGGAD_ADRESS)}</code>"
+        + " för att läsa utkasten.</p>"
+        + "<p><a href='/logga-in'>Logga in med Google</a></p>"
+        + SIDFOT
+    )
+
+
+def _inloggningsfel(skal: str) -> str:
+    """Sidan när inloggningen nekades. Skälet är vårt eget, aldrig Googles svar.
+
+    **SKÄLEN KOMMER UR `src/inloggning.py` OCH ÄR VÅRA EGNA FASTA TEXTER**, med
+    ett undantag: `krav_pa_anspraken` lägger in den nekade ADRESSEN, som kommer
+    ur ett Google-svar. Den escapas här. Det är samma krav som `Sparrfalld.skal`
+    bär och av samma skäl.
+    """
+    return (
+        SIDHUVUD.format()
+        + "<h1>Inloggningen nekades</h1>"
+        + f"<div class='sparr'><p>{html.escape(skal)}</p></div>"
+        + "<p><a href='/logga-in'>Försök igen</a></p>"
+        + SIDFOT
+    )
 
 
 def rendera_referens(fall: Fall, index: int, antal: int) -> str:
@@ -915,12 +1014,14 @@ def bygg_hanterare(
     parfil: Path = PAR,
     granskning: list[Granskningsfall] | None = None,
     omdomesfil: Path = OMDOMEN,
+    konfiguration=None,
 ):
     """HTTP-hanteraren, med fallen inbakade.
 
-    Servern binder till localhost i `starta`. Ingen inloggning byggs i den här
-    skivan, och det är därför den inte får exponeras: vem som når porten når
-    kundtexten.
+    **`konfiguration` ÄR INLOGGNINGEN, skiva 53.** Är den None körs vyn utan
+    inloggning, och då har `starta` redan krävt att bindningen är `127.0.0.1`.
+    Är den satt kräver VARJE rutt en giltig session, utom de två som utgör
+    inloggningsflödet självt.
 
     **GRANSKNINGSLÄGET FICK SIN RUTT I SKIVA 34.** `rendera_granskning` och
     `spara_omdome` fanns sedan skiva 27 men inget anropade dem, alltså var
@@ -930,15 +1031,104 @@ def bygg_hanterare(
     granskning = granskning or []
 
     class Hanterare(BaseHTTPRequestHandler):
-        def _svara(self, kropp: str, kod: int = 200) -> None:
+        def _svara(self, kropp: str, kod: int = 200,
+                   extra: list[tuple[str, str]] | None = None) -> None:
             data = kropp.encode("utf-8")
             self.send_response(kod)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
+            for namn, varde in (extra or []):
+                self.send_header(namn, varde)
             self.end_headers()
             self.wfile.write(data)
 
+        # ---------------------------------------------------- INLOGGNING
+
+        def _inloggad(self) -> bool:
+            """Om begäran bär en giltig session. Alltid True utan inloggning.
+
+            **UTAN INLOGGNING SVARAR RADEN JA, och det är rätt.** Då band
+            `starta` loopback, alltså kommer begäran från maskinen själv. Att
+            svara nej hade låst ut Lars ur sin egen lokala vy.
+            """
+            if konfiguration is None:
+                return True
+            kaka = inloggning.kaka_ur(
+                self.headers.get("Cookie", ""), inloggning.KAKA_SESSION
+            )
+            return inloggning.las_session(kaka, konfiguration) is not None
+
+        def _kravs_inloggning(self) -> bool:
+            """Svarar med inloggningssidan och returnerar True när den behövs."""
+            if self._inloggad():
+                return False
+            self._svara(_inloggningssida(), 401)
+            return True
+
+        def _borja_inloggning(self) -> None:
+            state = inloggning.ny_state()
+            self.send_response(302)
+            self.send_header(
+                "Location", inloggning.auktoriseringsadress(konfiguration, state)
+            )
+            self.send_header(
+                "Set-Cookie",
+                inloggning.kaksats(inloggning.KAKA_STATE, state,
+                                   inloggning.FLODE_SEKUNDER),
+            )
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def _atervand(self) -> None:
+            """Googles omdirigering tillbaka. Enda vägen till en session."""
+            falt = parse_qs(self.path.partition("?")[2])
+            kod = (falt.get("code") or [""])[0]
+            state_svar = (falt.get("state") or [""])[0]
+            state_kaka = inloggning.kaka_ur(
+                self.headers.get("Cookie", ""), inloggning.KAKA_STATE
+            )
+
+            if not inloggning.state_stammer(state_kaka, state_svar):
+                self._svara(_inloggningsfel("state stämmer inte"), 400)
+                return
+            if not kod:
+                self._svara(_inloggningsfel("ingen kod i svaret"), 400)
+                return
+
+            try:
+                anspraken = inloggning.vaxla_kod(kod, konfiguration)
+                adress = inloggning.krav_pa_anspraken(anspraken, konfiguration)
+            except inloggning.Inloggningsfel as fel:
+                self._svara(_inloggningsfel(str(fel)), 403)
+                return
+
+            self.send_response(302)
+            self.send_header("Location", "/granskning/0")
+            self.send_header(
+                "Set-Cookie",
+                inloggning.kaksats(
+                    inloggning.KAKA_SESSION,
+                    inloggning.skapa_session(adress, konfiguration),
+                    inloggning.SESSION_SEKUNDER,
+                ),
+            )
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
         def do_GET(self) -> None:  # noqa: N802
+            # DE TVÅ RUTTER SOM ÄR INLOGGNINGEN SJÄLV. De kan inte kräva en
+            # session: då gick den aldrig att skaffa.
+            if konfiguration is not None:
+                if self.path.startswith("/logga-in"):
+                    self._borja_inloggning()
+                    return
+                if self.path.startswith("/atervand"):
+                    self._atervand()
+                    return
+
+            if self._kravs_inloggning():
+                return
+
             if self.path.startswith("/granskning"):
                 self._granskning()
                 return
@@ -963,6 +1153,16 @@ def bygg_hanterare(
             )
 
         def do_POST(self) -> None:  # noqa: N802
+            # **INLOGGNINGEN PRÖVAS FÖRE KROPPEN LÄSES, och ordningen bär.**
+            # POST-vägen SKRIVER: `_omdome` skriver till `logg/omdomen.jsonl`
+            # och referensrutten till `data/par.jsonl`. En oinloggad begäran ska
+            # inte kunna lägga något i en fil ens när den avvisas.
+            #
+            # `do_GET` har sina två undantag för inloggningsflödet. Här finns
+            # INGA: flödet är två GET, och en POST utan session har inget ärende.
+            if self._kravs_inloggning():
+                return
+
             langd = int(self.headers.get("Content-Length") or 0)
             falt = parse_qs(self.rfile.read(langd).decode("utf-8"))
 
@@ -1141,15 +1341,67 @@ def _skrivindex_ur_vag(vag: str, antal: int, rutt: str) -> int | None:
     return index if 0 <= index < antal else None
 
 
+LOOPBACK = "127.0.0.1"
+
+
+class Oskyddad(Exception):
+    """Vyn skulle ta emot från nätet utan att någon inloggning är inställd."""
+
+
+def krav_pa_inloggning_utanfor_loopback(adress: str, konfiguration) -> None:
+    """SPÄRR: bindningen får bara vidgas när en inloggning är konfigurerad.
+
+    **DET HÄR ÄR SKIVA 53:S VIKTIGASTE RAD, och skälet är vad som byts mot
+    vad.** Fram till nu hindrades omvärlden av att `starta` band `127.0.0.1`.
+    Den spärren är absolut: en förbindelse utifrån når aldrig fram, oavsett vad
+    resten av koden gör. §7-granskningen av skiva 27 fällde att påståendet
+    dessförinnan var ovaktat, och `test_servern_binder_bara_loopback` vaktar
+    numera FÖRVALET: att `starta` utan adress fortfarande binder loopback. Den
+    absoluta formen finns inte kvar, och det är hela den här radens ärende.
+
+    Railway kräver att processen binder `0.0.0.0`, alltså måste den spärren bort
+    för att #38 ska gå att bygga. Kvar blir inloggningen, som är ett SVAGARE
+    skydd: den ligger i vår kod och kan brytas av en rad.
+
+    **VILLKORET ÄR DÄRFÖR ATT DE TVÅ INTE GÅR ATT SKILJA ÅT.** Utan den här
+    raden går bindningen att vidga med en miljövariabel medan inloggningen är
+    osatt, och då ligger rå kundtext öppet på internet utan att något blir rött.
+    Det är precis den form §6 finns för.
+
+    **RADEN PRÖVAR KONFIGURATIONEN OCH INTE ATT DEN FUNGERAR.** Att Google
+    faktiskt svarar går inte att veta vid uppstart. Vad raden vet är att en
+    inloggning är inställd, och `inloggning.ur_miljon` har redan vägrat en halvt
+    ifylld sådan.
+    """
+    if adress == LOOPBACK:
+        return
+    if konfiguration is None:
+        raise Oskyddad(
+            f"vyn skulle binda {adress!r} utan inloggning. Vyn visar rå "
+            "kundtext, och utanför 127.0.0.1 är inloggningen det enda som "
+            "skyddar den. Sätt MAILBOT_OAUTH_KLIENT_ID, "
+            "MAILBOT_OAUTH_KLIENT_HEMLIGHET, MAILBOT_OAUTH_OMDIRIGERING och "
+            "MAILBOT_SESSIONSNYCKEL, eller bind 127.0.0.1."
+        )
+
+
 def starta(
     port: int = 8765,
     fall: list[Fall] | None = None,
     granskning: list[Granskningsfall] | None = None,
+    adress: str = LOOPBACK,
+    konfiguration=None,
 ) -> HTTPServer:
-    """Startar vyn på localhost.
+    """Startar vyn.
 
     **SÄNDVÄGSSPÄRREN PRÖVAS HÄR, innan servern tar emot något.** Det är den
     enda platsen som garanterat körs före första begäran.
+
+    **`adress` HAR FÖRVALET `127.0.0.1`, och det är inte kosmetik.** Varje
+    anropare som inte vet att parametern finns får det gamla beteendet, alltså
+    en server som inte tar emot något från nätet. Att vidga bindningen är ett
+    aktivt val, och `krav_pa_inloggning_utanfor_loopback` kräver att valet
+    åtföljs av en inloggning.
 
     **`granskning` ÄR VÄGENS SLUTPUNKT, och den saknades.** Skiva 34 byggde
     rutten `/granskning/N` men lämnade `starta` utan sätt att fylla den, alltså
@@ -1158,8 +1410,10 @@ def starta(
     skiva 34, varv 1.
     """
     krav_pa_sandvagsfrihet()
+    krav_pa_inloggning_utanfor_loopback(adress, konfiguration)
     fall = las_fall() if fall is None else fall
     return HTTPServer(
-        ("127.0.0.1", port),
-        bygg_hanterare(fall, granskning=granskning),
+        (adress, port),
+        bygg_hanterare(fall, granskning=granskning,
+                       konfiguration=konfiguration),
     )

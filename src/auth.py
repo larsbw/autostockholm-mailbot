@@ -24,6 +24,8 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
+from src import sokvagar
+
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.modify",
     "https://www.googleapis.com/auth/gmail.send",
@@ -52,14 +54,22 @@ LASSCOPES = [
 ]
 
 ROT = Path(__file__).resolve().parent.parent
-CLIENT_SECRET = ROT / "client_secret.json"
-TOKEN = ROT / "token.json"
+
+# HEMLIGHETERNA UR `src/sokvagar.py`, skiva 53. Förvalet är repots rot, alltså
+# oförändrat lokalt. På Railway pekar katalogen in i volymen: containern töms
+# vid varje deploy, och en förlorad token kostar en ny auktorisering, vilket är
+# ett §10-stopp (#38).
+#
+# **EGEN KATALOG OCH INTE `DATA`.** Kundtext och credentials är två slags
+# hemligheter med två olika konsekvenser om de läcker.
+CLIENT_SECRET = sokvagar.HEMLIGHETER / "client_secret.json"
+TOKEN = sokvagar.HEMLIGHETER / "token.json"
 
 # SKILD FIL, INTE SAMMA. Två auktoriseringar med olika scope kan inte dela
 # token: `_las_token` prövar `has_scopes` mot det filen bär, och en skrivning
 # hade skrivit över den andra. Filen är gitignorerad på samma villkor som
 # `token.json`.
-LASTOKEN = ROT / "token-las.json"
+LASTOKEN = sokvagar.HEMLIGHETER / "token-las.json"
 
 
 class AuthFel(Exception):

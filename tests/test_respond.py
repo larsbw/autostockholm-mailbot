@@ -22,6 +22,7 @@ import pytest
 from src import kedja, klassa_maskin, vy
 from src.kedja import Arende, Kedjeutfall, Steg
 from tests.test_kedja import FejkKlient, HINKAR, TAXONOMI, hamta_gront
+from tests.test_vy import peka_om_katalogerna
 
 ROT = Path(__file__).resolve().parent.parent
 RESPOND = ROT / "scripts" / "respond.py"
@@ -96,7 +97,7 @@ def loggfil(tmp_path, monkeypatch):
     `docs/incidentlogg.md` I1:s form, och den är skälet att `kor_alla` slår upp
     sin loggfil vid anropet.
     """
-    monkeypatch.setattr(vy, "ROT", tmp_path)
+    peka_om_katalogerna(monkeypatch, tmp_path)
     return tmp_path / "logg" / "beslut.jsonl"
 
 
