@@ -444,9 +444,79 @@ PRISER_SOM_LARS_BESLUTAT = {
     # i prisfilens kommentar `_formen`, som filtreras bort ur prompten, alltså
     # kom den ur få-exemplen eller ur modellen. Åtgärden är att göra påståendet
     # SANT OCH KÄLLBELAGT i stället för att fälla det i efterhand.
+    # **UPPDATERAD PÅ LARS §10-BESLUT I SKIVA 47.** Den förra lydelsen sade att
+    # priset gällde *"de delar som ingår i grundpaketet"* utan att säga VILKA,
+    # och det var precis den luckan `atagande-om-priset` byggdes mot: boten
+    # kunde inte veta om dragkroken låg i paketet. Nu räknar källan upp de sju
+    # delarna.
+    #
+    # **POSTEN SÄGER BARA VAD SOM INGÅR, aldrig vad som inte gör det, och det
+    # är Lars beslut.** En första lydelse bar meningen *"Dragkrok ingår inte
+    # och offereras separat."* `dragkrok` står i `FORDONSTERMER` och i
+    # `FRANVAROFAKTA["draganordning"]`, alltså läste `genererat-fordonsfaktum`
+    # och `pastaende-om-franvaro` prisraden som ett påstående om KUNDENS bil.
+    #
+    # Uppmätt med den lydelsen inlagd och ordagrant återgiven: raden föll i
+    # var och en av de tre grenar där `uppslag is None`, samtliga på
+    # `genererat-fordonsfaktum`. I det LYCKADE läget föll den på
+    # `pastaende-om-franvaro` när frånvaron inte var belagd och när
+    # `draganordning=True`, och passerade bara när registret sade att
+    # draganordning saknas OCH frånvaron var belagd. Regel 15 beordrar att
+    # priset alltid skrivs, så följden var ett STOPPTECKEN enligt §9.1 på den
+    # kategori boten finns för, alltså lucka 52:s defektform.
+    #
+    # Lars skäl: prisposten citeras ordagrant och i sin helhet när den skrivs,
+    # och regel 15 gör att den skrivs i varje a-traktorsvar där kunden frågar
+    # om en ombyggnad och priset står i underlaget. Ett negativt påstående om
+    # en komponent hör inte hemma i en mening kunden läser varje gång. Att
+    # dragkrok inte ingår bärs i stället av systempromptens regel 16, som ett
+    # FÖRBUD och inte som ett påstående.
+    #
+    # **UPPRÄKNINGEN STÅR SOM EN EGEN SATS MED EGET SUBJEKT, och det är Lars
+    # §10-beslut efter en uppmätt fältkörning.** En mellanlydelse sade
+    # *"… för grundombyggnaden, och i priset ingår hastighetsbegränsning, …"*.
+    # Mätt med `generera_ratext` mot tio fall: prisraden återgavs ORDAGRANT i
+    # NOLL av tio, och `ingår` stod kvar efter strykningen i TIO av tio. Varje
+    # gång skrev modellen *"och i DET ingår"* där källan sade *"och i PRISET
+    # ingår"*, och flyttade `för grundombyggnaden` till subjektet. De tjugo gav
+    # 20 spärrade och noll utkast.
+    #
+    # **MODELLEN PLOCKADE INTE, den citerade allt och bytte två bindeord.**
+    # Varje siffra och var och en av de sju delarna återgavs korrekt. Det
+    # motargument som restes mot att i stället vidga undantaget gällde
+    # PLOCKFORMEN, alltså att `PRISFOT` förbjuder att en del av en prisrad
+    # citeras. Det argumentet höll inte mot det som faktiskt inträffade, och
+    # Lars ursprungliga premiss, att källan är en uppräkning och att ett svar
+    # sällan citerar hela ordagrant, var den riktiga.
+    #
+    # Åtgärden rör därför KÄLLAN och ingen spärr: en uppräkning med eget
+    # subjekt ger modellen inget bindeord att byta ut, och ett värde som inte
+    # bär ordet `ingår` kan inte producera det felet.
+    #
+    # **VÄRDET BÄR INGEN PUNKT, och det ledet är lastbärande.** En lydelse som
+    # skilde de två satserna med PUNKT i stället för komma prövades och
+    # förkastades: `genererat-tal-har-kalla` prövar per sats, alltså klöv
+    # punkten värdet i två, och svansen efter prisraden hamnade i
+    # UPPRÄKNINGENS sats. Den bär inget PRISORD och är därmed ingen prismening,
+    # så talet prövades aldrig mot config. Mätt: med punkten i värdet passerade
+    # `Ombyggnaden kostar <värdet>, ring oss på 076-860-38-15.`, alltså ett
+    # telefonnummer som INTE är det `config/fakta.json` bär. Utan punkten faller
+    # samma sträng på `genererat-tal-har-kalla`. Isolerat med samma ord och
+    # samma uppräkning i båda lydelserna.
+    #
+    # Att ett tal UTANFÖR en prismening inte prövas alls är klassen bakom
+    # instansen, och den står kvar som LUCKA 65 i `docs/sparrar.md`. Kommat
+    # lagar det här värdet, inte nästa.
+    #
+    # Sajtens stavfel skrivs INTE in: `PRISFOT` kräver ordagrann återgivning,
+    # alltså hade ett stavfel i filen blivit ett stavfel i varje kundmail. Lars
+    # rättar sajten separat. Pluspaketets pris står utanför grundombyggnaden
+    # och därmed utanför posten; beloppet skrivs inte här, eftersom ett pris
+    # som boten får nämna hör hemma i `config/priser.json` och ingen annanstans.
     "a_traktorkonvertering":
-        "från 20 000 till 25 000 kr inklusive moms, och priset gäller arbetet "
-        "och de delar som ingår i grundpaketet",
+        "från 20 000 till 25 000 kr inklusive moms för grundombyggnaden, och "
+        "grundombyggnaden omfattar hastighetsbegränsning, barlastflak, "
+        "förstängning, belysning, LGF-skylt, dokumentation och besiktning",
     "rekond":
         "Premium rekond 3 500 kr, Guldtvätt 1 500 kr, glasförsegling 1 000 kr, "
         "sanering av djurhår 500 kr, fälgbehandling 500 kr, invändig tvätt "
@@ -2032,6 +2102,52 @@ REGLER_I_PROMPTEN = {
         "uppgift saknas, eller att vi behöver titta närmare på bilen är inget "
         "skäl att utelämna priset. Kunden vill veta vad en ombyggnad kostar "
         "oavsett vad registret säger om just den bilen.",
+    # SKIVA 47, LARS §10-BESLUT. Regeln är ett RENT FÖRBUD, och den formen är
+    # hans beslut efter att en första lydelse mättes upp som oföljbar.
+    #
+    # **EN REGEL SOM BEORDRAR ETT PÅSTÅENDE GER SPÄRRARNA NÅGOT ATT FÄLLA. EN
+    # SOM BARA FÖRBJUDER GER DEM INGENTING.** Det är hela skälet till formen.
+    # Första lydelsen sade *"EN DRAGKROK INGÅR INTE I GRUNDOMBYGGNADEN. Den
+    # offereras separat."* och beordrade alltså modellen att skriva ordet
+    # `dragkrok` tillsammans med `ingår inte`. `dragkrok` står i
+    # `FORDONSTERMER` och i `FRANVAROFAKTA["draganordning"]`, så den meningen
+    # är på en gång ett fordonsfaktum, ett frånvaropåstående och ett åtagande
+    # utan källa. Fältkörningen av de tjugo gav 20 spärrade och NOLL utkast.
+    #
+    # Lydelsen nämner därför inte dragkroken som ett påstående alls. Den
+    # förbjuder en form, och en förbjuden form skriver modellen inte.
+    #
+    # **`Den offereras separat` VAR DESSUTOM ETT PRISBESKED UTAN KÄLLA**, och
+    # det är ett granskningsfynd. Regel 5 förbjuder varje pris utöver
+    # underlaget och namnger *"ring för offert"* som en av formerna;
+    # `config/priser.json` bär inget dragkroksvärde. Meningen PASSERADE
+    # samtliga spärrar i det lyckade uppslagsläget, eftersom `PRISTERMER` bär
+    # `\boffert\b` som inte matchar `offereras`. Den luckan står kvar och är
+    # registrerad i `docs/sparrar.md`; den här regeln slutade bara beordra
+    # formen.
+    #
+    # **TVÅ LAGER PÅ OLIKA FORMER, och det är Lars ordning.** Prompten HINDRAR
+    # att åtagandet skrivs, `atagande-om-priset` FÅNGAR `ingår` och
+    # `inkluderad` om de skrivs ändå. **`följer med` fångas INTE**, mätt: den
+    # formen passerar spärren och ligger i LUCKA 61. Lagren är alltså inte
+    # jämnbreda, och prompten är det bredare av dem.
+    #
+    # Det är inte den redundans §7.1 varnar för: den varningen gäller två
+    # SPÄRRAR på samma form, som gör båda oprövbara var för sig. Här prövas
+    # promptens lager av `test_varje_regel_star_ORDAGRANT` och av
+    # `test_REGEL_16_beordrar_INGEN_form_som_en_SPARR_faller`, och spärrens
+    # lager för sig. Vad ingen fällning kan pröva är om MODELLEN lyder texten.
+    #
+    # **REGEL 13 SÄGER INTE EMOT DEN.** Regel 13 beordrar formen *"vi kan
+    # montera en"*, och det är precis den skillnad `atagande-om-priset` är
+    # byggd på, Lars ord: kan utföra är inget prisåtagande, ingår är det.
+    # Hänvisningen står i regeln så att en framtida omskrivning ser att de två
+    # är avsedda att stå bredvid varandra, och den är skriven som en HÄNVISNING
+    # och inte som en uppmaning att nämna dragkroken.
+    16: "SKRIV ALDRIG ATT EN DRAGKROK INGÅR. Inte att den ingår i priset, i "
+        "bygget eller i grundombyggnaden, och inte att den följer med eller är "
+        "inkluderad. Regel 13 står oförändrad och säger vad du DÄREMOT skriver "
+        "när bilen behöver en.",
 }
 
 
@@ -2538,6 +2654,88 @@ def test_REGEL_15_beordrar_en_form_som_SPARRARNA_slapper_igenom():
     )
 
 
+@pytest.mark.parametrize("uppslag,franvaro", [
+    (None, frozenset()),
+    (Uppslag(tjanstevikt_kg=980, slapvagnsvikt_kg=600, draganordning=False),
+     frozenset({"draganordning"})),
+    (Uppslag(tjanstevikt_kg=980, slapvagnsvikt_kg=600, draganordning=False),
+     frozenset()),
+    (Uppslag(tjanstevikt_kg=980, slapvagnsvikt_kg=600, draganordning=True),
+     frozenset()),
+])
+def test_REGEL_16_beordrar_INGEN_form_som_en_SPARR_faller(uppslag, franvaro):
+    """REGEL 16 FÅR INTE BE OM DET SPÄRRARNA FÄLLER. Lucka 52:s defektform.
+
+    **RADEN FINNS DÄRFÖR ATT DEN SAKNADES, och frånvaron kostade en hel
+    fältkörning.** Regel 14 och regel 15 har var sin motsvarande rad. Regel 16
+    hade ingen, och dess FÖRSTA lydelse var oföljbar: den sade *"EN DRAGKROK
+    INGÅR INTE I GRUNDOMBYGGNADEN. Den offereras separat."*, alltså ett PÅSTÅENDE
+    som beordrade modellen att skriva ordet `dragkrok` ihop med `ingår inte`.
+    Ordet står i `FORDONSTERMER` och i `FRANVAROFAKTA["draganordning"]`, så varje
+    form som lydde regeln föll: `genererat-fordonsfaktum` utan uppslag,
+    `pastaende-om-franvaro` med, och `atagande-om-priset` när frånvaron var
+    belagd. De tjugo gav 20 spärrade och NOLL utkast.
+
+    **DEN NYA LYDELSEN ÄR ETT RENT FÖRBUD**, och det är Lars beslut med hans
+    skäl: en regel som beordrar ett påstående ger spärrarna något att fälla, en
+    som bara förbjuder ger dem ingenting.
+
+    **FYRA SVAR SOM LYDER REGELN, FYRA UPPSLAGSLÄGEN**, och ordningen är Lars:
+    en ny promptregel mäts mot `krav_pa_svaret` INNAN de tjugo körs.
+
+    Att lyda ett förbud är att låta bli, alltså är formerna här svar som inte
+    säger att dragkroken ingår. Den sista bär prisraden ordagrant, eftersom
+    regel 15 beordrar den i samma svar.
+
+    **INGEN FORM BÄR ORDET `dragkrok`, och det är avsiktligt.** Regel 16 är ett
+    förbud och beordrar aldrig att ordet skrivs, alltså hör en sådan form inte
+    hit. Den skulle dessutom göra raden röd av FEL SKÄL: `dragkrok` är ett
+    `FORDONSORD`, så varje mening som bär det faller på
+    `genererat-fordonsfaktum` när uppslaget inte lyckats, oavsett vad den
+    säger. Det gäller också regel 13:s egen form *"vi kan montera en"*, mätt
+    mot HEAD och alltså äldre än den här skivan. Det är registrerat som LUCKA
+    63 i `docs/sparrar.md` och är regel 13:s sak, inte regel 16:s.
+    """
+    pris = PRISER_SOM_LARS_BESLUTAT["a_traktorkonvertering"]
+    telefon = FAKTA_SOM_LARS_BESLUTAT["telefon"]
+
+    # VAKUITETSKONTROLL. Lyder formerna verkligen regeln? Bär någon av dem
+    # `ingår` om dragkroken prövar raden motsatsen till det den påstår.
+    former = [
+        # 1. Kroken nämns inte alls, alltså förbudet lytt genom tystnad.
+        "Vi behöver titta närmare på bilen innan vi kan ge ett säkert besked. "
+        f"Ring oss på {telefon} så tittar vi på just den bilen.",
+        # 2. Ett erbjudande om ett arbete, utan något om vad priset täcker.
+        "Extraljusen kopplar vi in åt er. "
+        f"Ring oss på {telefon} så tittar vi på just den bilen.",
+        # 3. Monteringen erbjuden utan att kroken namnges.
+        "Behövs det mer utrustning kan vi montera den åt er. "
+        f"Ring oss på {telefon} så tittar vi på just den bilen.",
+        # 4. MED PRISRADEN ORDAGRANT, eftersom regel 15 beordrar den i samma
+        # svar. Prisraden bär själv `ingår`, alltså prövas undantaget också.
+        f"En konvertering till A-traktor kostar {pris}. "
+        f"Ring oss på {telefon} så tittar vi på just den bilen.",
+    ]
+
+    # VAKUITETSKONTROLL I TVÅ LED. Lyder formerna verkligen regeln, och håller
+    # de sig utanför det led som skulle göra raden röd av fel skäl?
+    for svar in former:
+        assert not re.search(r"dragkrok\w*\s+(?:ingår|följer|är inkluderad)",
+                             svar, flags=re.IGNORECASE), (
+            "formen lyder inte regel 16, alltså prövar raden fel sak"
+        )
+        assert not generera.FORDONSORD.search(svar), (
+            "formen bär ett FORDONSORD, alltså faller den på uppslaget och "
+            "inte på regel 16. Se LUCKA 63."
+        )
+
+    forfr = forfragan(utfall=Utfall.GULT, uppslag=uppslag,
+                      franvaro_far_pastas=franvaro)
+
+    for svar in former:
+        generera.krav_pa_svaret(svar, forfr)
+
+
 # ------------------------- SPÄRR: ÅTAGANDE OM VAD PRISET TÄCKER, LUCKA 59
 #
 # Skiva 46 DEL A, Lars beslut: ett åtagande om vad som ingår i ett pris är samma
@@ -2586,23 +2784,201 @@ def test_ett_atagande_UTANFOR_prisfilen_faller_aven_nar_priset_citeras():
     assert fel.value.sparr == "atagande-om-priset"
 
 
-def test_en_OMSKRIVEN_prisrad_faller_i_atagandesparren():
-    """`ORDAGRANT` ÄR LASTBÄRANDE, och formen är den ärende 19 skrev.
+def test_en_OMSKRIVEN_prisrad_PASSERAR_nar_delarna_ar_belagda():
+    """LARS §10-BESLUT I SKIVA 47: FÖREMÅLET PRÖVAS, INTE ORDET.
 
-    Utkastet skrev *"och DET priset gäller arbetet och de delar som ingår i
-    grundpaketet"*. Ett inskjutet ord gör strängen till något annat än det värde
-    `config/priser.json` bär, alltså stryks den inte och åtagandeordet står kvar.
+    **RADEN BAND FÖRUT MOTSATSEN, och den vändningen är beslutet.** Den hette
+    `..._faller_i_atagandesparren` och krävde att en omskriven prisrad FÄLLER,
+    med skälet att överblockering är den säkra riktningen. Uppmätt i fält var
+    överblockeringen inte en kant utan regeln: trettio genereringar över tre
+    lydelser gav NOLL ordagranna återgivningar, och de tjugo gav noll utkast.
 
-    **ÖVERBLOCKERINGEN ÄR DEN SÄKRA RIKTNINGEN.** Utfallet blir ett utkast Lars
-    läser ändå, och en prisrad som inte är ordagrant återgiven bryter redan mot
-    `PRISFOT`. Samma avvägning som lucka 55.
+    Lars skäl, ordagrant: spärren fällde på ORDET i stället för på PÅSTÅENDET.
+    Ordet `ingår` är inget fel, ett obelagt föremål är det.
+
+    Formen här är den modellen FAKTISKT skrev: uppräkningens subjekt byts mot
+    ett bindeord. Varje del står kvar och är belagd i `config/priser.json`,
+    alltså är påståendet sant och passerar.
+
+    Att ett OBELAGT föremål fortfarande fäller binds av
+    `test_ett_atagande_UTANFOR_prisfilen_faller_aven_nar_priset_citeras` och av
+    `test_ett_atagande_om_en_OBELAGD_del_faller`.
     """
     pris = PRISER_SOM_LARS_BESLUTAT["a_traktorkonvertering"]
-    omskrivet = pris.replace("och priset gäller", "och det priset gäller")
+    # BYTET ÄR DET MODELLEN FAKTISKT GJORDE, mätt i skiva 47: subjektet i
+    # uppräkningens sats byts mot ett bindeord.
+    omskrivet = pris.replace("och grundombyggnaden omfattar", "och den omfattar")
     assert omskrivet != pris, "bytet gav samma sträng, alltså prövas ingenting"
 
-    with pytest.raises(Sparrfalld):
-        generera.krav_pa_atagande_med_kalla(f"En ombyggnad kostar {omskrivet}.")
+    # VAKUITETSKONTROLL. Strykningen får INTE vara det som friar, annars prövar
+    # raden det gamla undantaget och inte det nya ledet.
+    assert pris not in f"En ombyggnad kostar {omskrivet}.", (
+        "den omskrivna raden bär värdet ordagrant, alltså friar strykningen "
+        "den och föremålsprövningen mäts inte"
+    )
+
+    generera.krav_pa_atagande_med_kalla(f"En ombyggnad kostar {omskrivet}.")
+
+
+def test_PRÖVNINGEN_SKER_PER_SATS_och_inte_per_svar():
+    """§7.1-KONTROLL FÖR `for sats in _meningar(kvar)`.
+
+    **RADEN SAKNADES, och det var ett granskningsfynd i skiva 47.** Ledet
+    lyftes fram som skivans nya i tre dokument, men ingen rad mätte det: fällt
+    till `for sats in [kvar]` gick hela sviten GRÖN.
+
+    Ett åtagandeord ska inte kunna hämta sitt BELÄGG ur en annan sats. Utan
+    ledet läggs hela svaret i en påse, alltså friar `barlastflak` i den första
+    meningen `lackering` i den andra.
+
+    **`lackering` OCH INTE `dragkrok` I ANDRA MENINGEN, och det är poängen med
+    provet.** Docstringens första exempel var *"…Dragkrok ingår också."*, och
+    den strängen faller ÄVEN utan per-sats-ledet, på `dragkrok` som
+    `FORDONSORD`. Den bevisade alltså ingenting om just den här raden. Fällt av
+    §7-granskningen av skiva 47.
+    """
+    # VAKUITETSKONTROLL: den första satsen är belagd för sig, alltså är det
+    # satsgränsen och inte något annat som fäller.
+    generera.krav_pa_atagande_med_kalla("I priset ingår barlastflak.")
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_atagande_med_kalla(
+            "I priset ingår barlastflak. Lackering ingår också.")
+
+    assert fel.value.sparr == "atagande-om-priset"
+
+
+def test_ett_atagande_om_en_OBELAGD_del_faller():
+    """FÖREMÅLSPRÖVNINGEN MÅSTE KUNNA SÄGA NEJ, annars friar den allt.
+
+    `lackering` står inte i någon post i `config/priser.json`, alltså är
+    åtagandet obelagt och faller. Utan den här raden vore "godta varje
+    åtagandeord" en grön lösning.
+    """
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_atagande_med_kalla("Lackering ingår i priset.")
+
+    assert fel.value.sparr == "atagande-om-priset"
+
+
+def test_ett_NEKANDE_efter_atagandeordet_gor_INGEN_del_belagd(monkeypatch):
+    """§7.1-KONTROLL FÖR `_NEKAT_EFTER_ATAGANDE`.
+
+    **FORMEN STOD I PRISPOSTEN EN STUND.** Skiva 47:s första lydelse bar
+    *"Dragkrok ingår inte och offereras separat."* Räknades den svansen som en
+    uppräkning blev föremålet BELAGT av en mening som säger tvärtom, alltså
+    hade spärren friat precis det åtagande den finns för att fälla.
+
+    **SKADAN ÄR ETT FUNKTIONSORD SOM DEL, och den är uppmätt.** Utan ledet blir
+    svansen efter `ingår` till delarna `inte` och `offereras separat`, och som
+    BELAGD DEL friar `inte` varje sats som bär ordet. Mätt med ledet urkopplat:
+    *"Vi vet inte om lackering ingår."* PASSERAR, alltså ett obelagt åtagande
+    fritaget av ett nekande.
+
+    Ordgränsat över `utgaende_text` i `data/par.jsonl`, satsdelat med
+    `_meningar`, står `inte` i 56 av 1329 meningar.
+
+    *Här stod att ordet står i VAR TREDJE mening. Talet bar ingen källa och
+    stämmer inte mot korpusen: 56 av 1329 är var tjugofjärde. Fällt av
+    §7-granskningen av skiva 47.*
+
+    `lackering` och inte `dragkrok` i provet: ett `FORDONSORD` fälls av ett
+    annat led, och raden ska mäta DET HÄR.
+    """
+    _med_priser(monkeypatch, {
+        "a_traktorkonvertering":
+            "1 000 kr för paketet, och paketet omfattar barlastflak. "
+            "Lackering ingår inte och offereras separat",
+    })
+
+    # VAKUITETSKONTROLL: den bejakande delen är belagd, alltså fungerar
+    # extraktionen i provet.
+    generera.krav_pa_atagande_med_kalla("I priset ingår barlastflak.")
+
+    assert generera._uppraknade_delar() == frozenset({"barlastflak"}), (
+        "den nekade svansen har blivit delar, alltså friar ett funktionsord"
+    )
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_atagande_med_kalla("Vi vet inte om lackering ingår.")
+
+    assert fel.value.sparr == "atagande-om-priset"
+
+
+def test_en_MENINGSGRANS_avslutar_upprakningen(monkeypatch):
+    """§7.1-KONTROLL FÖR `svans = re.split(r"[.!?]", svans)[0]`.
+
+    Utan ledet sväljer den första meningens åtagandeord allt som står efter
+    den, alltså blir innehåll ur en HELT ANNAN mening belagda delar.
+    """
+    _med_priser(monkeypatch, {
+        "a_traktorkonvertering":
+            "1 000 kr för paketet, och paketet omfattar barlastflak. "
+            "Vi gör även rostskydd, lackering och mycket annat",
+    })
+
+    generera.krav_pa_atagande_med_kalla("I priset ingår barlastflak.")
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_atagande_med_kalla("Lackering ingår i priset.")
+
+    assert fel.value.sparr == "atagande-om-priset"
+
+
+def test_en_FOR_KORT_del_racknas_inte(monkeypatch):
+    """§7.1-KONTROLL FÖR `if len(bit) < MINSTA_DEL`.
+
+    En kort del är oftast ett funktionsord, och den jämförs som DELSTRÄNG.
+    Bleve `ab` en del friade den varje sats som råkar bära de två tecknen,
+    `rabatt` bland dem, alltså hade spärren tystnat på bred front.
+    """
+    _med_priser(monkeypatch, {
+        "a_traktorkonvertering":
+            "1 000 kr för paketet, och paketet omfattar ab, barlastflak",
+    })
+
+    generera.krav_pa_atagande_med_kalla("I priset ingår barlastflak.")
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_atagande_med_kalla("Rabatt ingår i priset.")
+
+    assert fel.value.sparr == "atagande-om-priset"
+
+
+def test_en_del_med_SIFFROR_racknas_inte(monkeypatch):
+    """§7.1-KONTROLL FÖR `if any(t.isdigit() for t in bit)`.
+
+    Prisvärden är fulla av tal, och en uppräkning kan bära ett belopp eller en
+    tid mitt i. En sådan bit är ingen DEL utan ett pris, och som belagd del
+    hade den friat en sats som citerar talet.
+    """
+    _med_priser(monkeypatch, {
+        "a_traktorkonvertering":
+            "1 000 kr för paketet, och paketet omfattar barlastflak, "
+            "2 års garanti",
+    })
+
+    generera.krav_pa_atagande_med_kalla("I priset ingår barlastflak.")
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_atagande_med_kalla("2 års garanti ingår i priset.")
+
+    assert fel.value.sparr == "atagande-om-priset"
+
+
+def test_ett_FORDONSORD_i_satsen_faller_AVEN_med_en_belagd_del():
+    """FORDONSORDSLEDET PRÖVAS FÖRST, och det är ärende 19:s form.
+
+    *"I priset ingår barlastflak och dragkrok."* namnger en BELAGD del och en
+    obelagd. Skulle barlastflaket fria satsen vore dragkroken inskriven i
+    priset gratis, alltså precis det lucka 59 byggdes mot.
+    """
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_atagande_med_kalla(
+            "I priset ingår barlastflak och dragkrok.")
+
+    assert fel.value.sparr == "atagande-om-priset"
+    assert "dragkrok" in str(fel.value)
 
 
 def test_att_KUNNA_UTFORA_ett_arbete_ar_INGET_atagande():
@@ -2685,7 +3061,8 @@ def test_en_RADBRUTEN_prisrad_passerar():
     ordning, alltså ordagrant i den mening `PRISFOT` kräver.
     """
     varde = PRISER_SOM_LARS_BESLUTAT["a_traktorkonvertering"]
-    radbrutet = varde.replace("och priset gäller", "och\npriset gäller", 1)
+    radbrutet = varde.replace("moms för grundombyggnaden",
+                              "moms för\ngrundombyggnaden", 1)
     assert radbrutet != varde
 
     generera.krav_pa_atagande_med_kalla(f"En ombyggnad kostar {radbrutet}.")

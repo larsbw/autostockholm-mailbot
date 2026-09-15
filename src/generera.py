@@ -605,6 +605,69 @@ ATAGANDETERMER = (
 ATAGANDEORD = re.compile("|".join(ATAGANDETERMER), flags=re.IGNORECASE)
 
 
+# ETT NEKANDE DIREKT EFTER ETT ÅTAGANDEORD VÄNDER SATSEN, alltså räknas dess
+# svans INTE som en uppräkning av vad priset täcker. `Dragkrok ingår inte och
+# offereras separat` stod i prisposten en stund, och utan det här ledet hade
+# `dragkrok` blivit en BELAGD del och friat precis det åtagande spärren finns
+# för att fälla.
+_NEKAT_EFTER_ATAGANDE = re.compile(r"^\W*(?:inte|ej|aldrig)\b", re.IGNORECASE)
+
+# KORTASTE DEL SOM RÄKNAS. Ett kort ord är oftast ett funktionsord, och ett
+# funktionsord som del hade friat varje sats som råkar bära det. Filen bär i dag
+# sju delar, de kortaste `belysning` och `lgf-skylt` på nio tecken, alltså
+# ligger tröskeln med god marginal under det som faktiskt står där.
+#
+# **TRÖSKELN RÄDDAR INTE FRÅN VARJE KORT DEL.** `moms` är fyra tecken och
+# passerar den, och ordet står i praktiskt taget varje prismening. Ett
+# prisvärde som skrev `priset inkluderar moms` hade alltså gjort `moms` till en
+# belagd del. Formen står som en del av LUCKA 66 och är ingen egenskap hos
+# dagens fil. Fällt av §7-granskningen av skiva 47.
+MINSTA_DEL = 4
+
+
+def _uppraknade_delar() -> frozenset[str]:
+    """Delarna som `config/priser.json` räknar upp som INGÅENDE i ett pris.
+
+    **BARA EN SVANS SOM STYRS AV ETT ÅTAGANDEORD RÄKNAS, och det ledet är
+    lastbärande.** Posten `rekond` räknar upp `Guldtvätt 1 500 kr` och
+    `glasförsegling 1 000 kr`, alltså tjänster med EGNA priser. Bleve de delar
+    hade *"Guldtvätt ingår"* passerat i ett a-traktorsvar, vilket är ett
+    påhittat prisbesked av precis den klass §0:s ramverksregel 3 förbjuder.
+    `rekond` bär inget åtagandeord och bidrar därför med noll delar.
+
+    **ETT NEKANDE VÄNDER SVANSEN**, se `_NEKAT_EFTER_ATAGANDE`.
+
+    **SVANSEN SLUTAR VID MENINGSSLUT.** Ett värde med två meningar ska inte
+    låta den förstas åtagandeord svälja den andras innehåll.
+
+    Delarna jämförs sedan som DELSTRÄNGAR och inte ordgränsat, så att en böjd
+    form träffar: källan säger `besiktning`, svaret skriver `besiktningen`.
+    """
+    delar: set[str] = set()
+
+    for varde in las_priser().values():
+        for traff in ATAGANDEORD.finditer(varde):
+            svans = varde[traff.end():]
+            if _NEKAT_EFTER_ATAGANDE.match(svans):
+                continue
+
+            svans = re.split(r"[.!?]", svans)[0]
+            for bit in re.split(r",|\boch\b", svans):
+                bit = bit.strip().lower()
+
+                # DE TVÅ FILTREN STÅR SOM EGNA RADER, så att vart och ett går
+                # att fälla för sig. §7.1: fälls de tillsammans vet man bara
+                # att minst ett av dem bär.
+                if len(bit) < MINSTA_DEL:
+                    continue
+                if any(t.isdigit() for t in bit):
+                    continue
+
+                delar.add(bit)
+
+    return frozenset(delar)
+
+
 def _UTAN_PRISVARDE(varde: str) -> re.Pattern:
     """Mönstret som stryker ETT prisvärde ur ett svar. Se `krav_pa_atagande_med_kalla`.
 
@@ -1224,11 +1287,45 @@ def krav_pa_atagande_med_kalla(svar: str) -> None:
     GRUNDPAKETET, ett innehåll boten inte känner. Meningen bär varken tal eller
     prisord, alltså rörde ingen befintlig spärr den.
 
-    **KÄLLAN GODTAS ORDAGRANT, och ingenting annat.** Varje värde ur
-    `config/priser.json` stryks ur svaret innan orden söks. Står ett åtagandeord
-    kvar efter det, så kommer det inte ur prisfilen. Det är samma krav som
-    `PRISFOT` ställer på prompten: ett värde ur en §10-grindad källa återges som
-    det står, annars är det inte det värdet.
+    **FÖREMÅLET PRÖVAS, INTE ORDET. LARS §10-BESLUT I SKIVA 47.** Hans skäl,
+    ordagrant: spärren fällde på ORDET i stället för på PÅSTÅENDET, och ordet
+    `ingår` är inget fel, ett obelagt föremål är det.
+
+    Prövningen sker i tre led, per sats:
+
+    1. Varje värde ur `config/priser.json` stryks ur svaret. Är prisraden
+       ORDAGRANT återgiven finns inget åtagandeord kvar att pröva.
+    2. Bär satsen ett `FORDONSORD` faller den alltid, också när den dessutom
+       namnger en belagd del. `I priset ingår barlastflak och dragkrok.` ska
+       falla på dragkroken och inte frias av barlastflaket.
+    3. Annars passerar satsen om den namnger minst en DEL som källan räknar upp
+       som ingående, se `_uppraknade_delar`.
+
+    **LED 3 PRÖVAR SATSEN SOM EN PÅSE OCH INTE ÅTAGANDETS FÖREMÅL, och det är
+    en ÖPPEN LUCKA.** Namnger satsen en enda belagd del passerar varje annat
+    åtagande i samma sats, så länge det inte är ett `FORDONSORD`:
+    *"I priset ingår besiktning och lackering."* passerar. Klassen är uppmätt i
+    verklig korpus och står som LUCKA 67 i `docs/sparrar.md`. Att skärpa regeln
+    är §10 och Lars beslut, se `docs/beslutslogg.md` #111.
+
+    **DEN FÖRRA LYDELSEN GODTOG KÄLLAN ORDAGRANT OCH INGENTING ANNAT, och den
+    föll på mätning.** Kravet var samma som `PRISFOT` ställer på prompten. I
+    fält infriades det aldrig: TRETTIO genereringar över tre olika lydelser av
+    prisposten gav NOLL ordagranna återgivningar, och de tjugo gav noll utkast.
+    Modellen skriver *"En grundombyggnad kostar … och omfattar …"* och eliderar
+    det upprepade subjektet, alltså är innehållet rätt och bindningen omskriven.
+
+    **DE TRE MÄTTA LYDELSERNA VAR KANDIDATER OCH INTE DE TRE SOM FÖRKASTATS I
+    TUR OCH ORDNING.** Skillnaden är fällt fram: kandidaterna prövades i samma
+    mätning, mot samma tio mail, och TVÅ av dem bar inget åtagandeord alls i
+    källan, `för grundombyggnaden med …` respektive `för en grundombyggnad
+    med …`. Modellen skrev `ingår` eller `inkluderar` ändå i nio fall av tio.
+    Att räkna upp vad ett paket innehåller är att skriva ett åtagandeord på
+    svenska, och det är ingen egenskap hos någon lydelse.
+
+    *Här stod bara "de tre lydelserna", vilket läste som de tre lydelser
+    prisposten haft i tur och ordning. De bär alla ett åtagandeord, alltså var
+    meningen falsk under den läsningen. Fällt av §7-granskningen av skiva 47.*
 
     **ORDAGRANNHETEN GÄLLER ORDEN, inte versalen och inte radbrytningen, och det
     ledet är fällt fram.** En första lydelse strök värdet med `str.replace`,
@@ -1250,11 +1347,27 @@ def krav_pa_atagande_med_kalla(svar: str) -> None:
     tecken, alltså hade hela svaret strukits och spärren tystnat helt.
     `config/priser.json` bär en tom post i dag, `tillbehor`.
 
-    **VARFÖR PRÖVNINGEN INTE SKER PER SATS.** De andra spärrarna delar svaret
-    därför att ett ord i en sats inte ska kunna hämta sin KÄLLA ur en annan.
-    Här hämtas ingenting: strykningen är textuell, och den enda skillnaden mot en
-    satsvis prövning vore att ett prisvärde som spänner över en meningsgräns inte
-    skulle kunna strykas alls. Hela svaret är alltså både enklare och snävare.
+    **PRÖVNINGEN SKER PER SATS, och det ledet kom med skiva 47.** Samma skäl som
+    de andra spärrarna har: ett åtagandeord i en sats ska inte kunna hämta sitt
+    BELÄGG ur en annan. *"I priset ingår barlastflak. Lackering ingår också."*
+    har en belagd sats och en obelagd, och den andra faller för sig. Bunden av
+    `test_PRÖVNINGEN_SKER_PER_SATS_och_inte_per_svar`.
+
+    *Exemplet här var först *"…Dragkrok ingår också."*, som faller ÄVEN utan
+    per-sats-ledet, på `dragkrok` som `FORDONSORD`. Det bevisade alltså
+    ingenting om det här ledet, och ledet självt var OFÄLLBART: satt till
+    `for sats in [kvar]` gick hela sviten grön. Fällt av §7-granskningen av
+    skiva 47.*
+
+    **SATSDELNINGEN KAN FLYTTA ETT FORDONSORD UR SATSEN.** `SATSBROTT` kastar
+    sin avskiljare, alltså hamnar `krok` i en egen sats i *"Vi sätter dit en
+    krok, så besiktning och montering ingår."* och fordonsordsledet ser den
+    aldrig. Formen passerar, och den föll vid HEAD. LUCKA 68.
+
+    *Här stod VARFÖR PRÖVNINGEN INTE SKER PER SATS, med skälet att ingenting
+    hämtades och att strykningen bara var textuell. Det skälet upphörde att
+    gälla när föremålsprövningen kom in: nu HÄMTAS ett belägg, och då måste
+    satsgränsen hålla.*
 
     **STRYKNINGEN KAN TILLVERKA EN TRÄFF, och det är en ÖVERBLOCKERING.** Värdet
     byts mot ett BLANKSTEG och inte mot ingenting, alltså kan två halvor inte
@@ -1268,12 +1381,16 @@ def krav_pa_atagande_med_kalla(svar: str) -> None:
     skarven, och påståendet var alltså falskt för en term intill den. Fällt av
     §7-granskningen av skiva 46.*
 
-    **ÖVERBLOCKERAR NÄR MODELLEN SKRIVER OM PRISRADEN, och det är den säkra
-    riktningen.** Ärende 19 skrev *"och DET priset gäller arbetet och de delar
-    som ingår i grundpaketet"*, alltså ett inskjutet ord i en rad `PRISFOT`
-    beordrar ordagrant. Den formen faller här. Utfallet blir `utkast`, som Lars
-    läser ändå, och en prisrad som inte är ordagrant återgiven är redan ett brott
-    mot `PRISFOT`. Samma avvägning som lucka 55.
+    *Här stod att spärren ÖVERBLOCKERAR när modellen skriver om prisraden, och
+    att det är den säkra riktningen. Formen passerar numera, och det är hela
+    ändringen i skiva 47.*
+
+    **DELARNA JÄMFÖRS SOM DELSTRÄNGAR, och det är en medveten uppmjukning.**
+    Källan säger `besiktning`, svaret skriver `besiktningen`. En ordgränsad
+    jämförelse hade fällt varje böjd form. Priset är att en del kan namnges av
+    en slump: bär källan en KORT del friar den varje sats som råkar bära
+    tecknen, och `MINSTA_DEL` finns just för det. Formen står som en del av
+    LUCKA 66 i `docs/sparrar.md`.
 
     **UPPRÄKNINGEN AV ORD ÄR INTE UTTÖMMANDE.** Samma sak gäller `PRISORD` och
     `FORDONSORD`: en modell kan alltid formulera ett åtagande utan något av
@@ -1284,12 +1401,36 @@ def krav_pa_atagande_med_kalla(svar: str) -> None:
     for varde in las_priser().values():
         kvar = _UTAN_PRISVARDE(varde).sub(" ", kvar)
 
-    traff = ATAGANDEORD.search(kvar)
-    if traff:
+    delar = _uppraknade_delar()
+
+    for sats in _meningar(kvar):
+        traff = ATAGANDEORD.search(sats)
+        if not traff:
+            continue
+
+        ord_ = traff.group(0).lower()
+
+        # ETT FORDONSORD I SAMMA SATS FÄLLER ALLTID, också när satsen dessutom
+        # namnger en belagd del. `I priset ingår barlastflak och dragkrok.`
+        # ska falla på dragkroken och inte frias av barlastflaket, alltså
+        # prövas det här ledet FÖRST.
+        fordon = FORDONSORD.search(sats)
+        if fordon:
+            raise Sparrfalld(
+                "atagande-om-priset",
+                f"svaret säger {ord_!r} om {fordon.group(0).lower()}, och den "
+                f"delen står inte i config/priser.json",
+            )
+
+        # FÖREMÅLET PRÖVAS MOT KÄLLANS UPPRÄKNING. Namnger satsen minst en del
+        # som `config/priser.json` räknar upp är åtagandet belagt.
+        if any(del_ in sats.lower() for del_ in delar):
+            continue
+
         raise Sparrfalld(
             "atagande-om-priset",
-            f"svaret säger {traff.group(0).lower()!r} om ett arbete, och det "
-            f"åtagandet står inte ordagrant i config/priser.json",
+            f"svaret säger {ord_!r} om ett arbete som inte står i "
+            f"config/priser.json",
         )
 
 
@@ -1492,6 +1633,9 @@ SKRIV ALLTID VAD DEN KOSTAR. Det gäller ÄVEN när du inte kan ge något besked
 just den bilen. Att uppslaget är oklart, att en uppgift saknas, eller att vi \
 behöver titta närmare på bilen är inget skäl att utelämna priset. Kunden vill \
 veta vad en ombyggnad kostar oavsett vad registret säger om just den bilen.
+16. SKRIV ALDRIG ATT EN DRAGKROK INGÅR. Inte att den ingår i priset, i bygget \
+eller i grundombyggnaden, och inte att den följer med eller är inkluderad. \
+Regel 13 står oförändrad och säger vad du DÄREMOT skriver när bilen behöver en.
 
 Skriv kort, konkret och vänligt. Svara på det kunden faktiskt frågar."""
 

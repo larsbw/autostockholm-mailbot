@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.55.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.58.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -4801,20 +4801,60 @@ Raden säger nu `Rekonden` i stället.
 **BYGGD I SKIVA 46, LUCKA 59 STÄNGD.** Lars beslut i DEL A: ett åtagande om vad
 som ingår i ett pris är samma klass som ett påhittat pris.
 
-- **Spärr.** `src/generera.py::krav_pa_atagande_med_kalla` kastar när svaret bär
-  ett ord som utfäster att ett arbete INGÅR eller är KOSTNADSFRITT. Beslutet
-  fattas i två led, och båda måste fällas var för sig:
+**VIDGAD I SKIVA 47, LARS §10-BESLUT: FÖREMÅLET PRÖVAS, INTE ORDET.** Hans skäl,
+ordagrant: spärren fällde på ORDET i stället för på PÅSTÅENDET, och ordet `ingår`
+är inget fel, ett obelagt föremål är det. Regeln: ett åtagandeord i en sats
+passerar om satsen namnger minst en del ur källans uppräkning och inget
+`FORDONSORD`.
 
-      for varde in las_priser().values():
-          kvar = _UTAN_PRISVARDE(varde).sub(" ", kvar)
+**SKÄLET ÄR MÄTT OCH INTE ANTAGET.** Den förra lydelsen godtog källan ORDAGRANT
+och ingenting annat. TRETTIO genereringar över TRE lydelser av prisposten gav
+NOLL ordagranna återgivningar, och en körning av de tjugo gav NOLL utkast. TVÅ av
+de tre lydelserna bar inget åtagandeord alls i källan, och modellen skrev `ingår`
+eller `inkluderar` ändå i nio fall av tio. Att räkna upp vad ett paket innehåller
+är att skriva ett åtagandeord på svenska.
 
-      traff = ATAGANDEORD.search(kvar)
+Efter vidgningen: tio av tio återgivningar passerar spärren, och de tjugo ger
+12 utkast och 8 spärrade.
 
-  Ett tredje led ligger i `_UTAN_PRISVARDE`, som bygger strykningens mönster:
+- **Spärr.** `src/generera.py::krav_pa_atagande_med_kalla` kastar när en SATS bär
+  ett ord som utfäster att ett arbete INGÅR eller är KOSTNADSFRITT utan att
+  satsen namnger en belagd del. Prövningen sker PER SATS via `_meningar`.
+
+  **TIO LED, och vart och ett är fällt FÖR SIG med RÖD utfall.** Aldrig i par:
+  §7.1 säger att ett rött utfall efter en dubbelfällning bara visar att minst ett
+  av leden bär.
+
+  I `krav_pa_atagande_med_kalla`:
+
+      kvar = _UTAN_PRISVARDE(varde).sub(" ", kvar)   → pass
+      delar = _uppraknade_delar()                    → frozenset()
+      for sats in _meningar(kvar)                    → for sats in [kvar]
+      traff = ATAGANDEORD.search(sats)               → None
+      fordon = FORDONSORD.search(sats)               → None
+      if any(del_ in sats.lower() for del_ in delar) → if True
+
+  I `_uppraknade_delar`:
+
+      if _NEKAT_EFTER_ATAGANDE.match(svans)          → if False
+      svans = re.split(r"[.!?]", svans)[0]           → svans = svans
+      if len(bit) < MINSTA_DEL                       → if False
+      if any(t.isdigit() for t in bit)               → if False
+
+  Ett elfte led ligger i `_UTAN_PRISVARDE`, som bygger strykningens mönster:
   raden `return re.compile(r"(?!)")` för ett tomt värde, och raden
   `return re.compile(r"\s+".join(delar), flags=re.IGNORECASE)` för ett fyllt.
 
-  Första ledet är UNDANTAGET, andra är fällningen. Termerna räknas inte upp här:
+  **FORDONSORDSLEDET PRÖVAS FÖRE FÖREMÅLSLEDET**, så att en sats som namnger
+  både en belagd del och ett FORDONSORD faller på fordonsordet:
+  `I priset ingår barlastflak och dragkrok.` fälls på dragkroken.
+
+  *Här stod att en sats som namnger både en belagd och en OBELAGD del faller på
+  den obelagda. Det gäller bara när den obelagda delen råkar vara ett
+  `FORDONSORD`. I varje annat fall faller satsen inte alls, se LUCKA 67. Fällt
+  av §7-granskningen av skiva 47.*
+
+  Termerna räknas inte upp här:
   de står i `src/generera.py::ATAGANDETERMER`, en term per rad, och
   `tests/test_generera_monster.py::test_varje_term_ar_ISOLERAD` kräver att var
   och en har en rad i `ATAGANDE_SKA_FALLA` där den är ENSAM om att matcha. Samma
@@ -4822,11 +4862,14 @@ som ingår i ett pris är samma klass som ett påhittat pris.
   lista i koden och blir gammal av varje ändring.
 
 - **Vad den skyddar mot.** Att boten lovar bort ett arbete gratis. Ärende 19 i
-  `data/granskningsfall.jsonl` skrev *"dragkrok ingår i bygget"*. Posten
-  `a_traktorkonvertering` i `config/priser.json` säger att priset gäller arbetet
-  och de delar som ingår i GRUNDPAKETET, och boten vet inte vad grundpaketet
-  innehåller. Meningen är alltså ett prisbesked kunden kan handla på, byggt på
-  ingenting.
+  `data/granskningsfall.jsonl` skrev *"dragkrok ingår i bygget"*. Meningen är ett
+  prisbesked kunden kan handla på, byggt på ingenting.
+
+  **SKÄLET SKÄRPTES AV SKIVA 47.** Posten `a_traktorkonvertering` sade förut att
+  priset gällde *"de delar som ingår i GRUNDPAKETET"* utan att säga VILKA, alltså
+  visste boten inte vad paketet innehöll. Nu räknar posten upp de sju delarna,
+  och `dragkrok` är INTE en av dem. Åtagandet faller därför numera på att
+  föremålet inte står i källan, och inte bara på att ordet inte gör det.
 
   **INGEN BEFINTLIG SPÄRR RÖRDE DEN, och det är hela skälet till en ny.**
   Meningen bär inget tal och inget prisord, alltså blir den ingen prissats för
@@ -4840,7 +4883,34 @@ som ingår i ett pris är samma klass som ett påhittat pris.
   Den andra formen är dessutom vad promptens regel 13 uttryckligen ber om, och en
   spärr som fällde den hade fällt det prompten beställt.
 
-- **Negativkontroll.** SEX, och de binder olika led:
+- **Negativkontroll för FÖREMÅLSLEDET, nytt i skiva 47.** Sex rader:
+  `test_en_OMSKRIVEN_prisrad_PASSERAR_nar_delarna_ar_belagda` binder vändningen
+  och bär en vakuitetskontroll som avvisar provet om strykningen råkar fria det.
+  `test_ett_atagande_om_en_OBELAGD_del_faller` binder att prövningen kan säga
+  NEJ, annars vore "godta varje åtagandeord" en grön lösning.
+  `test_ett_FORDONSORD_i_satsen_faller_AVEN_med_en_belagd_del` binder
+  ordningen mellan de två leden.
+  `test_ett_NEKANDE_efter_atagandeordet_gor_INGEN_del_belagd`,
+  `test_en_MENINGSGRANS_avslutar_upprakningen`,
+  `test_en_FOR_KORT_del_racknas_inte` och `test_en_del_med_SIFFROR_racknas_inte`
+  binder var sitt filter i `_uppraknade_delar`. Samtliga fyra använder
+  konstruerade prisvärden via `_med_priser` och bär en vakuitetskontroll som
+  visar att den BEJAKADE delen blev belagd i samma prov.
+
+  **DET FARLIGASTE LEDET ÄR `_NEKAT_EFTER_ATAGANDE`, och dess skada är mätt.**
+  Utan det blir svansen efter `ingår` till delarna `inte` och
+  `offereras separat`, och som BELAGD DEL friar `inte` varje sats som bär det:
+  *"Vi vet inte om lackering ingår."* PASSERAR med ledet urkopplat.
+
+  Räknat ordgränsat över `utgaende_text` i `data/par.jsonl`, satsdelat med
+  `_meningar`, står `inte` i 56 av 1329 meningar.
+
+  *Här stod att ordet står i VAR TREDJE mening. Talet bar ingen källa och
+  stämmer inte mot repots egen korpus: 56 av 1329 är var tjugofjärde. Ledet är
+  lastbärande ändå, det var bara talet som var påhittat. Fällt av
+  §7-granskningen av skiva 47.*
+
+- **Negativkontroll för ORDAGRANNHETSLEDET.** SEX, och de binder olika led:
   `test_PRISFILENS_EGNA_lydelser_passerar_atagandesparren` visar att ett pris
   återgivet ORDAGRANT passerar, alltså att undantaget finns. Raden bär en
   vakuitetskontroll: bär ingen post i `config/priser.json` ett åtagandeord går
@@ -4882,17 +4952,14 @@ som ingår i ett pris är samma klass som ett påhittat pris.
   *"det där täcker vi"* står kvar som en del av LUCKA 61, med en `xfail`-rad i
   `ATAGANDE_SKA_FALLA` som gör märkningen självupphävande.
 
-- **Överblockerar i TVÅ mätta former, och båda är den säkra riktningen.**
+- **Överblockerar i EN mätt form.** En term INTILL strykningens skarv:
+  blanksteget som ersätter värdet ger en term ny ordgräns, alltså bär
+  `…motortvätt 500 kringår.` ingen term, medan `ingår` står där efter
+  strykningen. Utfallet blir `utkast` som Lars läser ändå.
 
-  1. **En omskriven prisrad.** Undantaget godtar ett prisvärde ordagrant.
-     Ärende 19 skrev *"och DET priset gäller arbetet och de delar som ingår i
-     grundpaketet"*, alltså ett inskjutet ord i en rad `PRISFOT` beordrar
-     ordagrant, och den formen faller.
-  2. **En term INTILL strykningens skarv.** Blanksteget som ersätter värdet ger
-     en term ny ordgräns: `…motortvätt 500 kringår.` bär ingen term, och efter
-     strykningen står `ingår` där.
-
-  Utfallet blir `utkast` som Lars läser ändå. Samma avvägning som lucka 55.
+  *Här stod en ANDRA form: en omskriven prisrad. Den föll förut och PASSERAR
+  numera, och vändningen är skiva 47:s hela ändring. Formen var inte en kant
+  utan regeln: noll av trettio genereringar återgav prisraden ordagrant.*
 
   **ORDAGRANNHETEN GÄLLER ORDEN, inte versalen och inte radbrytningen**, och det
   ledet är ett granskningsfynd. En första lydelse strök värdet med `str.replace`,
@@ -4903,16 +4970,40 @@ som ingår i ett pris är samma klass som ett påhittat pris.
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
-| `traff = ATAGANDEORD.search(kvar)` satt till `traff = None` | RÖD | neutraliserad |
 | `kvar = _UTAN_PRISVARDE(varde).sub(" ", kvar)` satt till `pass` | RÖD | neutraliserad |
+| `delar = _uppraknade_delar()` satt till `frozenset()` | RÖD | neutraliserad |
+| `for sats in _meningar(kvar)` satt till `for sats in [kvar]` | RÖD | neutraliserad |
+| `traff = ATAGANDEORD.search(sats)` satt till `traff = None` | RÖD | neutraliserad |
+| `fordon = FORDONSORD.search(sats)` satt till `fordon = None` | RÖD | neutraliserad |
+| `if any(del_ in sats.lower() for del_ in delar)` satt till `if True` | RÖD | neutraliserad |
+| `if _NEKAT_EFTER_ATAGANDE.match(svans)` satt till `if False` | RÖD | neutraliserad |
+| `svans = re.split(r"[.!?]", svans)[0]` satt till `svans = svans` | RÖD | neutraliserad |
+| `if len(bit) < MINSTA_DEL` satt till `if False` | RÖD | neutraliserad |
+| `if any(t.isdigit() for t in bit)` satt till `if False` | RÖD | neutraliserad |
 | anropet `krav_pa_atagande_med_kalla(svar)` i `krav_pa_svaret` | RÖD | raderad |
 | `_UTAN_PRISVARDE`: tomgrenen satt till `re.compile(r"")` | RÖD | neutraliserad |
 | `_UTAN_PRISVARDE`: fyllda grenen satt till `re.compile(r"(?!)")` | RÖD | neutraliserad |
 
-**Sviten är hela `pytest`, körd i skiva 46.** Utgångsläget är
-`1558 passed, 61 skipped, 17 xfailed`. Talen per fällning är inte utskrivna: den
-enda uppgift §7.1 efterfrågar är om sviten blev röd, och ett antal fällda rader
-föråldras av nästa tillagda test.
+**DE TIO FÖRSTA ÄR FÄLLDA VAR FÖR SIG I SKIVA 47**, en rad i taget och aldrig i
+par, på Lars uttryckliga order. Sökningen efter ett åtagandeord ligger numera i
+satsloopen och lyder `traff = ATAGANDEORD.search(sats)`; också den raden är
+beslutande och fälls röd.
+
+**ETT NIONDE LED TILLKOM EFTER GRANSKNINGEN:** `for sats in _meningar(kvar)`.
+Det var OFÄLLBART när tabellen skrevs, alltså gick sviten grön satt till
+`for sats in [kvar]`, samtidigt som tre dokument lyfte fram per-sats-prövningen
+som skivans nya led. `test_PRÖVNINGEN_SKER_PER_SATS_och_inte_per_svar` binder
+det nu.
+
+*Här stod att `traff = ATAGANDEORD.search(kvar)` inte står kvar SOM RAD. Raden
+finns kvar med `sats` i stället för `kvar` och är beslutande. Fällt av
+§7-granskningen av skiva 47.*
+
+**Sviten är hela `pytest`.** Utgångsläget vid skiva 46:s fällningar var
+`1558 passed, 61 skipped, 17 xfailed`, och vid skiva 47:s `1570 passed,
+61 skipped, 17 xfailed`. Talen per fällning är inte utskrivna: den enda uppgift
+§7.1 efterfrågar är om sviten blev röd, och ett antal fällda rader föråldras av
+nästa tillagda test.
 
 **MÄTT MOT `data/granskningsfall.jsonl`:** åtta av de tjugo fallen bär ett
 förslag, och sju av de åtta passerar den nya spärren. Det enda som faller är
@@ -5210,6 +5301,151 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.58.0 — 2026-09-15
+
+**`atagande-om-priset` VIDGAD. FÖREMÅLET PRÖVAS, INTE ORDET.** Lars §10-beslut.
+Egen post ovan, med de tio leden och deras fällningar.
+
+**LUCKA 66 REGISTRERAD OCH MEDVETET ÖPPEN: en del kan namnges av en slump.**
+Delarna ur källans uppräkning jämförs som DELSTRÄNGAR och inte ordgränsat, så att
+en böjd form träffar: källan säger `besiktning`, svaret skriver `besiktningen`.
+En ordgränsad jämförelse hade fällt varje böjd form, alltså är uppmjukningen
+avsiktlig.
+
+Priset är att en sats kan frias av en delsträng som råkar stå där. `MINSTA_DEL`
+håller den värsta formen borta: bleve `ab` en del friade den varje sats som bär
+de två tecknen, `rabatt` bland dem. Ledet är prövat av
+`test_en_FOR_KORT_del_racknas_inte`. Kvar står att en LÅNG del kan stå inuti ett
+annat ord, och den formen är inte uppmätt i något utkast.
+
+Vidgningen är dessutom en uppmjukning i sig: ett åtagande om en BELAGD del
+passerar numera utan att prisraden är ordagrant återgiven. Det är hela avsikten,
+och det som bär i stället är att föremålet måste stå i `config/priser.json`.
+
+**LUCKA 67 REGISTRERAD OCH INTE BYGGD: en belagd del i satsen friar allt annat i
+samma sats.** Föremålsledet prövar satsen som en PÅSE och inte åtagandets
+föremål. Namnger satsen en enda belagd del passerar varje annat åtagande i
+samma sats, så länge det inte är ett `FORDONSORD`. Mätt mot den riktiga filen:
+
+    I priset ingår besiktning och lackering.              → PASSERAR
+    I priset ingår besiktning och en stor service.        → PASSERAR
+    Guldtvätt och besiktning ingår i grundombyggnaden.    → PASSERAR
+    Dokumentation ingår och vi bjuder på en Guldtvätt.    → PASSERAR
+
+De två med `Guldtvätt` och `stor service` är prisbesked om tjänster som bär EGNA
+priser i samma fil, alltså §0:s ramverksregel 3.
+
+**KLASSEN ÄR UPPMÄTT I VERKLIG KORPUS OCH INTE BARA KONSTRUERAD.** Granskningen
+körde HEAD och arbetsträdet mot 242 utgående texter ur `data/granskningsfall.jsonl`
+och `data/par.jsonl`: noll gick från passerande till fälld, och EN gick från
+fälld till passerande. Den enda vändningen var inte den avsedda, alltså en
+omskriven prisrad, utan ett obelagt föremål som åkte snålskjuts på ett belagt.
+
+**ÅTGÄRDEN ÄR §10.** Regeln är Lars ordagranna lydelse. Att i stället kräva att
+VARJE uppräknat element i satsens åtagandelista är belagt är en skärpning av en
+sändvägsspärr och hans beslut.
+
+**LUCKA 67 OCH 68 GATAR `auto`.** Ingen a-traktorkategori flyttas till `auto` i
+`config/kategorier.yaml` medan de står öppna. Så länge varje utkast läses av en
+människa är utfallet en mening Lars stryker; med automatisk sändning vore det
+ett prisbesked kunden kan handla på. Det är samma avvägning som §0:s
+ramverksregel 1 gör i stort, och den skrivs ut här därför att just de här två
+luckorna rör det spärren finns för.
+
+**LUCKA 68 REGISTRERAD OCH INTE BYGGD: `SATSBROTT` flyttar ett fordonsord ur
+satsen.** `_delat_pa_satsbrott` KASTAR sin avskiljare, alltså hamnar
+fordonsordet i en annan sats än åtagandet och fordonsordsledet ser det aldrig:
+
+    Vi sätter dit en krok, så besiktning och montering ingår.   → PASSERAR
+    Kroken sitter redan på, men besiktning och den ingår i priset. → PASSERAR
+
+Båda föll vid HEAD. Det är ärende 19:s klass, alltså en dragkrok inskriven i
+priset gratis, och precis det fordonsordsledet påstås skydda mot. Att pröva
+`FORDONSORD` mot hela MENINGEN i stället för mot satsen är en ändring av en
+sändvägsspärr och därmed §10.
+
+**LUCKA 63, 64 OCH 65 LÄMNAS ÖPPNA.** Lars tar dem härnäst.
+
+En vidgad spärr och tre nya luckor ⇒ MINOR.
+
+### 0.57.0 — 2026-09-15
+
+**LUCKA 65 REGISTRERAD OCH MEDVETET INTE BYGGD: ett tal UTANFÖR en prismening
+prövas inte alls.** `genererat-tal-har-kalla` prövar per sats och granskar tal
+mot `config` bara i en sats som bär ett PRISORD. En sats utan prisord kan bära
+vilket tal som helst.
+
+**MÄTT, och mätningen är hela skälet till posten.** Prisvärdet
+`a_traktorkonvertering` bar en stund en PUNKT mellan prisdelen och uppräkningen:
+*"… för grundombyggnaden. Grundombyggnaden omfattar …"*. Punkten klöv värdet i
+två satser, alltså hamnade svansen efter prisraden i UPPRÄKNINGENS sats, som
+inte bär något prisord. Följden:
+
+    Ombyggnaden kostar <värdet>, ring oss på <numret i FEL skrivform>.
+      → PASSERAR
+
+Skrivformen är verkstadens nummer med blankstegen bytta mot bindestreck, alltså
+INTE det värde `config/fakta.json` bär. Ett felaktigt telefonnummer gick därmed
+hela vägen till ett utkast. Med KOMMA i stället för punkt, samma ord och samma
+uppräkning, faller samma sträng på `genererat-tal-har-kalla`. Isolerat med båda
+lydelserna.
+
+*Siffrorna stod här i klartext och fälldes av `scripts/persondatakontroll.py`.
+§6 håller telefonnummer utanför `docs/`, och posten behöver formen och inte
+numret. Bytet rör orsaken och är ingen omskrivning förbi spärren.*
+
+**LARS BESLUT: kommat lagar INSTANSEN, inte KLASSEN.** Prisvärdet bär numera
+komma, alltså är just det här hålet stängt. Men hålet står kvar oavsett vilket
+skiljetecken ett prisvärde bär, och nästa §10-värde med en punkt öppnar det
+igen. Att pröva tal också utanför en prismening är en ändring av en
+sändvägsspärr och därmed §10, och den är bredare än den skiva som fann den.
+
+Att `test_REGEL_14_beordrar_en_form_som_PRISSPARREN_slapper_igenom` gick RÖD av
+punktlydelsen är värt att notera: radens tredje led är tripwiren för precis den
+här klassen, och den fungerade.
+
+**LUCKA 63 OCH 64 LÄMNAS ÖPPNA.** Lars tar dem när de tjugo körts.
+
+En ny lucka ⇒ MINOR.
+
+### 0.56.0 — 2026-09-15
+
+**LUCKA 63 REGISTRERAD OCH INTE BYGGD: regel 13:s egen form faller när
+uppslaget inte lyckats.** Regel 13 beordrar *"vi kan montera en"* om en
+dragkrok. `dragkrok` är ett `FORDONSORD`, alltså fäller
+`genererat-fordonsfaktum` varje mening som bär ordet när `uppslag is None`,
+oavsett vad meningen säger. Mätt mot HEAD, alltså äldre än den här skivan och
+inte införd av den: `Behöver bilen en dragkrok kan vi montera en om det behövs.`
+faller på `genererat-fordonsfaktum` i 51655d4.
+
+Det är lucka 52:s form för regel 13. Åtgärden är inte min: antingen undantas
+erbjudandeformen ur spärren, vilket vidgar en sändvägsspärr, eller villkoras
+regel 13 av uppslaget, vilket är promptens ordalydelse och därmed §11, alltså
+Lars. Ingen av dem hör till den här skivan.
+
+`test_REGEL_16_beordrar_INGEN_form_som_en_SPARR_faller` håller sig utanför
+luckan med en vakuitetskontroll som avvisar varje form som bär ett `FORDONSORD`,
+så att raden inte blir röd av fel skäl.
+
+**LUCKA 64 REGISTRERAD OCH INTE BYGGD: `offereras` är inget `PRISORD`.**
+`PRISTERMER` bär `\boffert\b`, som har en högerordgräns och inte matchar
+`offereras` eller `offererar`. Ett prisbesked i den formen går alltså igenom
+varje spärr. Mätt: *"Hej! En ombyggnad kostar &lt;prisraden ordagrant&gt;. Ring
+oss på &lt;telefonnumret&gt;. Behövs det en sådan kan vi montera en, och den
+offereras separat."* PASSERAR `krav_pa_svaret` i samtliga fyra uppslagslägen.
+
+Fyndet kom ur §7-granskningen av den här skivan: regel 16:s första lydelse
+BEORDRADE formen, med meningen *"Den offereras separat."* Regel 5 förbjuder
+varje pris utöver underlaget och namnger *"ring för offert"* som en av
+formerna, och `config/priser.json` bär inget dragkroksvärde. Regeln slutade
+beordra formen i och med omskrivningen till ett rent förbud, men VÄGEN står
+öppen: modellen kan skriva den ändå.
+
+Att lägga `offerer\w+` i `PRISTERMER` är en ändring av en sändvägsspärr och
+kräver Lars beslut, se §10. Formen är inte uppmätt i något utkast.
+
+Två nya luckor ⇒ MINOR.
 
 ### 0.55.0 — 2026-09-15
 

@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.66.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
+**Version:** 0.68.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -6083,7 +6083,148 @@ i mailet. Att bredda extraktionsmönstret är ett eget arbete och hör inte hit.
 
 ---
 
+## #110 — Prisposten säger bara vad som INGÅR. Förbudet bor i prompten.
+
+**BESLUTET, i två led.** Lars fyllde `a_traktorkonvertering` med
+offertsidans uppräkning av vad grundombyggnaden innehåller. Posten säger BARA
+vad som ingår, aldrig vad som inte gör det. Att en dragkrok inte ingår bärs av
+systempromptens regel 16, som ett RENT FÖRBUD och inte som ett påstående.
+
+**FÖRSTA LYDELSEN LADE SANNINGEN I PRISPOSTEN, och den föll.** Posten bar
+*"Dragkrok ingår inte och offereras separat."* Ordet `dragkrok` står i
+`FORDONSTERMER` och i `FRANVAROFAKTA["draganordning"]`, alltså läste
+`genererat-fordonsfaktum` och `pastaende-om-franvaro` prisraden som ett
+påstående om KUNDENS bil. `PRISFOT` kräver att priset återges ordagrant och i
+sin helhet, och regel 15 kräver att det skrivs, alltså blev varje sådant svar
+ett stopptecken enligt §9.1 på den kategori boten finns för.
+
+Mätt med den lydelsen inlagd: raden föll i var och en av de tre grenar där
+`uppslag is None`, samtliga på `genererat-fordonsfaktum`, och i det lyckade
+läget på `pastaende-om-franvaro` utom när registret sade att draganordning
+saknas och frånvaron var belagd.
+
+**LARS AVVISADE ATT VIDGA SPÄRRARNA.** Hans ord: att undanta prisvärdet ur två
+sändvägsspärrar för att laga en mening i en konfigfil är fel riktning.
+Prisposten citeras ordagrant i varje a-traktorsvar, och ett negativt påstående
+om en komponent hör inte hemma i en mening kunden läser varje gång.
+
+**ANDRA LYDELSEN FLYTTADE SANNINGEN TILL PROMPTEN SOM ETT PÅSTÅENDE, och den
+föll också.** Regel 16 sade *"EN DRAGKROK INGÅR INTE I GRUNDOMBYGGNADEN. Den
+offereras separat."* Det beordrade modellen att skriva just det ord tre spärrar
+fäller. Fältkörningen av de tjugo gav **20 spärrade och NOLL utkast**.
+
+**TREDJE OCH GÄLLANDE LYDELSEN ÄR ETT RENT FÖRBUD.** Lars skäl, ordagrant: en
+regel som beordrar ett påstående får modellen att skriva ordet `dragkrok`
+tillsammans med `ingår inte`, och då har tre spärrar något att fälla. En regel
+som bara förbjuder ger dem ingenting. Priset är att boten inte SÄGER att
+dragkrok inte ingår. Den sade det inte förut heller, och regel 13 täcker det som
+betyder något för kunden: vi kan montera en.
+
+**EN NY PROMPTREGEL MÄTS MOT `krav_pa_svaret` INNAN DE TJUGO KÖRS.** Lars order,
+och den gäller härefter för varje ny regel. Fyra svar som lyder regeln, fyra
+uppslagslägen. Steget hade stoppat den här skivan före de tjugo skarpa
+uppslagen, och dess frånvaro är hela skälet till att lydelse två nådde en
+körning. Bundet av `test_REGEL_16_beordrar_INGEN_form_som_en_SPARR_faller`, som
+är byggd efter mönstret från regel 14:s och regel 15:s motsvarande rader.
+
+**LUCKA 63 OCH 64 REGISTRERADE**, se `docs/sparrar.md`. Den första är att regel
+13:s egen form faller när uppslaget inte lyckats, mätt mot HEAD och alltså äldre
+än den här skivan. Den andra är att `offereras` inte är ett `PRISORD`, alltså
+att ett prisbesked i den formen passerar varje spärr. Båda kräver Lars beslut
+och byggdes inte här.
+
+---
+
+## #111 — Föremålet prövas, inte ordet. `atagande-om-priset` vidgad.
+
+**BESLUTET.** Ett åtagandeord i en sats passerar om satsen namnger minst en del
+ur `config/priser.json`:s uppräkning och inget `FORDONSORD`. Lars skäl,
+ordagrant: spärren fällde på ORDET i stället för på PÅSTÅENDET, och ordet `ingår`
+är inget fel, ett obelagt föremål är det.
+
+**SKÄLET ÄR MÄTT, och mätningen är skivans huvudresultat.** Den förra lydelsen
+godtog källan ORDAGRANT och ingenting annat. Prisposten fick i skiva 47 en
+uppräkning av de sju delar grundombyggnaden innehåller, och då slutade boten
+svara: en körning av de tjugo gav NOLL utkast.
+
+Tre lydelser av prisposten prövades, tio genereringar var. **Noll ordagranna
+återgivningar i samtliga trettio.** Modellen skriver *"En grundombyggnad kostar
+… och omfattar …"* och eliderar det upprepade subjektet, alltså är varje siffra
+och varje del korrekt återgiven medan bindningen är omskriven.
+
+**TVÅ AV DE TRE LYDELSERNA BAR INGET ÅTAGANDEORD ALLS I KÄLLAN.** Modellen skrev
+`ingår` eller `inkluderar` ändå i nio fall av tio. Att räkna upp vad ett paket
+innehåller är att skriva ett åtagandeord på svenska, alltså är problemet inte en
+egenskap hos någon lydelse utan förhållandet mellan en uppräknande källa och ett
+undantag som kräver ordagrannhet.
+
+**VÄGEN DIT GICK VIA TRE FÖRKASTADE LYDELSER, och var och en förkastades av en
+mätning och inte av en åsikt.** Punktlydelsen föll dessutom på något annat: en
+punkt inne i ett prisvärde klyver det i två satser, och då hamnade svansen efter
+prisraden i uppräkningens sats, som inte bär något prisord. Ett FELAKTIGT
+telefonnummer gick hela vägen till ett utkast. Det är LUCKA 65, och prisposten
+bär numera komma.
+
+**PRÖVNINGEN SKER PER SATS.** Ett åtagandeord ska inte kunna hämta sitt belägg
+ur en annan sats. Fordonsordsledet prövas FÖRE föremålsledet, så att
+*"I priset ingår barlastflak och dragkrok."* faller på dragkroken i stället för
+att frias av barlastflaket.
+
+**TIO LED, VART OCH ETT FÄLLT FÖR SIG MED RÖD UTFALL**, aldrig i par, på Lars
+uttryckliga order. Tabellen står i `docs/sparrar.md`.
+
+**UTFALLET.** Tio av tio återgivningar passerar spärren. De tjugo ger 12 utkast
+och 8 spärrade, mot noll före ändringen. Ärende 19 bär ett förslag, och
+dragkroksmeningen är borta: utkastet skriver *"vi kan montera en om det behövs"*,
+alltså regel 13:s form.
+
+**LUCKA 66 REGISTRERAD:** delarna jämförs som delsträngar, så en del kan namnges
+av en slump. `MINSTA_DEL` håller den värsta formen borta, men inte varje: `moms`
+är fyra tecken och passerar tröskeln.
+
+**§7-GRANSKNINGEN UNDERKÄNDE, OCH TVÅ FYND RÖR SÄNDVÄGEN. BÅDA ÄR REGISTRERADE
+OCH INTE BYGGDA, eftersom åtgärden är §10.**
+
+**LUCKA 67: föremålsledet prövar satsen som en PÅSE.** Namnger satsen en enda
+belagd del passerar varje annat åtagande i samma sats, om det inte är ett
+`FORDONSORD`. *"I priset ingår besiktning och lackering."* passerar, liksom
+former som lovar bort `Guldtvätt` och `stor service`, alltså tjänster med EGNA
+priser i samma fil. Uppmätt i verklig korpus: av 242 utgående texter gick noll
+från passerande till fälld och EN från fälld till passerande, och den enda
+vändningen var ett obelagt föremål på snålskjuts, inte den avsedda omskrivna
+prisraden.
+
+**LUCKA 68: `SATSBROTT` flyttar ett fordonsord ur satsen.** *"Vi sätter dit en
+krok, så besiktning och montering ingår."* passerar, och föll vid HEAD. Det är
+ärende 19:s klass och precis det fordonsordsledet påstås skydda mot.
+
+**VAD SOM RÄTTADES UTAN LARS.** Ett NIONDE beslutande led, `for sats in
+_meningar(kvar)`, var ofällbart: sviten gick grön satt till `for sats in [kvar]`,
+samtidigt som tre dokument lyfte fram per-sats-prövningen som skivans nya led.
+Det har nu en negativkontroll. Docstringens exempel bevisade inte ledet, eftersom
+det föll på `dragkrok` som `FORDONSORD` även utan det.
+
+Tre tal och en generalisering rättade enligt §7.2 och §7: att `inte` står i "var
+tredje mening" (56 av 1329 är var tjugofjärde), att `lgf-skylt` är den kortaste
+delen (`belysning` är lika kort), att "de tre lydelserna" syftade på prispostens
+tre i tur och ordning (de mätta var kandidater, och två av dem bar inget
+åtagandeord), och att en sats som namnger en belagd och en obelagd del faller på
+den obelagda (det gäller bara när den obelagda är ett `FORDONSORD`).
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.68.0 — 2026-09-15
+
+**#110 TILLKOMMER: prisposten säger bara vad som ingår.** Förbudet mot att påstå
+att en dragkrok ingår bor i systempromptens regel 16, som ett rent förbud. Lucka
+63 och 64 registrerade och inte byggda.
+
+**#111 TILLKOMMER: `atagande-om-priset` vidgad, föremålet prövas och inte ordet.**
+Lucka 65, 66, 67 och 68 registrerade och inte byggda.
+
+Två nya poster ⇒ MINOR.
 
 ### 0.66.0 — 2026-09-15
 
