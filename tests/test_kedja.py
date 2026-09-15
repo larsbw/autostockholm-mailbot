@@ -654,6 +654,25 @@ def test_kedjans_a_traktorkategorier_matchar_vyns():
     assert set(kedja.A_TRAKTORKATEGORIER) == set(vy.A_TRAKTORETIKETTER)
 
 
+def test_GENERATORNS_a_traktoretiketter_matchar_de_andra_TVA():
+    """SPÄRR: det finns TRE kopior av samma tre strängar, inte två.
+
+    `src/generera.py` bär en egen `A_TRAKTORETIKETTER` bredvid kedjans och vyns,
+    och ingenting band den. Skiva 52 lät dessutom
+    `test_kedjans_tre_a_traktorkategorier_bar_ALLA_prisposten` mäta
+    `PRISNYCKEL_FOR_KATEGORI` mot just den obundna kopian, alltså kunde tupeln
+    och kartan bytas TILLSAMMANS till en annan kategori med hela sviten grön.
+
+    **DRIFTFÖLJDEN ÄR ATT A-TRAKTORPROMPTEN TAPPAR PRISET.** Glider generatorns
+    kopia får kedjans tre kategorier ingen post i kartan, alltså `INGA_PRISER`,
+    och svaren slutar citera priset — precis det den nya raden säger sig hindra.
+
+    Fällt av §7-granskningen av skiva 52.
+    """
+    assert set(generera.A_TRAKTORETIKETTER) == set(vy.A_TRAKTORETIKETTER)
+    assert set(generera.A_TRAKTORETIKETTER) == set(kedja.A_TRAKTORKATEGORIER)
+
+
 def test_vyns_INGET_SVAR_skal_matchar_kedjans():
     """De två uppräkningarna får inte glida isär, samma skäl som raden ovan.
 

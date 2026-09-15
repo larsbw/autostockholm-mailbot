@@ -800,10 +800,14 @@ SPARR_FOR_MONSTER = {
 
 # SPÄRRAR SOM INTE TAR EN FÖRFRÅGAN. De prövar svaret ensamt, eftersom
 # ingenting i ärendet kan göra formen tillåten: en föreskrift är en föreskrift
-# oavsett bil, och ett åtagande om priset har sin enda källa i `config/`.
+# oavsett bil.
+#
+# **`krav_pa_atagande_med_kalla` STOD HÄR OCH GÖR DET INTE LÄNGRE.** Skälet löd
+# att ett åtagande om priset har sin enda källa i `config/`. Källan är fortfarande
+# `config/`, men sedan skiva 52 avgör ÄRENDETS KATEGORI vilken post i filen som
+# gäller, alltså kan spärren inte längre pröva svaret ensamt.
 UTAN_FORFRAGAN = {
     "krav_pa_att_troskeln_inte_ar_forfattningstext",
-    "krav_pa_atagande_med_kalla",
 }
 
 

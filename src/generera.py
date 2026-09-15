@@ -625,8 +625,14 @@ _NEKAT_EFTER_ATAGANDE = re.compile(r"^\W*(?:inte|ej|aldrig)\b", re.IGNORECASE)
 MINSTA_DEL = 4
 
 
-def _uppraknade_delar() -> frozenset[str]:
-    """Delarna som `config/priser.json` räknar upp som INGÅENDE i ett pris.
+def _uppraknade_delar(kategori: str) -> frozenset[str]:
+    """Delarna ärendets EGNA prispost räknar upp som INGÅENDE i ett pris.
+
+    **KATEGORIN VÄLJER POSTEN, skiva 52.** Funktionen läste tidigare hela
+    `config/priser.json`, alltså kunde en post för en annan tjänst belägga ett
+    åtagande. A-traktorpostens `grundombyggnaden omfattar ...` bidrar med sju
+    delar, och de friade ett `ingår` i ett svar om service eller rekond lika
+    gärna som i ett a-traktorsvar. Se `priser_for`.
 
     **BARA EN SVANS SOM STYRS AV ETT ÅTAGANDEORD RÄKNAS, och det ledet är
     lastbärande.** Posten `rekond` räknar upp `Guldtvätt 1 500 kr` och
@@ -645,7 +651,7 @@ def _uppraknade_delar() -> frozenset[str]:
     """
     delar: set[str] = set()
 
-    for varde in las_priser().values():
+    for varde in priser_for(kategori).values():
         for traff in ATAGANDEORD.finditer(varde):
             svans = varde[traff.end():]
             if _NEKAT_EFTER_ATAGANDE.match(svans):
@@ -766,9 +772,21 @@ def _tillatna_tal(forfragan: Forfragan) -> set[str]:
     # skiva 36, varv 2.
     #
     # `_varden_ur` plockar VÄRDEN och aldrig nycklar, hela vägen ned.
-    for fil in (PRISER, FAKTA):
-        for varde in _varden_ur(las_konfig(fil)):
-            tillatna.update(_tal_i(varde))
+    for varde in _varden_ur(las_konfig(FAKTA)):
+        tillatna.update(_tal_i(varde))
+
+    # **PRISFILEN GÅR EN ANNAN VÄG SEDAN SKIVA 52, och det är hela skivan.**
+    # Raden ovanför läste tidigare `PRISER` på samma sätt, alltså blev VARJE
+    # prispostal ett tillåtet tal oavsett kategori. Se `priser_for`.
+    #
+    # **`priser_for` ÄR SNÄVARE ÄN `_varden_ur` OCKSÅ PÅ EN ANDRA PUNKT, och
+    # riktningen är den säkra.** `_varden_ur` går NED genom en nästlad struktur
+    # och tar dess värden; `priser_for` går via `las_konfigvarden`, som utelämnar
+    # ett nästlat värde helt. Ett nästlat pris kan därmed inte längre bidra med
+    # tal. Filen ska vara platt (lucka 53), alltså är skillnaden noll för dagens
+    # fil, men en spärr ska inte vidgas av att filen får fel form.
+    for varde in priser_for(forfragan.kategori).values():
+        tillatna.update(_tal_i(varde))
 
     return tillatna
 
@@ -882,8 +900,11 @@ def krav_pa_tal_med_kalla(svar: str, forfragan: Forfragan) -> None:
     ett pris på 76, 860, 38 eller 15 kronor i samma mening som numret. Utfallet
     blir `utkast`, som Lars läser ändå. Samma avvägning som lucka 55.
     """
+    # BARA ÄRENDETS EGEN PRISPOST, skiva 52. Raden läste tidigare hela filen,
+    # alltså var `4650` ur `service` en giltig källa i ett a-traktorsvar. Skälet
+    # och mätningen står i `priser_for`.
     priskallans_tal: set[str] = set()
-    for varde in las_priser().values():
+    for varde in priser_for(forfragan.kategori).values():
         priskallans_tal |= _tal_i(varde)
 
     telefon = las_fakta().get(TELEFONNYCKEL, "")
@@ -1275,11 +1296,17 @@ def krav_pa_att_troskeln_inte_ar_forfattningstext(svar: str) -> None:
         )
 
 
-def krav_pa_atagande_med_kalla(svar: str) -> None:
+def krav_pa_atagande_med_kalla(svar: str, forfragan: Forfragan) -> None:
     """SPÄRR: ett åtagande om vad priset täcker kräver en källa. LUCKA 59.
 
     Faller svaret här är det ett STOPPTECKEN. Texten skrivs inte om tills den
     passerar, se §9.1.
+
+    **`forfragan` TILLKOM I SKIVA 52 och bär bara kategorin.** Spärren tog förut
+    enbart svaret, eftersom dess källa var hela `config/priser.json`. Nu väljer
+    kategorin posten, se `priser_for`, och då måste den nå hit. Parametern har
+    INGET förval: en anropare som glömmer den ska falla på `TypeError` och inte
+    tyst få en spärr som vaktar fel kategoris priser.
 
     **REGELN ÄR LARS, och skälet är hans:** ett åtagande om vad som ingår i ett
     pris är samma klass som ett påhittat pris. Ärende 19 skrev *"dragkrok ingår i
@@ -1397,11 +1424,17 @@ def krav_pa_atagande_med_kalla(svar: str) -> None:
     orden. Vad som bär i det fallet står som LUCKA 61 i `docs/sparrar.md`, och
     det är ingen promptregel i dag: §11 gör promptens ordalydelse till Lars.
     """
+    # BARA ÄRENDETS EGEN PRISPOST STRYKS, och bara den räknar upp delar.
+    # Skiva 52: båda raderna läste tidigare hela filen. Följden var att
+    # `grundombyggnaden omfattar ...` i a-traktorposten friade ett åtagande i ett
+    # SERVICEsvar, och tvärtom. Se `priser_for`.
+    egna_priser = priser_for(forfragan.kategori)
+
     kvar = svar
-    for varde in las_priser().values():
+    for varde in egna_priser.values():
         kvar = _UTAN_PRISVARDE(varde).sub(" ", kvar)
 
-    delar = _uppraknade_delar()
+    delar = _uppraknade_delar(forfragan.kategori)
 
     for sats in _meningar(kvar):
         traff = ATAGANDEORD.search(sats)
@@ -1467,7 +1500,7 @@ def krav_pa_svaret(svar: str, forfragan: Forfragan) -> None:
     krav_pa_fordonsfakta_ur_uppslag(svar, forfragan)
     krav_pa_belagt_franvaropastaende(svar, forfragan)
     krav_pa_att_troskeln_inte_ar_forfattningstext(svar)
-    krav_pa_atagande_med_kalla(svar)
+    krav_pa_atagande_med_kalla(svar, forfragan)
 
 
 # ------------------------------------------------------------------ DEL B
@@ -1732,7 +1765,9 @@ def _underlag(forfragan: Forfragan) -> str:
         )
 
     rader.append(f"Bedömning: {_bedomning(forfragan)}")
-    rader.append(_prisrader())
+    # KATEGORIN VÄLJER PRISPOSTEN, skiva 52. Raden skrev tidigare hela
+    # `config/priser.json`, se `priser_for`.
+    rader.append(_prisrader(forfragan.kategori))
     # **BOKNINGSBESKEDET KOMMER NU VIA `_faktarader`**, alltså ur
     # `config/fakta.json`. Regel 8 förbjuder påståenden om vad Auto Stockholm
     # erbjuder UTÖVER underlaget, och att vi kan ta emot en bil är ett sådant
@@ -1933,6 +1968,84 @@ PRISFOT = (
 INGA_PRISER = "Priser: INGA. Du har inga prisuppgifter alls."
 
 
+# VILKEN PRISPOST SOM HÖR TILL VILKEN KATEGORI. Lars beslut i skiva 52.
+#
+# **POSTEN HÖR TILL TJÄNSTEN, och varje kategori som handlar om den tjänsten
+# pekar på den.** `config/priser.json`:s `_nycklarna` säger att nycklarna är
+# namngivna efter taxonomins `fråga om pris`-kategorier, och det är sant om
+# NAMNEN. Det gör dem inte till en fullständig karta: `boka a-traktorkonvertering`
+# och `fråga om a-traktorkonvertering` handlar om samma tjänst som
+# `fråga om pris a-traktorkonvertering` och ska bära samma prispost. En karta
+# byggd på enbart namnlikhet hade tystat prisraden i två av kedjans tre
+# kategorier, och de sex utkasten i `data/granskningsfall.jsonl` hade inte
+# kunnat citera priset.
+#
+# **EN KATEGORI SOM INTE STÅR HÄR FÅR INGEN PRISPOST ALLS**, alltså `INGA_PRISER`
+# i prompten och noll prisbelagda tal i spärrarna. Det är den säkra riktningen:
+# ett svar som ändå nämner ett pris faller och blir ett utkast Lars läser.
+#
+# **`boka biltvätt` OCH `boka bromskontroll` STÅR MED FLIT INTE HÄR.** Posten
+# `rekond` bär tvättpriser och `reparation` bär bromspriser, men att de två
+# kategorierna prissätts ur just de posterna är ett antagande om verkstadens
+# uppdelning, inte något filen säger. §10 gör den kopplingen till Lars beslut.
+#
+# Kartan binds mot båda sina ändar av
+# `test_prisnyckelkartan_pekar_bara_pa_verkliga_namn`: varje kategori ska stå i
+# `data/taxonomi.json` och varje nyckel i `config/priser.json`.
+PRISNYCKEL_FOR_KATEGORI = {
+    "fråga om pris a-traktorkonvertering": "a_traktorkonvertering",
+    "fråga om a-traktorkonvertering": "a_traktorkonvertering",
+    "boka a-traktorkonvertering": "a_traktorkonvertering",
+    "fråga om pris rekond": "rekond",
+    "boka rekond": "rekond",
+    "fråga om pris service": "service",
+    "boka service": "service",
+    "fråga om pris reparation": "reparation",
+    "boka reparation": "reparation",
+    "fråga om pris däck": "dack",
+    "boka däckbyte": "dack",
+    "fråga om pris tillbehör": "tillbehor",
+    "boka tillbehörsmontage": "tillbehor",
+}
+
+
+def priser_for(kategori: str, prisfil: Path | None = None) -> dict:
+    """Prisposten ärendets EGEN kategori får nämna. Tom dict när ingen finns.
+
+    **DEN HÄR FUNKTIONEN ÄR SÄNDVÄG.** Den är enda källan till priser för både
+    prompten och de tre prisspärrarna, alltså avgör den vilka prisbelopp boten
+    får skriva i ett kundmail.
+
+    **HÅLET DEN STÄNGER, Lars beslut i skiva 52.** `_prisrader` skrev in HELA
+    `config/priser.json` i varje prompt, och `las_priser().values()` var tillåtna
+    källor för prisspärrarna, i båda fallen oberoende av kategori. Följden var att
+    ett a-traktorsvar kunde skriva *"en stor service kostar 4 650 kr"* och passera
+    varje spärr, eftersom talet står i filen. Det är ett prisbesked om en tjänst
+    ärendet inte gäller, och §0:s ramverksregel 3 säger att ett pris kommer ur
+    `config/priser.json` — inte att vilket pris som helst ur filen duger till
+    vilken fråga som helst.
+
+    **ÄNDRINGEN TAR BORT EN MÖJLIGHET, INTE ETT OBSERVERAT FEL.** Mätt i skiva 52
+    mot `data/granskningsfall.jsonl` och `data/par.jsonl`: noll av botens sex
+    utkast bär ett tal ur en annan kategoris prispost, och vändningsmätningen över
+    båda materialen gav 0 av 6 respektive 3 av 222, där två av de tre är
+    `inget kundärende` och `oklart` och aldrig får ett utkast. Hålet var alltså
+    teoretiskt i det material som finns. Det stängs ändå: en prompt ska inte bära
+    priser för tjänster ärendet inte gäller, oavsett om modellen råkat använda
+    dem. Talen står i `docs/beslutslogg.md` #118.
+
+    **ETT TOMT VÄRDE GER TOM DICT**, inte en post med tomt värde. Samma regel som
+    `las_konfigvarden`: en tom sträng är ingen avläsning. `tillbehor` är tom i dag,
+    alltså får `fråga om pris tillbehör` ingen prispost trots att kartan pekar.
+    """
+    nyckel = PRISNYCKEL_FOR_KATEGORI.get(kategori)
+    if nyckel is None:
+        return {}
+
+    varde = las_priser(prisfil).get(nyckel)
+    return {nyckel: varde} if varde else {}
+
+
 def las_priser(prisfil: Path | None = None) -> dict:
     """`config/priser.json`:s värden. Se `las_konfigvarden`.
 
@@ -1943,25 +2056,31 @@ def las_priser(prisfil: Path | None = None) -> dict:
     return las_konfigvarden(prisfil or PRISER)
 
 
-def _prisrader(prisfil: Path | None = None) -> str:
-    """Priser som FÅR nämnas, eller beskedet att inga finns.
+def _prisrader(kategori: str, prisfil: Path | None = None) -> str:
+    """Priser som FÅR nämnas för `kategori`, eller beskedet att inga finns.
 
     **BESKEDET SKRIVS UT I BÅDA FALLEN**, av samma skäl som `_faktarader`: att
     tiga när filen är tom hade lämnat modellen att gissa om den får nämna ett
     pris.
 
+    **PROMPTEN BÄR BARA ÄRENDETS EGEN POST, Lars beslut i skiva 52.** Funktionen
+    skrev tidigare ut HELA `config/priser.json` oberoende av kategori, alltså
+    fick varje a-traktorprompt posterna `rekond`, `reparation`, `service` och
+    `dack` med sig. Se `priser_for` för hålet och för mätningen.
+
     **FILEN FINNS SEDAN SKIVA 41 OCH ÄR FYLLD SEDAN SKIVA 44.** Lars §10-beslut
     båda gångerna. Åtta av nio spärrade svar i skiva 40:s mätning föll på att
     svaret nämner ett pris medan filen inte fanns, se `docs/beslutslogg.md` #90.
-    Fem av sex poster bär i dag ett pris, och `PRISRUBRIK` renderas. `tillbehor`
-    står tom, alltså utelämnas den ur prompten och är ingen källa.
+    Fem av sex poster bär i dag ett pris. `tillbehor` står tom, alltså utelämnas
+    den och är ingen källa.
 
-    `INGA_PRISER` nås fortfarande, men bara om varje post töms.
-
-    *Här stod i presens att filen ÄR TOM och att en tom fil ger samma rad som
-    ingen fil. Lars fyllde den i skiva 44. Fällt av §7-granskningen av skiva 46.*
+    **`INGA_PRISER` NÅS NU AV VARJE KATEGORI UTAN EGEN POST**, och det är de
+    flesta: 15 av taxonomins 28 står inte i `PRISNYCKEL_FOR_KATEGORI`. Före
+    skiva 52 krävdes att HELA filen tömdes. Raden säger rakt ut att inga priser
+    finns, vilket är sant för den kategorin, och den är därmed det säkra
+    utfallet: modellen lämnas inte att gissa.
     """
-    priser = las_priser(prisfil)
+    priser = priser_for(kategori, prisfil)
     if not priser:
         return INGA_PRISER
 

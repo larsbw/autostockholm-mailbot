@@ -241,18 +241,22 @@ def test_ett_NYCKELNAMN_ar_ALDRIG_en_talkalla(filnamn, tmp_path, monkeypatch):
     assert "14" not in generera._tillatna_tal(forfragan())
 
 
-@pytest.mark.parametrize("filnamn", ["PRISER", "FAKTA"])
-def test_en_NASTLAD_kommentar_vidgar_ALDRIG_talsparren(filnamn, tmp_path, monkeypatch):
+def test_en_NASTLAD_kommentar_vidgar_ALDRIG_talsparren(tmp_path, monkeypatch):
     """SPÄRR: en kommentar en nivå ned är lika mycket en kommentar.
 
     Första rättelsen prövade `_`-prefixet bara på toppnivån, alltså återuppstod
     hålet ett steg ned. Fällt av §7-granskningen av skiva 36, varv 2.
+
+    *Raden prövade tidigare BÅDA konfigfilerna. `config/priser.json` gick ur
+    `_varden_ur`:s väg i skiva 52 och prövas nu av
+    `test_ett_NASTLAT_PRIS_nar_ALDRIG_talsparren` nedan, som binder ett STARKARE
+    krav på just den filen.*
     """
     fil = tmp_path / "konfig.json"
     fil.write_text(
         '{"a-traktor": {"_om": "se §7.2 och §10", "pris": 25000}}', encoding="utf-8"
     )
-    monkeypatch.setattr(generera, filnamn, fil)
+    monkeypatch.setattr(generera, "FAKTA", fil)
 
     tillatna = generera._tillatna_tal(forfragan())
 
@@ -262,30 +266,71 @@ def test_en_NASTLAD_kommentar_vidgar_ALDRIG_talsparren(filnamn, tmp_path, monkey
     assert "25000" in tillatna
 
 
-@pytest.mark.parametrize("filnamn", ["PRISER", "FAKTA"])
-def test_en_KOMMENTAR_i_en_LISTA_vidgar_ALDRIG_talsparren(filnamn, tmp_path, monkeypatch):
+def test_en_KOMMENTAR_i_en_LISTA_vidgar_ALDRIG_talsparren(tmp_path, monkeypatch):
     """SPÄRR: listgrenen i `_varden_ur`, som var OBUNDEN.
 
-    **`config/priser.json` BLIR MED STÖRSTA SANNOLIKHET EN LISTA** av objekt, ett
-    per tjänst. Utan listgrenen faller listan igenom till `str(data)`, alltså till
-    REPR:EN med varje nästlad `_`-kommentar inbakad, och hålet från varv 1 är
-    tillbaka en nivå djupare.
+    Utan listgrenen faller listan igenom till `str(data)`, alltså till REPR:EN
+    med varje nästlad `_`-kommentar inbakad, och hålet från varv 1 är tillbaka
+    en nivå djupare.
 
     Grenen fungerade men ingen rad band den: fälld ensam var hela sviten grön,
     alltså vakuös enligt §7.1. Fällt av §7-granskningen av skiva 36, varv 3.
+
+    *Raden prövade tidigare båda filerna, och docstringen sade att
+    `config/priser.json` med största sannolikhet BLIR en lista av objekt. Lucka
+    53 avgjorde motsatsen i skiva 42: filen ska vara platt. Prisfilen gick
+    dessutom ur `_varden_ur`:s väg i skiva 52. Kvar är `config/fakta.json`, som
+    är den fil vägen faktiskt går igenom.*
     """
     fil = tmp_path / "konfig.json"
     fil.write_text(
         '{"tjanster": [{"_om": "se §7.2 och §10", "pris": 25000}]}',
         encoding="utf-8",
     )
-    monkeypatch.setattr(generera, filnamn, fil)
+    monkeypatch.setattr(generera, "FAKTA", fil)
 
     tillatna = generera._tillatna_tal(forfragan())
 
     assert "7" not in tillatna
     assert "10" not in tillatna
     assert "25000" in tillatna
+
+
+@pytest.mark.parametrize(
+    "innehall",
+    [
+        '{"a_traktorkonvertering": {"_om": "se §7.2", "pris": 25000}}',
+        '{"a_traktorkonvertering": [{"_om": "se §10", "pris": 25000}]}',
+    ],
+    ids=["nastlad-dict", "nastlad-lista"],
+)
+def test_ett_NASTLAT_PRIS_nar_ALDRIG_talsparren(innehall, tmp_path, monkeypatch):
+    """SPÄRR: prisfilen går via `las_konfigvarden`, som SLÄPPER ett nästlat värde.
+
+    **STARKARE KRAV ÄN `_varden_ur` BAR, och det är skiva 52:s biverkan.**
+    `_tillatna_tal` läste tidigare prisfilen med `_varden_ur`, som går NED genom
+    strukturen: kommentarerna filtrerades men det nästlade priset 25000 blev ett
+    tillåtet tal. Nu går filen via `priser_for`, alltså `las_konfigvarden`, som
+    utelämnar ett nästlat värde HELT.
+
+    Skillnaden är noll för dagens platta fil och är registrerad som lucka 53. Den
+    binds här ändå: en sändvägsspärr ska inte kunna vidgas av att filen får fel
+    form, och utan den här raden går ändringen att backa med grön svit.
+
+    Både dict- och listformen prövas, alltså båda grenarna `_varden_ur` hade gått
+    ned i.
+    """
+    fil = tmp_path / "priser.json"
+    fil.write_text(innehall, encoding="utf-8")
+    monkeypatch.setattr(generera, "PRISER", fil)
+
+    tillatna = generera._tillatna_tal(
+        forfragan(kategori="fråga om pris a-traktorkonvertering")
+    )
+
+    assert "7" not in tillatna
+    assert "10" not in tillatna
+    assert "25000" not in tillatna
 
 
 def test_giltig_JSON_av_FEL_TYP_ger_INGA_fakta_i_stallet_for_krasch(tmp_path, monkeypatch):
@@ -585,7 +630,7 @@ def test_prisfilen_i_repot_bar_EXAKT_det_Lars_BESLUTAT():
         n: v for n, v in PRISER_SOM_LARS_BESLUTAT.items() if v
     }
 
-    rader = generera._prisrader()
+    rader = generera._prisrader("fråga om pris a-traktorkonvertering")
     assert rader != generera.INGA_PRISER
     assert "tillbehor" not in rader
 
@@ -597,13 +642,18 @@ def _med_priser(monkeypatch, poster: dict) -> None:
     här hjälparen byter ut den RÅA läsningen, `las_konfig`, och inte
     `las_priser`.
 
-    **SKÄLET ÄR ATT FILEN HAR TVÅ LÄSARE MED OLIKA KRAV**, och det är avsiktligt:
-    `las_konfigvarden` ger prompten namn och värde i par, `_varden_ur` ger
-    talspärren varje värde var det än ligger. Båda går via `las_konfig`. En
-    hjälpare som bara patchade `las_priser` hade gett prisgrenen en fylld fil
-    och talspärren en tom, alltså ett test som inte liknar något verkligt läge.
+    **SKÄLET ÄR ATT PRISFILEN LÄSES PÅ FLERA STÄLLEN, alla via `las_konfig`.**
+    En hjälpare som bara patchade `las_priser` hade lämnat någon av dem vid den
+    riktiga filen, alltså gett ett test som inte liknar något verkligt läge.
     Uppmätt under bygget: `test_ett_AVLAST_pris_slapps_igenom...` föll på att
     25000 inte fanns bland de tillåtna talen.
+
+    *Här stod att skälet är att filen har TVÅ LÄSARE MED OLIKA KRAV,
+    `las_konfigvarden` för prompten och `_varden_ur` för talspärren. Sant fram
+    till skiva 52, som tog prisfilen ur `_varden_ur`:s väg: enda kvarvarande
+    anropet är `_varden_ur(las_konfig(FAKTA))`. Prisfilen har sedan dess EN
+    läsare, `las_konfigvarden` via `priser_for`. Hjälparen fungerar oförändrat,
+    men skälet var falskt. Fällt av §7-granskningen av skiva 52.*
     """
     riktig = generera.las_konfig
 
@@ -865,7 +915,7 @@ def test_prisblocket_bar_ramen_nar_filen_ar_fylld(monkeypatch):
     """Och att ramen FAKTISKT används, inte bara att konstanterna finns."""
     _med_priser(monkeypatch, {"a_traktorkonvertering": "25 000 kr"})
 
-    block = generera._prisrader()
+    block = generera._prisrader("fråga om pris a-traktorkonvertering")
     assert block.startswith(generera.PRISRUBRIK)
     assert block.endswith(generera.PRISFOT)
     assert "  a_traktorkonvertering: 25 000 kr" in block
@@ -997,12 +1047,7 @@ def test_bada_konfigfilerna_i_repot_ar_PLATTA():
             )
 
 
-@pytest.mark.parametrize(
-    "filnamn, renderare",
-    [("PRISER", "_prisrader"), ("FAKTA", "_faktarader")],
-)
-def test_ett_NASTLAT_varde_nar_ALDRIG_prompten(filnamn, renderare, tmp_path,
-                                               monkeypatch):
+def test_ett_NASTLAT_varde_nar_ALDRIG_prompten_FAKTA(tmp_path, monkeypatch):
     """SPÄRR: koden släpper inte igenom nästlingen, oavsett vad filen bär.
 
     **VÄRDET I EXEMPLET ÄR VÅRT INKÖPSPRIS**, alltså precis det som inte får bli
@@ -1011,7 +1056,11 @@ def test_ett_NASTLAT_varde_nar_ALDRIG_prompten(filnamn, renderare, tmp_path,
     hindrade att raden stod i prompten.
 
     **NEGATIVKONTROLLEN LIGGER I SAMMA RAD.** Utan den vore "returnera alltid
-    tomt" en grön lösning, och då hade filtret tagit Lars priser med sig.
+    tomt" en grön lösning, och då hade filtret tagit Lars fakta med sig.
+
+    *Raden prövade båda filerna med samma nycklar. Sedan skiva 52 väljer
+    kategorin prispost, alltså renderar `_prisrader` bara EN post och nycklarna
+    måste stå i `PRISNYCKEL_FOR_KATEGORI`. Prisfilens halva står i raden nedan.*
     """
     fil = tmp_path / "konfig.json"
     fil.write_text(
@@ -1019,14 +1068,43 @@ def test_ett_NASTLAT_varde_nar_ALDRIG_prompten(filnamn, renderare, tmp_path,
         ' "platt": "1 500 kr"}',
         encoding="utf-8",
     )
-    monkeypatch.setattr(generera, filnamn, fil)
+    monkeypatch.setattr(generera, "FAKTA", fil)
 
-    block = getattr(generera, renderare)()
+    block = generera._faktarader()
 
     assert "_internt" not in block, block
     assert "kostar oss" not in block, block
     assert "9 000" not in block, block
     assert "1 500 kr" in block, block
+
+
+def test_ett_NASTLAT_varde_nar_ALDRIG_prompten_PRISER(tmp_path, monkeypatch):
+    """Samma krav på prisfilen, med kategorin som väljer posten.
+
+    **TVÅ KATEGORIER PRÖVAS, eftersom bara EN post renderas åt gången.** Den
+    nästlade posten är a-traktorns, alltså den kategori vars prompt faktiskt
+    körs i dag, och `rekond` står platt som NEGATIVKONTROLL: utan den vore
+    `INGA_PRISER` i varje läge en grön lösning, och då hade filtret tagit Lars
+    priser med sig.
+    """
+    fil = tmp_path / "priser.json"
+    fil.write_text(
+        '{"a_traktorkonvertering": {"_internt": "kostar oss 9 000 kr",'
+        ' "pris": "25 000 kr"}, "rekond": "1 500 kr"}',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(generera, "PRISER", fil)
+
+    nastlat = generera._prisrader("fråga om pris a-traktorkonvertering")
+
+    assert "_internt" not in nastlat, nastlat
+    assert "kostar oss" not in nastlat, nastlat
+    assert "9 000" not in nastlat, nastlat
+    assert nastlat == generera.INGA_PRISER, nastlat
+
+    platt = generera._prisrader("fråga om pris rekond")
+
+    assert "1 500 kr" in platt, platt
 
 
 # --- SKIVA 42 DEL 0: LUCKA 54, SATSPAR FOGAS SAMMAN --------------------------
@@ -1901,8 +1979,13 @@ def test_prompten_bar_PRISET_nar_filen_ar_fylld(monkeypatch):
 
     **MEKANISMEN VAR REDAN TÄCKT, och det ska sägas.** En lydelse som alltid
     säger `Priser: INGA` fälls också av `test_prisblocket_bar_ramen_nar_filen_ar_fylld`
-    och av `test_ett_NASTLAT_varde_nar_ALDRIG_prompten[PRISER-_prisrader]`, båda
-    äldre än skiva 43. Den här raden lägger till att priset når hela vägen ut i
+    och av `test_ett_NASTLAT_varde_nar_ALDRIG_prompten_PRISER`, båda äldre än
+    skiva 43. *Den senare hette
+    `test_ett_NASTLAT_varde_nar_ALDRIG_prompten[PRISER-_prisrader]` fram till
+    skiva 52, som delade den parametriserade raden i en per fil. Node-id:t fanns
+    inte längre, alltså namngav den här meningen en vakt som inte finns — samma
+    defektklass som stycket nedan rättar. Fällt av §7-granskningen av skiva 52.*
+    Den här raden lägger till att priset når hela vägen ut i
     PROMPTEN och inte bara ur `_prisrader`, vilket är det led raden ovanför
     prövar från andra hållet.
 
@@ -2752,19 +2835,33 @@ def test_PRISFILENS_EGNA_lydelser_passerar_atagandesparren():
 
     **VÄRDENA LÄSES UR KONFIGFILEN och skrivs inte av här**, så att raden följer
     med den dag Lars ändrar en post.
+
+    **VARJE POST PRÖVAS MOT SIN EGEN KATEGORI, och det ledet är fällt fram.**
+    Raden skickade `forfragan()`, alltså en a-traktorförfrågan, för SAMTLIGA
+    poster. Efter skiva 52 stryks bara ärendets egen post, och raden hade därför
+    gått röd den dag Lars lägger ett åtagandeord i en annan prispost: en laglig
+    §10-ändring utan något fel i sändvägen, eftersom posten citerad i sitt EGET
+    ärende passerar. §9.1 beskriver just det läget som det där frestelsen är att
+    sänka spärren. Fällt av §7-granskningen av skiva 52.
     """
-    varden = list(generera.las_priser().values())
+    par = [
+        (nyckel, kategori, generera.las_priser()[nyckel])
+        for kategori, nyckel in generera.PRISNYCKEL_FOR_KATEGORI.items()
+        if nyckel in generera.las_priser()
+    ]
 
     # VAKUITETSKONTROLL. Bär ingen post ett åtagandeord prövar raden ingenting,
     # och den vore då grön av fel skäl.
-    barande = [v for v in varden if generera.ATAGANDEORD.search(v)]
+    barande = [n for n, _, v in par if generera.ATAGANDEORD.search(v)]
     assert barande, (
         "ingen post i config/priser.json bär ett åtagandeord, alltså prövar "
         "raden inte undantaget den finns för"
     )
 
-    for varde in varden:
-        generera.krav_pa_atagande_med_kalla(f"En ombyggnad kostar {varde}.")
+    for _, kategori, varde in par:
+        generera.krav_pa_atagande_med_kalla(
+            f"En ombyggnad kostar {varde}.", forfragan(kategori=kategori)
+        )
 
 
 def test_ett_atagande_UTANFOR_prisfilen_faller_aven_nar_priset_citeras():
@@ -2779,7 +2876,7 @@ def test_ett_atagande_UTANFOR_prisfilen_faller_aven_nar_priset_citeras():
     with pytest.raises(Sparrfalld) as fel:
         generera.krav_pa_atagande_med_kalla(
             f"En ombyggnad kostar {pris}. Dragkrok ingår i bygget."
-        )
+        , forfragan())
 
     assert fel.value.sparr == "atagande-om-priset"
 
@@ -2817,7 +2914,7 @@ def test_en_OMSKRIVEN_prisrad_PASSERAR_nar_delarna_ar_belagda():
         "den och föremålsprövningen mäts inte"
     )
 
-    generera.krav_pa_atagande_med_kalla(f"En ombyggnad kostar {omskrivet}.")
+    generera.krav_pa_atagande_med_kalla(f"En ombyggnad kostar {omskrivet}.", forfragan())
 
 
 def test_PRÖVNINGEN_SKER_PER_SATS_och_inte_per_svar():
@@ -2839,11 +2936,11 @@ def test_PRÖVNINGEN_SKER_PER_SATS_och_inte_per_svar():
     """
     # VAKUITETSKONTROLL: den första satsen är belagd för sig, alltså är det
     # satsgränsen och inte något annat som fäller.
-    generera.krav_pa_atagande_med_kalla("I priset ingår barlastflak.")
+    generera.krav_pa_atagande_med_kalla("I priset ingår barlastflak.", forfragan())
 
     with pytest.raises(Sparrfalld) as fel:
         generera.krav_pa_atagande_med_kalla(
-            "I priset ingår barlastflak. Lackering ingår också.")
+            "I priset ingår barlastflak. Lackering ingår också.", forfragan())
 
     assert fel.value.sparr == "atagande-om-priset"
 
@@ -2856,7 +2953,7 @@ def test_ett_atagande_om_en_OBELAGD_del_faller():
     åtagandeord" en grön lösning.
     """
     with pytest.raises(Sparrfalld) as fel:
-        generera.krav_pa_atagande_med_kalla("Lackering ingår i priset.")
+        generera.krav_pa_atagande_med_kalla("Lackering ingår i priset.", forfragan())
 
     assert fel.value.sparr == "atagande-om-priset"
 
@@ -2893,14 +2990,14 @@ def test_ett_NEKANDE_efter_atagandeordet_gor_INGEN_del_belagd(monkeypatch):
 
     # VAKUITETSKONTROLL: den bejakande delen är belagd, alltså fungerar
     # extraktionen i provet.
-    generera.krav_pa_atagande_med_kalla("I priset ingår barlastflak.")
+    generera.krav_pa_atagande_med_kalla("I priset ingår barlastflak.", forfragan())
 
-    assert generera._uppraknade_delar() == frozenset({"barlastflak"}), (
+    assert generera._uppraknade_delar("fråga om pris a-traktorkonvertering") == frozenset({"barlastflak"}), (
         "den nekade svansen har blivit delar, alltså friar ett funktionsord"
     )
 
     with pytest.raises(Sparrfalld) as fel:
-        generera.krav_pa_atagande_med_kalla("Vi vet inte om lackering ingår.")
+        generera.krav_pa_atagande_med_kalla("Vi vet inte om lackering ingår.", forfragan())
 
     assert fel.value.sparr == "atagande-om-priset"
 
@@ -2917,10 +3014,10 @@ def test_en_MENINGSGRANS_avslutar_upprakningen(monkeypatch):
             "Vi gör även rostskydd, lackering och mycket annat",
     })
 
-    generera.krav_pa_atagande_med_kalla("I priset ingår barlastflak.")
+    generera.krav_pa_atagande_med_kalla("I priset ingår barlastflak.", forfragan())
 
     with pytest.raises(Sparrfalld) as fel:
-        generera.krav_pa_atagande_med_kalla("Lackering ingår i priset.")
+        generera.krav_pa_atagande_med_kalla("Lackering ingår i priset.", forfragan())
 
     assert fel.value.sparr == "atagande-om-priset"
 
@@ -2937,10 +3034,10 @@ def test_en_FOR_KORT_del_racknas_inte(monkeypatch):
             "1 000 kr för paketet, och paketet omfattar ab, barlastflak",
     })
 
-    generera.krav_pa_atagande_med_kalla("I priset ingår barlastflak.")
+    generera.krav_pa_atagande_med_kalla("I priset ingår barlastflak.", forfragan())
 
     with pytest.raises(Sparrfalld) as fel:
-        generera.krav_pa_atagande_med_kalla("Rabatt ingår i priset.")
+        generera.krav_pa_atagande_med_kalla("Rabatt ingår i priset.", forfragan())
 
     assert fel.value.sparr == "atagande-om-priset"
 
@@ -2958,10 +3055,10 @@ def test_en_del_med_SIFFROR_racknas_inte(monkeypatch):
             "2 års garanti",
     })
 
-    generera.krav_pa_atagande_med_kalla("I priset ingår barlastflak.")
+    generera.krav_pa_atagande_med_kalla("I priset ingår barlastflak.", forfragan())
 
     with pytest.raises(Sparrfalld) as fel:
-        generera.krav_pa_atagande_med_kalla("2 års garanti ingår i priset.")
+        generera.krav_pa_atagande_med_kalla("2 års garanti ingår i priset.", forfragan())
 
     assert fel.value.sparr == "atagande-om-priset"
 
@@ -2975,7 +3072,7 @@ def test_ett_FORDONSORD_i_satsen_faller_AVEN_med_en_belagd_del():
     """
     with pytest.raises(Sparrfalld) as fel:
         generera.krav_pa_atagande_med_kalla(
-            "I priset ingår barlastflak och dragkrok.")
+            "I priset ingår barlastflak och dragkrok.", forfragan())
 
     assert fel.value.sparr == "atagande-om-priset"
     assert "dragkrok" in str(fel.value)
@@ -2988,11 +3085,11 @@ def test_att_KUNNA_UTFORA_ett_arbete_ar_INGET_atagande():
     fällde båda hade fällt promptens regel 13, som uttryckligen ber om
     erbjudandet att montera en dragkrok.
     """
-    generera.krav_pa_atagande_med_kalla("Extraljusen kopplar vi in.")
-    generera.krav_pa_atagande_med_kalla("Vi kan montera en dragkrok.")
+    generera.krav_pa_atagande_med_kalla("Extraljusen kopplar vi in.", forfragan())
+    generera.krav_pa_atagande_med_kalla("Vi kan montera en dragkrok.", forfragan())
 
     with pytest.raises(Sparrfalld):
-        generera.krav_pa_atagande_med_kalla("Dragkrok ingår i bygget.")
+        generera.krav_pa_atagande_med_kalla("Dragkrok ingår i bygget.", forfragan())
 
 
 def test_strykningen_fogar_inte_ihop_tva_halvor_till_ett_atagandeord(monkeypatch):
@@ -3006,11 +3103,21 @@ def test_strykningen_fogar_inte_ihop_tva_halvor_till_ett_atagandeord(monkeypatch
     ligger INTILL skarven får en ny ordgräns av blanksteget och kan då matcha
     där den inte matchade förut, se raden nedan. Skillnaden är riktningen: den
     här formen vore en falsk FRIKÄNNANDE, den andra en överblockering.
+
+    **NYCKELN MÅSTE VARA EN SOM KARTAN PEKAR PÅ, och det är skiva 52:s fälla.**
+    Raden patchade `las_priser` med nyckeln `x`. Efter skiva 52 slår `priser_for`
+    upp ärendets egen nyckel i den dicten, får `None` och returnerar tom dict,
+    alltså ströks ingenting och raden kunde inte längre skilja `" "` från `""`.
+    Fällningen `sub("", kvar)` gick grön med hela sviten. Fällt av
+    §7-granskningen av skiva 52.
     """
-    monkeypatch.setattr(generera, "las_priser", lambda *a, **k: {"x": "MITTEN"})
+    monkeypatch.setattr(
+        generera, "las_priser",
+        lambda *a, **k: {"a_traktorkonvertering": "MITTEN"},
+    )
 
     # Utan blanksteget blir strängen `ingår` och raden fälls.
-    generera.krav_pa_atagande_med_kalla("Vi ingMITTENår med jobbet.")
+    generera.krav_pa_atagande_med_kalla("Vi ingMITTENår med jobbet.", forfragan())
 
 
 def test_strykningen_KAN_tillverka_en_traff_INTILL_skarven():
@@ -3023,6 +3130,11 @@ def test_strykningen_KAN_tillverka_en_traff_INTILL_skarven():
     tillverka en träff var falskt och raden hindrar att det skrivs igen.
 
     Fällt av §7-granskningen av skiva 46.
+
+    *Förfrågan var en a-traktorförfrågan medan värdet är `service`:s. Sedan
+    skiva 52 stryks bara ÄRENDETS EGEN prispost, alltså ströks värdet inte alls
+    och skarven uppstod aldrig. Kategorin är nu den som äger värdet, så att
+    raden prövar strykningen och inte kartan.*
     """
     varde = PRISER_SOM_LARS_BESLUTAT["service"]
     text = f"Vi {varde}ingår."
@@ -3032,7 +3144,9 @@ def test_strykningen_KAN_tillverka_en_traff_INTILL_skarven():
     )
 
     with pytest.raises(Sparrfalld):
-        generera.krav_pa_atagande_med_kalla(text)
+        generera.krav_pa_atagande_med_kalla(
+            text, forfragan(kategori="fråga om pris service")
+        )
 
 
 def test_prisraden_FORST_I_EN_MENING_passerar():
@@ -3050,7 +3164,7 @@ def test_prisraden_FORST_I_EN_MENING_passerar():
     versal = varde[0].upper() + varde[1:]
     assert versal != varde
 
-    generera.krav_pa_atagande_med_kalla(f"{versal}. Ring oss så tittar vi.")
+    generera.krav_pa_atagande_med_kalla(f"{versal}. Ring oss så tittar vi.", forfragan())
 
 
 def test_en_RADBRUTEN_prisrad_passerar():
@@ -3065,7 +3179,7 @@ def test_en_RADBRUTEN_prisrad_passerar():
                               "moms för\ngrundombyggnaden", 1)
     assert radbrutet != varde
 
-    generera.krav_pa_atagande_med_kalla(f"En ombyggnad kostar {radbrutet}.")
+    generera.krav_pa_atagande_med_kalla(f"En ombyggnad kostar {radbrutet}.", forfragan())
 
 
 def test_ett_TOMT_prisvarde_tystar_INTE_sparren():
@@ -3077,7 +3191,7 @@ def test_ett_TOMT_prisvarde_tystar_INTE_sparren():
     assert not generera._UTAN_PRISVARDE("").search("vad som helst ingår här")
 
     with pytest.raises(Sparrfalld):
-        generera.krav_pa_atagande_med_kalla("Dragkroken ingår i bygget.")
+        generera.krav_pa_atagande_med_kalla("Dragkroken ingår i bygget.", forfragan())
 
 
 def test_ett_PRISVARDE_tolkas_aldrig_som_ett_reguljart_uttryck():
@@ -3119,7 +3233,7 @@ def test_REGEL_15_kraver_INGET_PRIS_nar_underlaget_saknar_det(monkeypatch):
 
     # OCH PREMISSEN: det tomma läget finns, och då står inget pris i underlaget.
     _med_priser(monkeypatch, {})
-    assert generera._prisrader() == generera.INGA_PRISER
+    assert generera._prisrader("fråga om pris a-traktorkonvertering") == generera.INGA_PRISER
     assert generera.INGA_PRISER in generera._underlag(forfragan())
 
 
@@ -3364,3 +3478,346 @@ def test_forvalet_ar_TOM_mangd_alltsa_inga_franvaropastaenden():
     registrets luckor ska inte kunna låta boten påstå att en uppgift saknas.
     """
     assert forfragan().franvaro_far_pastas == frozenset()
+
+
+# --- SKIVA 52: KATEGORIN VÄLJER PRISPOSTEN -----------------------------------
+#
+# Lars beslut. `_prisrader` skrev ut HELA `config/priser.json` i varje prompt och
+# `las_priser().values()` var tillåtna källor för prisspärrarna, i båda fallen
+# oberoende av kategori. Ett a-traktorsvar kunde därmed skriva "en stor service
+# kostar 4 650 kr" och passera varje spärr, eftersom talet står i filen.
+#
+# MÄTT FÖRE BYGGET: noll av botens sex utkast i `data/granskningsfall.jsonl` bär
+# ett tal ur en annan kategoris prispost. Hålet var teoretiskt i det material som
+# finns, och stängs ändå. Talen står i `docs/beslutslogg.md` #118.
+
+
+def _prissvar(varde: str) -> str:
+    """En prismening byggd ur ett HELT prisvärde, alltså citerat enligt PRISFOT."""
+    return f"Hej! {varde}. Hör av dig så bokar vi in en tid."
+
+
+@pytest.mark.parametrize(
+    "frammande",
+    [n for n in PRISER_SOM_LARS_BESLUTAT if n != "a_traktorkonvertering"
+     and PRISER_SOM_LARS_BESLUTAT[n]],
+)
+def test_ett_tal_ur_en_ANNAN_kategoris_prispost_ar_INGEN_kalla(frammande):
+    """SPÄRR: skivans hela poäng, och den fälls per främmande post.
+
+    Varje post utom a-traktorns prövas mot en A-TRAKTORFÖRFRÅGAN. Talen står i
+    `config/priser.json`, alltså passerade meningen före skiva 52, och kunden
+    hade fått ett prisbesked om en tjänst ärendet inte gäller.
+
+    **VARJE POST FÅR EN EGEN RAD.** En enda rad hade gått grön om kartan råkade
+    peka rätt för just den posten.
+
+    **SKÄLET PRÖVAS OCH INTE BARA SPÄRRNAMNET, och det ledet isolerar en av två
+    REDUNDANTA rader.** `krav_pa_tal_med_kalla` prövar prissatsens tal mot
+    priskällan och sedan HELA svarets tal mot `_tillatna_tal`. Båda läser
+    prisfilen, och båda gick att återställa till hela filen med grön svit när de
+    fälldes en i taget, alltså mätte ingen av fällningarna något (§7.1). De två
+    ger OLIKA skäl. Raden här binder prissatsledet genom sitt skäl; talet utanför
+    en prissats binds av `test_ett_FRAMMANDE_pristal_UTANFOR_en_prissats_faller`
+    nedan. Fälls de två raderna tillsammans blir sviten röd.
+    """
+    svar = _prissvar(PRISER_SOM_LARS_BESLUTAT[frammande])
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla(
+            svar, forfragan(kategori="fråga om pris a-traktorkonvertering")
+        )
+
+    assert fel.value.sparr == "genererat-tal-har-kalla"
+    assert "står i en prismening" in fel.value.skal, fel.value.skal
+
+
+def test_ett_FRAMMANDE_pristal_UTANFOR_en_prissats_faller():
+    """SPÄRR: isolerar `_tillatna_tal`, den andra av de två redundanta raderna.
+
+    Meningen bär inget `PRISORD`, alltså är den ingen prissats och
+    prissatsgrenen ser den aldrig. Kvar är slutkontrollen, som prövar VARJE tal i
+    svaret mot `_tillatna_tal`. Läser den raden hela `config/priser.json` är 4650
+    ett tillåtet tal i ett a-traktorsvar, och då passerar meningen.
+
+    Talet är `service`-postens `stor service 4 650 kr`, alltså Lars egen form ur
+    skiva 52:s instruktion, med prisordet borttaget så att bara den ena grenen
+    kan fälla.
+    """
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla(
+            "Hej! Vi har 4 650 skruvar kvar i lådan.",
+            forfragan(kategori="fråga om pris a-traktorkonvertering"),
+        )
+
+    assert fel.value.sparr == "genererat-tal-har-kalla"
+    assert "varken ur uppslaget eller ur config" in fel.value.skal, fel.value.skal
+
+
+@pytest.mark.parametrize(
+    "nyckel, kategori",
+    [(n, k) for k, n in generera.PRISNYCKEL_FOR_KATEGORI.items()
+     if PRISER_SOM_LARS_BESLUTAT.get(n)],
+)
+def test_den_EGNA_prispostens_tal_slapps_fortfarande_igenom(nyckel, kategori):
+    """NEGATIVKONTROLL till raden ovan, och den är lastbärande.
+
+    Utan den vore "ingen prispost är någonsin en källa" en grön lösning, och då
+    hade boten slutat kunna skriva ut ett pris alls. Regel 15 beordrar att ett
+    a-traktorsvar ALLTID skriver vad ombyggnaden kostar.
+
+    Varje kategori i kartan prövas mot sin EGEN post.
+    """
+    svar = _prissvar(PRISER_SOM_LARS_BESLUTAT[nyckel])
+
+    generera.krav_pa_tal_med_kalla(svar, forfragan(kategori=kategori))
+
+
+def test_prompten_bar_BARA_arendets_egen_prispost():
+    """SPÄRR: promptens halva av samma sak.
+
+    Talspärren kan bara fälla det modellen skrivit. Att posten över huvud taget
+    står i prompten är det som gör att modellen skriver den, alltså måste båda
+    halvorna stängas. Jämför lucka 53: talets halva var stängd medan textens var
+    öppen, och det var hålet.
+    """
+    block = generera._prisrader("fråga om pris a-traktorkonvertering")
+
+    assert PRISER_SOM_LARS_BESLUTAT["a_traktorkonvertering"] in block
+    for namn, varde in PRISER_SOM_LARS_BESLUTAT.items():
+        if namn == "a_traktorkonvertering" or not varde:
+            continue
+        assert namn not in block, f"{namn} står i a-traktorprompten"
+        assert varde not in block, f"{namn}:s pris står i a-traktorprompten"
+
+
+def test_en_kategori_UTAN_prispost_far_beskedet_att_inga_finns():
+    """En kategori utanför kartan ska INTE få hela filen, och inte heller tiga.
+
+    `INGA_PRISER` säger rakt ut att inga prisuppgifter finns, vilket är sant för
+    den kategorin. Att tiga hade lämnat modellen att gissa om den får nämna ett
+    pris, vilket är skälet beskedet skrivs ut i båda lägena.
+    """
+    assert "begära offert" not in generera.PRISNYCKEL_FOR_KATEGORI
+    assert generera._prisrader("begära offert") == generera.INGA_PRISER
+    assert generera.priser_for("begära offert") == {}
+
+
+# KARTAN SOM LARS BESLUTAT, skiva 52. Samma form och samma skäl som
+# `PRISER_SOM_LARS_BESLUTAT` ovan: vilken prispost en kategori får är Lars
+# beslut, och en ändring ska kräva att tabellen här ändras i samma svep.
+#
+# **UTAN DEN HÄR TABELLEN BAR 8 AV KARTANS 13 RADER INGENTING.** Uppmätt med
+# `scripts/sparr-prova.sh --radera N`, en rad i taget: bara raderna för
+# a-traktorns tre kategorier, `fråga om pris rekond` och `fråga om pris service`
+# gick röda. De övriga åtta gick att radera med hela sviten grön, och kategorin
+# hade då tappat sitt pris tyst. Skälet var att
+# `test_den_EGNA_prispostens_tal_slapps_fortfarande_igenom` parametriseras UR
+# kartan och alltså krymper med den. Fällt av §7-granskningen av skiva 52.
+#
+# Riktningen är säker — en borttagen rad ger `INGA_PRISER` — men en tyst
+# förlust är ingen mindre förlust.
+KARTAN_SOM_LARS_BESLUTAT = {
+    "fråga om pris a-traktorkonvertering": "a_traktorkonvertering",
+    "fråga om a-traktorkonvertering": "a_traktorkonvertering",
+    "boka a-traktorkonvertering": "a_traktorkonvertering",
+    "fråga om pris rekond": "rekond",
+    "boka rekond": "rekond",
+    "fråga om pris service": "service",
+    "boka service": "service",
+    "fråga om pris reparation": "reparation",
+    "boka reparation": "reparation",
+    "fråga om pris däck": "dack",
+    "boka däckbyte": "dack",
+    "fråga om pris tillbehör": "tillbehor",
+    "boka tillbehörsmontage": "tillbehor",
+}
+
+
+def test_prisnyckelkartan_bar_EXAKT_det_Lars_BESLUTAT():
+    """§10-STOPP: varje rad i kartan binds, inte bara de fem som råkar prövas.
+
+    Raden går röd på tre former: en ny kategori, en borttagen kategori, och en
+    kategori som pekas om till en annan prispost. Alla tre är Lars beslut, och
+    den som har hans beslut ändrar tabellen ovan i samma svep.
+
+    **`boka biltvätt` OCH `boka bromskontroll` SAKNAS MED FLIT.** Posten `rekond`
+    bär tvättpriser och `reparation` bär bromspriser, men att de två kategorierna
+    prissätts ur just de posterna är ett antagande om verkstadens uppdelning och
+    inte något `config/priser.json` säger. §10 gör den kopplingen till Lars.
+    """
+    assert generera.PRISNYCKEL_FOR_KATEGORI == KARTAN_SOM_LARS_BESLUTAT, (
+        "§10-stopp: ändra tabellen här bara när Lars har beslutat ändringen."
+    )
+
+
+def test_prisnyckelkartan_pekar_bara_pa_verkliga_namn():
+    """SPÄRR: kartans båda ändar ska finnas, annars tystnar en prispost tyst.
+
+    En kategori som stavas fel faller aldrig på något: `priser_for` ger tom dict,
+    prompten får `INGA_PRISER`, och kategorin tappar sitt pris utan att något
+    blir rött. Samma sak åt andra hållet om en nyckel byter namn i filen.
+    """
+    taxonomi = json.loads(
+        (generera.ROT / "data" / "taxonomi.json").read_text(encoding="utf-8")
+    )
+    prisnycklar = set(PRISER_SOM_LARS_BESLUTAT)
+
+    for kategori, nyckel in generera.PRISNYCKEL_FOR_KATEGORI.items():
+        assert kategori in taxonomi, (
+            f"{kategori!r} står i PRISNYCKEL_FOR_KATEGORI men inte i taxonomin"
+        )
+        assert nyckel in prisnycklar, (
+            f"{nyckel!r} står i PRISNYCKEL_FOR_KATEGORI men inte i priser.json"
+        )
+
+
+def test_kedjans_tre_a_traktorkategorier_bar_ALLA_prisposten():
+    """SPÄRR: de tre kategorier som faktiskt får ett utkast ska kunna citera priset.
+
+    `config/priser.json`:s `_nycklarna` säger att nycklarna är namngivna efter
+    taxonomins `fråga om pris`-kategorier. En karta byggd på enbart den
+    namnlikheten hade gett `boka a-traktorkonvertering` och
+    `fråga om a-traktorkonvertering` ingen prispost alls, alltså tystat priset i
+    två av kedjans tre kategorier.
+
+    `generera.A_TRAKTORETIKETTER` läses härifrån och inte ur kedjan, så att
+    testfilen inte drar in kedjan för tre strängar.
+
+    *Här stod att den tupeln är bunden av
+    `test_kedjans_a_traktorkategorier_matchar_vyns`. Falskt: den raden binder
+    KEDJANS tupel mot VYNS, och generatorns tredje kopia band ingenting. Raden
+    här mätte alltså kartan mot en uppräkning som kunde glida, och följde med i
+    gliden: tupeln och kartan gick att byta tillsammans till en annan kategori
+    med hela sviten grön. Kopian binds sedan §7-granskningen av skiva 52 av
+    `test_GENERATORNS_a_traktoretiketter_matchar_de_andra_TVA` i
+    `tests/test_kedja.py`, där alla tre modulerna redan är importerade.*
+    """
+    for kategori in generera.A_TRAKTORETIKETTER:
+        assert generera.PRISNYCKEL_FOR_KATEGORI.get(kategori) == (
+            "a_traktorkonvertering"
+        ), f"{kategori!r} bär inte a-traktorns prispost"
+
+
+def test_en_del_ur_en_ANNAN_kategoris_prispost_BELAGGER_INGENTING():
+    """SPÄRR: åtagandespärrens halva av samma sak.
+
+    A-traktorpostens `grundombyggnaden omfattar ... besiktning ...` räknar upp
+    sju delar. Före skiva 52 lästes de oavsett kategori, alltså friade de ett
+    `ingår` i ett svar om service lika gärna som i ett a-traktorsvar.
+
+    NEGATIVKONTROLLEN står i samma rad: samma mening i ett A-TRAKTORÄRENDE ska
+    fortfarande passera, annars mäter raden bara att spärren fäller allt.
+    """
+    svar = "I priset ingår besiktning."
+
+    generera.krav_pa_atagande_med_kalla(
+        svar, forfragan(kategori="fråga om pris a-traktorkonvertering")
+    )
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_atagande_med_kalla(
+            svar, forfragan(kategori="fråga om pris service")
+        )
+
+    assert fel.value.sparr == "atagande-om-priset"
+
+
+def test_STRYKNINGEN_ror_bara_den_EGNA_prisposten():
+    """SPÄRR: isolerar strykningsraden i `krav_pa_atagande_med_kalla`.
+
+    **ETT PRISVÄRDE SOM STRYKS TAR SITT ÅTAGANDEORD MED SIG**, och det är
+    strykningens hela syfte: är prisraden ordagrant återgiven finns inget
+    åtagandeord kvar att pröva. A-traktorpostens värde bär `omfattar`.
+
+    Stryks HELA filen, som före skiva 52, försvinner alltså `omfattar` också ur
+    ett SERVICESVAR som citerar a-traktorraden, och satsen passerar utan att
+    någon del är belagd. Med bara den egna posten struken står ordet kvar och
+    satsen faller, vilket är rätt: posten säger ingenting om vad en service
+    omfattar.
+
+    Utan den här raden går strykningen att återställa till hela filen med grön
+    svit (§7.1).
+    """
+    a_traktorpriset = PRISER_SOM_LARS_BESLUTAT["a_traktorkonvertering"]
+
+    assert generera.ATAGANDEORD.search(a_traktorpriset), (
+        "a-traktorvärdet bär inget åtagandeord, alltså prövar raden ingenting"
+    )
+
+    # EGET ÄRENDE: raden är ordagrant citerad och åtagandeordet stryks med den.
+    generera.krav_pa_atagande_med_kalla(
+        f"Hej! {a_traktorpriset}.",
+        forfragan(kategori="fråga om pris a-traktorkonvertering"),
+    )
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_atagande_med_kalla(
+            f"Hej! {a_traktorpriset}.",
+            forfragan(kategori="fråga om pris service"),
+        )
+
+    assert fel.value.sparr == "atagande-om-priset"
+
+
+def test_UNDERLAGET_lamnar_vidare_arendets_kategori_till_prisblocket():
+    """SPÄRR: isolerar ledet i `_underlag`, som är enda vägen in i prompten.
+
+    `_prisrader` kan välja rätt post och ändå få fel kategori: `_underlag` är
+    den som skickar den. Hårdkodas kategorin där skriver varje prompt
+    a-traktorns priser, oavsett ärende, och hela skivan är verkningslös utan att
+    något blir rött.
+
+    Två kategorier prövas, alltså går ledet inte att hårdkoda till någondera.
+    """
+    a_traktor = generera._underlag(
+        forfragan(kategori="fråga om pris a-traktorkonvertering")
+    )
+    rekond = generera._underlag(forfragan(kategori="fråga om pris rekond"))
+
+    assert PRISER_SOM_LARS_BESLUTAT["a_traktorkonvertering"] in a_traktor
+    assert PRISER_SOM_LARS_BESLUTAT["rekond"] not in a_traktor
+
+    assert PRISER_SOM_LARS_BESLUTAT["rekond"] in rekond
+    assert PRISER_SOM_LARS_BESLUTAT["a_traktorkonvertering"] not in rekond
+
+
+def test_de_SEX_utkasten_ur_skiva_51_passerar_PRISVAGEN():
+    """SPÄRR: skivans verifikationskrav, mot det material som finns.
+
+    Lars krav i skiva 52: a-traktorsvaren ska stå kvar och de sex utkasten ur
+    `data/granskningsfall.jsonl` ska passera.
+
+    **BARA DE PRISBEROENDE SPÄRRARNA PRÖVAS, och avgränsningen är en avläsning
+    och inte en bekvämlighet.** `krav_pa_svaret` innehåller
+    `krav_pa_fordonsfakta_ur_uppslag`, som kräver ett LYCKAT uppslag så snart
+    svaret nämner ett fordonsord. Utkasten nämner dragkrok, och
+    `data/granskningsfall.jsonl` bär inte uppslagets tjänstevikt och
+    släpvagnsvikt: posten sparar bara `uppslagskalla`. Att hitta på en `Uppslag`
+    hade gjort raden till ett prov på påhittad fordonsdata, vilket §7.2 förbjuder.
+    De två spärrar skivan rör är de som prövas, och de är de enda som kan ha
+    ändrat utfall.
+
+    **FILEN ÄR GITIGNORERAD OCH BÄR KUNDTEXT.** Raden hoppas över när den saknas,
+    och den läser aldrig ut något ur den: bara antal och utfall.
+    """
+    fil = generera.ROT / "data" / "granskningsfall.jsonl"
+    if not fil.exists():
+        pytest.skip("data/granskningsfall.jsonl saknas")
+
+    utkast = []
+    for rad in fil.read_text(encoding="utf-8").splitlines():
+        if not rad.strip():
+            continue
+        post = json.loads(rad)
+        if (post.get("forslag") or "").strip():
+            utkast.append(post)
+
+    if not utkast:
+        pytest.skip("inga utkast i data/granskningsfall.jsonl")
+
+    for post in utkast:
+        arende = forfragan(kategori=post["etikett"], uppslag=None,
+                           regnr_i_mailet=False)
+        generera.krav_pa_tal_med_kalla(post["forslag"], arende)
+        generera.krav_pa_atagande_med_kalla(post["forslag"], arende)

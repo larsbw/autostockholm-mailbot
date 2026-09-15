@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.73.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
+**Version:** 0.74.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -6692,7 +6692,158 @@ plats. De två raderna vaktar var sitt led, och docstringen säger det nu.
 
 ---
 
+## #118 — Lars beslut: prompten bär bara priser för ärendets egen kategori.
+
+**Datum:** 2026-09-15 · **Berör:** `src/generera.py`
+
+**Beslut.** `config/priser.json`:s poster väljs av ÄRENDETS KATEGORI. Kartan
+heter `PRISNYCKEL_FOR_KATEGORI` och läses av `priser_for`, som är enda källan
+till priser för både prompten och de tre prisspärrarna. En kategori utanför
+kartan får ingen prispost alls, alltså `INGA_PRISER` i prompten och noll
+prisbelagda tal i spärrarna.
+
+**HÅLET.** `_prisrader` skrev ut hela filen i varje prompt och
+`las_priser().values()` var tillåtna källor för prisspärrarna, i båda fallen
+oberoende av kategori. Ett a-traktorsvar kunde därmed skriva *"en stor service
+kostar 4 650 kr"* och passera varje spärr, eftersom talet står i filen. Det är
+ett prisbesked om en tjänst ärendet inte gäller.
+
+**MÄTT FÖRE BYGGET, och talet är NOLL.** Måttet är VÄNDNINGAR: prisspärrarna
+körda med dagens globala priskälla och med enbart ärendets egen post, och
+räknade texter som passerar i dag och faller efter.
+
+| Material | Texter | Faller redan | Passerar båda | Vändningar |
+| --- | --- | --- | --- | --- |
+| `data/granskningsfall.jsonl`, botens utkast | 6 | 0 | 6 | **0** |
+| `data/par.jsonl`, Mattes egna svar | 222 | 182 | 37 | **3** |
+
+De 6 är varje rad i `data/granskningsfall.jsonl` som bär ett `forslag`, av 20
+rader totalt. `data/par.jsonl` är inga utkast: det är Mattes egna svar, och alla
+222 raderna fick sin etikett genom exakt textmatchning mot
+`data/ometiketterade.jsonl`. De tre vändningarna där är
+`fråga om a-traktorkonvertering`, `inget kundärende` och `oklart`, och de två
+sista är inga kundärenden och får aldrig ett utkast.
+
+**ETT RÅRMÅTT FÖRKASTADES, och det ska stå här.** Räknat som "varje tal i texten
+som står i en främmande prispost" blir utfallet 81 av 222 i `data/par.jsonl`. 59
+av de 81 träffar ENBART däckpostens tumangivelser 13, 16, 17, 18, 19 och 21,
+alltså vardagliga tal i mänsklig text. 22 bär ett verkligt belopp. Måttet mäter
+inte vad det utger sig för och redovisas därför som förkastat, inte som svar.
+
+**ÄNDRINGEN TAR BORT EN MÖJLIGHET, INTE ETT OBSERVERAT FEL.** Lars skäl,
+ordagrant: en prompt ska inte bära priser för tjänster ärendet inte gäller,
+oavsett om modellen råkat använda dem eller inte. Hålet var teoretiskt i det
+material som finns, och stängs ändå.
+
+**MEKANISMEN ÄR ÄNDÅ VERKLIG, uppmätt på konstruerade svar.** Med kategorin
+`fråga om pris a-traktorkonvertering` passerar *"En stor service kostar 4 650
+kr."*, *"Vi gör en premium rekond för 3 500 kr."* och *"Ett kamremsbyte ligger på
+12 000 till 20 000 kr."* dagens spärrar och faller efter ändringen.
+
+**KARTAN ÄR INTE NAMNLIKHET, och det ledet är lastbärande.** `_nycklarna` i
+`config/priser.json` säger att nycklarna är namngivna efter taxonomins
+`fråga om pris`-kategorier. Det är sant om NAMNEN och gör dem inte till en
+fullständig karta: `boka a-traktorkonvertering` och
+`fråga om a-traktorkonvertering` handlar om samma tjänst och ska bära samma post.
+En karta byggd på enbart namnlikhet hade tystat prisraden i två av kedjans tre
+kategorier. 13 av taxonomins 28 kategorier står i kartan; de övriga 15 får
+`INGA_PRISER`.
+
+**`boka biltvätt` OCH `boka bromskontroll` STÅR MED FLIT INTE I KARTAN.** Posten
+`rekond` bär tvättpriser och `reparation` bär bromspriser, men att de två
+kategorierna prissätts ur just de posterna är ett antagande om verkstadens
+uppdelning och inte något filen säger. §10 gör den kopplingen till Lars beslut.
+
+**A-TRAKTORSVAREN STÅR KVAR, verifierat.** Prisblockets rubrik och fot är
+oförändrade, och a-traktorraden är ordagrant identisk med den som skrevs före
+ändringen. Blocket bar `a_traktorkonvertering`, `rekond`, `reparation`, `service`
+och `dack`; det bär nu `a_traktorkonvertering` ensam. Alla sex utkasten ur skiva
+51 passerar prisvägen.
+
+**EN BIVERKAN PÅ TALSPÄRREN, och riktningen är den säkra.** `_tillatna_tal` läste
+prisfilen med `_varden_ur`, som går NED genom en nästlad struktur. `priser_for`
+går via `las_konfigvarden`, som utelämnar ett nästlat värde helt. Ett nästlat
+pris kan alltså inte längre bidra med tal. Skillnaden är noll för dagens platta
+fil, lucka 53, och binds ändå: en sändvägsspärr ska inte kunna vidgas av att
+filen får fel form.
+
+**INGEN PRISPOST ÄR RÖRD.** `config/priser.json` är oförändrad, §10.
+
+**SJU BESLUTANDE RADER, ALLA PRÖVADE MED `scripts/sparr-prova.sh`**, varje gång
+med kvitterad återställning:
+
+  `_uppraknade_delar`  RÖD.
+  `_tillatna_tal`  GRÖN ensam, och det var ett fynd. Raden är REDUNDANT med
+      prissatsgrenen: `krav_pa_tal_med_kalla` prövar prissatsens tal mot
+      priskällan och sedan hela svarets tal mot `_tillatna_tal`. Fällda
+      TILLSAMMANS blev sviten röd, vilket enligt §7.1 inte säger vilken av dem
+      som bär. Två rader skrevs som skiljer dem åt genom SKÄLET respektive genom
+      ett främmande pristal UTANFÖR en prissats. Båda bär nu var för sig: RÖD.
+  `krav_pa_tal_med_kalla`  samma par, se raden ovan. RÖD.
+  Strykningen i `krav_pa_atagande_med_kalla`  GRÖN ensam, och också det var ett
+      fynd. A-traktorpostens värde bär åtagandeordet `omfattar`; ströks hela
+      filen försvann ordet också ur ett SERVICESVAR som citerar a-traktorraden.
+      `test_STRYKNINGEN_ror_bara_den_EGNA_prisposten` binder det. RÖD.
+  `_uppraknade_delar(forfragan.kategori)`  RÖD.
+  `_prisrader(forfragan.kategori)` i `_underlag`  GRÖN ensam, tredje fyndet:
+      `_prisrader` kan välja rätt post och ändå få fel kategori, och `_underlag`
+      är enda vägen in i prompten. `test_UNDERLAGET_lamnar_vidare_arendets_
+      kategori_till_prisblocket` prövar två kategorier. RÖD.
+  `priser_for` i `_prisrader`  RÖD.
+
+`priser_for`:s `None`-gren är också fälld: RÖD.
+
+**§7-GRANSKNINGEN AV SKIVAN GAV SEX FYND. Alla sex är rättade före skepp.**
+
+  1. STRYKNINGENS BLANKSTEG BLEV OBUNDET AV SKIVAN SJÄLV.
+     `_UTAN_PRISVARDE(varde).sub(" ", kvar)` gick att fälla till `sub("", kvar)`
+     med grön svit. Raden som band den patchade `las_priser` med nyckeln `x`;
+     efter skivan slår `priser_for` upp ärendets egen nyckel i den dicten, får
+     `None` och stryker ingenting, alltså kunde raden inte längre skilja de två
+     formerna åt. Nyckeln är nu en kartan pekar på. RÖD.
+  2. GENERATORNS `A_TRAKTORETIKETTER` VAR OBUNDEN, och skivan lät
+     `test_kedjans_tre_a_traktorkategorier_bar_ALLA_prisposten` mäta kartan mot
+     just den kopian. Tupeln och kartan gick därmed att byta TILLSAMMANS till en
+     annan kategori med grön svit, och a-traktorprompten hade då tappat priset.
+     Det finns TRE kopior av de tre strängarna, och bara två band varandra.
+     `test_GENERATORNS_a_traktoretiketter_matchar_de_andra_TVA` binder den
+     tredje. RÖD.
+  3. `test_PRISFILENS_EGNA_lydelser_passerar_atagandesparren` prövade SAMTLIGA
+     prisposter mot en a-traktorförfrågan. Efter skivan stryks bara den egna
+     posten, alltså hade raden gått röd den dag Lars lägger ett åtagandeord i en
+     annan prispost: en laglig §10-ändring utan fel i sändvägen. §9.1 beskriver
+     just det läget. Varje post prövas nu mot SIN kategori, verifierat mot en
+     simulerad sådan ändring med filen orörd.
+  4. En docstring namngav `test_ett_NASTLAT_varde_nar_ALDRIG_prompten[PRISER-
+     _prisrader]`, ett node-id skivan själv tog bort när den delade den
+     parametriserade raden. Rättat.
+  5. `_med_priser`:s docstring motiverade sig med att prisfilen har TVÅ läsare,
+     `las_konfigvarden` och `_varden_ur`. Skivan tog prisfilen ur `_varden_ur`:s
+     väg, alltså har den EN. Hjälparen fungerar oförändrat, skälet var falskt.
+  6. PÅSTÅENDET ATT KARTAN SJÄLV ÄR FÄLLD RÖD VAR BREDARE ÄN VAD SOM GÄLLDE.
+     Uppmätt med `scripts/sparr-prova.sh --radera N`, en rad i taget: 5 av 13
+     rader gick röda, och de övriga 8 gick att radera med grön svit. Skälet var
+     att `test_den_EGNA_prispostens_tal_slapps_fortfarande_igenom`
+     parametriseras UR kartan och krymper med den. Riktningen är säker, en
+     borttagen rad ger `INGA_PRISER`, men en tyst förlust är ingen mindre
+     förlust. `KARTAN_SOM_LARS_BESLUTAT` nålar fast hela kartan, samma form och
+     skäl som `PRISER_SOM_LARS_BESLUTAT`. Omprövat: **alla 13 raderna RÖDA.**
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.74.0 — 2026-09-15
+
+**#118 TILLKOMMER: Lars beslut, kategorin väljer prisposten.** `priser_for` blir
+enda källan till priser för prompten och de tre prisspärrarna. Ett tal ur en
+annan kategoris prispost är inte längre en giltig källa.
+
+**Mätt före bygget: NOLL av botens sex utkast bär ett tal ur en annan kategoris
+prispost.** Hålet var teoretiskt i det material som finns. Ändringen tar bort en
+möjlighet, inte ett observerat fel.
+
+Ny beslutspost ⇒ MINOR.
 
 ### 0.73.0 — 2026-09-15
 
