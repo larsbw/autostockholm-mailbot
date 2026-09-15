@@ -215,26 +215,55 @@ def _text_ur_html(rahtml: str) -> str:
     return html.unescape(html.unescape(utan_taggar))
 
 
-def brodtext(meddelande: dict) -> str:
-    """Meddelandets text, utan citerad historik.
+# DE ENDA KROPPSDELAR NÅGON LÄSER, i den ordning `brodtext` föredrar dem.
+#
+# **KONSTANT OCH INTE ETT LITTERAL I `brodtext`, därför att den har en andra
+# läsare.** `inkorg.gallra_meddelande` kastar varje kroppsdel som inte bär en av
+# de här typerna, och en bilagas base64 når då aldrig disken (§6). Två kopior av
+# listan hade betytt att en ny typ här tyst gallrades bort där.
+TEXTTYPER = ("text/plain", "text/html")
+
+
+def textdel(meddelande: dict) -> dict | None:
+    """DEN ENDA kroppsdel `brodtext` läser, eller None när ingen finns.
 
     `text/plain` föredras. Saknas den används `text/html`, vilket beslutslogg #6
     säger förekommer. Saknas `parts` ligger texten direkt i `payload.body.data`,
     vilket också står i #6.
+
+    **UTBRUTEN UR `brodtext` FÖR ATT HA EN ANDRA LÄSARE, inte för ordningens
+    skull.** `inkorg.gallra_meddelande` behöver veta VILKEN del som läses, för
+    att kunna kasta de övriga. Att låta den leta själv hade varit två kopior av
+    ett val som avgör vilken text kunden bedöms på, och den dag `brodtext`
+    föredrog något annat hade skörden burit fel del utan att något blev rött.
+
+    **EN SKILLNAD MOT DEN GAMLA LYDELSEN, och den ska stå skriven.** Förut stod
+    `del_.get("body", {}).get("data")`, som kastade `AttributeError` på en del
+    vars `body` var `null`. Nu står `(del_.get("body") or {})`, som hoppar över
+    den och letar vidare. Utvinningen blir alltså tåligare mot en oväntad
+    nyttolast i stället för att fälla hela ärendet. Ingen annan skillnad finns:
+    samma typordning, samma valda del, samma html-gren, samma tomma sträng när
+    ingen del bär text.
     """
-    delar = _platta(meddelande.get("payload", {}))
-    for typ in ("text/plain", "text/html"):
-        for del_ in delar:
+    for typ in TEXTTYPER:
+        for del_ in _platta(meddelande.get("payload", {})):
             if del_.get("mimeType") != typ:
                 continue
-            data = del_.get("body", {}).get("data")
-            if not data:
+            if not (del_.get("body") or {}).get("data"):
                 continue
-            ratext = _avkoda(data)
-            if typ == "text/html":
-                ratext = _text_ur_html(ratext)
-            return stada(ratext)
-    return ""
+            return del_
+    return None
+
+
+def brodtext(meddelande: dict) -> str:
+    """Meddelandets text, utan citerad historik."""
+    del_ = textdel(meddelande)
+    if del_ is None:
+        return ""
+    ratext = _avkoda(del_["body"]["data"])
+    if del_.get("mimeType") == "text/html":
+        ratext = _text_ur_html(ratext)
+    return stada(ratext)
 
 
 def stada(text: str) -> str:

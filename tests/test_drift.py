@@ -952,3 +952,114 @@ def test_starta_UTAN_konfiguration_slapper_igenom_som_forut():
         assert "PÅHITTAT UTKAST SOM INTE FÅR SYNAS" in fejk.svar
     finally:
         server.server_close()
+
+
+def test_slingan_skriver_de_falt_vyns_korningsrad_LASER(tmp_path, monkeypatch):
+    """**SKRIVAREN OCH LÄSAREN BINDS MOT VARANDRA, inte var för sig.**
+
+    `scripts/dagligen.py` skriver `logg/korningar.jsonl` och `src/vy.py` läser
+    den. Fram till skiva 54 delade de bara SÖKVÄGEN, och den var bunden.
+    Fältnamnen var det inte: `startad` fanns bara i läsarens egna fixturer.
+
+    **UPPMÄTT AV §7-GRANSKNINGEN AV SKIVA 54:** ett byte av `"startad"` mot
+    `"start"` i `dagligen._logga` lämnade hela sviten GRÖN. `senaste_lyckade`
+    hade då hittat noll lyckade körningar i varje logg, och vyn hade visat
+    *"INGEN LYCKAD KÖRNING ÄR LOGGAD"* för alltid medan slingan körde perfekt.
+
+    Det är ordagrant det utfall `src/sokvagar.py` säger att raden inte får ha,
+    och kommentaren där vaktade bara filnamnet.
+
+    **RADEN KÖR SKRIVAREN OCH GER LÄSAREN RESULTATET.** Ingen fixtur emellan:
+    hade testet byggt sin egen loggrad hade det prövat sig självt.
+    """
+    d = _dagligen()
+    logg = tmp_path / "korningar.jsonl"
+    monkeypatch.setattr(d, "KORNINGSLOGG", logg)
+
+    class Utfall:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    d.kor(kor_process=lambda *a, **k: Utfall())
+
+    tid = vy.senaste_lyckade(logg)
+    assert tid is not None, (
+        "vyn hittar ingen lyckad körning i det slingan just skrev. "
+        "Fältnamnen i dagligen._logga och vy.senaste_lyckade har glidit isär."
+    )
+
+    nu = datetime.now(timezone.utc)
+    assert (nu - tid).total_seconds() < 300
+    assert "stannat" not in vy.korningsrad(logg, nu=nu)
+
+
+def test_en_MISSLYCKAD_korning_ger_vyn_en_ROD_rad(tmp_path, monkeypatch):
+    """NEGATIVKONTROLL till raden ovan, och den prövar samma led åt andra hållet.
+
+    Utan den vore "returnera alltid en tid" grönt i testet ovan.
+    """
+    d = _dagligen()
+    logg = tmp_path / "korningar.jsonl"
+    monkeypatch.setattr(d, "KORNINGSLOGG", logg)
+
+    def kraschar(*_a, **_k):
+        raise OSError("processen gick inte att starta")
+
+    d.kor(kor_process=kraschar)
+
+    assert vy.senaste_lyckade(logg) is None
+    assert "INGEN LYCKAD KÖRNING" in vy.korningsrad(
+        logg, nu=datetime.now(timezone.utc))
+
+
+def test_en_korning_UTAN_ARENDEN_loggas_som_LYCKAD(tmp_path, monkeypatch):
+    """**ETT DYGN UTAN KUNDÄRENDEN ÄR INGEN MISSLYCKAD KÖRNING.**
+
+    `respond._kor` returnerade 1 när urvalet gav noll ärenden. `dagligen.kor`
+    skriver `"lyckades": kod == 0`, alltså loggades en lugn helg som ett
+    misslyckande, och `vy.korningsrad` larmade sedan rött med texten *"minst en
+    körning har uteblivit eller fallit"* över utkast som var i sin ordning.
+
+    Skadan går åt två håll. Det första är det falska beskedet. Det andra är
+    värre: raden ÄR larmet för den döda slingan, och ett larm som ropar varg
+    slutar läsas innan det ropar på riktigt.
+
+    Fällt av §7-granskningen av skiva 54. Scenariot är inte konstruerat: av den
+    skörd som låg på disk gav dygnets trådar fler sållade än ärenden, och en helg
+    där all inkommande post är maskinmail ger noll.
+    """
+    d = _dagligen()
+    logg = tmp_path / "korningar.jsonl"
+    monkeypatch.setattr(d, "KORNINGSLOGG", logg)
+
+    class TomKorning:
+        """Vad `respond.py` skriver och returnerar när urvalet är tomt."""
+        returncode = 0
+        stdout = "inga ärenden att köra.\n"
+        stderr = ""
+
+    assert d.kor(kor_process=lambda *a, **k: TomKorning()) == 0
+    assert json.loads(logg.read_text(encoding="utf-8"))["lyckades"] is True
+    assert "stannat" not in vy.korningsrad(
+        logg, nu=datetime.now(timezone.utc))
+
+
+def test_respond_returnerar_NOLL_for_ett_tomt_urval():
+    """Andra halvan av raden ovan, mätt på `scripts/respond.py` självt.
+
+    Testet ovan matar in `returncode = 0`, alltså prövar det `dagligen`:s
+    tolkning och inte vad respond faktiskt returnerar. Den här raden läser
+    källtexten, eftersom `_kor` inte går att anropa utan en hel körning.
+
+    En etta här är en röd banderoll i vyn nästa lugna helg.
+    """
+    kalla = (ROT / "scripts" / "respond.py").read_text(encoding="utf-8")
+    stycke = kalla.split('print("inga ärenden att köra.")')[1]
+    forsta_retur = stycke.split("return ")[1].split("\n")[0].strip()
+
+    assert forsta_retur == "0", (
+        "respond._kor returnerar {} för ett tomt urval. dagligen loggar det "
+        "som ett misslyckande och vyn larmar rött på en körning som "
+        "lyckades.".format(forsta_retur)
+    )

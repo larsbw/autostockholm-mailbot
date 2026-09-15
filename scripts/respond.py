@@ -102,10 +102,18 @@ PAUS_S = 1.0
 ANTAL_FORVAL = 20
 
 # Vart `--inkorg` skriver de hämtade trådarna. **UNDER `data/`, som är
-# gitignorerad**: filen bär rå kundtext, adresser och ämnesrader (§6). Namnet
+# gitignorerad**: filen bär kundtext, adresser och ämnesrader (§6). Namnet
 # skiljer sig från `data/tradar.jsonl` och `data/tradar_obesvarade.jsonl`, som är
 # miningens skördar: en skuggkörning får inte skriva över materialet paren och
 # taxonomin vilar på.
+#
+# **FILEN ÄR ARBETSMATERIAL FÖR EN KÖRNING och skrivs över varje gång.** Den bär
+# bara de fält kedjan läser: `src/inkorg.py::gallra_trad` gallrar före
+# skrivningen, alltså når varken bilagor, `snippet` eller `Bcc`-värden disken.
+# Lars beslut i skiva 54, se `docs/beslutslogg.md` #120.
+#
+# *Här stod "rå kundtext". Det slutade vara sant med gallringen. Texten är
+# kundens, kroppen är hans base64, men tråden är inte längre Googles svar.*
 SKORD = sokvagar.DATA / "inkorg-dagens.jsonl"
 
 
@@ -432,8 +440,8 @@ def main(argv: list[str] | None = None) -> int:
                            "eller brevlåda.")
     tolk.add_argument("--skord", type=Path, default=SKORD,
                       help=f"fil hämtningen skriver trådarna till, förval "
-                           f"{SKORD.relative_to(ROT)}. Bär rå kundtext, alltså "
-                           "under data/.")
+                           f"{SKORD.relative_to(ROT)}. Skrivs över varje "
+                           "körning, bär kundtext, alltså under data/.")
     tolk.add_argument("--antal", type=int, default=ANTAL_FORVAL,
                       help=f"ta högst så många ärenden, förval {ANTAL_FORVAL}. "
                            "0 betyder alla, och kostar ett modellanrop plus ett "
@@ -550,8 +558,25 @@ def _kor(arg) -> int:
     print("UPPSLAGET ÄR SKARPT. INGEN SÄNDNING.\n")
 
     if not arenden:
+        # **NOLL ÄRENDEN ÄR INGET FEL, och returkoden säger det.** Ett dygn där
+        # all inkommande post var maskinmail är en körning som gjorde precis vad
+        # den skulle: hämtade, sållade och fann ingenting att svara på.
+        #
+        # **RADEN ÄNDRADES I SKIVA 54 FRÅN `return 1`, och skälet är DEL B.**
+        # `scripts/dagligen.py` skriver `"lyckades": kod == 0` i
+        # `logg/korningar.jsonl`, och `vy.korningsrad` läser den flaggan. Med en
+        # etta här loggades en lugn helg som ett misslyckande, och vyn larmade
+        # sedan rött med texten *"minst en körning har uteblivit eller fallit"*
+        # över utkast som var i sin ordning.
+        #
+        # Det är inte bara ett falskt besked. Raden ÄR larmet för den döda
+        # slingan, och ett larm som ropar varg slutar läsas innan det ropar på
+        # riktigt. Fällt av §7-granskningen av skiva 54.
+        #
+        # Ett verkligt fel returnerar fortfarande 1: en `--tradar` som pekar på
+        # en fil som inte finns, och varje undantag som når `main`.
         print("inga ärenden att köra.")
-        return 1
+        return 0
 
     hamta, skarp = bygg_kalla()
     kor_alla(

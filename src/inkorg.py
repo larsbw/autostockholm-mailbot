@@ -45,7 +45,7 @@ SPAM OCH PAPPERSKORG SÅLLAS I VÅR KOD av samma skäl:
 https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.threads/list
 (avläst 2026-09-15). Etiketterna står i meddelandet och går att pröva.
 
-§6. Modulen returnerar råa trådar med kundtext och adresser, och `dagens_tradar`
+§6. Modulen returnerar trådar med kundtext och adresser, och `dagens_tradar`
 SKRIVER dem till den `utfil` anroparen anger: `mine.mina` är hämtningen, och den
 skriver till fil som sin form. Sökvägen har därför inget förval, och
 `scripts/respond.py` lägger den under `data/`, som är gitignorerad. Ingenting av
@@ -53,6 +53,15 @@ det modulen returnerar skrivs ut av `scripts/respond.py`.
 
 *Här stod att modulen SKRIVER ingenting till disk. Det var falskt redan när det
 skrevs: `dagens_tradar` går via `mine.mina`, vars hela kontrakt är en fil.*
+
+SKÖRDEN ÄR ARBETSMATERIAL FÖR EN KÖRNING
+----------------------------------------
+
+Lars beslut i skiva 54, DEL A. Skörden skrivs över vid varje körning, och den
+bär bara de fält kedjan läser. Gallringen är `gallra_trad` och `mine.mina` lägger
+den på FÖRE skrivningen, alltså når det som faller aldrig disken.
+
+*Här stod "råa trådar". Det slutade vara sant med gallringen.*
 """
 
 from __future__ import annotations
@@ -60,7 +69,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from src import auth, extract, mine
+from src import auth, extract, klassa_maskin, mine, urval
 
 # SAMMA LISTA SOM `src/auth.py` ÄGER, inte en kopia. `scripts/respond.py` skriver
 # ut vilket scope körningen har, och ska inte behöva importera `src.auth` för
@@ -238,6 +247,124 @@ def tradar_fran_dagen(tradar, *, granser) -> list[dict]:
     return ut
 
 
+# --------------------------------------------------------------- GALLRINGEN
+
+
+# HUVUDEN VARS VÄRDE KEDJAN LÄSER. Fyra, och de står här som en egen lista
+# därför att anropen som läser dem inte går att importera: namnen skrivs i
+# anropet, som `urval.huvudvarde(meddelande, "subject")`, eller i en tupel som
+# en slinga går igenom, som `urval.kundadress`.
+#
+# *Här stod att anropen "bär namnet i anropet och inte i en mängd som går att
+# importera". Det var falskt om `urval.kundadress`, som just skriver sina två
+# namn i en tupel och skickar dem vidare som en variabel. Fällt av
+# §7-granskningen av skiva 54.*
+#
+# **DEN LISTAN FÅR INTE DRIVA ISÄR FRÅN ANROPEN, och det är ett test och inte en
+# god vilja som binder det.** `tests/test_inkorg.py::
+# test_varje_huvud_kedjan_LASER_ETT_VARDE_ur_star_i_HUVUDEN_MED_VARDE` läser
+# källtexten till kedjans moduler och fäller varje namn som läses men inte står
+# här. Utan den raden hade ett nytt `huvudvarde(meddelande, "x-nytt")` gett en
+# klassning som blev en annan i drift än i testsviten, tyst.
+#
+# **TESTET LÄSER TRE ANROPSFORMER, och en fjärde gör det RÖTT i stället för att
+# hoppas över.** Första lydelsen läste två och var blind för `kundadress`:s
+# slinga. Att `reply-to` och `from` ändå stod här var en slump: de skrivs som
+# litteraler i `klassa_maskin`. En blind fläck som tiger är precis den felform
+# stycket ovan beskriver, alltså får den inte finnas.
+HUVUDEN_MED_VARDE = frozenset({"from", "reply-to", "subject", "precedence"})
+
+# HUVUDEN VARS ENBARA FÖREKOMST KEDJAN PRÖVAR. Värdet läses aldrig, alltså
+# skrivs det inte. Namnet blir kvar med ett tomt värde, eftersom det är namnet
+# prövningen ställer frågan om.
+#
+# **`return-path` OCH `delivered-to` STÅR HÄR OCH ÄR INTE STRUKNA.**
+# `urval.ar_kundmeddelande` avgör på just deras FÖREKOMST att webbformulärets
+# notis, som bär `SENT`, ändå är kundens meddelande (beslutslogg #8). Stryks
+# namnet blir varje sådan notis vårt eget utgående mail och tråden får inget
+# svar. Deras VÄRDEN når däremot aldrig disken, och det var vad de bar.
+#
+# **MÄNGDERNA IMPORTERAS OCH SKRIVS INTE AV.** Ett nytt namn i
+# `klassa_maskin.MASKINHUVUDEN` följer med hit av sig självt.
+HUVUDEN_UTAN_VARDE = frozenset(
+    urval.LEVERANSHUVUDEN | klassa_maskin.MASKINHUVUDEN
+) - HUVUDEN_MED_VARDE
+
+HUVUDEN_SOM_LASES = HUVUDEN_MED_VARDE | HUVUDEN_UTAN_VARDE
+
+
+def _gallra_huvuden(nyttolast: dict) -> list[dict]:
+    """Huvudena kedjan läser, i den ordning de kom.
+
+    Ordningen bevaras därför att `urval.huvudvarde` tar FÖRSTA träffen och
+    huvudnamn inte är unika (beslutslogg #6). En omsortering hade kunnat byta
+    vilken `Received` eller vilken `From` som gäller.
+    """
+    ut = []
+    for huvud in nyttolast.get("headers") or []:
+        namn = (huvud.get("name") or "")
+        if namn.lower() not in HUVUDEN_SOM_LASES:
+            continue
+        varde = huvud.get("value", "") if namn.lower() in HUVUDEN_MED_VARDE \
+            else ""
+        ut.append({"name": namn, "value": varde})
+    return ut
+
+
+def gallra_meddelande(meddelande: dict) -> dict:
+    """Ett meddelande med bara de fält kedjan läser.
+
+    `id`, `threadId`, `historyId`, `sizeEstimate` och `snippet` faller.
+    `snippet` är Gmails eget klartextutdrag ur kundens mail, alltså kundtext som
+    ingenting i den dagliga körningen läser.
+
+    **EN ENDA KROPPSDEL FÖLJER MED, den `urval.textdel` pekar ut.** Det är inte
+    en förenkling utan vad kedjan faktiskt läser: `brodtext` tar FÖRSTA
+    `text/plain` med data, och rör `text/html` bara när ingen sådan finns. Ett
+    mail som bär båda bär alltså en HTML-kropp som ingenting öppnar, och den är
+    en HTML-kropp som ingenting öppnar. Bilagor faller av samma skäl.
+
+    **UPPMÄTT, och bara totalen är mätt:** en skörd om 53 trådar gick från
+    3 194 225 till 643 246 byte när kroppsdelarna gallrades ned till den lästa.
+    Vilken enskild post som är störst är INTE mätt och påstås inte.
+
+    **DÄRFÖR ÄR `urval.textdel` UTBRUTEN OCH INTE HÄRMAD.** Valet av kroppsdel
+    avgör vilken text kunden klassificeras och besvaras på, och det valet får
+    finnas på ETT ställe.
+    """
+    nyttolast = meddelande.get("payload") or {}
+    gallrad: dict = {"mimeType": nyttolast.get("mimeType") or "",
+                     "headers": _gallra_huvuden(nyttolast)}
+
+    text = urval.textdel(meddelande)
+    if text is not None:
+        kropp = {"data": text["body"]["data"]}
+        if text is nyttolast:
+            gallrad["body"] = kropp
+        else:
+            gallrad["parts"] = [{"mimeType": text.get("mimeType") or "",
+                                 "body": kropp}]
+
+    return {
+        "labelIds": list(meddelande.get("labelIds") or []),
+        "internalDate": meddelande.get("internalDate", ""),
+        "payload": gallrad,
+    }
+
+
+def gallra_trad(trad: dict) -> dict:
+    """En tråd med bara de fält kedjan läser. Lars beslut i skiva 54, DEL A.
+
+    **`id` STÅR KVAR.** `scripts/respond.py` skriver det i sin sållningslista,
+    och det är en ogenomskinlig Gmail-sträng som inte pekar ut en person.
+    `historyId` gör ingendera och faller.
+    """
+    return {
+        "id": trad.get("id", ""),
+        "messages": [gallra_meddelande(m) for m in trad.get("messages") or []],
+    }
+
+
 def dagens_tradar(
     tjanst: Lastjanst,
     *,
@@ -261,9 +388,19 @@ def dagens_tradar(
     `utfil` har inget förval. Filen bär rå kundtext och hör hemma under `data/`,
     och en tyst standardsökväg i den här modulen hade varit en §6-risk som
     ingen ser.
+
+    **TRÅDARNA GALLRAS FÖRE SKRIVNINGEN, och det är Lars beslut i skiva 54.**
+    Filen är arbetsmaterial för EN körning, inte ett arkiv, och den bär bara de
+    fält kedjan läser. Vad som faller och varför står vid `gallra_trad`.
+
+    **DET SOM RETURNERAS ÄR DÄRFÖR OCKSÅ GALLRAT**, eftersom det läses tillbaka
+    ur filen. Det är avsiktligt och inte en biverkning: kördes slingan på ett
+    fylligare material än det som ligger kvar att felsöka i, vore skörden inte
+    längre en avbild av vad körningen såg.
     """
     forbrukning = mine.mina(
         tjanst, utfil=utfil, max_tradar=max_tradar, fraga=fraga,
+        gallra=gallra_trad,
     )
     # `extract.las_tradar` OCH INGEN EGEN LÄSARE. Repot hade två identiska
     # jsonl-läsare för trådar; en tredje hade varit en till att hålla i takt.

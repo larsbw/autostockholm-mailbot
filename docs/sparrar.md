@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.60.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.61.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -5633,6 +5633,65 @@ fällde.
 
 ---
 
+## LUCKA UTAN SPÄRR: `regnr-i-uppslagsloggen-ar-persondata`
+
+> **DET HÄR ÄR INTE EN SPÄRR OCH GÅR INTE ATT FÄLLA ENLIGT §7.1.** Posten är
+> REGISTRERAD OCH INTE BYGGD. Lars beslut i skiva 54 DEL C är ordagrant att
+> ingenting byggs: loggen behövs för att felsöka uppslaget och den ska stå
+> skriven som det den är.
+>
+> **Mot mallens fyra fält:** *Spärr* är den inte, se rubriken. *Vad den skyddar
+> mot* står som **Vad luckan är** nedan. **Negativkontroll: ingen finns**,
+> eftersom ingen kod ändrats. **Redundant med: ingen.**
+
+**ETT REGISTRERINGSNUMMER ÄR EN PERSONUPPGIFT NÄR DET GÅR ATT KOPPLA TILL EN
+ÄGARE.** Det är hela luckan, och formuleringen är det som saknats i repot.
+
+`logg/uppslag.jsonl` bär registreringsnummer i klartext. §6 räknar upp *"namn,
+adresser, registreringsnummer och telefonnummer"* som det kundmail bär, och
+förbjuder dem i `docs/`, i commit-meddelanden och i det som pushas. Loggen är
+gitignorerad, alltså bryter den ingen av de tre raderna. Men §6:s uppräkning har
+lästs som att en fil under `logg/` är fri, och det är inte vad den säger: den
+säger var persondata inte får ligga, inte att den upphör att vara persondata på
+de ställen där den får ligga.
+
+- **Vad luckan är.** Ett registreringsnummer ensamt är en uppgift om ett fordon.
+  Slås det upp på biluppgifter.se blir det en uppgift om en ägare, och det är
+  precis vad boten gör med det. Loggen är därför en samling pekare till
+  namngivna personer, och den behandlas i dag som ett tekniskt spår.
+
+- **AVLÄST UR `logg/uppslag.jsonl` 2026-09-15.** Filen är gitignorerad; det som
+  står här är räknare.
+
+  | led | antal |
+  |---|---|
+  | rader i loggen | 87 |
+  | rader med ett registreringsnummer | 87 |
+
+  Talen är `scripts/persondatamatning.py`:s, kolumnen `regnr` mot `REGNR`. De är
+  MÖNSTERTRÄFFAR och inte bekräftade fordon: skriptets egen inledning säger att
+  siffran är en ÖVRE gräns.
+
+- **Vad som INTE följer.** Ingen radering, ingen maskering, ingen gallringsfrist.
+  Loggen är det enda spåret av vad uppslaget svarade, och utan den går ett
+  felaktigt fordonspåstående i ett utkast inte att härleda. Maskering hade tagit
+  bort just det den finns för.
+
+- **Var den ligger.** På volymen, aldrig i git. Det följer av att `logg/` står i
+  `.gitignore` och av `sokvagar._krav_pa_lage`, som vägrar peka `MAILBOT_LOGG`
+  någon annanstans inuti repot än `logg/`. Ingen av de två raderna finns för den
+  här luckan, och ingen av dem stänger den: de håller filen ur git, inte ur
+  leverantörens diskar.
+
+- **Redundant med: ingen.** Ingen annan post rör vad en logg under `logg/` bär.
+
+**VAD DEN HÄR POSTEN ÄNDRAR: ingenting i koden.** Den ändrar vad loggen heter när
+någon läser om den. Nästa gång frågan ställs, vid en gallringsfrist, vid en
+begäran om registerutdrag, eller när någon överväger att lägga loggen någon
+annanstans, ska svaret inte behöva härledas på nytt.
+
+---
+
 ## Mall för en spärrpost
 
 Kopiera blocket nedan per spärr. Varje fält fylls i, tomma fält är en ofärdig
@@ -5655,6 +5714,16 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.61.0 — 2026-09-15
+
+**NY POST: `regnr-i-uppslagsloggen-ar-persondata`.** Lars beslut i skiva 54 DEL
+C. Ingen kod, ingen spärr, ingen negativkontroll: luckan REGISTRERAS, och det är
+hela åtgärden. Formuleringen den saknade är att ett registreringsnummer är en
+personuppgift när det går att koppla till en ägare, vilket är precis vad
+fordonsuppslaget gör med det.
+
+Ny post ⇒ MINOR.
 
 ### 0.60.0 — 2026-09-15
 

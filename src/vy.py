@@ -76,6 +76,15 @@ OMDOMEN = sokvagar.LOGG / "omdomen.jsonl"
 # gitignorerad och bär redan `par.jsonl` med rå kundtext.
 GRANSKNINGSFALL = sokvagar.DATA / "granskningsfall.jsonl"
 
+# DRIFTLOGGEN `scripts/dagligen.py` SKRIVER. Vyn LÄSER den och skriver aldrig i
+# den. Namnet bor i `src/sokvagar.py`, och skälet står där.
+KORNINGSLOGG = sokvagar.KORNINGSLOGG
+
+# När en lyckad körning blir för gammal. Lars beslut i skiva 54 DEL B: ett dygn.
+# Schemat i `scripts/dagligen.py` är en gång per dygn, alltså betyder ett dygn
+# utan lyckad körning att minst en körning uteblivit eller fallit.
+FORALDRAD_S = 24 * 60 * 60
+
 # Kategorierna vyn visar. DEL C i skiva 27: Lars ska kunna välja fall som täcker
 # de fyra utfallen, och a-traktor är den enda ärendetyp fas 4.5 gatar.
 A_TRAKTORETIKETTER = (
@@ -668,6 +677,9 @@ SIDHUVUD = """<!doctype html>
  .sparr {{ background: #fee; border-left: 4px solid #c00; padding: 1rem; }}
  .intet {{ background: #f3f3f3; border-left: 4px solid #999; padding: 1rem; color: #555; }}
  .kalla {{ background: #eef; border-left: 4px solid #66a; padding: .6rem 1rem; }}
+ .drift {{ color: #555; font-size: .9em; }}
+ .drift.stannat {{ background: #fee; border-left: 4px solid #c00; color: #000;
+                   padding: .6rem 1rem; font-size: 1em; }}
  textarea {{ width: 100%; height: 12rem; }}
  nav a {{ margin-right: 1rem; }}
 </style></head><body>
@@ -675,6 +687,96 @@ SIDHUVUD = """<!doctype html>
 """
 
 SIDFOT = "</body></html>"
+
+
+def senaste_lyckade(fil: Path | None = None) -> datetime | None:
+    """Starttiden för den SENAST loggade lyckade körningen, eller None.
+
+    **LÄSER SISTA MATCHANDE RADEN OCH INTE DEN SISTA RADEN.** Loggen är
+    append-only och en misslyckad körning skriver också en rad, alltså är
+    filens sista rad inte nödvändigtvis en lyckad körning. Just den skillnaden
+    är hela raden: en slinga som kör och faller varje dygn ska synas som
+    stannad, och den ser ut som en färsk sista rad.
+
+    **EN TRASIG RAD HOPPAS ÖVER, den fäller inte läsningen.** Halvskrivna rader
+    kan finnas: `_logga` öppnar filen med `a` utan `.delvis`-omvägen, och en
+    container som dödas mitt i en skrivning lämnar en sådan. Att kasta hade
+    gjort vyn oläsbar av en driftlogg, alltså tagit bort utkasten för att
+    körningsraden inte gick att räkna ut.
+
+    `fil` slås upp vid anropet och inte i signaturen, av samma skäl som `_rot`
+    anger.
+    """
+    fil = KORNINGSLOGG if fil is None else fil
+    if not fil.exists():
+        return None
+
+    senaste = None
+    for rad in fil.read_text(encoding="utf-8").splitlines():
+        if not rad.strip():
+            continue
+        try:
+            post = json.loads(rad)
+        except ValueError:
+            continue
+        if not isinstance(post, dict) or not post.get("lyckades"):
+            continue
+        try:
+            tid = datetime.fromisoformat(post.get("startad") or "")
+        except (TypeError, ValueError):
+            continue
+        if tid.tzinfo is None:
+            tid = tid.replace(tzinfo=timezone.utc)
+        if senaste is None or tid > senaste:
+            senaste = tid
+    return senaste
+
+
+def korningsrad(fil: Path | None = None, nu: datetime | None = None) -> str:
+    """Raden som säger när den dagliga körningen senast lyckades. Skiva 54 DEL B.
+
+    **LARS BESLUT: EN RAD I VYN, INGEN AVISERING OCH INGEN HÄLSOKONTROLL.** Båda
+    de senare är en till sak som kan gå sönder utan att någon märker det, alltså
+    samma problem en nivå upp. Vyn öppnar Lars ändå.
+
+    **DEN FINNS FÖR DEN DÖDA SLINGAN.** `dagligen.kor` fångar allt och kastar
+    aldrig vidare, så att ett misslyckande kostar ett dygn och inte alla
+    följande. Priset för den egenskapen är att en slinga som slutat producera ser
+    likadan ut som en dag utan nya ärenden: vyn visar gårdagens utkast och säger
+    ingenting. Raden är det som skiljer dem åt.
+
+    TRE UTFALL, och de säger tre olika saker:
+
+    - INGEN LOGGAD LYCKAD KÖRNING. Filen saknas, är tom, eller bär bara
+      misslyckanden. Röd.
+    - ÄLDRE ÄN `FORALDRAD_S`. Röd, med åldern utskriven i timmar.
+    - FÄRSK. En grå rad med tidsstämpeln.
+
+    **DE TVÅ FÖRSTA SLÅS INTE IHOP.** *Ingen körning har loggats* och *senaste
+    lyckade körningen var för tre dygn sedan* leder till olika ställen: det
+    första till att slingan aldrig startat eller loggar någon annanstans, det
+    andra till Railways logg för de dygn som fattas.
+
+    §6: raden bär en tidsstämpel och ingenting annat. Inga räknare över hur många
+    ärenden som kom in, inga kategorinamn, ingen kundtext.
+    """
+    nu = datetime.now(timezone.utc) if nu is None else nu
+    tid = senaste_lyckade(fil)
+
+    if tid is None:
+        return ("<p class='drift stannat'><strong>INGEN LYCKAD KÖRNING ÄR "
+                "LOGGAD.</strong> Utkasten nedan, om det finns några, kommer "
+                "inte från en körning som skrivit i körningsloggen.</p>")
+
+    stampel = html.escape(tid.astimezone(timezone.utc)
+                          .strftime("%Y-%m-%d %H:%M UTC"))
+    alder = (nu - tid).total_seconds()
+    if alder > FORALDRAD_S:
+        return (f"<p class='drift stannat'><strong>SENASTE LYCKADE KÖRNINGEN "
+                f"VAR {stampel}</strong>, alltså för {int(alder // 3600)} "
+                f"timmar sedan. Schemat är en gång per dygn: minst en körning "
+                f"har uteblivit eller fallit.</p>")
+    return f"<p class='drift'>Senaste lyckade körning {stampel}.</p>"
 
 
 def _inloggningssida() -> str:
@@ -712,15 +814,22 @@ def _inloggningsfel(skal: str) -> str:
     )
 
 
-def rendera_referens(fall: Fall, index: int, antal: int) -> str:
+def rendera_referens(fall: Fall, index: int, antal: int,
+                     drift: str = "") -> str:
     """REFERENSLÄGE: inkommande mail, tomt fält, spara som par.
 
     Knappen heter SPARA SOM PAR och inget annat. `docs/beslutslogg.md` #39
     kräver att den är omöjlig att förväxla med en skicka-knapp, och vyn har
     ingen skicka-knapp att förväxla den med.
+
+    **`drift` SKICKAS IN OCH SLÅS INTE UPP HÄR.** Funktionen är ren och läser
+    ingen fil; hanteraren räknar ut raden en gång per begäran. Ett uppslag inne i
+    renderingen hade gjort varje test av sidan beroende av vad som låg i
+    `logg/korningar.jsonl`.
     """
     return (
         SIDHUVUD.format()
+        + drift
         + f"<nav>{_navigering(index, antal)}</nav>"
         + f"<p class='etikett'>{html.escape(fall.etikett)}"
         + f" · {html.escape(fall.kalla)}</p>"
@@ -740,7 +849,7 @@ def rendera_referens(fall: Fall, index: int, antal: int) -> str:
 def rendera_granskning(
     fall: Fall, forslag: str, sparr: str = "", index: int = 0,
     uppslagskalla: str = "", inget_svar: bool = False,
-    inget_svar_skal: str = "",
+    inget_svar_skal: str = "", drift: str = "",
 ) -> str:
     """GRANSKNINGSLÄGE: förslag med fyra omdömen.
 
@@ -786,10 +895,18 @@ def rendera_granskning(
     de allra flesta får inget svar därför att kategorin inte är a-traktor, och
     deras hink är `utkast`. En läsare som ser <code>aldrig</code> ovanför en
     rekondbokning letar efter en rad i `config/kategorier.yaml` som inte finns.
+
+    **`drift` STÅR FÖRST PÅ SIDAN OCH INTE I EN FOT, av samma skäl som
+    `uppslagskalla`:** läsaren ska veta vad materialet är värt innan hen läser
+    det. En rad som säger att ingen körning lyckats på tre dygn avgör om utkasten
+    nedan är dagens post eller kvarlämnad text, alltså står den över alla tre
+    grenarna och inte bara över den som visar ett förslag. Se `rendera_referens`
+    om varför den skickas in i stället för att slås upp här.
     """
     if inget_svar:
         return (
             SIDHUVUD.format()
+            + drift
             + f"<p class='etikett'>{html.escape(fall.etikett)}</p>"
             + f"<div class='mail'>{html.escape(fall.text)}</div>"
             + "<div class='intet'><p><strong>INGET SVAR SKRIVS.</strong></p>"
@@ -802,6 +919,7 @@ def rendera_granskning(
 
     huvud = (
         SIDHUVUD.format()
+        + drift
         # HÄRKOMSTEN STÅR FÖRE MAILET, alltså före utkastet, och inte i en fot.
         # Läsaren ska veta vad talen är värda innan hen läser dem.
         + (f"<p class='kalla'>{html.escape(uppslagskalla)}</p>"
@@ -1044,6 +1162,15 @@ def bygg_hanterare(
 
         # ---------------------------------------------------- INLOGGNING
 
+        def _drift(self) -> str:
+            """Körningsraden, en gång per begäran.
+
+            **BARA BAKOM INLOGGNINGEN.** `_inloggningssida` anropar den inte:
+            den som inte får läsa utkasten har inget ärende att veta när boten
+            senast körde.
+            """
+            return korningsrad()
+
         def _inloggad(self) -> bool:
             """Om begäran bär en giltig session. Alltid True utan inloggning.
 
@@ -1133,14 +1260,20 @@ def bygg_hanterare(
                 self._granskning()
                 return
             if not fall:
-                self._svara(SIDHUVUD.format() + "<p>Inga fall.</p>" + SIDFOT)
+                self._svara(SIDHUVUD.format() + self._drift()
+                            + "<p>Inga fall.</p>" + SIDFOT)
                 return
             index = _index_ur_vag(self.path, len(fall))
-            self._svara(rendera_referens(fall[index], index, len(fall)))
+            self._svara(rendera_referens(fall[index], index, len(fall),
+                                         drift=self._drift()))
 
         def _granskning(self) -> None:
+            # **`Inga förslag.` ÄR DEN SIDA DEN DÖDA SLINGAN OFTAST VISAR**, och
+            # den är därför den viktigaste platsen för körningsraden. Utan den
+            # ser en slinga som slutat köra ut precis som ett dygn utan post.
             if not granskning:
-                self._svara(SIDHUVUD.format() + "<p>Inga förslag.</p>" + SIDFOT)
+                self._svara(SIDHUVUD.format() + self._drift()
+                            + "<p>Inga förslag.</p>" + SIDFOT)
                 return
             index = _index_ur_vag(self.path, len(granskning))
             post = granskning[index]
@@ -1148,7 +1281,8 @@ def bygg_hanterare(
                 rendera_granskning(post.fall, post.forslag, post.sparr, index,
                                    uppslagskalla=post.uppslagskalla,
                                    inget_svar=post.inget_svar,
-                                   inget_svar_skal=post.inget_svar_skal)
+                                   inget_svar_skal=post.inget_svar_skal,
+                                   drift=self._drift())
                 + f"<p><a href='/granskning/{index + 1}'>nästa</a></p>"
             )
 

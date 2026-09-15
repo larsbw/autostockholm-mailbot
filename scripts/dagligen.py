@@ -66,7 +66,11 @@ ROT = Path(__file__).resolve().parent.parent
 #
 # §6: raden bär ALDRIG kundtext. Tidsstämpel, exitkod, sekunder och antal rader
 # utdata. Se `_logga`.
-KORNINGSLOGG = sokvagar.LOGG / "korningar.jsonl"
+#
+# **SÖKVÄGEN ÄR `src/sokvagar.py`:s OCH INTE DEN HÄR FILENS.** Skiva 54 DEL B gav
+# loggen en andra läsare, `vy.korningsrad`, och skälet att namnet bor där står i
+# den modulen.
+KORNINGSLOGG = sokvagar.KORNINGSLOGG
 
 # NÄR PÅ DYGNET, i UTC. Railways scheman är UTC och det är också den här
 # slingans klocka.

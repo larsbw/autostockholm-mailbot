@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.75.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
+**Version:** 0.76.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -2378,6 +2378,41 @@ tredjepartsleverantör:
 Den här posten lägger till det första: efter flytten ligger kundtexten hos
 Railway, och det är en behandling av persondata hos en leverantör och inte bara
 en driftfråga.
+
+**RÄTTELSE, skiva 54. RISKFÖRFLYTTNINGEN OVAN RÄKNADE VAD SOM FLYTTAR OCH INTE
+VAD SOM UPPSTÅR.** Lars fel i posten, och det rättas här.
+
+Posten räknade två filer. Men boten SKAPAR persondata på servern varje dygn, och
+den mängden är större än den som flyttar dit. Uppmätt 2026-09-15 med
+`scripts/persondatamatning.py`:
+
+| fil | uppstår av | vad den bär |
+|---|---|---|
+| `data/inkorg-dagens.jsonl` | den dagliga hämtningen | dagens inkommande kundmail |
+| `data/granskningsfall.jsonl` | kedjan | kundtext och utkast |
+| `logg/beslut.jsonl` | kedjan | klassningar, append-only |
+| `logg/uppslag.jsonl` | fordonsuppslaget | registreringsnummer |
+| `logg/korningar.jsonl` | den dagliga slingan | driftutfall, ingen kundtext |
+
+**`granskningsfall.jsonl` STÅR I BÅDA LEDEN, och det är ingen motsägelse.** Lars
+lägger upp en första kopia på volymen, alltså flyttar den; kedjan skriver om den
+vid varje körning, alltså uppstår den också. Den är den enda filen som gör båda.
+`scripts/persondatamatning.py` listar den under FLYTTAR, eftersom det är
+uppläggningen den tabellen handlar om.
+
+`data/par.jsonl` var 249 305 byte vid mätningen. `data/inkorg-dagens.jsonl` var
+3 194 225 byte för EN dags hämtning, alltså kvoten 12,8, och den posten fanns
+inte i uppräkningen alls.
+
+**VAD RÄTTELSEN LEDDE TILL, i samma skiva.** Skörden skrivs över vid varje
+körning och bär bara de fält kedjan läser, se DEL A i skivan. Efter gallringen
+är samma material 643 246 byte, alltså en femtedel. `logg/uppslag.jsonl` står
+registrerad som lucka i `docs/sparrar.md` under
+`regnr-i-uppslagsloggen-ar-persondata`.
+
+**Vad rättelsen INTE ändrar.** Beslutet om Railway står. Det som ändras är vad
+posten påstår om hur mycket persondata som hamnar där, och den siffran var för
+låg därför att den bara räknade flytten.
 
 **Vad som INTE följer.** Ingen sändning aktiveras. §10:s stopp om första
 sändningen i en NY MILJÖ gäller Railway, oavsett vad som skickats från Lars
@@ -7183,7 +7218,83 @@ filen faller de på `AuthFel`. Inget test binder det.
 
 ---
 
+## #120 — Skörden är arbetsmaterial för en körning, och den döda slingan syns i vyn
+
+**Datum:** 2026-09-15 · **Berör:** `src/inkorg.py`, `src/mine.py`,
+`src/urval.py`, `src/vy.py`, `src/sokvagar.py`, `scripts/dagligen.py`, #38, #119
+
+**Beslut av Lars, tre delar.**
+
+**DEL A. `data/inkorg-dagens.jsonl` ska inte växa.** Filen skrivs över vid varje
+körning, och den bär bara de fält kedjan faktiskt använder.
+
+**PREMISSEN OM TILLVÄXT VAR FEL, och det ändrar inte beslutet.** Filen växte
+inte: `mine.mina` har sedan den skrevs öppnat en `.delvis`-fil med `w` och
+ersatt utfilen med `replace`, alltså har varje körning skrivit över. Uppmätt
+2026-09-15: 53 rader med 53 unika tråd-ID och inga dubbletter. Det som var stort
+var EN dags hämtning, inte en månads lagring.
+
+Beslutet står ändå, av två skäl. Egenskapen var oskriven och obunden: ingenting
+hade blivit rött om någon bytt `w` mot `a`, och den raden finns nu. Och DEL A:s
+andra halva rör inte tillväxt alls.
+
+**VAD SOM FALLER UR SKÖRDEN, och varför de tre huvudena Lars namnger behandlas
+olika.** `Bcc` läser kedjan inte alls, alltså faller det helt. `Return-Path` och
+`Delivered-To` prövar `urval.ar_kundmeddelande` på FÖREKOMST, och det är de som
+avgör att webbformulärets notis, som bär `SENT`, ändå är kundens meddelande
+(#8). Namnen står därför kvar och deras VÄRDEN gör det inte. Vidare faller
+`snippet`, som är Gmails eget klartextutdrag ur kundens mail, samtliga bilagor,
+och varje `text/html`-kropp i ett mail som också bär `text/plain`: `brodtext`
+läser EN kroppsdel, och de övriga öppnar ingenting.
+
+**UPPMÄTT PÅ SKÖRDEN SOM LÅG PÅ DISK:** 3 194 225 byte före, 643 246 efter,
+alltså en femtedel. Samma 53 trådar, och kedjans bedömning oförändrad för
+samtliga: samma sållningsskäl, samma ärenden, samma brödtext.
+
+**DEL B. En rad i vyn som visar när senaste körningen lyckades.** Ingen
+avisering och ingen hälsokontroll: båda är en till sak som kan gå sönder utan
+att någon märker det, alltså samma problem en nivå upp. Lars öppnar vyn ändå.
+
+Raden läser `logg/korningar.jsonl` och är röd när senaste LYCKADE körningen är
+äldre än ett dygn. Sista lyckade och inte sista: `dagligen.kor` skriver en rad
+också när körningen faller, alltså ser en slinga som kör och faller varje dygn ut
+som en färsk sista rad.
+
+**EN FÖLJDÄNDRING SOM INTE VAR BEGÄRD, och den ska stå här.** `respond._kor`
+returnerade 1 när urvalet gav noll ärenden, och `dagligen` skriver
+`"lyckades": kod == 0`. Ett dygn där all inkommande post var maskinmail loggades
+alltså som ett misslyckande, och DEL B:s rad hade sedan larmat rött med texten
+*"minst en körning har uteblivit eller fallit"* över utkast som var i sin
+ordning. Raden returnerar nu 0: noll ärenden är inget fel. Ett verkligt fel
+returnerar fortfarande 1.
+
+**Det är ett beslut om vad `lyckades` betyder, och det är Lars att riva upp.**
+Alternativet vore att `dagligen` slutar läsa exitkoden som hela sanningen, vilket
+kräver en andra signal. Skälet att välja den här vägen är att larmet annars ropar
+varg på lugna helger, och ett larm som gör det slutar läsas innan det ropar på
+riktigt. Fällt av §7-granskningen av skivan.
+
+**DEL C.** `logg/uppslag.jsonl` registreras som lucka i `docs/sparrar.md` under
+`regnr-i-uppslagsloggen-ar-persondata`. Ingenting byggs: loggen behövs för att
+felsöka uppslaget.
+
+**Vad som INTE följer.** Ingen sändning. Ingen gallringsfrist och ingen
+maskering av någon logg. Ingen ändring i `config/`.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.76.0 — 2026-09-15
+
+**#120 TILLKOMMER.** Skörden skrivs över och bär bara de fält kedjan läser, vyn
+får en rad om senaste lyckade körning, och uppslagsloggen registreras som lucka.
+
+**#38 RÄTTAS EN ANDRA GÅNG.** Dess riskförflyttning räknade vad som FLYTTAR till
+Railway och inte vad som UPPSTÅR där. Rättelsen står i posten, med tabellen över
+de fem filer boten skapar på servern.
+
+Ny post plus en rättelse i en gammal ⇒ MINOR.
 
 ### 0.75.0 — 2026-09-15
 

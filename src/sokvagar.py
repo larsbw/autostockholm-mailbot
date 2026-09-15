@@ -127,6 +127,35 @@ LOGG = _ur_miljon("MAILBOT_LOGG", ROT / "logg")
 HEMLIGHETER = _ur_miljon("MAILBOT_HEMLIGHETER", ROT)
 
 
+# KÖRNINGSLOGGEN. Driftutfall per dygn, aldrig kundtext (§6).
+#
+# **ETT FILNAMN I EN KATALOGMODUL, och skälet är att filen har EN SKRIVARE OCH
+# EN LÄSARE PÅ VAR SIN SIDA OM `src/`.** `scripts/dagligen.py` skriver den,
+# `src/vy.py` läser den. `scripts/` är ingen paketkatalog, alltså kan vyn inte
+# importera slingan alls; och att låta slingan importera vyn för ETT filnamn
+# hade dragit in hela vymodulen i den dagliga processen. Kvar blir en tredje
+# plats, och det är den här.
+#
+# *Här stod att vyn inte FÅR importera slingan, därför att slingan startar
+# `respond.py` som drar in `googleapiclient`. Det är falskt: en subprocess rör
+# inte importgrafen, `scripts/dagligen.py` importerar bara stdlib och
+# `src.sokvagar`, och filen säger det själv i sin egen inledning.
+# `krav_pa_sandvagsfrihet` hade alltså inte fällt någonting. Fällt av
+# §7-granskningen av skiva 54.*
+#
+# Alternativet vore samma sträng skriven på två ställen. Den dagen de skiljer sig
+# åt skriver slingan till en fil och vyn läser en annan, och vyns rad säger då
+# att ingen körning har lyckats — vilket är den enda formen av fel raden inte får
+# ha, eftersom den finns för att larma om just det.
+#
+# **SÖKVÄGEN ÄR INTE HELA KONTRAKTET.** Fältnamnen i raden är det också, och de
+# binds av `tests/test_drift.py::test_slingan_skriver_de_falt_vyns_korningsrad_
+# LASER`, som kör skrivaren och ger läsaren resultatet. Den här kommentaren
+# vaktade ett tag bara filnamnet, och ett byte av `startad` gav exakt det fel
+# stycket ovan säger att raden inte får ha.
+KORNINGSLOGG = LOGG / "korningar.jsonl"
+
+
 def kataloger() -> dict[str, Path]:
     """De tre katalogerna, för utskrift vid uppstart.
 

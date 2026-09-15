@@ -227,7 +227,8 @@ def hamta_trad(tjanst, trad_id: str, *, pacer, forbrukning, sov=None,
 
 
 def mina(tjanst, *, utfil: Path, max_tradar=None, pacer=None, forbrukning=None,
-         sov=None, slumpa=None, fraga=None, uteslut=None) -> Forbrukning:
+         sov=None, slumpa=None, fraga=None, uteslut=None,
+         gallra=None) -> Forbrukning:
     """Skriver en tråd per rad till utfil och returnerar förbrukningen.
 
     Hämtningen skrivs till en sidofil med suffixet .delvis och flyttas på plats
@@ -235,9 +236,21 @@ def mina(tjanst, *, utfil: Path, max_tradar=None, pacer=None, forbrukning=None,
     och det halva resultatet ligger kvar under ett namn som inte går att läsa
     som en färdig fil.
 
+    **SKRIVNINGEN ÄR ETT SKRIV ÖVER OCH ALDRIG ETT TILLÄGG.** `.delvis` öppnas
+    med `w` och ersätter utfilen med `replace`. Det står här därför att det är
+    en egenskap någon annan förlitar sig på: `src/inkorg.py` skriver dagens
+    skörd med den här funktionen, och den filen är arbetsmaterial för EN körning
+    och inte ett arkiv (Lars beslut i skiva 54, DEL A).
+
     En körning som ombeds hämta noll trådar rör varken API:et eller utfilen.
     Att skriva en tom fil hade raderat föregående skörd, och en felskriven
     --max-threads får inte kunna förstöra en färdig mining.
+
+    **`gallra` LÄGGS PÅ FÖRE SKRIVNINGEN OCH INTE EFTER, och det ledet är §6.**
+    Det som gallras bort ska aldrig ha legat på disken, inte ens i `.delvis`.
+    Förvalet None skriver tråden som Google gav den, alltså rör miningens egna
+    skördar sig inte: `src/extract.py` bygger par ur fält den här skörden inte
+    behöver, och `data/tradar.jsonl` ska fortsätta bära dem.
     """
     pacer = Kvotpacer(sov=sov) if pacer is None else pacer
     forbrukning = Forbrukning() if forbrukning is None else forbrukning
@@ -266,7 +279,8 @@ def mina(tjanst, *, utfil: Path, max_tradar=None, pacer=None, forbrukning=None,
                 tjanst, trad_id, pacer=pacer, forbrukning=forbrukning,
                 sov=sov, slumpa=slumpa,
             )
-            fil.write(json.dumps(trad, ensure_ascii=False) + "\n")
+            fil.write(json.dumps(trad if gallra is None else gallra(trad),
+                                 ensure_ascii=False) + "\n")
             forbrukning.tradar += 1
 
     delvis.replace(utfil)

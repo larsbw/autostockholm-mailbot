@@ -9,11 +9,13 @@ importlagret och källtextlagret, prövas i `tests/test_respond.py`.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 
-from src import auth, inkorg
+from src import auth, extract, inkorg, kanal, klassa_maskin, urval
 from tests import fejk
 
 
@@ -325,3 +327,523 @@ def test_las_tjanst_lamnar_ut_den_INLINDADE_och_aldrig_den_rana(monkeypatch):
     assert tjanst is not ra
     with pytest.raises(inkorg.Sandforsok):
         tjanst.users().messages().send(userId="me", body={})
+
+
+# ---------------------------------------------- SKÖRDEN, SKIVA 54 DEL A
+#
+# Lars beslut, två delar: varje körning SKRIVER ÖVER filen, och den bär bara de
+# fält kedjan faktiskt använder. Filen är arbetsmaterial för en körning, inte
+# ett arkiv.
+
+
+def _b64(text: str) -> str:
+    import base64
+    return base64.urlsafe_b64encode(text.encode("utf-8")).decode("ascii")
+
+
+def _huvud(namn: str, varde: str) -> dict:
+    return {"name": namn, "value": varde}
+
+
+def _kundmail(text: str = "Hej, kan ni bygga om min bil? ABC12D",
+              *, huvuden=None, etiketter=None, bilaga=False,
+              html_ocksa=False) -> dict:
+    """Ett meddelande på Gmails form, med de fält Google faktiskt skickar."""
+    delar = [{"partId": "0", "mimeType": "text/plain", "filename": "",
+              "body": {"size": len(text), "data": _b64(text)}}]
+    if html_ocksa:
+        rahtml = f"<html><body><p>{text}</p></body></html>"
+        delar.append({"partId": "1", "mimeType": "text/html", "filename": "",
+                      "body": {"size": len(rahtml), "data": _b64(rahtml)}})
+    if bilaga:
+        delar.append({"partId": "2", "mimeType": "image/jpeg",
+                      "filename": "stotfangare.jpg",
+                      "body": {"size": 900, "data": _b64("X" * 900)}})
+
+    return {
+        "id": "m1",
+        "threadId": "t1",
+        "historyId": "8801",
+        "sizeEstimate": 40000,
+        "snippet": text[:40],
+        "internalDate": "1757900000000",
+        "labelIds": list(etiketter or ["INBOX", "UNREAD"]),
+        "payload": {
+            "partId": "",
+            "mimeType": "multipart/mixed" if (bilaga or html_ocksa)
+                        else "multipart/alternative",
+            "filename": "",
+            "headers": [
+                _huvud("Delivered-To", "info@autostockholm.se"),
+                _huvud("Return-Path", "<kund@exempel.se>"),
+                _huvud("Received", "from mx.exempel.se by mx.google.com"),
+                _huvud("From", "Kund Kundsson <kund@exempel.se>"),
+                _huvud("To", "info@autostockholm.se"),
+                _huvud("Cc", "systern@exempel.se"),
+                _huvud("Bcc", "hemlig@exempel.se"),
+                _huvud("Subject", "Fråga om a-traktor"),
+                _huvud("Message-ID", "<abc@exempel.se>"),
+                _huvud("Content-Type", "multipart/alternative"),
+            ] + list(huvuden or []),
+            "parts": delar,
+        },
+    }
+
+
+def _trad(meddelanden, trad_id="t1") -> dict:
+    return {"id": trad_id, "historyId": "8801", "messages": meddelanden}
+
+
+# ------------------------------------------------ DEL 1: filen skrivs över
+
+
+def test_varje_korning_SKRIVER_OVER_skorden(tmp_path):
+    """**LARS BESLUT, DEL A PUNKT 1.** Skörden är arbetsmaterial för EN körning.
+
+    Raden är inte kosmetisk: växer filen i stället för att bytas ut är den efter
+    en månads drift den största samlingen kundmail på servern (§6).
+
+    Prövas genom TVÅ körningar mot samma fil med olika trådar. Ett tillägg hade
+    gett fyra rader.
+    """
+    from src import mine
+
+    utfil = tmp_path / "skord.jsonl"
+    forsta = fejk.FejkGmail(
+        sidor={None: {"threads": [{"id": "a1"}, {"id": "a2"}]}},
+        tradar={"a1": _trad([_kundmail()], "a1"),
+                "a2": _trad([_kundmail()], "a2")},
+    )
+    andra = fejk.FejkGmail(
+        sidor={None: {"threads": [{"id": "b1"}, {"id": "b2"}]}},
+        tradar={"b1": _trad([_kundmail()], "b1"),
+                "b2": _trad([_kundmail()], "b2")},
+    )
+
+    for tjanst in (forsta, andra):
+        inkorg.dagens_tradar(inkorg.Lastjanst(tjanst), utfil=utfil,
+                             nu=_nu(dag=15))
+
+    idn = [t["id"] for t in extract.las_tradar(utfil)]
+    assert idn == ["b1", "b2"], "skörden bar den föregående körningens trådar"
+
+
+def test_en_AVBRUTEN_korning_lamnar_foregaende_skord_orord(tmp_path):
+    """Skriv över betyder inte töm först.
+
+    `mine.mina` skriver till `.delvis` och flyttar på plats, alltså ligger
+    föregående körnings skörd kvar när en hämtning faller halvvägs. Utan det
+    hade ett kvotfel mitt i en körning både avbrutit dagen och raderat gårdagens
+    material att felsöka i.
+    """
+    from src import mine
+
+    utfil = tmp_path / "skord.jsonl"
+    forsta = fejk.FejkGmail(
+        sidor={None: {"threads": [{"id": "a1"}]}},
+        tradar={"a1": _trad([_kundmail()], "a1")},
+    )
+    inkorg.dagens_tradar(inkorg.Lastjanst(forsta), utfil=utfil, nu=_nu(dag=15))
+
+    trasig = fejk.FejkGmail(
+        sidor={None: {"threads": [{"id": "b1"}]}},
+        tradar={},
+        get_fel={"b1": [fejk.behorighetsfel() for _ in range(mine.MAX_FORSOK)]},
+    )
+    with pytest.raises(Exception):
+        inkorg.dagens_tradar(inkorg.Lastjanst(trasig), utfil=utfil,
+                             nu=_nu(dag=15))
+
+    assert [t["id"] for t in extract.las_tradar(utfil)] == ["a1"]
+
+
+# ----------------------------------- DEL 2: bara de fält kedjan läser
+
+
+def test_skorden_bar_INGA_RAA_HUVUDEN_som_kedjan_inte_laser(tmp_path):
+    """**LARS BESLUT, DEL A PUNKT 2, ordagrant:** Bcc, Return-Path,
+    Delivered-To och råa huvuden ska aldrig nå disken om kedjan inte läser dem.
+
+    **DE TRE HUVUDENA BEHANDLAS OLIKA, och skillnaden är mätt och inte valfri.**
+    `Bcc` läser kedjan inte alls och det faller helt. `Return-Path` och
+    `Delivered-To` prövar `urval.ar_kundmeddelande` på FÖREKOMST: det är de som
+    avgör att webbformulärets notis, som bär `SENT`, ändå är kundens meddelande
+    (beslutslogg #8). Namnen står därför kvar och deras VÄRDEN gör det inte.
+
+    Mätt på filen och inte på returvärdet: det är disken §6 handlar om.
+    """
+    utfil = tmp_path / "skord.jsonl"
+    tjanst = fejk.FejkGmail(
+        sidor={None: {"threads": [{"id": "t1"}]}},
+        tradar={"t1": _trad([_kundmail()])},
+    )
+    inkorg.dagens_tradar(inkorg.Lastjanst(tjanst), utfil=utfil, nu=_nu(dag=15))
+    ratext = utfil.read_text(encoding="utf-8")
+
+    assert "hemlig@exempel.se" not in ratext, "Bcc:s värde nådde disken"
+    assert "systern@exempel.se" not in ratext, "Cc:s värde nådde disken"
+    assert "mx.google.com" not in ratext, "Received:s värde nådde disken"
+    assert "Bcc" not in ratext
+    assert "Message-ID" not in ratext
+
+    # Och namnen som BÄR ett beslut står kvar, utan värde.
+    huvuden = extract.las_tradar(utfil).__next__()["messages"][0]["payload"]["headers"]
+    som_dikt = {h["name"]: h["value"] for h in huvuden}
+    assert som_dikt["Return-Path"] == ""
+    assert som_dikt["Delivered-To"] == ""
+    assert som_dikt["From"] == "Kund Kundsson <kund@exempel.se>"
+    assert som_dikt["Subject"] == "Fråga om a-traktor"
+
+
+def test_skorden_bar_INGEN_BILAGA_och_ingen_oläst_HTML_kropp(tmp_path):
+    """Bilagan och den olästa HTML-kroppen är skördens största poster.
+
+    `urval.brodtext` läser EN kroppsdel: första `text/plain` med data, och
+    `text/html` bara när ingen sådan finns. Ett mail som bär båda bär alltså en
+    HTML-kropp ingenting öppnar, och en bifogad bild öppnar ingenting alls.
+    """
+    utfil = tmp_path / "skord.jsonl"
+    tjanst = fejk.FejkGmail(
+        sidor={None: {"threads": [{"id": "t1"}]}},
+        tradar={"t1": _trad([_kundmail(bilaga=True, html_ocksa=True)])},
+    )
+    inkorg.dagens_tradar(inkorg.Lastjanst(tjanst), utfil=utfil, nu=_nu(dag=15))
+
+    trad = next(extract.las_tradar(utfil))
+    delar = trad["messages"][0]["payload"].get("parts") or []
+
+    assert [d["mimeType"] for d in delar] == ["text/plain"]
+    assert "image/jpeg" not in utfil.read_text(encoding="utf-8")
+    assert "stotfangare.jpg" not in utfil.read_text(encoding="utf-8")
+
+
+def test_HTML_kroppen_foljer_med_nar_den_ar_DEN_SOM_LASES(tmp_path):
+    """Negativkontroll till raden ovan.
+
+    Ett mail utan `text/plain` läses ur `text/html`. Föll HTML alltid vore varje
+    sådant mail tomt, alltså sållat som "tom brödtext" och obesvarat.
+    """
+    meddelande = _kundmail(html_ocksa=True)
+    meddelande["payload"]["parts"] = [
+        d for d in meddelande["payload"]["parts"] if d["mimeType"] != "text/plain"
+    ]
+
+    gallrad = inkorg.gallra_meddelande(meddelande)
+
+    assert [d["mimeType"] for d in gallrad["payload"]["parts"]] == ["text/html"]
+    assert urval.brodtext(gallrad) == urval.brodtext(meddelande)
+    assert urval.brodtext(gallrad) != ""
+
+
+def test_skorden_bar_INGEN_SNIPPET_och_inga_id_falt_kedjan_inte_laser(tmp_path):
+    """`snippet` är Gmails eget klartextutdrag ur kundens mail.
+
+    Det är kundtext, och ingenting i den dagliga körningen läser det.
+    """
+    utfil = tmp_path / "skord.jsonl"
+    tjanst = fejk.FejkGmail(
+        sidor={None: {"threads": [{"id": "t1"}]}},
+        tradar={"t1": _trad([_kundmail()])},
+    )
+    inkorg.dagens_tradar(inkorg.Lastjanst(tjanst), utfil=utfil, nu=_nu(dag=15))
+
+    trad = next(extract.las_tradar(utfil))
+    meddelande = trad["messages"][0]
+
+    assert set(trad) == {"id", "messages"}
+    assert set(meddelande) == {"labelIds", "internalDate", "payload"}
+    for falt in ("snippet", "sizeEstimate", "historyId", "threadId", "partId",
+                 "filename"):
+        assert falt not in utfil.read_text(encoding="utf-8"), falt
+
+
+def test_KROPPSDELEN_som_foljer_med_ar_den_urval_pekar_ut():
+    """Gallringen härmar inte `brodtext`:s val, den frågar efter det.
+
+    `urval.textdel` är utbruten just för det. Skulle `brodtext` en dag föredra
+    något annat följer skörden med av sig själv.
+    """
+    meddelande = _kundmail(html_ocksa=True, bilaga=True)
+
+    vald = urval.textdel(meddelande)
+    gallrad = inkorg.gallra_meddelande(meddelande)
+
+    assert gallrad["payload"]["parts"][0]["body"]["data"] == vald["body"]["data"]
+    assert urval.brodtext(gallrad) == urval.brodtext(meddelande)
+
+
+def test_en_kropp_DIREKT_pa_payload_overlever_gallringen():
+    """Beslutslogg #6: saknas `parts` ligger texten i `payload.body.data`."""
+    meddelande = _kundmail()
+    text = "Hej, vi har en Volvo V70 som ska bli a-traktor."
+    meddelande["payload"].pop("parts")
+    meddelande["payload"]["mimeType"] = "text/plain"
+    meddelande["payload"]["body"] = {"size": len(text), "data": _b64(text)}
+
+    gallrad = inkorg.gallra_meddelande(meddelande)
+
+    assert "parts" not in gallrad["payload"]
+    assert urval.brodtext(gallrad) == urval.brodtext(meddelande)
+    assert urval.brodtext(gallrad).startswith("Hej, vi har en Volvo")
+
+
+def test_ett_meddelande_UTAN_LASBAR_TEXT_gallras_utan_att_kasta():
+    """Sållningsskälet "tom brödtext" ska vara detsamma före och efter."""
+    meddelande = _kundmail()
+    meddelande["payload"]["parts"] = [
+        {"partId": "0", "mimeType": "application/pdf", "filename": "offert.pdf",
+         "body": {"size": 10, "data": _b64("PDF")}}
+    ]
+
+    gallrad = inkorg.gallra_meddelande(meddelande)
+
+    assert urval.brodtext(gallrad) == urval.brodtext(meddelande) == ""
+    assert "application/pdf" not in json.dumps(gallrad)
+
+
+# ------------------------- DEL 3: gallringen ändrar inte kedjans utfall
+
+
+def _kedjans_utfall(trad: dict, domaner) -> tuple:
+    """Precis de bedömningar `scripts/respond.py::arende_ur_trad` gör.
+
+    Skrivet här och inte importerat ur skriptet: `scripts/` ligger inte i ett
+    paket, och en import av `respond` drar in `googleapiclient`.
+    """
+    meddelanden = trad.get("messages") or []
+    kund = next((m for m in meddelanden if urval.ar_kundmeddelande(m)), None)
+    return (
+        klassa_maskin.tradens_skal(trad, domaner),
+        None if kund is None else (
+            urval.brodtext(kund),
+            kanal.amnesrad(kund),
+            kanal.namnge(kund),
+            urval.hasha(urval.kundadress(kund)),
+            urval.tidsstampel(kund),
+        ),
+    )
+
+
+@pytest.mark.parametrize("bygg", [
+    pytest.param(lambda: _kundmail(), id="vanligt kundmail"),
+    pytest.param(lambda: _kundmail(bilaga=True, html_ocksa=True),
+                 id="bilaga och html"),
+    pytest.param(
+        lambda: _kundmail(
+            huvuden=[_huvud("List-Unsubscribe", "<https://x.se/av>")]),
+        id="maskinmail på huvud"),
+    pytest.param(
+        lambda: _kundmail(huvuden=[_huvud("Precedence", "bulk")]),
+        id="maskinmail på precedence"),
+    pytest.param(
+        lambda: _kundmail(
+            etiketter=["SENT"],
+            huvuden=[_huvud("Reply-To", "kund@annanstans.se"),
+                     _huvud("X-Msg-EID", "42")]),
+        id="webbformulärets notis"),
+    pytest.param(
+        lambda: _kundmail(huvuden=[_huvud("From", "noreply@exempel.se")]),
+        id="noreply-avsändare"),
+])
+def test_gallringen_andrar_INTE_kedjans_bedomning(bygg):
+    """**DEN HÄR RADEN ÄR HELA GRUNDEN FÖR ATT GALLRA ALLS.**
+
+    Ett fält får falla bort först när kedjan bedömer mailet likadant utan det.
+    Prövas över de former sållningen faktiskt skiljer på, eftersom en gallring
+    som bara håller för det vanliga kundmailet gör en maskinmailsklassning till
+    ett ärende, eller tvärtom.
+    """
+    domaner = {"nyhetsbrev.exempel.se"}
+    meddelande = bygg()
+    trad = _trad([meddelande])
+
+    assert _kedjans_utfall(inkorg.gallra_trad(trad), domaner) == \
+        _kedjans_utfall(trad, domaner)
+
+
+def test_gallringen_andrar_inte_DYGNSGRANSEN():
+    """`labelIds` och `internalDate` bär urvalet och måste överleva."""
+    granser = inkorg.dygnets_granser(_nu(dag=15))
+    dagens = _kundmail()
+    dagens["internalDate"] = _ms(_nu(dag=15, timme=9))
+    gammalt = _kundmail()
+    gammalt["internalDate"] = _ms(_nu(dag=13, timme=9))
+
+    tradar = [_trad([dagens], "ny"), _trad([gammalt], "gammal")]
+    gallrade = [inkorg.gallra_trad(t) for t in tradar]
+
+    assert [t["id"] for t in inkorg.tradar_fran_dagen(gallrade, granser=granser)] \
+        == [t["id"] for t in inkorg.tradar_fran_dagen(tradar, granser=granser)] \
+        == ["ny"]
+
+
+def test_SPAM_och_TRASH_overlever_gallringen():
+    granser = inkorg.dygnets_granser(_nu(dag=15))
+    skrap = _kundmail(etiketter=["SPAM"])
+    skrap["internalDate"] = _ms(_nu(dag=15, timme=9))
+
+    gallrad = inkorg.gallra_trad(_trad([skrap]))
+
+    assert inkorg.tradar_fran_dagen([gallrad], granser=granser) == []
+
+
+# ------------------- DEL 4: listan över huvuden får inte driva isär
+
+
+def test_varje_huvud_kedjan_LASER_ETT_VARDE_ur_star_i_HUVUDEN_MED_VARDE():
+    """**GALLRINGENS FARLIGASTE FELFORM, och den är tyst.**
+
+    Läggs ett `urval.huvudvarde(meddelande, "x-nytt")` till i sållningen, och
+    står `x-nytt` inte i `HUVUDEN_MED_VARDE`, skrivs värdet aldrig till skörden.
+    Testsviten bygger sina meddelanden själv och ser fullständiga huvuden, alltså
+    är den grön. I drift läser samma kod ett tomt värde och klassar mailet
+    annorlunda. Ingenting blir rött.
+
+    Raden läser KÄLLTEXTEN till kedjans moduler och fäller varje namn som läses
+    men inte står i listan. `MASKINHUVUDEN` och `LEVERANSHUVUDEN` behöver ingen
+    sådan rad: dem importerar `src/inkorg.py`.
+
+    **TRE ANROPSFORMER LÄSES, OCH EN FJÄRDE FINNS INTE UTAN ATT TESTET FÄLLER.**
+    Första lydelsen läste två: `huvudvarde(m, "namn")` och `adresser(m, {"namn"})`
+    med literaler. `urval.kundadress` använder en tredje, en for-slinga över en
+    tupel av namn med `adresser(m, {huvud})`, och den formen såg lydelsen inte
+    alls. Att `reply-to` och `from` ändå stod i listan var en slump: de skrivs
+    som literaler i `klassa_maskin`. Hade `kundadress` en dag föredragit
+    `x-original-from` för en förmedlad förfrågan hade sviten varit grön medan
+    gallringen tömde huvudet i drift, och kundens ärende fått fel
+    `avsandare_hash`.
+
+    Den formen läses nu. Och det viktiga: varje anrop vars namn INTE går att
+    läsa statiskt gör testet RÖTT i stället för att hoppas över. En blind fläck
+    som tiger är precis den felform posten beskriver, alltså får den inte
+    finnas. Fällt av §7-granskningen av skiva 54.
+    """
+    import ast
+
+    rot = Path(__file__).resolve().parent.parent
+    lasta: dict[str, str] = {}
+    olasbara: list[str] = []
+
+    def _namn_ur(nod) -> list[str] | None:
+        """Huvudnamnen ett argument står för, eller None när det inte går att
+        läsa statiskt."""
+        if isinstance(nod, ast.Constant) and isinstance(nod.value, str):
+            return [nod.value]
+        if isinstance(nod, (ast.Set, ast.Tuple, ast.List)):
+            ut = []
+            for post in nod.elts:
+                if not (isinstance(post, ast.Constant)
+                        and isinstance(post.value, str)):
+                    return None
+                ut.append(post.value)
+            return ut
+        return None
+
+    for modulnamn in ("urval", "klassa_maskin", "kanal"):
+        kalla = (rot / "src" / f"{modulnamn}.py").read_text(encoding="utf-8")
+        trad = ast.parse(kalla)
+
+        # FORM 3: `for huvud in ("reply-to", "from"): ... adresser(m, {huvud})`.
+        # Slingvariabeln binds till tupelns namn, så att anropet nedan går att
+        # läsa. Bara slingor vars iterabel är en literal av strängar; allt annat
+        # lämnas obundet och fälls av kontrollen längre ned.
+        bundna: dict[str, list[str]] = {}
+        for nod in ast.walk(trad):
+            if isinstance(nod, ast.For) and isinstance(nod.target, ast.Name):
+                varden = _namn_ur(nod.iter)
+                if varden:
+                    bundna[nod.target.id] = varden
+
+        for nod in ast.walk(trad):
+            if not isinstance(nod, ast.Call):
+                continue
+            funktion = nod.func.attr if isinstance(nod.func, ast.Attribute) \
+                else getattr(nod.func, "id", "")
+            if funktion not in ("huvudvarde", "adresser") or len(nod.args) < 2:
+                continue
+
+            argument = nod.args[1]
+            namn = _namn_ur(argument)
+
+            # FORM 3, fortsättning: en mängd som bara bär slingvariabeln.
+            if namn is None and isinstance(argument, (ast.Set, ast.Tuple,
+                                                      ast.List)):
+                samlat: list[str] = []
+                for post in argument.elts:
+                    if isinstance(post, ast.Name) and post.id in bundna:
+                        samlat.extend(bundna[post.id])
+                    elif (isinstance(post, ast.Constant)
+                          and isinstance(post.value, str)):
+                        samlat.append(post.value)
+                    else:
+                        samlat = []
+                        break
+                namn = samlat or None
+            elif namn is None and isinstance(argument, ast.Name) \
+                    and argument.id in bundna:
+                namn = bundna[argument.id]
+
+            if namn is None:
+                # EN MÄNGD SOM IMPORTERAS är inte en blind fläck: `inkorg`
+                # importerar `LEVERANSHUVUDEN`, `MOTTAGARHUVUDEN` och
+                # `MASKINHUVUDEN` och tar med dem av sig självt. Bara sådana
+                # namn får passera, och de namnges här.
+                if isinstance(argument, ast.Name) and argument.id in (
+                        "LEVERANSHUVUDEN", "MOTTAGARHUVUDEN", "MASKINHUVUDEN",
+                        "MASSUTSKICKSHUVUDEN", "SVARSHUVUDEN", "namn"):
+                    continue
+                olasbara.append(
+                    f"src/{modulnamn}.py:{nod.lineno} {funktion}(...) "
+                    f"med ett argument som inte går att läsa statiskt"
+                )
+                continue
+
+            for h in namn:
+                lasta[h.lower()] = f"src/{modulnamn}.py"
+
+    # Att uppräkningen inte tystnade, och att den ser den tredje formen.
+    assert len(lasta) >= 4, "hittade inga huvudläsningar alls i källtexten"
+    assert "reply-to" in lasta and "from" in lasta, (
+        "genomgången ser inte `urval.kundadress`:s for-slinga över namn; "
+        "då är den blind för den anropsformen"
+    )
+
+    assert not olasbara, (
+        "en huvudläsning vars namn inte går att läsa ur källtexten: "
+        + "; ".join(olasbara)
+        + ". Skriv namnet som en literal, eller lägg mängden i uppräkningen "
+        "över importerade mängder i det här testet."
+    )
+
+    saknade = {h: var for h, var in lasta.items()
+               if h not in inkorg.HUVUDEN_MED_VARDE}
+    assert not saknade, (
+        f"läses med VÄRDE men gallras bort ur skörden: {saknade}. "
+        "Lägg namnet i inkorg.HUVUDEN_MED_VARDE."
+    )
+
+
+def test_ett_nytt_MASKINHUVUD_foljer_med_till_skorden_av_sig_sjalvt():
+    """Mängderna importeras och skrivs inte av.
+
+    Prövas genom att lägga till ett namn i `klassa_maskin.MASKINHUVUDEN` och
+    räkna om, inte genom att jämföra två handskrivna listor.
+    """
+    assert "x-msg-eid" in inkorg.HUVUDEN_SOM_LASES
+    assert klassa_maskin.MASKINHUVUDEN <= inkorg.HUVUDEN_SOM_LASES
+    assert urval.LEVERANSHUVUDEN <= inkorg.HUVUDEN_SOM_LASES
+
+
+def test_gallringen_ar_AV_som_forval_i_mine():
+    """Miningens egna skördar rörs inte.
+
+    `src/extract.py` bygger par ur `ar_gmail_svar`, som läser `In-Reply-To`,
+    `References` och mottagarhuvudena. Ingen av dem står i skördens lista, alltså
+    hade en påslagen gallring i `mine.mina` tyst tömt `data/par.jsonl` på par.
+    """
+    import inspect
+    from src import mine
+
+    assert inspect.signature(mine.mina).parameters["gallra"].default is None
+    assert urval.SVARSHUVUDEN & inkorg.HUVUDEN_SOM_LASES == set()
+    assert urval.MOTTAGARHUVUDEN & inkorg.HUVUDEN_SOM_LASES == set()

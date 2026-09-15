@@ -620,8 +620,16 @@ def test_varje_strangparameter_till_renderarna_escapas():
 
     `fall`, `index` och `antal` hoppas över: det första prövas av testet ovan,
     de två andra är heltal och kan inte bära markup.
+
+    **`drift` HOPPAS ÖVER OCH ÄR DEN ENDA PARAMETER SOM RENDERAS SOM MARKUP.**
+    Den ÄR HTML: `vy.korningsrad` bygger ett `<p>`, och en escapning här hade
+    skrivit ut taggarna som text. Att hoppa över den flyttar kravet till
+    producenten i stället för att ta bort det, och
+    `test_korningsraden_kan_inte_bara_markup_fran_loggen` är den flytten: den
+    matar loggen med `OND` och kräver att ingenting av det når sidan. Varje ANNAN
+    ny strängparameter fångas fortfarande av uppräkningen nedan.
     """
-    hoppa = {"fall", "index", "antal"}
+    hoppa = {"fall", "index", "antal", "drift"}
     provade = []
 
     for renderare in (vy.rendera_referens, vy.rendera_granskning):
@@ -917,6 +925,11 @@ class FejkHanterare:
     # `_inloggad` ingen session. Utan `konfiguration` spelar det ingen roll:
     # `_inloggad` svarar ja när inloggningen är av, vilket är vad varje äldre
     # rad i den här filen förutsätter.
+    # KÖRNINGSRADEN, skiva 54 DEL B. Samma skäl som raderna ovan: hjälparen
+    # anropas obunden med fejken som `self`.
+    def _drift(self) -> str:
+        return self._klass._drift(self)
+
     def _inloggad(self) -> bool:
         return self._klass._inloggad(self)
 
@@ -1382,3 +1395,233 @@ def test_SKALET_nar_sidan_GENOM_RUTTEN(skal):
 
     assert vy._INTETSKAL[skal] in fejk.svar
     assert vy._INTETSKAL_OKANT not in fejk.svar
+
+
+# ------------------------------------------------- KÖRNINGSRADEN, SKIVA 54 DEL B
+#
+# Lars beslut: EN RAD I VYN, ingen avisering och ingen hälsokontroll. Raden
+# finns för den döda slingan: `dagligen.kor` fångar allt och kastar aldrig
+# vidare, alltså ser en slinga som slutat producera ut precis som ett dygn utan
+# post. Vyn visar gårdagens utkast och säger ingenting.
+
+
+def _korningslogg(sokvag: Path, rader: list[dict]) -> Path:
+    sokvag.write_text(
+        "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rader),
+        encoding="utf-8",
+    )
+    return sokvag
+
+
+def _tid(dag: int, timme: int = 5) -> str:
+    return f"2026-09-{dag:02d}T{timme:02d}:10:00+00:00"
+
+
+def _nu(dag: int, timme: int = 8):
+    from datetime import datetime, timezone
+    return datetime(2026, 9, dag, timme, tzinfo=timezone.utc)
+
+
+def test_en_FARSK_korning_ger_en_stillsam_rad(tmp_path):
+    """Normalläget. Ingen varning, bara tidsstämpeln."""
+    logg = _korningslogg(tmp_path / "k.jsonl", [
+        {"startad": _tid(15), "lyckades": True, "exitkod": 0},
+    ])
+
+    rad = vy.korningsrad(logg, nu=_nu(15))
+
+    assert "2026-09-15 05:10 UTC" in rad
+    assert "stannat" not in rad
+
+
+def test_en_lyckad_korning_ALDRE_AN_ETT_DYGN_syns_tydligt(tmp_path):
+    """Lars krav ordagrant: är senaste lyckade körningen äldre än ett dygn ska
+    det synas tydligt."""
+    logg = _korningslogg(tmp_path / "k.jsonl", [
+        {"startad": _tid(13), "lyckades": True, "exitkod": 0},
+    ])
+
+    rad = vy.korningsrad(logg, nu=_nu(15))
+
+    assert "stannat" in rad
+    assert "SENASTE LYCKADE KÖRNINGEN" in rad
+    assert "2026-09-13 05:10 UTC" in rad
+
+
+def test_gransen_gar_vid_FORALDRAD_S_och_inte_vid_ett_kalenderdygn(tmp_path):
+    """Ett dygn är 24 timmar och inte "i går".
+
+    Utan raden hade en körning 23:50 och nästa 00:10 räknats som två dygn isär,
+    och en körning 00:10 och nästa 23:50 samma dag som noll.
+    """
+    from datetime import timedelta
+
+    logg = _korningslogg(tmp_path / "k.jsonl", [
+        {"startad": _tid(14), "lyckades": True, "exitkod": 0},
+    ])
+    tid = vy.senaste_lyckade(logg)
+
+    strax_innan = tid + timedelta(seconds=vy.FORALDRAD_S - 1)
+    strax_efter = tid + timedelta(seconds=vy.FORALDRAD_S + 1)
+
+    assert "stannat" not in vy.korningsrad(logg, nu=strax_innan)
+    assert "stannat" in vy.korningsrad(logg, nu=strax_efter)
+
+
+def test_en_SLINGA_SOM_KOR_OCH_FALLER_VARJE_DYGN_raknas_som_stannad(tmp_path):
+    """**DET HÄR ÄR FELET RADEN FINNS FÖR.**
+
+    Loggens SISTA rad är färsk, men den är ett misslyckande. En läsning som tagit
+    sista raden hade sagt att allt var i sin ordning medan boten inte svarat på
+    ett mail på två dygn. Raden läser sista LYCKADE och inte sista.
+    """
+    logg = _korningslogg(tmp_path / "k.jsonl", [
+        {"startad": _tid(12), "lyckades": True, "exitkod": 0},
+        {"startad": _tid(13), "lyckades": False, "exitkod": 1},
+        {"startad": _tid(14), "lyckades": False, "exitkod": 124},
+        {"startad": _tid(15), "lyckades": False, "exitkod": 1},
+    ])
+
+    rad = vy.korningsrad(logg, nu=_nu(15))
+
+    assert "stannat" in rad
+    assert "2026-09-12 05:10 UTC" in rad
+
+
+def test_en_logg_som_SAKNAS_ar_inte_samma_sak_som_en_gammal_korning(tmp_path):
+    """De två leder till olika ställen, alltså slås de inte ihop.
+
+    En saknad logg betyder att slingan aldrig startat eller skriver någon
+    annanstans. En gammal körning betyder att den startat och slutat lyckas.
+    """
+    saknas = vy.korningsrad(tmp_path / "finns-inte.jsonl", nu=_nu(15))
+
+    assert "stannat" in saknas
+    assert "INGEN LYCKAD KÖRNING" in saknas
+    assert "SENASTE LYCKADE" not in saknas
+
+
+def test_en_logg_med_BARA_MISSLYCKANDEN_saknar_lyckad_korning(tmp_path):
+    logg = _korningslogg(tmp_path / "k.jsonl", [
+        {"startad": _tid(15), "lyckades": False, "exitkod": 1},
+    ])
+
+    assert vy.senaste_lyckade(logg) is None
+    assert "INGEN LYCKAD KÖRNING" in vy.korningsrad(logg, nu=_nu(15))
+
+
+def test_en_HALVSKRIVEN_rad_tar_inte_bort_vyn(tmp_path):
+    """`dagligen._logga` skriver med `a` och utan `.delvis`-omvägen, alltså kan
+    en dödad container lämna en halv rad.
+
+    Att kasta hade gjort utkasten oläsbara av en driftlogg.
+    """
+    sokvag = tmp_path / "k.jsonl"
+    sokvag.write_text(
+        json.dumps({"startad": _tid(15), "lyckades": True}) + "\n"
+        + '{"startad": "2026-09-15T05:1',
+        encoding="utf-8",
+    )
+
+    assert "2026-09-15 05:10 UTC" in vy.korningsrad(sokvag, nu=_nu(15))
+
+
+def test_korningsraden_kan_inte_bara_markup_fran_loggen(tmp_path):
+    """DEN ANDRA HALVAN AV ESCAPNINGSKRAVET.
+
+    `drift` renderas som markup och hoppas därför över i
+    `test_varje_strangparameter_till_renderarna_escapas`. Kravet flyttas hit, till
+    producenten: matas loggen med markup får ingenting av det nå sidan.
+
+    Tidsstämpeln går genom `fromisoformat` och `strftime`, alltså kan ett
+    fientligt värde inte överleva ens som text. Raden prövar utfallet och inte
+    vägen dit, så att den håller också om formateringen byts.
+    """
+    logg = _korningslogg(tmp_path / "k.jsonl", [
+        {"startad": _tid(15) + OND, "lyckades": True},
+        {"startad": OND, "lyckades": True},
+        {"startad": _tid(15), "lyckades": OND},
+    ])
+
+    rad = vy.korningsrad(logg, nu=_nu(15))
+
+    assert OND not in rad
+    assert "<script" not in rad
+
+
+def test_raden_nar_sidan_GENOM_RUTTEN_nar_det_finns_utkast(monkeypatch, tmp_path):
+    """En ren funktion som ingen rutt anropar är ingen rad i vyn."""
+    logg = _korningslogg(tmp_path / "k.jsonl", [
+        {"startad": "2020-01-01T05:10:00+00:00", "lyckades": True},
+    ])
+    monkeypatch.setattr(vy, "KORNINGSLOGG", logg)
+
+    hanterare = vy.bygg_hanterare([], granskning=[_granskningsfall()])
+    fejk = FejkHanterare(hanterare, "/granskning/0")
+    fejk.get()
+
+    assert "SENASTE LYCKADE KÖRNINGEN" in fejk.svar
+
+
+def test_raden_nar_ocksa_sidan_INGA_FORSLAG(monkeypatch, tmp_path):
+    """**DEN VIKTIGASTE PLATSEN, och den är lätt att missa.**
+
+    En slinga som slutat köra visar oftast en tom vy, inte en gammal post. Utan
+    raden här ser den ut precis som ett dygn utan inkommande post.
+    """
+    logg = _korningslogg(tmp_path / "k.jsonl", [
+        {"startad": "2020-01-01T05:10:00+00:00", "lyckades": True},
+    ])
+    monkeypatch.setattr(vy, "KORNINGSLOGG", logg)
+
+    hanterare = vy.bygg_hanterare([], granskning=[])
+    fejk = FejkHanterare(hanterare, "/granskning/0")
+    fejk.get()
+
+    assert "Inga förslag." in fejk.svar
+    assert "SENASTE LYCKADE KÖRNINGEN" in fejk.svar
+
+
+def test_INLOGGNINGSSIDAN_bar_ingen_korningsrad(monkeypatch, tmp_path):
+    """§6: den som inte får läsa utkasten har inget ärende att veta när boten
+    senast körde.
+
+    Sidans egen docstring säger att den inte berättar något om materialet, och
+    raden är en uppgift om driften av just det.
+    """
+    logg = _korningslogg(tmp_path / "k.jsonl", [
+        {"startad": _tid(15), "lyckades": True},
+    ])
+    monkeypatch.setattr(vy, "KORNINGSLOGG", logg)
+
+    sida = vy._inloggningssida()
+
+    # Mot radens EGNA kännetecken och inte mot ordet "körning": sidhuvudet bär
+    # sedan tidigare texten "lokal körning · ingen sändväg", och en prövning på
+    # ordet hade varit röd av en mening som inte har med driftloggen att göra.
+    assert "class='drift" not in sida
+    assert "2026-09-15" not in sida
+    assert "Senaste lyckade" not in sida
+    # Och att prövningen inte är vakuös: raden FINNS för samma logg.
+    assert "class='drift" in vy.korningsrad(nu=_nu(15))
+
+
+def test_vyn_och_slingan_skriver_och_laser_SAMMA_fil():
+    """Två ägare i två importgrafer som inte får röra varandra.
+
+    Glider namnen isär skriver slingan i en fil och vyn läser en annan, och vyn
+    säger då att ingen körning har lyckats — den enda formen av fel raden inte
+    får ha.
+
+    Slingan läses som TEXT och importeras inte: `scripts/dagligen.py` ligger inte
+    i ett paket, och en import av den drar dessutom in en modul vyns egen
+    `krav_pa_sandvagsfrihet` finns för att hålla utanför grafen.
+    """
+    from src import sokvagar
+
+    assert vy.KORNINGSLOGG == sokvagar.KORNINGSLOGG
+
+    kalla = (Path(__file__).resolve().parent.parent
+             / "scripts" / "dagligen.py").read_text(encoding="utf-8")
+    assert "KORNINGSLOGG = sokvagar.KORNINGSLOGG" in kalla
+    assert 'sokvagar.LOGG / "korningar.jsonl"' not in kalla
