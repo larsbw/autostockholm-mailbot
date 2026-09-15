@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.70.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
+**Version:** 0.71.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -6367,7 +6367,143 @@ ingenting: det tar bort sändförmågan ur LÄSVÄGEN, inte ur projektet.
 
 ---
 
+## #114 — Lars §10-beslut: `övrigt` flyttas till `aldrig`. Hinken var oåtkomlig.
+
+**Datum:** 2026-09-15 · **Berör:** `config/kategorier.yaml`
+
+**BESLUTET ÄR LARS.** `övrigt` flyttas till hinken `aldrig` i
+`config/kategorier.yaml`.
+
+**FELET VAR HINKTILLDELNINGEN I SKIVA 17, och det var Lars eget.** Två namn lades
+i `aldrig` som klassificeraren inte kan producera:
+
+| namn | står i `data/taxonomi.json`? | sätts av |
+| --- | --- | --- |
+| `inget kundärende` | nej | pass 1, `kategorisera.py` rad 62 |
+| `oklart` | nej | pass 1, och `kategorisera.normalisera` |
+| `utanför listan` | nej | pass 2:s filter, `ometikettera.UTANFOR` |
+| `övrigt` | **ja** | pass 2, promptens utgång |
+
+**KEDJAN KÖR PASS 2.** `kedja.kor` anropar `ometikettera.ometikettera_en` med
+`bygg_system_pass2`, och det ledet är fällt fram av kedjans egen provkörning i
+skiva 34, se den modulens docstring. Pass 2 väljer UR taxonomin och kan därför
+aldrig svara `inget kundärende` eller `oklart`.
+
+**HINKEN SOM SKULLE FÅNGA MASKINMAIL VAR ALLTSÅ OÅTKOMLIG.** Taxonomins uttalade
+slaskkategori är `övrigt`: `bygg_system_pass2` säger *"Passar ingen kategori,
+svara exakt: övrigt"*. Den stod ingenstans i `config/kategorier.yaml` och föll
+därför till standardhinken `utkast`. Mätt i skiva 49:s körning mot info@ blev
+samtliga sju ärenden `övrigt`, och samtliga sju hamnade i `utkast`.
+
+**VAD FLYTTEN KOSTAR, MÄTT OCH INTE GISSAT.** `övrigt` är inte enbart
+maskinmailens hink. Avläst ur `data/ometiketterade.jsonl`, som bär 861 texter:
+
+| led | antal |
+| --- | --- |
+| etiketter UR taxonomin, alltså pass 2:s | 231 |
+| pass 1-etiketter, `inget kundärende` och `oklart` | 629 |
+| `utanför listan` | 1 |
+| **varav `övrigt`** | **8 av 231, 3,5 %** |
+
+**FYRA AV DE ÅTTA BESVARADES AV MATTE.** Kopplat mot `data/par.jsonl`, som bär
+222 rader, samtliga med ett icke-tomt `utgaende_text`, fördelade på 213 unika
+`inkommande_text`. Kopplingen sker på den inkommande texten, alltså är 213 det
+tal som bär: fyra av `övrigt`-texterna finns bland dem som besvarade, fyra gör
+det inte.
+
+*Här stod att filen bär "213 par med ett icke-tomt utgående svar". Talet finns i
+filen men mäter de UNIKA inkommande texterna, inte paren: paren är 222. Fällt av
+§7-granskningen av skiva 49.*
+
+**Flytten gör alltså boten tyst också om en sorts mail en människa svarat på.**
+Det upphäver inte beslutet: `aldrig` betyder inte att mailet försvinner, utan
+att inget UTKAST skrivs, och posten syns i vyn med mail, kategori och beskedet.
+Men det säger att `övrigt` bär två saker, och att en felklassning hit nu kostar
+ett uteblivet utkast i stället för ett utkast Lars stryker.
+
+*Talet 3,5 % gäller SKÖRDAD post, alltså trådar vi redan svarat på. I skiva
+49:s omkörning mot dagens inkommande post blev åtta ärenden av åtta `övrigt`.
+Skillnaden mellan de två materialen är precis det
+`sikten-ar-byggd-mot-skordar-inte-mot-dagens-post` i `docs/sparrar.md` handlar
+om.*
+
+**DE TRE ONÅBARA NAMNEN STÅR KVAR, MED SKYLTEN PÅ.** Lars lämnade valet mellan
+att stryka dem och att kommentera dem. De står kvar, och skälet är riktningen:
+en etikett utan hink faller till `utkast`, alltså åt det mer tillåtande hållet.
+Att stryka dem hade tagit bort ett skydd utan att lägga till ett. `utanför
+listan` är dessutom nåbar ur kedjan och hör hemma i listan utan förbehåll.
+Kommentaren i filen säger vilket pass som kan sätta vad, så att listan inte ser
+ut att skydda mer än den gör.
+
+---
+
+## #115 — Generatorn får ett tredje utfall: INGET SVAR. Inte en spärr, inte en kategori.
+
+**Datum:** 2026-09-15 · **Berör:** `src/kedja.py`, `src/vy.py`,
+`scripts/respond.py`, `scripts/kedja-prov.py`
+
+**BESLUTET OM FORMEN ÄR LARS.** Ett utfall `INGET SVAR` i `Kedjeutfall`, och en
+kategori i hinken `aldrig` ger det utan att generatorn anropas alls.
+
+**VARFÖR INTE EN SPÄRR.** En spärr fäller ett svar som SKREVS, alltså kostar den
+ett modellanrop och lägger en rad i `per_sparr` som ser ut som ett fynd. Ett
+maskinmail är inget fynd: det fanns ingenting att svara på.
+
+**VARFÖR INTE EN EGEN KATEGORI.** Den hade krävt en taxonomiändring, och pass 2
+kan ändå inte producera den. Se #114.
+
+**VAD DET UPPHÄVER.** `src/kedja.py`:s docstring sade *"HINKEN AVGÖR INGENTING
+HÄR"* och att ett utkast produceras för varje kategori också de i `aldrig`, med
+motiveringen att skuggläget mäter vad som HADE gått ut. **Den mätningen finns
+inte.** Ramverksregel 1 säger att ingenting i `aldrig` någonsin får gå ut, alltså
+är svaret på *vad hade gått ut* känt utan att ett anrop görs. Vad formen kostade
+var ett modellanrop per maskinmail och en vy full av utkast på post som inte är
+kundärenden.
+
+**HINKEN AVGÖR FORTFARANDE INGENTING OM SÄNDNING.** Ramverksregel 1 gäller
+sändvägen, och kedjan har ingen. `aldrig` stoppar GENERERINGEN.
+
+**SKUGGLÄGET SER POSTEN ÄNDÅ.** Kategorin och hinken loggas som förut, och
+loggraden bär ett nytt fält `inget_svar`. Utan det betyder `blev_utkast: false`
+med `sparr: null` antingen ett källfel eller ett INGET SVAR, och de två är olika
+saker. `logga_kallfel` skriver fältet som falskt av samma skäl.
+
+**VYN VISAR DEM SOM EN EGEN SORTS POST.** Mailet, kategorin, och beskedet att
+inget svar skrivs. Inget textfält, inga omdömesknappar. `_omdome` vägrar även ett
+omdöme som postas direkt mot rutten, och skälet är ett annat än spärrpostens:
+`spara_omdome` skriver ett PAR när omdömet är `forbattra`, alltså hade ett
+omdöme här lagt kundens text och ett tomt svar i `data/par.jsonl`, som
+generatorn läser som få-exempel.
+
+**VAD SOM VERIFIERATS OM FORMULERINGEN *"det här mailet är inte från en kund"*,
+och vad som INTE har det.** Påståendet som bär är smalt: för ett mail vars
+kategori står i `aldrig` produceras ingen text alls, eftersom generatorn inte
+anropas. I skiva 49:s omkörning mot info@ blev samtliga åtta ärenden `övrigt`,
+alltså gjordes noll genereringsanrop och noll tecken skrevs till
+`data/granskningsfall.jsonl`.
+
+**Det säger ingenting om ett mail som hamnar i `utkast`.** Där anropas
+generatorn som förut, och ingen spärr fäller just den meningen. Skulle
+klassificeraren ge ett maskinmail en kundkategori står vägen öppen igen. Det
+är samma beroende av klassningen som hela hinkgrinden vilar på, och det som
+minskar risken är #114, inte det här beslutet.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.71.0 — 2026-09-15
+
+**#114 TILLKOMMER: Lars §10-beslut, `övrigt` flyttas till `aldrig`.** Hinken som
+skulle fånga maskinmail bar två namn pass 2 aldrig kan svara, medan taxonomins
+uttalade slaskkategori saknade rad. De två står kvar med en kommentar som säger
+vilket pass som kan sätta vad.
+
+**#115 TILLKOMMER: ett tredje utfall, INGET SVAR.** En kategori i `aldrig` ger
+det utan att generatorn anropas. Upphäver `src/kedja.py`:s docstringpåstående
+att hinken inte avgör något där.
+
+Två nya poster och en ändrad §10-fil ⇒ MINOR.
 
 ### 0.70.0 — 2026-09-15
 

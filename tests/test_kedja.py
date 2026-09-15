@@ -256,20 +256,130 @@ def test_ett_spärrfällt_svar_ger_INGET_utkast():
     assert utfall.steg[-1] == Steg("spärrar", "fälld", "genererat-tal-har-kalla")
 
 
-def test_hinken_stoppar_INTE_generering():
-    """Ramverksregel 1 gäller SÄNDNING, och kedjan skickar ingenting.
+def test_hinken_ALDRIG_ger_INGET_SVAR_och_inget_modellanrop():
+    """Lars beslut i skiva 49 DEL B. Generatorn anropas INTE.
 
-    En kategori i `aldrig` ska ändå ge ett utkast, eftersom skuggläget mäter vad
-    som HADE gått ut. Att låta hinken stoppa här hade dolt just det.
+    *Testet hette `test_hinken_stoppar_INTE_generering` och band motsatsen: att
+    ett utkast produceras också för `aldrig`, eftersom skuggläget skulle mäta vad
+    som HADE gått ut. Den mätningen finns inte: ramverksregel 1 säger att
+    ingenting i `aldrig` någonsin får gå ut, alltså är svaret känt utan anropet.*
+
+    **RADEN OM `klient.anrop` ÄR DEN SOM BÄR.** Utan den är testet grönt även om
+    kedjan anropar generatorn och sedan kastar utkastet, vilket är precis den
+    kostnad beslutet gällde: ett modellanrop per maskinmail.
     """
     klient = FejkKlient("inget kundärende", "Hej, tack för ditt meddelande.")
 
     utfall = kedja.kor(
-        arende(), klient=klient, hamta=hamta_gront, hinkar=HINKAR, taxonomi=TAXONOMI, exempel=[]
+        arende(), klient=klient, hamta=hamta_kraschar, hinkar=HINKAR,
+        taxonomi=TAXONOMI, exempel=[],
     )
 
     assert utfall.hink == "aldrig"
+    assert utfall.inget_svar
+    assert not utfall.blev_utkast
+    assert utfall.utkast is None
+    assert utfall.sparr is None
+    # ETT ANROP, alltså klassificeringen och ingenting mer.
+    assert klient.anrop == 1, "generatorn ska inte ha anropats"
+    # `hamta_kraschar` med flit: nås uppslaget alls är det inte överhoppat.
+    assert [s.namn for s in utfall.steg] == ["klassificering", "generering"]
+    assert utfall.steg[-1] == Steg("generering", "hoppades över", "hinken aldrig")
+
+
+def test_hinken_UTKAST_genererar_fortfarande():
+    """Motsatsen. Utan den här raden är testet ovan grönt även om kedjan
+    slutat generera helt.
+
+    Skuggläget står och faller med att `utkast`-hinken fortfarande producerar
+    något att läsa, och skiva 49 rörde bara `aldrig`.
+    """
+    klient = FejkKlient("boka däckbyte", "Hej, vi bokar in dig.")
+
+    utfall = kedja.kor(
+        arende(), klient=klient, hamta=hamta_kraschar, hinkar=HINKAR,
+        taxonomi=TAXONOMI, exempel=[],
+    )
+
+    assert utfall.hink == "utkast"
+    assert not utfall.inget_svar
     assert utfall.blev_utkast
+    assert klient.anrop == 2
+
+
+def test_INGET_SVAR_ger_varken_textfalt_eller_omdomesknappar():
+    """Vyn visar posten som en egen sort. Lars order i skiva 49 DEL B.
+
+    Renderingen prövas genom `till_granskningsfall`, alltså hela vägen från
+    kedjans utfall och inte mot en handkonstruerad `Granskningsfall`. Sätter
+    producenten inte flaggan blir raden röd.
+    """
+    klient = FejkKlient("inget kundärende", "onådd")
+
+    utfall = kedja.kor(
+        arende(), klient=klient, hamta=hamta_kraschar, hinkar=HINKAR,
+        taxonomi=TAXONOMI, exempel=[],
+    )
+    post = kedja.till_granskningsfall(arende(), utfall, skarp=True)
+
+    assert post.inget_svar
+    assert post.forslag == ""
+    assert post.sparr == ""
+
+    sida = vy.rendera_granskning(
+        post.fall, post.forslag, post.sparr, 0,
+        uppslagskalla=post.uppslagskalla, inget_svar=post.inget_svar,
+    )
+
+    assert "INGET SVAR SKRIVS" in sida
+    assert "<textarea" not in sida
+    for omdome in vy.OMDOMESVARDEN:
+        assert f"value='{omdome}'" not in sida
+
+
+def test_INGET_SVAR_bar_INGEN_uppslagskalla():
+    """Härkomstraden säger vad vikterna i ett utkast är värda, och det finns
+    inget utkast.
+
+    Den generella grenen hade sagt *"Inget uppslag gjordes: kategorin gatar det
+    inte"*, vilket är sant om uppslaget och läses som ett besked om ett svar som
+    aldrig skrevs.
+    """
+    klient = FejkKlient("inget kundärende", "onådd")
+
+    utfall = kedja.kor(
+        arende(), klient=klient, hamta=hamta_kraschar, hinkar=HINKAR,
+        taxonomi=TAXONOMI, exempel=[],
+    )
+
+    assert kedja.uppslagskalla(arende(), utfall, skarp=True) == ""
+
+
+def test_INGET_SVAR_star_i_loggraden(tmp_path, monkeypatch):
+    """Skuggläget ska kunna räkna maskinmailen för sig.
+
+    `blev_utkast: false` med `sparr: null` betyder annars antingen ett källfel
+    eller ett INGET SVAR, och de två är olika saker.
+    """
+    monkeypatch.setattr(vy, "ROT", tmp_path)
+    loggfil = tmp_path / "logg" / "beslut.jsonl"
+    klient = FejkKlient("inget kundärende", "onådd")
+
+    utfall = kedja.kor(
+        arende(), klient=klient, hamta=hamta_kraschar, hinkar=HINKAR,
+        taxonomi=TAXONOMI, exempel=[],
+    )
+    post = kedja.logga_beslut(arende(), utfall, loggfil=loggfil)
+
+    assert post["inget_svar"] is True
+    assert post["blev_utkast"] is False
+    assert post["hink"] == "aldrig"
+
+    # SAMMA FÄLTUPPSÄTTNING som de två andra utfallen, så att skuggläget läser
+    # alla tre med samma kod. Samma egenskap som `logga_kallfel` prövas för.
+    kallfel = kedja.logga_kallfel(arende(), Kallfel("ConnectionError"),
+                                  loggfil=loggfil)
+    assert sorted(post) == sorted(kallfel)
 
 
 def test_klassningen_skickar_PASS_2_s_SYSTEMPROMPT():

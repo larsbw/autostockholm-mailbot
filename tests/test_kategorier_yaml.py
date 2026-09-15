@@ -101,15 +101,36 @@ def test_ingen_kategori_star_i_tva_hinkar(hinkar):
     assert not set(hinkar["auto"]) & set(hinkar["aldrig"])
 
 
-def test_de_nio_aldrig_kategorierna_star_kvar(hinkar):
-    """Lars diktamen i skiva 17, ordagrant. Faller en av dem ur listan hamnar
-    den i standardhinken `utkast` och blir därmed ett utkast en människa kan
-    råka skicka."""
+def test_aldrig_kategorierna_star_kvar(hinkar):
+    """Lars diktamen i skiva 17, plus `övrigt` ur skiva 49. Faller en av dem ur
+    listan hamnar den i standardhinken `utkast` och blir därmed ett utkast en
+    människa kan råka skicka.
+
+    *Testet hette `test_de_nio_...`. Talet i namnet blev falskt när `övrigt`
+    tillkom, och ett antal i ett testnamn blir falskt igen vid nästa ändring.*
+    """
     for namn in ("bestrida faktura", "reklamera utfört arbete",
                  "godkänna offert", "begära dokument",
-                 "ansöka om praktikplats", "ge feedback",
+                 "ansöka om praktikplats", "ge feedback", "övrigt",
                  "inget kundärende", "oklart", "utanför listan"):
         assert namn in hinkar["aldrig"], namn
+
+
+def test_TAXONOMINS_SLASKKATEGORI_star_i_aldrig(hinkar):
+    """`övrigt` är det pass 2 svarar när ingen kategori passar. Skiva 49 DEL A.
+
+    **RADEN LÄSER PROMPTEN och inte en literal.** Utgången heter `övrigt` därför
+    att `ometikettera.bygg_system_pass2` säger *"Passar ingen kategori, svara
+    exakt: övrigt"*, och byter någon det ordet ska hinken följa med. En
+    handskriven sträng här hade gjort testet grönt medan slaskkategorin på nytt
+    föll till `utkast`.
+
+    Det var felet DEL A rättade: `inget kundärende` och `oklart` stod i `aldrig`
+    men kan bara sättas av pass 1, alltså fångade hinken ingenting medan den
+    etikett pass 2 faktiskt ger ett maskinmail saknade rad.
+    """
+    assert ometikettera.OVRIGT in hinkar["aldrig"]
+    assert ometikettera.OVRIGT not in hinkar["auto"]
 
 
 def test_prisfragan_star_inte_i_auto(hinkar):

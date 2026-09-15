@@ -578,6 +578,7 @@ SIDHUVUD = """<!doctype html>
  .mail {{ background: #f6f6f6; padding: 1rem; white-space: pre-wrap; }}
  .etikett {{ color: #555; }}
  .sparr {{ background: #fee; border-left: 4px solid #c00; padding: 1rem; }}
+ .intet {{ background: #f3f3f3; border-left: 4px solid #999; padding: 1rem; color: #555; }}
  .kalla {{ background: #eef; border-left: 4px solid #66a; padding: .6rem 1rem; }}
  textarea {{ width: 100%; height: 12rem; }}
  nav a {{ margin-right: 1rem; }}
@@ -615,7 +616,7 @@ def rendera_referens(fall: Fall, index: int, antal: int) -> str:
 
 def rendera_granskning(
     fall: Fall, forslag: str, sparr: str = "", index: int = 0,
-    uppslagskalla: str = "",
+    uppslagskalla: str = "", inget_svar: bool = False,
 ) -> str:
     """GRANSKNINGSLÄGE: förslag med fyra omdömen.
 
@@ -647,7 +648,27 @@ def rendera_granskning(
     text och det redigerade svaret. `data/par.jsonl` är det generatorn läser som
     få-exempel, alltså är det sändväg och inte statistik. Fällt av
     §7-granskningen av skiva 34, varv 1.
+
+    **`inget_svar` ÄR EN TREDJE SORTS POST och inte en spärr med annan text.**
+    Skiva 49. Den bär mailet och kategorin och beskedet att inget svar skrivs,
+    och den prövas FÖRE `sparr`: en post som bär båda har ändå inget svar att
+    visa, och att falla till spärrgrenen hade påstått att ett fällt förslag
+    fanns. Ingen av de två grenarna renderar ett textfält, alltså är ordningen
+    mellan dem en fråga om vad läsaren får veta, inte om säkerhet.
     """
+    if inget_svar:
+        return (
+            SIDHUVUD.format()
+            + f"<p class='etikett'>{html.escape(fall.etikett)}</p>"
+            + f"<div class='mail'>{html.escape(fall.text)}</div>"
+            + "<div class='intet'><p><strong>INGET SVAR SKRIVS.</strong></p>"
+            + "<p>Kategorin står i hinken <code>aldrig</code> i "
+            + "<code>config/kategorier.yaml</code>. Generatorn anropades inte, "
+            + "alltså finns här inget utkast och ingenting att omdöma.</p>"
+            + "</div>"
+            + SIDFOT
+        )
+
     huvud = (
         SIDHUVUD.format()
         # HÄRKOMSTEN STÅR FÖRE MAILET, alltså före utkastet, och inte i en fot.
@@ -747,6 +768,14 @@ class Granskningsfall:
     fall: Fall
     forslag: str = ""
     sparr: str = ""
+    # SKIVA 49 DEL B. Posten är ett mail kedjan INTE skrev något svar på, därför
+    # att kategorin står i hinken `aldrig`. Den visas som en egen sorts post:
+    # mailet, kategorin, och beskedet. Inget textfält, inga omdömesknappar.
+    #
+    # **INTE SAMMA SAK SOM `sparr`, och renderingen får inte slå ihop dem.** En
+    # spärrad post bär ett svar som fälldes, alltså något att titta på. Den här
+    # bär ingenting: generatorn anropades aldrig.
+    inget_svar: bool = False
     # HÄRKOMSTEN PER POST, inte per körning. Skiva 35 satte en varning på hela
     # vyn, och den var trubbig av två skäl: den sade inte VILKEN post den gällde,
     # och den kunde inte skilja ett skarpt uppslag från ett uteblivet. Lars
@@ -790,6 +819,7 @@ def spara_granskningsfall(fall: list[Granskningsfall],
                 "avsandare_hash": post.fall.avsandare_hash,
                 "forslag": post.forslag,
                 "sparr": post.sparr,
+                "inget_svar": post.inget_svar,
                 "uppslagskalla": post.uppslagskalla,
             }, ensure_ascii=False) + "\n")
 
@@ -822,6 +852,10 @@ def las_granskningsfall(fil: Path | None = None) -> list[Granskningsfall]:
             ),
             forslag=post.get("forslag", ""),
             sparr=post.get("sparr", ""),
+            # FÖRVALET ÄR FALSKT: en fil skriven före skiva 49 bär inte nyckeln,
+            # och en gammal post ska då renderas som förut och inte som ett
+            # INGET SVAR.
+            inget_svar=post.get("inget_svar", False),
             uppslagskalla=post.get("uppslagskalla", ""),
         ))
     return fall
@@ -873,7 +907,8 @@ def bygg_hanterare(
             post = granskning[index]
             self._svara(
                 rendera_granskning(post.fall, post.forslag, post.sparr, index,
-                                   uppslagskalla=post.uppslagskalla)
+                                   uppslagskalla=post.uppslagskalla,
+                                   inget_svar=post.inget_svar)
                 + f"<p><a href='/granskning/{index + 1}'>nästa</a></p>"
             )
 
@@ -931,6 +966,12 @@ def bygg_hanterare(
             inget formulär för den, och den här raden vägrar även om någon
             postar direkt mot rutten. §9.1: en fälld post är ett stopptecken,
             och att kunna omdöma den vore att göra förbudet till ett klick.
+
+            **EN POST UTAN SVAR HAR DET INTE HELLER**, och skälet är ett annat:
+            det finns ingen text att ha en åsikt om. `spara_omdome` skriver
+            dessutom ett PAR när omdömet är `forbattra`, alltså hade ett omdöme
+            här lagt kundens text och ett tomt svar i `data/par.jsonl`, som
+            generatorn läser som få-exempel. Skiva 49.
             """
             if not granskning:
                 self._svara(rendera_fel(ValueError("inga förslag")), 400)
@@ -947,6 +988,16 @@ def bygg_hanterare(
                 return
 
             post = granskning[index]
+
+            if post.inget_svar:
+                self._svara(
+                    rendera_fel(ValueError(
+                        "posten har inget svar att omdöma: kategorin står i "
+                        "hinken aldrig"
+                    )),
+                    400,
+                )
+                return
 
             if post.sparr:
                 self._svara(

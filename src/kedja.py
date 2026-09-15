@@ -20,12 +20,22 @@ av anroparen. Skälet är att `kor` ska gå att köra i ett test utan att röra
 disken. Anroparens ansvar är att en rad skrivs för VARJE utfall, källfelet
 inräknat. Fällt av §7-granskningen av skiva 34, varv 2.
 
-**HINKEN AVGÖR INGENTING HÄR, och det ska sägas rakt ut.** Ramverksregel 1 i
-CLAUDE.md §0 gäller SÄNDNING, och ingenting i den här modulen skickar. Ett
-utkast produceras därför för varje kategori, också de i `aldrig`, och hinken
-loggas så att skuggläget kan mäta vad som HADE gått ut. Att låta hinken stoppa
-generering här hade dolt precis det skuggläget finns för att visa, se
-`docs/roadmap.md`.
+**TRE UTFALL, och `INGET SVAR` är det tredje.** `kor` returnerar en
+`Kedjeutfall` som bär antingen ett utkast, en fälld spärr, eller `inget_svar`.
+Det sista är kategorier i hinken `aldrig`: generatorn anropas inte alls.
+
+*Här stod att HINKEN AVGÖR INGENTING HÄR, och att ett utkast produceras för
+varje kategori också de i `aldrig`, med motiveringen att skuggläget annars inte
+kan mäta vad som HADE gått ut. Lars beslut i skiva 49 vänder den avvägningen för
+hinken `aldrig`, och skälet är att den mätningen inte finns: ramverksregel 1
+säger att INGENTING i `aldrig` någonsin får gå ut, alltså är svaret på "vad hade
+gått ut" känt utan att ett anrop görs. Vad det kostade var ett modellanrop per
+ärende i `aldrig` och en vy full av utkast som aldrig kan gå ut. Skuggläget ser
+posten ändå: kategorin och hinken loggas och visas som förut.*
+
+**HINKEN AVGÖR FORTFARANDE INGENTING OM SÄNDNING här.** Ramverksregel 1 gäller
+sändvägen, och den här modulen har ingen. `aldrig` stoppar GENERERINGEN, inte en
+sändning, och `auto` och `utkast` går samma väg som förut.
 """
 
 from __future__ import annotations
@@ -121,7 +131,26 @@ class Steg:
 
 @dataclass(frozen=True)
 class Kedjeutfall:
-    """Vad kedjan kom fram till. Bär ALDRIG ett skickat mail."""
+    """Vad kedjan kom fram till. Bär ALDRIG ett skickat mail.
+
+    **TRE UTFALL.** `kor` sätter exakt ett av dem:
+
+      UTKAST      `utkast` är en text. Spärrarna passerade.
+      SPÄRRAD     `sparr` bär spärrens namn. Ett svar skrevs och fälldes.
+      INGET SVAR  `inget_svar` är sant. Generatorn anropades ALDRIG.
+
+    **DE TVÅ SISTA ÄR INTE SAMMA SAK, och det är hela skälet att det tredje
+    finns.** En spärr säger att modellen skrev något den inte fick skriva, alltså
+    att något gick fel. Ett ärende i `aldrig` är inte ett fel: hinken säger att
+    svaret aldrig får gå ut, alltså finns ingen anledning att skriva det. Att
+    bygga utfallet som en spärr hade kostat ett modellanrop per sådant ärende och
+    sedan fyllt `per_sparr` i skugglägets summering med en rad som inte är ett
+    fynd. Lars beslut i skiva 49.
+
+    Garantin om exakt ett är `kor`:s och inte typens, av samma skäl som
+    `till_granskningsfall` skriver ut om `utkast` och `sparr`: en direkt
+    konstruerad `Kedjeutfall` kan bära vad som helst.
+    """
 
     kategori: str
     hink: str
@@ -129,6 +158,9 @@ class Kedjeutfall:
     utfall: Utfall | None = None
     utkast: str | None = None
     sparr: str | None = None
+    # SKIVA 49 DEL B. Sant när generatorn hoppades över. Ett eget fält och inte
+    # en spärrsträng, se klassens docstring.
+    inget_svar: bool = False
     skal: str = ""
     steg: tuple[Steg, ...] = field(default_factory=tuple)
 
@@ -213,6 +245,19 @@ def kor(
     )
     hink = _hink_for(kategori, hinkar)
     steg.append(Steg("klassificering", kategori, f"hink {hink}"))
+
+    # **HINKEN `aldrig` GER INGET SVAR, OCH GENERATORN ANROPAS INTE.** Lars
+    # beslut i skiva 49 DEL B. Raden står FÖRE uppslagssteget, alltså sparar den
+    # både modellanropet och en möjlig begäran mot biluppgifter.se.
+    #
+    # Ingen av kategorierna i `aldrig` står i `A_TRAKTORKATEGORIER` i dag, så
+    # uppslaget hade hoppats över ändå. Ordningen är ändå den här, eftersom den
+    # inte ska bero på att de två listorna aldrig överlappar.
+    if hink == "aldrig":
+        steg.append(Steg("generering", "hoppades över", "hinken aldrig"))
+        return Kedjeutfall(
+            kategori=kategori, hink=hink, inget_svar=True, steg=tuple(steg),
+        )
 
     uppslag: Uppslag | None = None
     utfall: Utfall | None = None
@@ -342,6 +387,14 @@ def uppslagskalla(arende: Arende, utfall: Kedjeutfall, *, skarp: bool) -> str:
     `skarp` kommer från anroparen och inte från utfallet, eftersom utfallet ser
     likadant ut oavsett källa. Det är hela poängen med raden.
     """
+    # **EN POST UTAN SVAR HAR INGEN HÄRKOMSTRAD ATT VISA.** Raden finns för att
+    # säga vad vikterna i ett utkast är värda, och det finns inget utkast. Den
+    # generella grenen nedan hade sagt *"Inget uppslag gjordes: kategorin gatar
+    # det inte"*, vilket är sant men läses som ett besked om ett svar som
+    # aldrig skrevs. Skiva 49.
+    if utfall.inget_svar:
+        return ""
+
     kalla = "biluppgifter.se" if skarp else "FIXTUR, konstruerad ur regnr"
 
     steg = {s.namn: s for s in utfall.steg}.get("uppslag")
@@ -422,6 +475,7 @@ def till_granskningsfall(arende: Arende, utfall: Kedjeutfall,
         ),
         forslag=utfall.utkast or "",
         sparr=utfall.sparr or "",
+        inget_svar=utfall.inget_svar,
         uppslagskalla=uppslagskalla(arende, utfall, skarp=skarp),
     )
 
@@ -473,6 +527,11 @@ def logga_beslut(
         "uppslag": utfall.utfall.value if utfall.utfall is not None else None,
         "sparr": utfall.sparr,
         "blev_utkast": utfall.blev_utkast,
+        # SKIVA 49. **UTAN FÄLTET GÅR DE TVÅ ICKE-UTKASTEN INTE ATT SKILJA ÅT I
+        # LOGGEN.** `blev_utkast: false` med `sparr: null` betydde förut ingenting
+        # alls, och betyder nu antingen ett källfel eller ett INGET SVAR.
+        # Skuggläget ska kunna räkna maskinmailen för sig.
+        "inget_svar": utfall.inget_svar,
         "utkast_tecken": len(utfall.utkast) if utfall.utkast else 0,
         "steg": [{"namn": s.namn, "utfall": s.utfall, "detalj": s.detalj}
                  for s in utfall.steg],
@@ -514,6 +573,10 @@ def logga_kallfel(
             "uppslag": None,
             "sparr": None,
             "blev_utkast": False,
+            # FALSKT OCH INTE UTELÄMNAT: ett källfel är inte ett INGET SVAR.
+            # Kedjan hann aldrig fram till hinken, och en saknad nyckel hade
+            # tvingat den som räknar loggen att gissa vilket av de två det var.
+            "inget_svar": False,
             "utkast_tecken": 0,
             # `fel.sort` OCH ALDRIG `str(fel)`: meddelandet byggs av anroparens
             # hämtfunktion och bär ett registreringsnummer när requests kastar.

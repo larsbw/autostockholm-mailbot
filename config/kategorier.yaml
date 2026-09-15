@@ -32,6 +32,35 @@ standardhink: utkast
 auto: []
 
 # Går aldrig ut automatiskt.
+#
+# `övrigt` TILLKOM I SKIVA 49, på Lars §10-beslut. Det är taxonomins UTTALADE
+# slaskkategori: `ometikettera.bygg_system_pass2` säger *"Passar ingen kategori,
+# svara exakt: övrigt"*, alltså är det etiketten för ett mail som INGEN KATEGORI
+# I TAXONOMIN PASSAR. Fram till nu stod den ingenstans i den här filen och föll
+# därför till standardhinken `utkast`, medan hinken som skulle fånga
+# maskinmailen var oåtkomlig. Se skälet i `docs/beslutslogg.md` #114.
+#
+# **`övrigt` ÄR INTE SAMMA SAK SOM "INTE ETT KUNDÄRENDE", och den skillnaden
+# ska stå här.** Prompten säger ingenting om kundärenden. #114 mäter att FYRA
+# av korpusens åtta `övrigt`-texter besvarades av Matte, alltså var kundärenden
+# taxonomin inte räckte till för. Flytten hit är ändå Lars beslut: hinken
+# betyder att inget UTKAST skrivs, inte att mailet försvinner ur vyn.
+#
+# DE TRE SISTA NAMNEN STÅR INTE I `data/taxonomi.json`. De är kvar ändå, och
+# det är ett medvetet val. Skilj på vad MODELLEN kan svara och vad KODEN kan
+# sätta:
+#
+#   `inget kundärende` och `oklart`  är PASS 1:s etiketter. Pass 1 svarar fritt,
+#       och `kategorisera.normalisera` sätter `oklart` när ett svar inte ser ut
+#       som en etikett. Kedjan kör pass 2, vars svar filtreras mot taxonomin,
+#       alltså kan inget av de två namnen nå `_hink_for` ur kedjan.
+#   `utanför listan`  kan modellen inte heller svara. Det är en SENTINEL som
+#       `ometikettera_en` returnerar när svaret inte står i taxonomin, alltså
+#       sätts den av koden och ÄR nåbar ur kedjan.
+#
+# Att stryka de två första hade tagit bort ett skydd utan att lägga till ett:
+# en etikett utan hink faller till `utkast`, alltså åt det mer tillåtande
+# hållet. De står kvar med skylten på: de skyddar en väg som inte är öppen.
 aldrig:
   - bestrida faktura
   - reklamera utfört arbete
@@ -39,6 +68,7 @@ aldrig:
   - begära dokument
   - ansöka om praktikplats
   - ge feedback
+  - övrigt
   - inget kundärende
   - oklart
   - utanför listan

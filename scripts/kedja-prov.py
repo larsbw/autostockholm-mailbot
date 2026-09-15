@@ -315,7 +315,7 @@ def _kor_och_visa(args) -> int:
     else:
         print("UPPSLAGET ÄR EN FIXTUR, ingen nättrafik mot biluppgifter.se.\n")
 
-    raknare = {"utkast": 0, "spärrad": 0, "källfel": 0}
+    raknare = {"utkast": 0, "spärrad": 0, "inget svar": 0, "källfel": 0}
     granskningsfall = []
 
     for nummer, post in enumerate(poster, start=1):
@@ -362,7 +362,14 @@ def _kor_och_visa(args) -> int:
         granskningsfall.append(
             kedja.till_granskningsfall(arende, utfall, skarp=skarp))
 
-        if utfall.blev_utkast:
+        # TRE GRENAR, EN PER UTFALL I `Kedjeutfall`. Skiva 49 DEL B: kategorier
+        # i hinken `aldrig` når aldrig generatorn, alltså finns varken utkast
+        # eller spärr att skriva ut.
+        if utfall.inget_svar:
+            raknare["inget svar"] += 1
+            print(f"\nINGET SVAR. Kategorin {utfall.kategori!r} står i hinken "
+                  "aldrig, generatorn anropades inte.")
+        elif utfall.blev_utkast:
             raknare["utkast"] += 1
             print("\nUTKAST, maskerat:")
             print(prov_stod.maska_svaret(

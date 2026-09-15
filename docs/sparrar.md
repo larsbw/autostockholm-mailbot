@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.58.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.59.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -2363,6 +2363,33 @@ Formerna bärs av ett test var, samtliga i `tests/test_vy.py`:
   granskningsläget varit oanvändbart utan att något blev rött.
 - **Redundant med.** Ingen annan spärr. `vyn-har-ingen-sandvag` skyddar mot en
   annan sak: att texten lämnar servern. Den här skyddar mot att rörelsen övas in.
+
+**EN ANDRA SORTS POST UTAN FORMULÄR TILLKOM I SKIVA 49, och den är INTE den här
+spärren.** `inget_svar` sätts när kategorin står i hinken `aldrig`, och då
+anropades generatorn aldrig. Skälet är ett annat: en spärrad post bär ett svar
+som fälldes, alltså finns en text att skriva om, och det är den rörelsen §9.1
+förbjuder. En post utan svar bär ingen text alls.
+
+Raderna är TRE och prövas var för sig. Samtliga i `src/vy.py`:
+
+| Fälld rad | Vad den gör | Utfall |
+| --- | --- | --- |
+| `if inget_svar:` i `rendera_granskning` → `if False:` | renderingen | RÖD, `2 failed, 1619 passed` |
+| `inget_svar=post.inget_svar` i `_granskning` → `inget_svar=False` | VÄGEN dit | RÖD, `1 failed, 1620 passed` |
+| `if post.inget_svar:` i `_omdome` → `if False:` | vägran mot rutten | RÖD, `1 failed, 1620 passed` |
+
+Att de fälls var för sig är §7.1: fälls de tillsammans vet man bara att minst en
+av dem bär.
+
+**DEN MITTERSTA SAKNADE SIN RAD OCH LUCKAN VAR MÄTT.** `tests/test_kedja.py`:s
+`test_INGET_SVAR_ger_varken_textfalt_eller_omdomesknappar` anropar
+`rendera_granskning` DIREKT och går förbi hanteraren. Med
+`inget_svar=post.inget_svar` fälld renderade `/granskning/N` posten genom den
+generella grenen igen, med textfält och fyra omdömen, och HELA SVITEN VAR GRÖN.
+Spärrposten hade en handlartest, `test_en_spärrad_post_visar_INGET_formular`;
+`inget_svar` hade ingen. Rättat med
+`test_en_post_UTAN_SVAR_visar_INGET_formular_GENOM_RUTTEN`. Fällt av
+§7-granskningen av skiva 49.
 
 | Fälld rad | Utfall | Form |
 | --- | --- | --- |
@@ -5279,6 +5306,155 @@ Formen upptäcktes i skiva 31:s provkörning. Ett rött svar innehöll:
 
 ---
 
+## LUCKA UTAN SPÄRR: `sikten-ar-byggd-mot-skordar-inte-mot-dagens-post`
+
+> **DET HÄR ÄR INTE EN SPÄRR OCH GÅR INTE ATT FÄLLA ENLIGT §7.1.** Posten är
+> REGISTRERAD OCH INTE BYGGD. Åtgärden är Lars §10-beslut: den består av rader i
+> `config/maskindomaner.yaml` eller `config/maskindomaner-forbjudna.yaml`, och
+> båda filerna står i §10:s lista.
+>
+> **Mot mallens fyra fält:** *Spärr* är den inte, se rubriken. *Vad den skyddar
+> mot* står som **Vad den vaktar** nedan. **Negativkontroll: ingen finns**,
+> eftersom ingen kod ändrats. **Redundant med: ingen.**
+
+**MASKINSIKTEN ÄR MÄTT MOT SKÖRDAD POST, alltså mot trådar vi redan svarat på.**
+Dagens inkommande post ser annorlunda ut. Lars fynd i skiva 49: av de sju
+ärenden skuggkörningen mot info@ tog var sex maskinmail som huvudsikten inte
+fällde.
+
+- **Vad den vaktar.** Att `klassa_maskin.skal_maskinmail` mäts på ett material
+  som inte är det den körs mot. `harled_domaner` läser `data/tradar.jsonl` och
+  `data/tradar_obesvarade.jsonl`, alltså skördar. Mätningen i modulens
+  `KANDIDATFIL`-kommentar, att domänlagret bidrog med noll klassningar, gäller
+  det materialet och inte dagens brevlåda.
+
+- **AVLÄST UR `data/inkorg-dagens.jsonl`**, skörden skiva 49:s omkörning skrev.
+  Filen är gitignorerad och bär rå kundtext; det som står här är domäner, som §6
+  inte namnger som persondata, och räknare.
+
+  **TVÅ POPULATIONER, och de får inte blandas.** `inkorg.dagens_tradar` skriver
+  HELA hämtningen till filen och returnerar den del som ligger inom dygnet.
+  Slingan ser bara den senare.
+
+  | led | antal trådar |
+  |---|---|
+  | skörden på disk, hela hämtningen | 53 |
+  | efter dygnsgränsen, det slingan såg | 17 |
+  | sållade av sikten | 9 |
+  | ärenden genom sikten | 8 |
+
+  **VAD SIKTEN FÄLLDE, av de 17:**
+
+  | antal | skäl |
+  |---|---|
+  | 3 | `huvud: list-unsubscribe` |
+  | 3 | `huvud: feedback-id` |
+  | 2 | `huvud: x-sg-eid` |
+  | 1 | `avsändare: noreply-form` |
+
+  **DE ÅTTA ÄRENDENA, per avsändardomän:**
+
+  | antal | domän | fälls av förbudslistan? |
+  |---|---|---|
+  | 3 | `bildelsbasen.se` | nej |
+  | 2 | `autobutler.se` | SKYDDAD |
+  | 1 | `mekonomen.se` | nej |
+  | 1 | `hedbergsbilskrot.se` | nej |
+  | 1 | `transactional.bokadirekt.se` | SKYDDAD |
+
+  **SAMTLIGA 28 SOM GÅR IGENOM SIKTEN över hela skörden på 53**, alltså också de
+  trådar dygnsgränsen höll utanför den här körningen. Listan är den bredare av
+  de två och är den Lars läser inför beslutet:
+
+  | antal | domän |
+  |---|---|
+  | 8 | `autobutler.se` |
+  | 4 | `gmail.com` |
+  | 3 | `bildelsbasen.se` |
+  | 3 | `transactional.bokadirekt.se` |
+  | 2 | `mekonomen.se` |
+  | 2 | `google.com` |
+  | 1 | `hedbergsbilskrot.se` |
+  | 1 | `sunmaskin.se` |
+  | 1 | `ekvallautoteknik.se` |
+  | 1 | `email.tele2.se` |
+  | 1 | `melias.se` |
+  | 1 | `epostsystem.se` |
+
+  **`gmail.com` OCH `google.com` ÄR INGA KANDIDATER.** `gmail.com` är
+  konsumentdomänen, alltså privatpersoner, och `googlemail.com` står redan under
+  `aldrig_maskin` av exakt det skälet. Raderna står i tabellen därför att den är
+  en avläsning och inte ett förslag.
+
+- **DEN KÖRNING SOM VÄCKTE FYNDET var en tidigare, vars skörd sedan skrivits
+  över av den här.** Vad som står kvar och går att läsa är `logg/beslut.jsonl`:
+  sju rader skrivna 2026-09-15T10:15 och 10:16 UTC, samtliga med kategorin
+  `övrigt`, hinken `utkast` och `blev_utkast` sant. Det är Lars sex av sju.
+
+- **LUCKAN HAR TVÅ HALVOR, och de kräver olika beslut.**
+
+  **HALVA ETT: domäner utan maskinhuvud.** `mekonomen.se`, `bildelsbasen.se` och
+  de övriga oskyddade skickar post som varken bär ett huvud ur `MASKINHUVUDEN`,
+  en `Precedence` ur `MASKINPRECEDENCE`, eller en noreply-lokaldel. Sikten har
+  ingenting att gå på. Det är `config/maskindomaner.yaml` som är lagret för dem,
+  och den filen är **tom**: `las_domaner` ger noll domäner i dag.
+
+  **HALVA TVÅ: domäner förbudslistan SKYDDAR.** Tre av de ÅTTA kom från
+  `transactional.bokadirekt.se` och `autobutler.se`, som står i
+  `config/maskindomaner-forbjudna.yaml` under `aldrig_maskin`. Förbudslistan
+  prövas FÖRST i `skal_maskinmail`, alltså kan ingen rad i
+  `config/maskindomaner.yaml` fälla dem. **Att lägga dem där gör ingenting.**
+
+  *Här stod "Tre av de sju". Talet var avläst ur tabellen över de ÅTTA ärendena
+  i den här körningen, medan sju är den TIDIGARE körningens antal. Den körningens
+  skörd är överskriven, och `logg/beslut.jsonl` bär bara `avsandare_hash`, alltså
+  går dess fördelning per domän inte att räkna om. Posten inleder med att de två
+  populationerna inte får blandas och gjorde det själv. Fällt av §7-granskningen
+  av skiva 49.*
+
+- **MÄTT VAD DE ANDRA LAGREN HADE SAGT om förbudslistan inte gått före.** Över
+  hela skörden, för de skyddade domänernas trådar:
+
+  | antal | domän | relayar en människa? | maskinhuvuden |
+  |---|---|---|---|
+  | 8 | `autobutler.se` | nej | `x-sg-eid` |
+  | 2 | `transactional.bokadirekt.se` | nej | `x-mailgun-sid` |
+  | 1 | `transactional.bokadirekt.se` | nej | `list-unsubscribe`, `list-unsubscribe-post`, `x-mailgun-sid` |
+
+  **Samtliga elva hade fällts av huvudlagret**, och **ingen av dem relayar en
+  människa**: `Reply-To` pekar inte bort från avsändaren i något av fallen. Det
+  är förbudslistan ensam som släpper igenom dem.
+
+- **VARFÖR FÖRBUDSLISTAN FINNS ÄNDÅ.** Beslutslogg #8, Lars beslut i skiva 8: en
+  förmedlad offertförfrågan är en KUND, och en domän som råkar skicka den
+  maskinellt är fortfarande en kund. Mätningen bakom det beslutet är gjord på
+  skördarna. Den här posten säger inte att beslutet var fel; den säger att
+  dagens post från samma domäner inte bär någon förmedlad förfrågan.
+
+- **DET SOM SKULLE STÄNGA LUCKAN, och som INTE är byggt.** Tre vägar, och valet
+  mellan dem är Lars:
+
+  1. **Fyll `config/maskindomaner.yaml`** med de oskyddade domäner Lars läser som
+     maskinmail. Räcker för halva ett. Rör inte halva två.
+  2. **Lägg `transactional.bokadirekt.se` under `undantag`** i
+     `config/maskindomaner-forbjudna.yaml`. Undantagen matchas EXAKT och slår
+     igenom subdomänregeln, alltså fortsätter `bokadirekt.se` att vara skyddad
+     medan den transaktionella subdomänen inte är det. `support.autobutler.se`
+     står där redan, av samma skäl, och är precedensen.
+  3. **Ta bort `autobutler.se` ur `aldrig_maskin`.** Den har ingen
+     transaktionell subdomän att undanta: avsändaren ÄR organisationsdomänen.
+     Det är den mest ingripande av de tre, eftersom den lämnar en förmedlad
+     förfrågan därifrån utan skydd, och det som då ska bära är
+     `relayar_manniska`. Den prövar `Reply-To`, och i de åtta uppmätta trådarna
+     sade den nej.
+
+- **INGEN AV DE TRE GÖRS AV KOD.** `klassa_maskin.harled_domaner` skriver till
+  `KANDIDATFIL` under `scratchpad/` och aldrig till konfigurationen, och skälet
+  står i modulen: den första härledda listan bar `googlemail.com` och flera
+  offertförmedlare.
+
+---
+
 ## Mall för en spärrpost
 
 Kopiera blocket nedan per spärr. Varje fält fylls i, tomma fält är en ofärdig
@@ -5301,6 +5477,25 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.59.0 — 2026-09-15
+
+**LUCKA UTAN SPÄRR REGISTRERAD OCH INTE BYGGD:
+`sikten-ar-byggd-mot-skordar-inte-mot-dagens-post`.** Egen post ovan, med
+domänerna. Åtgärden är Lars §10-beslut och består av rader i
+`config/maskindomaner.yaml` eller `config/maskindomaner-forbjudna.yaml`.
+
+**`spärrfälld-post-utan-textfalt` FICK EN GRANNE SOM INTE ÄR DEN.** Skiva 49
+DEL B gav vyn en andra sorts post utan formulär, `inget_svar`, och posten ovan
+skriver ut att de två skyddar mot olika saker. Tre nya rader att fälla, samtliga
+prövade var för sig.
+
+**EN AV DE TRE BAR INGET TEST NÄR POSTEN FÖRST SKREVS**, och tabellen påstod
+därmed mer täckning än som fanns. Vägen genom `bygg_hanterare._granskning` gick
+att fälla med hela sviten grön. Fällt av §7-granskningen av skiva 49 och rättat
+i samma skiva.
+
+En registrerad lucka och tre nya fällbara rader ⇒ MINOR.
 
 ### 0.58.0 — 2026-09-15
 

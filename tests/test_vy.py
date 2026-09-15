@@ -623,7 +623,12 @@ def test_varje_strangparameter_till_renderarna_escapas():
     # Att uppräkningen inte tystnade. Blir `hoppa` någon gång för bred, eller
     # ändras signaturerna, ska testet falla i stället för att pröva noll
     # parametrar och rapportera grönt.
-    assert provade == ["forslag", "sparr", "uppslagskalla"]
+    # `inget_svar` är en FLAGGA och ingen sträng, men den står kvar i
+    # uppräkningen i stället för i `hoppa`: grenen den slår på renderar ingenting
+    # av sitt argument, och skulle någon en dag skriva ut det ska raden fälla.
+    # Att hoppa över den hade gjort tripwiren beroende av att nästa läsare gör
+    # samma bedömning en gång till.
+    assert provade == ["forslag", "sparr", "uppslagskalla", "inget_svar"]
 
 
 def test_felmeddelandet_escapas_innan_det_reflekteras():
@@ -989,6 +994,53 @@ def test_en_SPARRAD_post_vagrar_ta_emot_ett_omdome(tmp_path, monkeypatch):
     assert not omdomesfil.exists(), "inget fick skrivas"
 
 
+def test_en_post_UTAN_SVAR_vagrar_ta_emot_ett_omdome(tmp_path, monkeypatch):
+    """Skiva 49 DEL B. Samma vägran, annat skäl: det finns ingen text.
+
+    **RADEN GÄLLER ÄVEN ETT DIREKT ANROP mot rutten**, precis som för en spärrad
+    post. `spara_omdome` skriver ett PAR när omdömet är `forbattra`, alltså hade
+    ett omdöme här lagt kundens text och ett tomt svar i `data/par.jsonl`, som
+    generatorn läser som få-exempel.
+
+    Posten bär `sparr=""`, alltså kan raden inte bli grön av spärrgrenen ovan.
+    """
+    monkeypatch.setattr(vy, "ROT", tmp_path)
+    omdomesfil = tmp_path / "logg" / "omdomen.jsonl"
+    poster = [_granskningsfall(forslag="", sparr="", inget_svar=True)]
+    hanterare = vy.bygg_hanterare(
+        [], granskning=poster, omdomesfil=omdomesfil,
+        parfil=tmp_path / "data" / "par.jsonl",
+    )
+
+    fejk = FejkHanterare(hanterare, "/omdome/0", "omdome=forbattra&redigerad=x")
+    fejk.post()
+
+    assert fejk.kod == 400
+    assert "inget svar att omdöma" in fejk.svar
+    assert not omdomesfil.exists(), "inget fick skrivas"
+    assert not (tmp_path / "data" / "par.jsonl").exists(), "inget par fick skrivas"
+
+
+def test_INGET_SVAR_overlever_en_tur_genom_disken(tmp_path, monkeypatch):
+    """Flaggan ska stå kvar när vyn läser tillbaka sparade fall.
+
+    `respond.py --vy` läser `data/granskningsfall.jsonl` utan att köra kedjan
+    igen. Tappas nyckeln där renderas maskinmailen på nytt som tomma förslag med
+    textfält och omdömesknappar, alltså precis det DEL B tog bort.
+    """
+    monkeypatch.setattr(vy, "ROT", tmp_path)
+    fil = tmp_path / "data" / "granskningsfall.jsonl"
+    vy.spara_granskningsfall(
+        [_granskningsfall(forslag="", sparr="", inget_svar=True),
+         _granskningsfall(forslag="Hej.")],
+        fil=fil,
+    )
+
+    lasta = vy.las_granskningsfall(fil)
+
+    assert [p.inget_svar for p in lasta] == [True, False]
+
+
 @pytest.mark.parametrize(
     "vag",
     [
@@ -1201,3 +1253,30 @@ def test_en_spärrad_post_visar_INGET_formular():
 
     assert "<form" not in fejk.svar
     assert "<textarea" not in fejk.svar
+
+
+def test_en_post_UTAN_SVAR_visar_INGET_formular_GENOM_RUTTEN():
+    """Samma sak för `inget_svar`, och raden prövar VÄGEN och inte renderaren.
+
+    **DEN HÄR RADEN VAR DET SOM SAKNADES, och luckan var mätt.**
+    `test_INGET_SVAR_ger_varken_textfalt_eller_omdomesknappar` i
+    `tests/test_kedja.py` anropar `vy.rendera_granskning` DIREKT, alltså går den
+    förbi `bygg_hanterare._granskning`. Fälls det ledets
+    `inget_svar=post.inget_svar` till `inget_svar=False` renderar `/granskning/N`
+    posten genom den generella grenen igen, med textfält och fyra omdömen, och
+    hela sviten blev grön. Fällt av §7-granskningen av skiva 49.
+
+    Spärrposten hade en sådan rad, raden ovan. `inget_svar` hade ingen.
+    """
+    hanterare = vy.bygg_hanterare(
+        [], granskning=[_granskningsfall(forslag="", sparr="", inget_svar=True)]
+    )
+
+    fejk = FejkHanterare(hanterare, "/granskning/0")
+    fejk.get()
+
+    assert "INGET SVAR SKRIVS" in fejk.svar
+    assert "<form" not in fejk.svar
+    assert "<textarea" not in fejk.svar
+    for omdome in vy.OMDOMESVARDEN:
+        assert f"value='{omdome}'" not in fejk.svar

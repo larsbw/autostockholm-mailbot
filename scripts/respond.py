@@ -253,6 +253,12 @@ class Korning:
     sallade: list[tuple[str, str]] = field(default_factory=list)
     kallfel: int = 0
     utkast: int = 0
+    # SKIVA 49 DEL B. Ärenden vars kategori står i hinken `aldrig`. Före
+    # ändringen gick de genom generatorn och räknades i `utkast`: kedjan
+    # producerade ett utkast för varje kategori, också de i `aldrig`. Avläst i
+    # `logg/beslut.jsonl`, de sju raderna 2026-09-15T10:15 och 10:16 UTC:
+    # `blev_utkast` sant och `sparr` null i samtliga sju.
+    inget_svar: int = 0
     per_kategori: Counter = field(default_factory=Counter)
     per_hink: Counter = field(default_factory=Counter)
     per_sparr: Counter = field(default_factory=Counter)
@@ -334,7 +340,18 @@ def kor_alla(
         korning.granskningsfall.append(
             kedja.till_granskningsfall(arende, utfall, skarp=skarp))
 
-        if utfall.blev_utkast:
+        # TRE GRENAR, EN PER UTFALL I `Kedjeutfall`. Grenen är NY och ersätter
+        # ingen: före skiva 49 fanns inget tredje utfall, och ett ärende i
+        # `aldrig` föll i `blev_utkast`-grenen med ett färdigt utkast.
+        #
+        # **UTAN EN EGEN GREN HADE DEN FALLIT I `else`**, och då hade varje
+        # maskinmail räknats som spärrat med `None` som spärrnamn. Det är
+        # motivet till grenen och inte en beskrivning av vad koden gjorde.
+        if utfall.inget_svar:
+            korning.inget_svar += 1
+            skriv(f"{nummer:>4}  INGET SVAR  {utfall.kategori}  "
+                  f"[{utfall.hink}]")
+        elif utfall.blev_utkast:
             korning.utkast += 1
             skriv(f"{nummer:>4}  UTKAST   {utfall.kategori}  [{utfall.hink}]")
         else:
@@ -371,6 +388,7 @@ def summera(korning: Korning, skriv=print) -> None:
     skriv(f"  ärenden genom kedjan    {korning.arenden}")
     skriv(f"  källfel                 {korning.kallfel}")
     skriv(f"  utkast                  {korning.utkast}")
+    skriv(f"  inget svar, hink aldrig {korning.inget_svar}")
     skriv(f"  spärrade                {korning.sparrade}")
     for sparr, antal in sorted(korning.per_sparr.items()):
         skriv(f"      {sparr:<30} {antal}")
