@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.59.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.60.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -5316,6 +5316,22 @@ Formen upptäcktes i skiva 31:s provkörning. Ett rött svar innehöll:
 > **Mot mallens fyra fält:** *Spärr* är den inte, se rubriken. *Vad den skyddar
 > mot* står som **Vad den vaktar** nedan. **Negativkontroll: ingen finns**,
 > eftersom ingen kod ändrats. **Redundant med: ingen.**
+>
+> *Negativkontrollen finns sedan skiva 50, som följd av att raderna skrevs.
+> `tests/test_klassa_maskin.py::test_formularnotisen_overlever_att_dess_doman_star_i_maskindomaner`
+> visar att domänlagret SLÄPPER IGENOM formulärnotisen, och
+> `test_undantagen_doman_som_relayar_en_manniska_ar_fortfarande_manniska` att ett
+> undantag i förbudslistan gör detsamma. Fortfarande ingen kodändring: lagren
+> fanns, det som tillkom är rader i konfigurationen och tester som binder dem.*
+>
+> **VAD DE TVÅ TESTERNA INTE BÄR.** Båda konstruerar post med `Reply-To` till
+> kunden, alltså det enda fall `relayar_manniska` täcker. De visar att ORDNINGEN
+> håller för det fallet. De säger ingenting om post vars `Reply-To` pekar på
+> avsändaren själv eller saknas: den räddas inte, och en rad i
+> `config/maskindomaner.yaml` kan tysta den även om den är en förmedlad
+> förfrågan. Talen står under **Vad en rad i domänlistan INTE skyddar** nedan.
+> Fällt av §7-granskningen av skiva 50, som fann att posten utsett de två
+> testerna till stöd för ett bredare påstående än de bär.
 
 **MASKINSIKTEN ÄR MÄTT MOT SKÖRDAD POST, alltså mot trådar vi redan svarat på.**
 Dagens inkommande post ser annorlunda ut. Lars fynd i skiva 49: av de sju
@@ -5328,9 +5344,20 @@ fällde.
   `KANDIDATFIL`-kommentar, att domänlagret bidrog med noll klassningar, gäller
   det materialet och inte dagens brevlåda.
 
-- **AVLÄST UR `data/inkorg-dagens.jsonl`**, skörden skiva 49:s omkörning skrev.
-  Filen är gitignorerad och bär rå kundtext; det som står här är domäner, som §6
-  inte namnger som persondata, och räknare.
+- **AVLÄST UR `data/inkorg-dagens.jsonl`.** Filen är gitignorerad och bär rå
+  kundtext; det som står här är domäner, som §6 inte namnger som persondata, och
+  räknare.
+
+  *Här stod "skörden skiva 49:s omkörning skrev". Filen på disk är skiva 50:s
+  omkörning, som skrev över den: dess mtime är 2026-09-15T11:07 UTC och skiva
+  49:s commit 72c6096 ligger 10:51 UTC. Längre ned står redan den rätta
+  uppgiften, och de två stod mot varandra. Fällt av §7-granskningen av skiva 50.*
+
+  *Vad det gör med talen: 53 är hela skörden och stämmer mot filen som ligger
+  där nu, liksom domäntabellerna med 28 och 21 rader. Raderna 17, 9 och 8 nedan
+  gäller vad SLINGAN såg, alltså vad dygnsgränsen släppte fram i den tidigare
+  körningen. De går inte att räkna om ur filen och står kvar som skiva 49:s
+  avläsning.*
 
   **TVÅ POPULATIONER, och de får inte blandas.** `inkorg.dagens_tradar` skriver
   HELA hämtningen till filen och returnerar den del som ligger inom dygnet.
@@ -5399,6 +5426,11 @@ fällde.
   ingenting att gå på. Det är `config/maskindomaner.yaml` som är lagret för dem,
   och den filen är **tom**: `las_domaner` ger noll domäner i dag.
 
+  *Halvan är STÄNGD sedan skiva 50. Filen bär sex domäner, Lars §10-beslut.
+  Talen ovan gäller läget när posten skrevs, och `bildelsbasen.se` står kvar i
+  dem: den fördes över och ströks igen i samma skiva. Vad beslutet gjorde står
+  under **Vad skiva 50 stängde och vad som står kvar** nedan.*
+
   **HALVA TVÅ: domäner förbudslistan SKYDDAR.** Tre av de ÅTTA kom från
   `transactional.bokadirekt.se` och `autobutler.se`, som står i
   `config/maskindomaner-forbjudna.yaml` under `aldrig_maskin`. Förbudslistan
@@ -5434,6 +5466,11 @@ fällde.
 - **DET SOM SKULLE STÄNGA LUCKAN, och som INTE är byggt.** Tre vägar, och valet
   mellan dem är Lars:
 
+  *Läget ändrades i skiva 50: väg 1 är tagen, väg 2 togs och drogs tillbaka, väg
+  3 är avvisad. De tre punkterna nedan står kvar som de skrevs, eftersom de är
+  underlaget beslutet fattades på. Utfallet står under **Vad skiva 50 stängde
+  och vad som står kvar**.*
+
   1. **Fyll `config/maskindomaner.yaml`** med de oskyddade domäner Lars läser som
      maskinmail. Räcker för halva ett. Rör inte halva två.
   2. **Lägg `transactional.bokadirekt.se` under `undantag`** i
@@ -5452,6 +5489,147 @@ fällde.
   `KANDIDATFIL` under `scratchpad/` och aldrig till konfigurationen, och skälet
   står i modulen: den första härledda listan bar `googlemail.com` och flera
   offertförmedlare.
+
+- **VAD SKIVA 50 STÄNGDE OCH VAD SOM STÅR KVAR.**
+
+  **VÄG 1 ÄR TAGEN. Halva ett är stängd.** `config/maskindomaner.yaml` bär sex
+  domäner: `mekonomen.se`, `hedbergsbilskrot.se`, `sunmaskin.se`,
+  `ekvallautoteknik.se`, `email.tele2.se` och `epostsystem.se`.
+  Vad de flyttar in i maskinmail, räknat som trådar vars första kundmeddelande
+  byter utfall:
+
+  | material | flyttar in | varav med fältet `Registreringsnummer` |
+  |---|---|---|
+  | `data/inkorg-dagens.jsonl` | 7 | 0 |
+  | `data/tradar_obesvarade.jsonl` | 11 | 0 |
+  | `data/tradar.jsonl` | 2 | 0 |
+
+  Samtliga faller på `domän: i maskindomaner.yaml`, alltså på det sista lagret,
+  vilket är väntat: domänerna valdes just därför att inget tidigare lager fäller
+  dem. `gmail.com`, `google.com` och `melias.se` stod i samma avläsning och
+  fördes medvetet inte över. Skälen står i filen.
+
+  **EN SJUNDE DOMÄN FÖRDES ÖVER OCH ÄR STRUKEN IGEN, Lars §10-beslut.**
+  `bildelsbasen.se` bär 49 trådar över de tre materialen, och 32 av dem hade
+  flyttat in i maskinmail. EN av de 32, i `data/tradar.jsonl`, har ett mänskligt
+  svar från verkstaden: tråden är på sju meddelanden, varav två svar från oss på
+  tillsammans 69 ord, och den bär inga maskinhuvuden och ingen `Reply-To`,
+  alltså räddar `relayar_manniska` den inte. Raden gjorde den sortens tråd tyst.
+  De sex som står kvar bär noll sådana trådar.
+  `test_bildelsbasen_ar_INTE_en_maskindoman` fäller om raden förs tillbaka.
+
+  *Här stod "sju meddelanden, 92 ord" om verkstadens svar. 92 är ordantalet i
+  trådens FÖRSTA meddelande, alltså i den inkommande posten från domänen, och
+  inte i svaret. Verkstadens två svar är på 55 och 14 ord. Fällt av
+  §7-granskningen av den här skivan.*
+
+  **REGEL: EN FÖRESLAGEN DOMÄN MÄTS MOT SAMTLIGA MATERIAL INNAN LARS BESLUTAR,
+  inte mot dagens skörd ensam.** Underlaget till det här beslutet var tabellen
+  över `data/inkorg-dagens.jsonl`, där `bildelsbasen.se` står på tre trådar och
+  ser ut som en domän bland de andra. Det är först mot alla tre materialen den
+  bär 49 trådar och sitt motexempel.
+
+  **Talet som avgör är MOTEXEMPEL PER DOMÄN**, alltså antalet trådar som flyttar
+  in i maskinmail trots att verkstaden svarat en människa i dem. Det talet stod
+  inte i underlaget Lars fick. Mätt över alla tre materialen:
+
+  | domän | trådar | flyttar in | motexempel |
+  |---|---|---|---|
+  | `bildelsbasen.se` | 49 | 32 | 1 |
+  | `epostsystem.se` | 19 | 9 | 0 |
+  | `mekonomen.se` | 6 | 6 | 0 |
+  | `hedbergsbilskrot.se` | 2 | 2 | 0 |
+  | `sunmaskin.se` | 1 | 1 | 0 |
+  | `ekvallautoteknik.se` | 1 | 1 | 0 |
+  | `email.tele2.se` | 1 | 1 | 0 |
+
+  Ett motexempel räknas på trådens första kundmeddelande: det går igenom sikten
+  utan domänlagret, fälls med det, och tråden bär minst ett svar från verkstaden
+  som `urval.ar_gmail_svar` känner igen. Kolumnen *trådar* räknar varje tråd vars
+  första kundmeddelande kommer från domänen, också de som ett tidigare lager
+  redan fäller; därför är *flyttar in* lägre.
+
+  **MÅTTET ÄR ETT SVAR FRÅN OSS OCH INTE MÄNNISKOSKRIVEN POST, och det är en
+  svagare tröskel. FRÅGA TILL LARS, INTE ETT AVGJORT FALL.** §7-granskningen av
+  skiva 50 läste trådarna bakom de tre tunnaste raderna. Den enda tråden bakom
+  `sunmaskin.se` och den enda bakom `ekvallautoteknik.se` är brev skrivna för
+  hand av en säljare, och `mekonomen.se` bär handskrivna betalningspåminnelser.
+  Ingen av dem har fått ett svar från verkstaden, alltså är de noll i tabellen
+  ovan, och ingen av dem är ett kundärende, alltså skadas inte sändvägen. Men
+  filens rubrik säger *Domäner som ALLTID är maskinmail*, och för de tre
+  domänerna är det posten och inte avsändaren som är maskinell.
+
+  Raderna står kvar: Lars §10-beslut i den här skivan var att de sex står kvar.
+  Talen ovan står här för att frågan ska gå att ta upp utan att mätas om.
+
+  **VAD EN RAD I DOMÄNLISTAN INTE SKYDDAR.** Ordningen i `skal_maskinmail` är
+  förbudslistan, `relayar_manniska`, huvudlagret, noreply, domänlagret. Två av
+  dem går före domänlagret, och bara den första är ett skydd som håller oavsett
+  post: `relayar_manniska` kräver att `Reply-To` pekar UTANFÖR avsändarens
+  organisationsdomän. En förmedlare som sätter `Reply-To` till sig själv, eller
+  inte alls, räddas inte. Avläst i `data/tradar_obesvarade.jsonl` för
+  `transactional.bokadirekt.se`: 60 trådar, 35 med fältet `Registreringsnummer`,
+  och NOLL som relayar en människa. Samma sak i dagens post: 3 trådar, 1 med
+  fältet, 0 som relayar.
+
+  En rad i `config/maskindomaner.yaml` KAN alltså tysta en förmedlad förfrågan.
+  Det som hindrar det för de fem förmedlarna är att de står under
+  `aldrig_maskin`, inte att lagret ligger sist. Det stod tidigare tvärtom i
+  `config/maskindomaner.yaml` och i `docs/beslutslogg.md` #116; båda är rättade.
+
+  **VÄG 2 TOGS OCH DROGS TILLBAKA, i samma skiva, på en mätning.** Lars
+  §10-beslut var att lägga `transactional.bokadirekt.se` under `undantag`.
+  Mätningen före skeppning motsade premissen: subdomänen är inte bokadirekts
+  transaktionella halva utan den som bär de FÖRMEDLADE FÖRFRÅGNINGARNA. Per
+  exakt avsändardomän, där *bär fältet* är `Registreringsnummer` i brödtexten
+  och *relayar* är `relayar_manniska`:
+
+  | material | domän | trådar | bär fältet | relayar | maskinhuvud |
+  |---|---|---|---|---|---|
+  | obesvarade | `transactional.bokadirekt.se` | 60 | 35 | 0 | 60 |
+  | obesvarade | `bokadirekt.se` | 19 | 0 | 7 | 18 |
+  | besvarade | `bokadirekt.se` | 1 | 0 | 1 | 1 |
+  | inkorg-dagens | `transactional.bokadirekt.se` | 3 | 1 | 0 | 3 |
+
+  **Skyddet hade tagits från fel halva.** Organisationsdomänen bär ingen tråd
+  med fältet; subdomänen bär 35 av sina 60 i den obesvarade skörden och 1 av 3 i
+  dagens post. Ingen av dem relayar en människa, alltså är förbudslistan det
+  enda som bär dem, precis som posten redan mätt. Det beslutet skyddade i skiva
+  8 är just den posten.
+
+  **DE TVÅ POPULATIONERNA FÅR INTE BLANDAS**, och tabellen håller dem isär av
+  det skälet: 35 är skördens tal och 1 är dagens, aldrig 36.
+
+  Lars drog tillbaka beslutet. `transactional.bokadirekt.se` står inte under
+  `undantag`, och `test_bokadirekts_transaktionella_subdoman_ar_INTE_undantagen`
+  fäller om posten förs in igen.
+
+  **VÄG 3 ÄR AVVISAD.** Ett innehållsberoende undantag, alltså att klassa
+  subdomänen som maskin bara när brödtexten saknar fältet, träffar exakt den
+  skillnad talen visar. Lars avvisade den ändå: `src/klassa_maskin.py` avråder
+  uttryckligen från innehållskriterier, och en sikt som prövar brödtexten är
+  svårare att resonera om än en som prövar avsändare och huvuden.
+
+  **HALVA TVÅ STÅR ALLTSÅ KVAR ÖPPEN.** Post från `autobutler.se` och
+  `transactional.bokadirekt.se` går fortfarande igenom sikten och blir ärenden.
+  Det är ett val och inte ett förbiseende: alternativet kastar kundärenden.
+
+  **VAD SOM GÅR IGENOM SIKTEN EFTERÅT**, hela skörden på 53 trådar i
+  `data/inkorg-dagens.jsonl` som skiva 50:s omkörning skrev. Den avläsningen
+  ersätter tabellen med 28 rader ovan, som är samma mätning före väg 1:
+
+  | antal | domän | varför den går igenom |
+  |---|---|---|
+  | 8 | `autobutler.se` | förbudslistan, `aldrig_maskin` |
+  | 4 | `gmail.com` | konsumentdomän, medvetet utanför listan |
+  | 3 | `bildelsbasen.se` | struken ur listan, motexemplet ovan |
+  | 3 | `transactional.bokadirekt.se` | förbudslistan, via subdomänregeln |
+  | 2 | `google.com` | Googles egen, medvetet utanför listan |
+  | 1 | `melias.se` | bär mänsklig post, medvetet utanför listan |
+
+  Summan är 21 mot 28 före. De sju är väg 1, och de elva från bokadirekt och
+  autobutler är halva två. Med `bildelsbasen.se` kvar i listan hade summan varit
+  18; de tre raderna är priset för att den sortens tråd inte tystas.
 
 ---
 
@@ -5477,6 +5655,43 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.60.0 — 2026-09-15
+
+**LUCKANS HALVA ETT ÄR STÄNGD, HALVA TVÅ STÅR KVAR.**
+`sikten-ar-byggd-mot-skordar-inte-mot-dagens-post` har fått ett nytt stycke,
+**Vad skiva 50 stängde och vad som står kvar**, med de tre vägarnas utfall och
+talen bakom dem. Väg 1 är tagen, väg 2 togs och drogs tillbaka på en mätning,
+väg 3 är avvisad. Se `docs/beslutslogg.md` #116.
+
+**VÄG 1 BÄR SEX DOMÄNER OCH INTE SJU.** `bildelsbasen.se` fördes över och ströks
+igen på Lars §10-beslut, sedan domänen mätts mot samtliga tre material: 49
+trådar, varav ett motexempel med ett mänskligt svar från verkstaden.
+
+**POSTEN HAR FÅTT EN REGEL SOM SAKNADES.** En föreslagen domän mäts mot SAMTLIGA
+material innan Lars beslutar, inte mot dagens skörd ensam, och talet som avgör
+är motexempel per domän. Det talet stod inte i underlaget till det här beslutet.
+
+**POSTEN HAR FÅTT EN NEGATIVKONTROLL, som den saknade.** Två tester visar att
+domänlagret och ett undantag i förbudslistan båda SLÄPPER IGENOM den post de
+inte får fälla. Fällda var för sig med `scripts/sparr-prova.sh`.
+
+**TABELLEN MED 28 RADER ÄR ERSATT AV EN MED 21**, samma mätning efter väg 1.
+Den gamla står kvar, eftersom den är underlaget beslutet fattades på.
+
+**FYRA RÄTTELSER UR §7-GRANSKNINGEN, samtliga utskrivna där de stod.** Ett
+falskt påstående om att lagerordningen skyddar en förmedlad förfrågan, i
+`config/maskindomaner.yaml` och `docs/beslutslogg.md` #116, ersatt av vad
+ordningen faktiskt bär och av talen bakom. De två negativkontrollerna är
+villkorade till det fall de prövar. `92 ord` om verkstadens svar var trådens
+första meddelande och är nu 69. Filens proveniens stod som skiva 49:s och är
+skiva 50:s.
+
+**EN FRÅGA LIGGER FRAMFÖR LARS OCH ÄR INTE AVGJORD.** Måttet motexempel räknar
+ett svar från verkstaden, inte människoskriven post, och tre av de sex domänerna
+bär handskrivna brev utan svar. Står under **Vad skiva 50 stängde**.
+
+Luckans status ändrad, ny regel och nya tester ⇒ MINOR.
 
 ### 0.59.0 — 2026-09-15
 

@@ -1,6 +1,6 @@
 # Domäner som ALLTID är maskinmail, oavsett huvuden.
 #
-# TOM MED AVSIKT. Varje post här är Lars beslut, aldrig kodens.
+# VARJE POST HÄR ÄR LARS BESLUT, ALDRIG KODENS. Filen stod tom till skiva 50.
 #
 # Kandidater härleds ur materialet med
 #   .venv/bin/python -m src.klassa_maskin --harled-domaner
@@ -12,6 +12,12 @@
 # Lagret bidrog alltså med ingenting, vilket följer av härledningen: en domän
 # kommer bara med om huvudlagret redan fällt allt från den.
 #
+# DEN MÄTNINGEN GÄLLER DEN HÄRLEDDA LISTAN, INTE POSTERNA LÄNGST NED. De sex
+# nedan är handplockade ur dagens post just därför att huvudlagret INTE fäller
+# dem, alltså är de precis det härledningen aldrig kan föreslå. De flyttar 11
+# trådar i `data/tradar_obesvarade.jsonl`, 2 i `data/tradar.jsonl` och 7 i
+# `data/inkorg-dagens.jsonl`, och ingen av dem bär fältet `Registreringsnummer`.
+#
 # Kvar blir enbart framåtriktad risk, och den är konkret. Den första härledda
 # listan innehöll `googlemail.com`, alltså Gmails konsumentaliasdomän: varje
 # framtida kund med den adressen hade klassats som maskinmail utan att bära ett
@@ -20,5 +26,62 @@
 #
 # §6: en domän är inte persondata, men en domän KAN vara ett efternamn.
 # Den som för över en post hit ska läsa den med det i åtanke.
+#
+# LAGRET ÄR SIST OCH FÄLLER BARA DET SOM ÖVERLEVT DE ANDRA. Förbudslistan och
+# `relayar_manniska` prövas FÖRE, alltså kan ingen rad nedan fälla post från en
+# domän förbudslistan täcker, och ingen fälla post vars `Reply-To` pekar på en
+# TREDJE PART. Formulärnotisen är det senare fallet och är därför skyddad.
+#
+# DET RÄCKER INTE FÖR EN FÖRMEDLAD FÖRFRÅGAN, och en rad här kan tysta en sådan.
+# `relayar_manniska` kräver att `Reply-To` pekar utanför avsändarens
+# organisationsdomän. En förmedlare som sätter `Reply-To` till sig själv, eller
+# inte alls, ger den ingenting att gå på. Avläst i `data/tradar_obesvarade.jsonl`
+# för `transactional.bokadirekt.se`: 60 trådar, 35 med fältet
+# `Registreringsnummer`, och NOLL som relayar en människa. Det är förbudslistan
+# ensam som bär dem, inte ordningen. Den som för in en domän här ska veta att
+# posten därifrån bara är skyddad om domänen står på förbudslistan.
+#
+# POSTERNA NEDAN ÄR LARS §10-BESLUT, SKIVA 50, halva ett ur luckan
+# `sikten-ar-byggd-mot-skordar-inte-mot-dagens-post`. De är avlästa ur
+# `data/inkorg-dagens.jsonl` som domäner vars post gick IGENOM sikten utan att
+# bära ett huvud ur `MASKINHUVUDEN`, en `Precedence` ur `MASKINPRECEDENCE` eller
+# en noreply-lokaldel.
+#
+# TRE DOMÄNER UR SAMMA AVLÄSNING FÖRDES ALDRIG ÖVER, och skälen är olika:
+#
+#   `gmail.com` och `google.com`  konsumentdomän respektive Googles egen. Samma
+#                                 skäl som `googlemail.com` redan står under
+#                                 `aldrig_maskin` i förbudslistan: varje framtida
+#                                 kund med en sådan adress hade blivit maskinmail.
+#   `melias.se`                   bär mänsklig post. Lars skäl är mätningen av
+#                                 kundärenden som flyttar från besvarad till
+#                                 obesvarad skörd. `scripts/besvarad-omklassning.py`
+#                                 ger i dag 3 av de 90 flyttande kundärendena för
+#                                 den domänen, och samma tal står i tabellen i
+#                                 `docs/beslutslogg.md`. LARS UPPGAV FEM. Talet
+#                                 ändrar inte beslutet, eftersom skälet är att
+#                                 mänsklig post finns alls.
+#
+# EN FJÄRDE FÖRDES ÖVER OCH ÄR STRUKEN IGEN, Lars §10-beslut: `bildelsbasen.se`.
+# Domänen bär 49 trådar över de tre materialen, och 32 av dem hade flyttat in i
+# maskinmail. EN av de 32, i `data/tradar.jsonl`, har ett mänskligt svar från
+# verkstaden: tråden är på sju meddelanden, varav två svar från oss på
+# tillsammans 69 ord. Den bär inga maskinhuvuden och ingen `Reply-To`, alltså
+# räddar `relayar_manniska` den inte. Raden gjorde den sortens tråd tyst. De sex
+# som står kvar bär noll sådana trådar.
+#
+# EN DOMÄN MÄTS MOT SAMTLIGA MATERIAL INNAN DEN FÖRS IN, inte mot dagens skörd
+# ensam. `bildelsbasen.se` syntes tre gånger i `data/inkorg-dagens.jsonl` och
+# var på den avläsningen en domän bland de andra; det är först mot de tre
+# materialen den bär 49 trådar och ett motexempel. Talet som avgör är
+# MOTEXEMPEL PER DOMÄN, och för de sex nedan är det noll. Regeln och mätvägen
+# står i `docs/sparrar.md` under
+# `sikten-ar-byggd-mot-skordar-inte-mot-dagens-post`.
 
-maskindomaner: []
+maskindomaner:
+  - mekonomen.se
+  - hedbergsbilskrot.se
+  - sunmaskin.se
+  - ekvallautoteknik.se
+  - email.tele2.se
+  - epostsystem.se

@@ -31,5 +31,20 @@ aldrig_maskin:
 # `intercom-mail.com` är en annan organisationsdomän än `bokadirekt.se`, så
 # skyddet nådde den aldrig. Posten var Lars instruktion i skiva 8 och togs bort
 # på Lars beslut i skiva 9.
+#
+# ETT UNDANTAG TAR BORT SKYDDET, INTE MER. Det som står kvar under domänen är
+# `relayar_manniska`, som prövas efter förbudslistan och före huvudlagret: en
+# förmedlad förfrågan därifrån vars `Reply-To` pekar på kunden klassas
+# fortfarande som människa. Det som blir maskinmail är den post som varken är
+# skyddad här eller pekar på en människa.
+#
+# `transactional.bokadirekt.se` STOD HÄR I SKIVA 50 OCH TOGS BORT SAMMA SKIVA.
+# Posten var Lars §10-beslut, väg 2 ur luckan
+# `sikten-ar-byggd-mot-skordar-inte-mot-dagens-post`, och drogs tillbaka av Lars
+# när mätningen motsade premissen: subdomänen är inte den transaktionella halvan
+# utan den som bär de förmedlade förfrågningarna. Avläst i
+# `data/tradar_obesvarade.jsonl`: 60 trådar därifrån, 35 med fältet
+# `Registreringsnummer`, medan organisationsdomänen `bokadirekt.se` har 19 trådar
+# och noll med fältet. Talen står i `docs/sparrar.md`.
 undantag:
   - support.autobutler.se

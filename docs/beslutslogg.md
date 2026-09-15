@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.71.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
+**Version:** 0.72.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -6490,7 +6490,100 @@ minskar risken är #114, inte det här beslutet.
 
 ---
 
+## #116 — Lars §10-beslut: sex maskindomäner in, en sjunde struken. Undantaget för bokadirekts subdomän togs och drogs tillbaka.
+
+**Datum:** 2026-09-15 · **Berör:** `config/maskindomaner.yaml`,
+`config/maskindomaner-forbjudna.yaml`, `docs/sparrar.md`
+
+Två beslut ur luckan `sikten-ar-byggd-mot-skordar-inte-mot-dagens-post`. De
+hörde ihop i instruktionen och skildes åt av en mätning.
+
+**HALVA ETT ÄR STÄNGD.** `config/maskindomaner.yaml` stod tom med avsikt och bär
+nu sex domäner: `mekonomen.se`, `hedbergsbilskrot.se`, `sunmaskin.se`,
+`ekvallautoteknik.se`, `email.tele2.se`, `epostsystem.se`. De
+valdes därför att inget tidigare lager fäller dem, alltså är de precis vad
+`harled_domaner` aldrig kan föreslå: härledningen tar bara med domäner vars post
+huvudlagret redan fällt.
+
+`gmail.com`, `google.com` och `melias.se` stod i samma avläsning och fördes inte
+över. De två första är konsument- respektive Googles egen domän, samma skäl som
+`googlemail.com` redan står under `aldrig_maskin`. `melias.se` bär mänsklig
+post.
+
+**EN SJUNDE FÖRDES ÖVER OCH ÄR STRUKEN IGEN.** `bildelsbasen.se` bär 49 trådar
+över de tre materialen, och 32 av dem hade flyttat in i maskinmail. EN av de 32,
+i `data/tradar.jsonl`, har ett mänskligt svar från verkstaden och bär varken
+maskinhuvuden eller `Reply-To`, alltså räddar `relayar_manniska` den inte.
+Raden gjorde den sortens tråd tyst. De sex som står kvar bär noll sådana trådar.
+`test_bildelsbasen_ar_INTE_en_maskindoman` fäller om raden förs tillbaka.
+
+**DET BESLUTET GAV EN REGEL, och den är luckans och inte den här postens.** En
+domän som föreslås till `config/maskindomaner.yaml` mäts mot SAMTLIGA material
+innan Lars beslutar, inte mot dagens skörd ensam, och talet som avgör är
+motexempel per domän. Underlaget till det här beslutet var avläsningen av
+`data/inkorg-dagens.jsonl`, där `bildelsbasen.se` står på tre trådar och ser ut
+som en domän bland de andra. Regeln och mätvägen står i `docs/sparrar.md` under
+`sikten-ar-byggd-mot-skordar-inte-mot-dagens-post`.
+
+**HALVA TVÅ ÄR INTE STÄNGD, och beslutet att stänga den drogs tillbaka.**
+Instruktionen var att lägga `transactional.bokadirekt.se` under `undantag`, med
+`support.autobutler.se` som precedens. Mätningen före skeppning visade att
+subdomänen inte är bokadirekts transaktionella halva utan den som bär de
+förmedlade förfrågningarna: i `data/tradar_obesvarade.jsonl` har den 60 trådar
+varav 35 med fältet `Registreringsnummer`, medan organisationsdomänen
+`bokadirekt.se` har 19 trådar och noll med fältet. Ingen av de 60 relayar en
+människa, alltså var förbudslistan det enda som bar dem.
+
+**Det undantaget hade alltså tagit skyddet från precis den post beslutslogg #8
+skyddade.** Lars drog tillbaka beslutet. Talen står i `docs/sparrar.md` under
+luckans post, tillsammans med dagens skörd, där 1 av 3 trådar från subdomänen
+bär fältet. **De två populationerna hålls isär: 35 är skördens tal och 1 är
+dagens.**
+
+**EN TREDJE VÄG AVVISADES OCKSÅ.** Att klassa subdomänen som maskin bara när
+brödtexten saknar fältet träffar exakt den skillnad talen visar, men gör
+förbudslistan innehållsberoende. `src/klassa_maskin.py` avråder uttryckligen
+från innehållskriterier, och en sikt som prövar avsändare och huvuden är lättare
+att resonera om än en som prövar brödtext.
+
+**INGEN KOD ÄNDRADES.** Lagren fanns; det som tillkom är rader i konfigurationen
+och tester som binder dem. Domänlagret är sist i `skal_maskinmail` och nås först
+när förbudslistan och `relayar_manniska` båda sagt nej, alltså kan ingen rad i
+`config/maskindomaner.yaml` fälla en formulärnotis. Mätt: 78 av 78
+formulärtrådar i `data/tradar.jsonl` klassas som människa före och efter,
+samtliga räddade av `relayar_manniska`.
+
+**DET SKYDDET NÅR INTE EN FÖRMEDLAD FÖRFRÅGAN, och här stod att det gjorde det.**
+`relayar_manniska` kräver att `Reply-To` pekar utanför avsändarens
+organisationsdomän, och en förmedlare som sätter `Reply-To` till sig själv ger
+den ingenting att gå på. Avläst i `data/tradar_obesvarade.jsonl` för
+`transactional.bokadirekt.se`: 60 trådar, 35 med fältet `Registreringsnummer`,
+noll som relayar en människa. Samma tal står två stycken upp som skälet till att
+förbudslistan är det enda som bär dem. En rad i `config/maskindomaner.yaml` KAN
+alltså tysta en förmedlad förfrågan, och det som hindrar det är förbudslistan.
+Fällt av §7-granskningen av den här skivan.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.72.0 — 2026-09-15
+
+**#116 TILLKOMMER: Lars §10-beslut om de två domänlistorna.** Sex domäner in i
+`config/maskindomaner.yaml`, som stod tom. En sjunde, `bildelsbasen.se`, fördes
+över och ströks igen sedan den mätts mot samtliga tre material. Undantaget för
+`transactional.bokadirekt.se` lades in och togs bort i samma skiva, sedan en
+mätning visat att subdomänen bär de förmedlade förfrågningarna och inte
+transaktionsnotiserna.
+
+**EN RÄTTELSE I POSTEN, fälld av §7-granskningen.** Sista stycket påstod att
+lagerordningen gör det omöjligt för en rad i `config/maskindomaner.yaml` att
+fälla en förmedlad förfrågan. Det är falskt: `relayar_manniska` kräver att
+`Reply-To` pekar utanför avsändarens organisationsdomän, och noll av de 60
+trådarna från `transactional.bokadirekt.se` gör det. Skyddet är förbudslistan
+och inte ordningen. Formulärnotisen står kvar som det fall ordningen bär.
+
+Ny beslutspost ⇒ MINOR.
 
 ### 0.71.0 — 2026-09-15
 

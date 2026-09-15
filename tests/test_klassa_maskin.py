@@ -136,6 +136,23 @@ def test_den_riktiga_forbudslistan_bar_lars_beslut():
     assert "support.autobutler.se" in undantag
 
 
+def test_bokadirekts_transaktionella_subdoman_ar_INTE_undantagen():
+    """Undantaget lades in i skiva 50 och drogs tillbaka samma skiva.
+
+    Subdomänen är inte bokadirekts transaktionella halva utan den som bär de
+    FÖRMEDLADE FÖRFRÅGNINGARNA, alltså precis vad förbudslistan finns för.
+    Avläst i `data/tradar_obesvarade.jsonl`: 60 trådar därifrån, 35 med fältet
+    `Registreringsnummer`, medan `bokadirekt.se` har 19 och noll med fältet.
+
+    Testet fäller om posten förs in igen utan att de talen prövats om."""
+    aldrig, undantag = klassa_maskin.las_forbjudna()
+
+    assert "transactional.bokadirekt.se" not in undantag
+    assert klassa_maskin.ar_forbjuden(
+        "transactional.bokadirekt.se", aldrig, undantag
+    )
+
+
 # --- lager för lager ---------------------------------------------------------
 
 
@@ -203,6 +220,37 @@ def test_doman_utanfor_listan_faller_inte():
     assert klassa_maskin.skal_maskinmail(med, {"utskickaren.se"}) == ""
 
 
+def test_den_riktiga_domanlistan_bar_lars_beslut():
+    """Lars §10-beslut, skiva 50. Filen stod tom dessförinnan.
+
+    De tre domänerna i den andra prövningen stod i SAMMA avläsning ur dagens
+    post och fördes medvetet inte över: `gmail.com` och `google.com` är
+    konsument- respektive Googles egen domän, och `melias.se` bär mänsklig
+    post."""
+    domaner = klassa_maskin.las_domaner(klassa_maskin.DOMANFIL)
+
+    assert {"mekonomen.se", "hedbergsbilskrot.se", "sunmaskin.se",
+            "ekvallautoteknik.se", "email.tele2.se",
+            "epostsystem.se"} <= domaner
+    assert not ({"gmail.com", "google.com", "melias.se"} & domaner)
+
+
+def test_bildelsbasen_ar_INTE_en_maskindoman():
+    """DOMÄNEN STOD I LISTAN OCH ÄR STRUKEN, Lars §10-beslut, skiva 50.
+
+    Över de tre materialen bär `bildelsbasen.se` 49 trådar, och 32 av dem hade
+    flyttat in i maskinmail. EN av de 32, i `data/tradar.jsonl`, har ett
+    mänskligt svar från verkstaden: sju meddelanden, varav två svar från oss på
+    tillsammans 69 ord, inga maskinhuvuden och ingen `Reply-To`. Den räddas
+    alltså inte av `relayar_manniska`, och raden gjorde den sortens tråd tyst.
+    De sex domäner som står kvar bär noll sådana trådar.
+
+    Testet fäller om raden förs tillbaka utan ett nytt §10-beslut."""
+    domaner = klassa_maskin.las_domaner(klassa_maskin.DOMANFIL)
+
+    assert "bildelsbasen.se" not in domaner
+
+
 # --- undantaget --------------------------------------------------------------
 
 
@@ -218,6 +266,53 @@ def test_formularnotis_klassas_som_manniska_trots_maskinhuvuden():
     })
 
     assert klassa_maskin.skal_maskinmail(notis) == ""
+
+
+def test_formularnotisen_overlever_att_dess_doman_star_i_maskindomaner():
+    """DOMÄNLAGRET ÄR SIST OCH NÅR ALDRIG EN FORMULÄRNOTIS.
+
+    Skiva 50 fyllde `config/maskindomaner.yaml` för första gången. Notisen
+    skickas från VÅR EGEN domän, och skulle någon dag en domän som bär
+    formulärpost föras in i listan får det inte fälla notisen: `relayar_manniska`
+    prövas FÖRE domänlagret och räddar den.
+
+    Prövningen är på den beslutande ordningen och inte på att vår egen domän
+    råkar stå utanför listan i dag. Utan ordningen hade den ena posten i
+    konfigurationen kunnat stänga den kanal som aldrig får brytas."""
+    egen = BREVLADA.partition("@")[2]
+    notis = meddelande(huvuden={
+        "From": f"Auto Stockholm <{BREVLADA}>",
+        "To": BREVLADA,
+        "Reply-To": f"Kund <{KUND}>",
+        "X-Msg-EID": "abc123",
+    })
+
+    assert klassa_maskin.skal_maskinmail(notis, {egen}) == ""
+
+
+def test_undantagen_doman_som_relayar_en_manniska_ar_fortfarande_manniska():
+    """ETT UNDANTAG TAR BORT SKYDDET, INTE MER.
+
+    `relayar_manniska` prövas EFTER förbudslistan och FÖRE huvudlagret, alltså
+    bär den fortfarande en förmedlad förfrågan från en undantagen domän.
+
+    Avsändaren är den riktiga filens enda undantag, `support.autobutler.se`."""
+    forfragan = meddelande(huvuden={
+        "From": "Support <noreply@support.autobutler.se>",
+        "To": BREVLADA,
+        "Reply-To": f"Kund <{KUND}>",
+        "List-Unsubscribe": "<x>",
+    })
+    # Negativkontroll: utan reläet fäller huvudlagret samma avsändare, alltså
+    # är det reläet och inte något annat som bär den första prövningen.
+    utan_rela = meddelande(huvuden={
+        "From": "Support <noreply@support.autobutler.se>",
+        "To": BREVLADA,
+        "List-Unsubscribe": "<x>",
+    })
+
+    assert klassa_maskin.skal_maskinmail(forfragan) == ""
+    assert klassa_maskin.skal_maskinmail(utan_rela).startswith("huvud:")
 
 
 def test_nyhetsbrev_med_reply_to_till_sig_sjalvt_ar_fortfarande_maskinmail():
