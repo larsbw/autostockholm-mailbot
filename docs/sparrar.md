@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.54.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.55.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -4780,8 +4780,144 @@ skriver ett test kan pröva fel spärr och ändå få grönt.
 
 Uppmätt i skiva 31 vid första körningen: testfallet var skrivet utan uppslag och
 prövade talspärren i tron att det prövade den här.
-`test_krav_pa_svaret_anropar_alla_tre` bär nu ett uppslag med släpvagnsvikt
-1 000, så att talet HAR en källa och den här spärren är den som fäller.
+`test_krav_pa_svaret_anropar_sparrarna_i_tabellen` bär nu ett uppslag med
+släpvagnsvikt 1 000, så att talet HAR en källa och den här spärren är den som
+fäller.
+
+*Raden namngav testet `test_krav_pa_svaret_anropar_alla_tre`. Skiva 46 döpte om
+det, eftersom namnet påstod en fullständighet tabellen inte hade: den bar tre
+rader medan `krav_pa_svaret` anropade fem spärrar.*
+
+**SAMMA FÄLLA SLOG TILL IGEN I SKIVA 46, och det är belagt.** Raden för
+`atagande-om-priset` skrevs först som *"Dragkroken ingår i bygget."*, alltså med
+den utlösande meningens egna ord. `dragkrok` är ett `FORDONSORD`, så
+`genererat-fordonsfaktum` rapporterade raden och den nya spärren var oprövad.
+Raden säger nu `Rekonden` i stället.
+
+---
+
+## `atagande-om-priset`
+
+**BYGGD I SKIVA 46, LUCKA 59 STÄNGD.** Lars beslut i DEL A: ett åtagande om vad
+som ingår i ett pris är samma klass som ett påhittat pris.
+
+- **Spärr.** `src/generera.py::krav_pa_atagande_med_kalla` kastar när svaret bär
+  ett ord som utfäster att ett arbete INGÅR eller är KOSTNADSFRITT. Beslutet
+  fattas i två led, och båda måste fällas var för sig:
+
+      for varde in las_priser().values():
+          kvar = _UTAN_PRISVARDE(varde).sub(" ", kvar)
+
+      traff = ATAGANDEORD.search(kvar)
+
+  Ett tredje led ligger i `_UTAN_PRISVARDE`, som bygger strykningens mönster:
+  raden `return re.compile(r"(?!)")` för ett tomt värde, och raden
+  `return re.compile(r"\s+".join(delar), flags=re.IGNORECASE)` för ett fyllt.
+
+  Första ledet är UNDANTAGET, andra är fällningen. Termerna räknas inte upp här:
+  de står i `src/generera.py::ATAGANDETERMER`, en term per rad, och
+  `tests/test_generera_monster.py::test_varje_term_ar_ISOLERAD` kräver att var
+  och en har en rad i `ATAGANDE_SKA_FALLA` där den är ENSAM om att matcha. Samma
+  skäl som `troskeln-som-forfattningstext` anger: en uppräkning här skuggar en
+  lista i koden och blir gammal av varje ändring.
+
+- **Vad den skyddar mot.** Att boten lovar bort ett arbete gratis. Ärende 19 i
+  `data/granskningsfall.jsonl` skrev *"dragkrok ingår i bygget"*. Posten
+  `a_traktorkonvertering` i `config/priser.json` säger att priset gäller arbetet
+  och de delar som ingår i GRUNDPAKETET, och boten vet inte vad grundpaketet
+  innehåller. Meningen är alltså ett prisbesked kunden kan handla på, byggt på
+  ingenting.
+
+  **INGEN BEFINTLIG SPÄRR RÖRDE DEN, och det är hela skälet till en ny.**
+  Meningen bär inget tal och inget prisord, alltså blir den ingen prissats för
+  `krav_pa_tal_med_kalla`. Den bär inget frånvaropåstående och ingen föreskrift.
+  `dragkrok` är ett `FORDONSORD`, men fall 19 hade ett LYCKAT uppslag, så
+  `genererat-fordonsfaktum` släppte den.
+
+- **Vad den INTE skyddar mot, med flit.** Att vi KAN UTFÖRA ett arbete. Lars
+  skillnad, ordagrant: *kan utföra är inget prisåtagande, ingår är det.*
+  *"Extraljusen kopplar vi in"* och *"vi kan montera en dragkrok"* står orörda.
+  Den andra formen är dessutom vad promptens regel 13 uttryckligen ber om, och en
+  spärr som fällde den hade fällt det prompten beställt.
+
+- **Negativkontroll.** SEX, och de binder olika led:
+  `test_PRISFILENS_EGNA_lydelser_passerar_atagandesparren` visar att ett pris
+  återgivet ORDAGRANT passerar, alltså att undantaget finns. Raden bär en
+  vakuitetskontroll: bär ingen post i `config/priser.json` ett åtagandeord går
+  den röd i stället för att vara grön av fel skäl.
+  `test_prisraden_FORST_I_EN_MENING_passerar` och
+  `test_en_RADBRUTEN_prisrad_passerar` binder att versalen och radbrytningen inte
+  bryter ordagrannheten, alltså att spärren inte fäller vad regel 15 beordrar.
+  `test_att_KUNNA_UTFORA_ett_arbete_ar_INGET_atagande` visar att erbjudandet
+  passerar.
+  `test_strykningen_fogar_inte_ihop_tva_halvor_till_ett_atagandeord` visar att
+  undantaget byter värdet mot ett BLANKSTEG, alltså att två halvor inte fogas
+  ihop till en term som spänner över skarven.
+  `ATAGANDE_SKA_PASSERA` i `tests/test_generera_monster.py` bär fem former till,
+  bland dem `omfattningen`, `bjuder in` och ett försäkringsbesked.
+
+  **TVÅ RADER BINDER ATT SPÄRREN INTE GÅR ATT TYSTA.**
+  `test_ett_TOMT_prisvarde_tystar_INTE_sparren`: ett mönster byggt ur en tom
+  sträng matchar mellan varje tecken och hade strukit HELA svaret.
+  `test_ett_PRISVARDE_tolkas_aldrig_som_ett_reguljart_uttryck`: varje del
+  citeras med `re.escape`, alltså kan en prisrad med en parentes varken kasta
+  vid kompileringen eller matcha något annat än sin egen text.
+
+- **Redundant med `genererat-tal-har-kalla` för varje form som också bär en
+  PRISTERM.** Det är `utan kostnad`, `utan extra kostnad`, `kostar inget` och
+  varje PRISANKRAD täck-form: de bär alla `\bkostnad\b`, `\bkostar\b` eller
+  `\bpriset\b`, blir en prissats utan tal och fälls där först. De står därför MED
+  FLIT INTE i `ATAGANDETERMER`, eftersom två lager på samma form gör båda
+  oprövbara var för sig, vilket §7.1 varnar för. `Priset täcker monteringen.`
+  står i `ATAGANDE_SKA_FALLA` och binder redundansen.
+
+  `kostnadsfritt` är INTE redundant: `\bkostnad\b` har en högerordgräns och
+  matchar inte inuti ordet.
+
+- **`täcker` och `täcks` är STRUKNA ur tupeln, och det var ett granskningsfynd.**
+  En naken täck-term är inte ankrad till priset och fällde varje mening om vad en
+  FÖRSÄKRING eller en GARANTI täcker, rapporterad som `atagande-om-priset`, vilket
+  enligt §9.1 är ett stopptecken. Två inkommande mail i `data/par.jsonl` nämner en
+  försäkring, och noll utgående svar bär något av orden. Den oankrade formen
+  *"det där täcker vi"* står kvar som en del av LUCKA 61, med en `xfail`-rad i
+  `ATAGANDE_SKA_FALLA` som gör märkningen självupphävande.
+
+- **Överblockerar i TVÅ mätta former, och båda är den säkra riktningen.**
+
+  1. **En omskriven prisrad.** Undantaget godtar ett prisvärde ordagrant.
+     Ärende 19 skrev *"och DET priset gäller arbetet och de delar som ingår i
+     grundpaketet"*, alltså ett inskjutet ord i en rad `PRISFOT` beordrar
+     ordagrant, och den formen faller.
+  2. **En term INTILL strykningens skarv.** Blanksteget som ersätter värdet ger
+     en term ny ordgräns: `…motortvätt 500 kringår.` bär ingen term, och efter
+     strykningen står `ingår` där.
+
+  Utfallet blir `utkast` som Lars läser ändå. Samma avvägning som lucka 55.
+
+  **ORDAGRANNHETEN GÄLLER ORDEN, inte versalen och inte radbrytningen**, och det
+  ledet är ett granskningsfynd. En första lydelse strök värdet med `str.replace`,
+  alltså skiftlägeskänsligt och teckenexakt på varje blanktecken. Regel 15
+  beordrar att priset ALLTID skrivs i ett a-traktorsvar, och posten bär själv
+  ordet `ingår`, alltså hade ett svar som INLEDER en mening med prisraden blivit
+  ett stopptecken på precis den kategori boten finns för.
+
+| Fälld rad | Utfall | Form |
+| --- | --- | --- |
+| `traff = ATAGANDEORD.search(kvar)` satt till `traff = None` | RÖD | neutraliserad |
+| `kvar = _UTAN_PRISVARDE(varde).sub(" ", kvar)` satt till `pass` | RÖD | neutraliserad |
+| anropet `krav_pa_atagande_med_kalla(svar)` i `krav_pa_svaret` | RÖD | raderad |
+| `_UTAN_PRISVARDE`: tomgrenen satt till `re.compile(r"")` | RÖD | neutraliserad |
+| `_UTAN_PRISVARDE`: fyllda grenen satt till `re.compile(r"(?!)")` | RÖD | neutraliserad |
+
+**Sviten är hela `pytest`, körd i skiva 46.** Utgångsläget är
+`1558 passed, 61 skipped, 17 xfailed`. Talen per fällning är inte utskrivna: den
+enda uppgift §7.1 efterfrågar är om sviten blev röd, och ett antal fällda rader
+föråldras av nästa tillagda test.
+
+**MÄTT MOT `data/granskningsfall.jsonl`:** åtta av de tjugo fallen bär ett
+förslag, och sju av de åtta passerar den nya spärren. Det enda som faller är
+fall 19, alltså precis det Lars läste. Sex av de sju som passerar återger
+a-traktorpriset ordagrant, med sitt `ingår i grundpaketet`.
 
 ---
 
@@ -5074,6 +5210,54 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.55.0 — 2026-09-15
+
+**LUCKA 59 STÄNGD. `atagande-om-priset` ÄR BYGGD.** Lars beslut i skiva 46
+DEL A: ett åtagande om vad ett pris täcker är samma klass som ett påhittat pris.
+Egen post ovan.
+
+**LUCKA 60 REGISTRERAD OCH MEDVETET ÖPPEN: `ATAGANDETERMER` har inga
+ASCII-varianter.** `PRISTERMER` bär `\bspann\b` bredvid `\bspänn\b`, och den
+vägen är stängd här. ASCII-formen av `täcks` är `tacks`, en bokstav från `tack`,
+som står 37 gånger i `data/par.jsonl`:s utgående svar, alltså kan klassen inte få
+varianter genomgående. En mängd som får dem för somliga termer och inte för andra
+är den inkonsekvens `laglig\w*` och `lagstadga\w+` fälldes för i skiva 34. Ett
+svar skrivet helt utan diakriter faller alltså igenom. Formen är inte uppmätt i
+något utkast.
+
+*Här stod att `tack` är "verkstadssvarets vanligaste ord". `att` står 372 gånger
+och `vi` 323 i samma fält. Talet 37 stämde, superlativen inte. Fällt av
+§7-granskningen.*
+
+**LUCKA 61 REGISTRERAD OCH INTE BYGGD: `ATAGANDETERMER` är ingen uttömmande
+uppräkning.** Samma form som `PRISORD` och `FORDONSORD` bär sedan tidigare. En
+modell kan formulera ett åtagande utan något av orden, *"det där fixar vi i
+samma veva"* eller *"det där täcker vi"*, och en ordlista stänger inte den vägen.
+Det som skulle bära är en promptregel, och dess lydelse är §11, alltså Lars.
+Ingen sådan regel finns i dag. En `xfail`-rad i `ATAGANDE_SKA_FALLA` daterar
+luckan i stället för att dölja den.
+
+**LUCKA 62 REGISTRERAD OCH INTE BYGGD: regnr-extraktionen är snävare än
+verkligheten.** DEL B:s nya gren vilar på `Arende.regnr`, och den fylls av
+`scripts/kedja-prov.py::_regnr_i`, vars egen docstring säger att mönstret är för
+snävt för att hitta allt. Den söker dessutom bara i `post["text"]`, aldrig i
+`post["amne"]`, trots att `Arende` bär ämnesraden. En missad extraktion gav i den
+första lydelsen en ORDER att fråga efter ett nummer som står i mailet, alltså
+precis det promptens regel 11 förbjuder. Fällt av §7-granskningen.
+
+**ÅTGÄRDEN RÖR LYDELSEN OCH INTE EXTRAKTIONEN**, eftersom §9.1 säger att en
+fälld form rättas vid orsaken och inte kringgås: `SAKNAT_REGNR_UNDERLAG` säger
+numera att VI inte har ett nummer och inte att MAILET saknar ett, och
+`SAKNAT_REGNR_BEDOMNING` villkorar frågan efter numret av vad modellen läser i
+mailet. Att bredda mönstret är ett eget arbete och hör inte till den här skivan.
+
+**ETT STALT TESTNAMN RÄTTAT.** Posten för `troskeln-som-forfattningstext`
+namngav `test_krav_pa_svaret_anropar_alla_tre`, som skiva 46 döpte om till
+`test_krav_pa_svaret_anropar_sparrarna_i_tabellen`. Det gamla namnet påstod en
+fullständighet tabellen inte hade: tre rader mot fem anropade spärrar.
+
+En ny spärr, tre nya luckor och ett rättat namn ⇒ MINOR.
 
 ### 0.54.0 — 2026-09-14
 

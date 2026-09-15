@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.65.0 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §8
+**Version:** 0.66.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -5983,7 +5983,128 @@ raden på konstruerad text och formen är oprövad i fält. **Ett undantag för 
 
 ---
 
+## #108 — Lars beslut: ett åtagande om vad priset täcker är samma klass som ett påhittat pris
+
+**BESLUTET.** Ett svar får inte påstå att ett arbete INGÅR, är KOSTNADSFRITT
+eller TÄCKS av priset, om det inte står i `config/priser.json`. Skälet är Lars:
+det är inte en röstfråga, utan samma klass som §0:s ramverksregel 3 förbjuder.
+
+**DET KOM UR ETT LÄST UTKAST.** Ärende 19 skrev *"dragkrok ingår i bygget"*.
+Prisfilens post säger att priset gäller arbetet och de delar som ingår i
+GRUNDPAKETET, och boten vet inte vad grundpaketet innehåller. Alltså lovade den
+bort ett arbete gratis.
+
+**SKILLNADEN LARS DRAR, ordagrant: kan utföra är inget prisåtagande, ingår är
+det.** Samma utkast skrev *"Extraljusen kopplar vi in"*, och den meningen står
+orörd. Spärren fäller utfästelsen om vad priset täcker, aldrig erbjudandet att
+göra ett arbete. Utan den skillnaden hade den fällt promptens regel 13, som
+uttryckligen ber om erbjudandet att montera en dragkrok.
+
+**BYGGD SOM EN SPÄRR OCH INTE SOM EN PROMPTREGEL, och det är Lars order:**
+*"Bygg spärren."* Skillnaden mot #107, där samma val gick åt andra hållet, är vad
+en fällning kostar. Regel 15 handlar om ett UTELÄMNAT pris, och en fällning hade
+gett Lars inget utkast i stället för ett utkast utan pris. Här handlar det om ett
+PÅSTÅTT åtagande, alltså om något som skulle lämna servern, och där är ett
+uteblivet utkast rätt utfall.
+
+**UNDANTAGET ÄR ORDAGRANNHET, av samma form som telefonnumret i #106 VÄG TVÅ.**
+Varje värde ur `config/priser.json` stryks ur svaret innan orden söks, alltså är
+det som godtas exakt den sträng en §10-grindad källa bär. Posten
+`a_traktorkonvertering` bär själv orden *"de delar som ingår i grundpaketet"*,
+och `PRISFOT` beordrar att den återges ordagrant och i sin helhet. Utan
+undantaget hade spärren fällt varje svar prompten ber om.
+
+**LUCKA 59 STÄNGD. LUCKA 60 OCH 61 REGISTRERADE**, se `docs/sparrar.md`. Den
+första är att termerna saknar ASCII-varianter, den andra att uppräkningen inte
+är uttömmande. Ingen av dem byggs.
+
+**§7-GRANSKNINGEN FÄLLDE SPÄRREN PÅ TVÅ LED, och båda är rättade i den här
+skivan.**
+
+1. **UNDANTAGET VAR FÖR EXAKT.** Strykningen skedde med `str.replace`, alltså
+   skiftlägeskänsligt och teckenexakt på varje blanktecken. Posten
+   `a_traktorkonvertering` bär själv ordet `ingår`, och regel 15 beordrar att
+   priset ALLTID skrivs i ett a-traktorsvar, alltså hade ett svar som INLEDER en
+   mening med prisraden blivit ett stopptecken enligt §9.1, på precis den
+   kategori boten finns för. Strykningen är nu skiftlägesokänslig och tolererar
+   godtyckliga blanktecken där värdet bär ett. Varje ORD och varje siffra måste
+   fortfarande stå i sin ordning.
+
+2. **`täcker` OCH `täcks` VAR INTE ANKRADE TILL PRISET.** Lars klass är att ett
+   arbete TÄCKS AV PRISET. En naken täck-term fäller varje mening om vad en
+   FÖRSÄKRING täcker, och den prisankrade formen bär `\bpriset\b`, som redan gör
+   meningen till en prissats utan tal. Termerna är strukna; den oankrade formen
+   står kvar som en del av lucka 61.
+
+---
+
+## #109 — Ett mail utan registreringsnummer är inte ett misslyckat uppslag
+
+**BESLUTET.** Prompten ska skilja två lägen som båda låg i `uppslag=None`: mailet
+bar inget registreringsnummer, och numret fanns men uppslaget föll. I det första
+ska svaret BE OM NUMRET och aldrig säga att ett uppslag misslyckats.
+
+**DET KOM UR ETT LÄST UTKAST.** Ärende 14 fick *"Vi har inte kunnat slå upp
+bilen i registret"* på ett mail som aldrig bar ett registreringsnummer. Kunden
+får veta att något misslyckats utan att förstå varför, och blir aldrig ombedd att
+skicka det som faktiskt saknades.
+
+**DET ÄR SAMMA DEFEKTFORM SOM SKIVA 34:s, ETT STEG IN.** Där skilde
+`uppslag_gjordes` ut kategorin som inte gatas av fordonsuppslaget, sedan en
+rekondbokning fått besked om ett uppslag som aldrig gjordes. Kvar i samma `None`
+låg ändå två lägen till. `Forfragan.regnr_i_mailet` skiljer dem, och lösningen är
+byggd likadant: två bundna rader i `_underlag` och `_bedomning`, ingen ny regel i
+`SYSTEM`. Regel 11 bär redan det allmänna förbudet mot att fråga efter en uppgift
+som står i mailet; det som saknades var vad det HÄR ärendet är.
+
+**FÖRVALET ÄR `True`, alltså oförändrat beteende för varje anropare.** Samma val
+som `uppslag_gjordes`. Det motsatta förvalet är inte det säkra: en anropare som
+inte känner fältet hade då fått prompten att be om ett nummer som redan står i
+mailet, vilket är precis den form regel 11 finns för att hindra.
+
+**VILLKORET SÄTTS UR SAMMA UTTRYCK SOM FÄLLER UPPSLAGET.** `src/kedja.py` skickar
+`fordonsuppslag.normalisera_regnr(arende.regnr)`, alltså det uttryck vars tomhet
+får `slag_upp` att kasta *"registreringsnummer saknas"*. `uppslagskalla` prövade
+`not arende.regnr` och är bunden om till samma uttryck: ett nummer som bara bär
+blanktecken hade annars gett härkomstraden MISSLYCKADES medan prompten säger att
+vi inte har något nummer, och granskaren läser de två bredvid varandra.
+
+**§7-GRANSKNINGEN FÄLLDE DEN FÖRSTA LYDELSEN: den skapade en ny väg till precis
+det regel 11 förbjuder.** Raderna sade *"Mailet bär inget registreringsnummer"*
+och beordrade ovillkorligt *"BE KUNDEN SKICKA REGISTRERINGSNUMRET"*. Vad vi
+faktiskt vet är att VI inte har ett nummer, och extraktionen är snävare än
+verkligheten: den söker inte i ämnesraden och täcker inte varje skrivform, se
+LUCKA 62. Följden var att en missad extraktion blev en ORDER att fråga efter ett
+nummer som står i mailet.
+
+**Före ändringen kostade samma miss bara en felaktig rad om ett misslyckat
+uppslag.** Raderna säger nu vad vi vet och villkorar frågan av vad modellen läser
+i mailet. Att bredda extraktionsmönstret är ett eget arbete och hör inte hit.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.66.0 — 2026-09-15
+
+**#108 TILLKOMMER: spärren `atagande-om-priset`.** Lucka 59 stängd. Lucka 60 och
+61 registrerade och inte byggda.
+
+**#109 TILLKOMMER: `Forfragan.regnr_i_mailet`.** Prompten skiljer ett mail utan
+registreringsnummer från ett uppslag som föll, och härkomstraden i vyn binds om
+till samma uttryck.
+
+**§7-GRANSKNINGEN GAV UNDERKÄNT MED SJU FYND, alla rättade i samma skiva.** Två
+rörde sändvägen: undantaget var skiftlägeskänsligt och fällde det regel 15
+beordrar, och DEL B:s första lydelse beordrade en fråga regel 11 förbjuder. Fem
+rörde §7.2, alltså falska påståenden i text: ett superlativ om ordet `tack`, ett
+påstående att strykningen inte kan tillverka en träff, två kvarstående
+presenspåståenden om att `config/priser.json` är tom, och två uppräkningar som
+räknade tre spärrar där det finns sex.
+
+**LUCKA 62 REGISTRERAD**, regnr-extraktionens bredd.
+
+Två nya beslut och en ny lucka ⇒ MINOR.
 
 ### 0.65.0 — 2026-09-14
 

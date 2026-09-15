@@ -718,9 +718,16 @@ Det är en avvikelse från fasens ordalydelse ovan och ett medvetet val: en mall
 med hål tvingar in varje svar i samma form, medan få-exempel bär tonen och låter
 svaret följa frågan. `config/sparrar.yaml` finns fortfarande inte.
 
-**Tre spärrar på det genererade är byggda och registrerade:**
-`genererat-tal-har-kalla`, `genererat-fordonsfaktum` och
-`troskeln-som-forfattningstext`.
+**Spärrarna på det genererade är byggda och registrerade**, en post per spärr i
+`docs/sparrar.md`. `src/generera.py::krav_pa_svaret` anropar dem i tur och
+ordning, och den funktionen är listan: `tomt-svar`, `genererat-tal-har-kalla`,
+`genererat-fordonsfaktum`, `pastaende-om-franvaro`,
+`troskeln-som-forfattningstext` och `atagande-om-priset`.
+
+*Här stod "TRE spärrar" med tre namn uppräknade. `tomt-svar` byggdes i skiva 34
+och `pastaende-om-franvaro` i skiva 40, båda registrerade i `docs/sparrar.md`,
+alltså var talet falskt i den lista Lars läser för att veta vad som är byggt.
+Rättat i skiva 46, som lade till den sjätte.*
 
 **Vad som ÅTERSTÅR i fasen:**
 
@@ -752,10 +759,15 @@ svaret följa frågan. `config/sparrar.yaml` finns fortfarande inte.
 - §11:s härkomstrad: ett utkast bär i dag ingen uppgift om vilka par det vilar
   på, se `docs/beslutslogg.md` #49.
 
-Så länge `priser.json` är TOM faller varje svar som nämner ett pris **i de
-former spärren känner igen**, och det är spärren som avsedd och inte ett
-provisorium. Kända luckor står i `docs/sparrar.md` under
-`genererat-tal-har-kalla`.
+Med `priser.json` FYLLD prövas ett pris mot filens egna tal: en sats som bär ett
+prisord måste bära minst ett tal, och varje tal i den satsen ska komma ur
+prisfilen. Ett åtagande om vad priset TÄCKER prövas av `atagande-om-priset`, och
+godtas bara när prisfilens värde står ordagrant. Kända luckor står i
+`docs/sparrar.md` under `genererat-tal-har-kalla` och `atagande-om-priset`.
+
+*Här stod "Så länge `priser.json` är TOM faller varje svar som nämner ett pris".
+Lars fyllde filen i skiva 44, alltså var meningens premiss falsk i presens.
+Fällt i skiva 46.*
 
 *Här stod att bara `priser.json` och `fakta.json` återstår, och att VARJE svar
 som nämner ett pris faller. Båda leden var för snäva respektive för breda. Fällt

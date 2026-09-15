@@ -247,6 +247,12 @@ def kor(
         utfall=utfall,
         uppslag=uppslag,
         uppslag_gjordes=kategori in A_TRAKTORKATEGORIER,
+        # SKIVA 46 DEL B. **SAMMA UTTRYCK SOM FÄLLER UPPSLAGET.**
+        # `fordonsuppslag.slag_upp` kastar "registreringsnummer saknas" när just
+        # `normalisera_regnr` ger tomt, alltså är det här villkoret inte en egen
+        # tolkning av vad ett nummer är. Ett andra skrivsätt hade kunnat gå isär
+        # med det första, och då hade prompten fått ett annat besked än spärren.
+        regnr_i_mailet=bool(fordonsuppslag.normalisera_regnr(arende.regnr)),
         # SKIVA 41. Mängden kommer ur ett AVLÄST VÄRDE och ingenting annat.
         # Hoppades uppslaget över, eller misslyckades det, är den tom.
         franvaro_far_pastas=franvaro_far_pastas,
@@ -343,7 +349,12 @@ def uppslagskalla(arende: Arende, utfall: Kedjeutfall, *, skarp: bool) -> str:
         return "Inget uppslag gjordes: kategorin gatar det inte."
 
     if steg.utfall == "misslyckades":
-        if not arende.regnr:
+        # SAMMA UTTRYCK SOM `Forfragan.regnr_i_mailet` OCH SOM `slag_upp`.
+        # Raden sade tidigare `not arende.regnr`, alltså hade ett nummer som
+        # bara bär blanktecken gett härkomstraden MISSLYCKADES medan prompten
+        # sedan skiva 46 säger att mailet inte bär något nummer. Granskaren läser
+        # de två bredvid varandra, och de ska inte kunna säga olika saker.
+        if not fordonsuppslag.normalisera_regnr(arende.regnr):
             return (
                 "Inget uppslag: MAILET BÄR INGET REGISTRERINGSNUMMER. "
                 "Vikter i utkastet nedan saknar källa."

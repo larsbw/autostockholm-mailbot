@@ -633,6 +633,84 @@ def test_fordonsfaktaformer_som_ska_passera(svar, fall):
     generera.krav_pa_svaret(svar, fall)
 
 
+# ------------------------------------------------- ÅTAGANDE OM PRISET
+#
+# LUCKA 59, skiva 46 DEL A. Formerna är MÄTTA i `data/par.jsonl` och i
+# `data/granskningsfall.jsonl`, se `generera.ATAGANDETERMER`.
+#
+# **RADERNA BÄR MEDVETET INGET PRISORD OCH INGEN SIFFRA.** Ett åtagande om vad
+# som ingår är en egen klass just därför att den inte bär något av dem: *"dragkrok
+# ingår i bygget"* nådde varken `krav_pa_tal_med_kalla` eller
+# `krav_pa_fordonsfakta_ur_uppslag`. En rad som bar ett prisord hade fällts av
+# fel lager och skuggat termen, vilket är samma fälla `PRISORDSRADER` beskriver.
+#
+# **VARJE RAD ISOLERAR EN TERM**, alltså är ingen annan term i tupeln med.
+# `bjuder på` och `bjuder vi på` står som två rader därför att de är två termer.
+
+ATAGANDE_SKA_FALLA = [
+    # skiva 46, ärende 19 i `data/granskningsfall.jsonl`: den utlösande formen.
+    ("Dragkroken ingår i bygget.", UTAN_UPPSLAG),
+    ("Grundpaketet inkluderar montering av dragkrok.", UTAN_UPPSLAG),
+    ("Ombyggnaden omfattar montering av dragkrok.", UTAN_UPPSLAG),
+    # NAKEN FORM, som gör `\w*` i `kostnadsfri\w*` prövad. Utan den går termen
+    # att snäva till `kostnadsfri\w+` med grön svit.
+    ("Monteringen är kostnadsfri.", UTAN_UPPSLAG),
+    ("Monteringen bjuder vi på.", UTAN_UPPSLAG),
+    ("Vi bjuder på en tvätt när vi lämnar tillbaka bilen.", UTAN_UPPSLAG),
+    ("Rekonden får du på köpet.", UTAN_UPPSLAG),
+    ("Monteringen gör vi gratis.", UTAN_UPPSLAG),
+    # **`täcker` OCH `täcks` ÄR STRUKNA UR TUPELN, och de två raderna nedan
+    # binder varför.** En naken täck-term är inte ankrad till priset och fällde
+    # varje mening om vad en FÖRSÄKRING täcker, rapporterad som
+    # `atagande-om-priset`. Fällt av §7-granskningen av skiva 46.
+    #
+    # DEN PRISANKRADE FORMEN FALLER ÄNDÅ, på `krav_pa_tal_med_kalla`: `priset`
+    # är en PRISTERM, alltså blir meningen en prissats utan tal. Raden binder
+    # redundansen posten i `docs/sparrar.md` åberopar.
+    ("Priset täcker monteringen.", UTAN_UPPSLAG),
+    # DEN OANKRADE FORMEN FALLER INTE, och det är LUCKA 61. `strict=True` gör
+    # märkningen självupphävande: byggs luckan blir raden röd och tvingar bort
+    # märkningen.
+    pytest.param(
+        "Det där täcker vi.",
+        UTAN_UPPSLAG,
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="LUCKA 61: ett åtagande utan något av orden i tupeln",
+        ),
+    ),
+]
+
+ATAGANDE_SKA_PASSERA = [
+    # ETT FÖRSÄKRINGSBESKED ÄR INGET PRISÅTAGANDE. Raden går röd om en naken
+    # täck-term läggs tillbaka i tupeln.
+    ("Din försäkring täcker en sådan skada, hör av dig till bolaget.",
+     UTAN_UPPSLAG),
+    # **ATT KUNNA UTFÖRA ETT ARBETE ÄR INGET PRISÅTAGANDE, och det är hela
+    # skillnaden Lars drar.** Båda formerna står i ärende 19, och den ena ska
+    # falla medan den andra ska stå kvar.
+    ("Extraljusen kopplar vi in, det är bra att du redan har dem.", UTAN_UPPSLAG),
+    ("Behöver bilen en dragkrok kan vi montera en.", MED_UPPSLAG),
+    # `omfattning` ÄR INGET ÅTAGANDE. Formen står i `data/par.jsonl` som ett
+    # prisförbehåll, alltså motsatsen. Raden binder att `omfattar` inte får
+    # vidgas till `omfatt\w*`.
+    ("Vad vi gör beror på omfattningen.", UTAN_UPPSLAG),
+    # `bjuder` UTAN `på` är ingen utfästelse.
+    ("Vi bjuder in dig till verkstaden.", UTAN_UPPSLAG),
+]
+
+
+@pytest.mark.parametrize("svar, fall", ATAGANDE_SKA_FALLA)
+def test_atagandeformer_som_ska_falla(svar, fall):
+    with pytest.raises(Sparrfalld):
+        generera.krav_pa_svaret(svar, fall)
+
+
+@pytest.mark.parametrize("svar, fall", ATAGANDE_SKA_PASSERA)
+def test_atagandeformer_som_ska_passera(svar, fall):
+    generera.krav_pa_svaret(svar, fall)
+
+
 # ------------------------------------------------------- DRIFTVAKTEN
 #
 # **VARFÖR DEN FINNS.** Mönstren har rättats om och om igen, och varje gång har
@@ -687,12 +765,14 @@ MONSTER_OCH_TABELL = {
     "TROSKELTERMER": (generera.TROSKELTERMER, "TROSKEL_SKA_FALLA"),
     "FORFATTNINGSTERMER": (generera.FORFATTNINGSTERMER, "TROSKEL_SKA_FALLA"),
     "FORDONSTERMER": (generera.FORDONSTERMER, "FORDONSFAKTA_SKA_FALLA"),
+    "ATAGANDETERMER": (generera.ATAGANDETERMER, "ATAGANDE_SKA_FALLA"),
 }
 
 TABELLER = {
     "PRIS_SKA_FALLA": PRIS_SKA_FALLA,
     "TROSKEL_SKA_FALLA": TROSKEL_SKA_FALLA,
     "FORDONSFAKTA_SKA_FALLA": FORDONSFAKTA_SKA_FALLA,
+    "ATAGANDE_SKA_FALLA": ATAGANDE_SKA_FALLA,
 }
 
 ALLA_TERMER = [
@@ -715,6 +795,15 @@ SPARR_FOR_MONSTER = {
         "krav_pa_att_troskeln_inte_ar_forfattningstext",
     ),
     "FORDONSTERMER": ("FORDONSORD", "krav_pa_fordonsfakta_ur_uppslag"),
+    "ATAGANDETERMER": ("ATAGANDEORD", "krav_pa_atagande_med_kalla"),
+}
+
+# SPÄRRAR SOM INTE TAR EN FÖRFRÅGAN. De prövar svaret ensamt, eftersom
+# ingenting i ärendet kan göra formen tillåten: en föreskrift är en föreskrift
+# oavsett bil, och ett åtagande om priset har sin enda källa i `config/`.
+UTAN_FORFRAGAN = {
+    "krav_pa_att_troskeln_inte_ar_forfattningstext",
+    "krav_pa_atagande_med_kalla",
 }
 
 
@@ -722,7 +811,7 @@ def _faller(sparrnamn: str, svar: str, fall) -> bool:
     """Om den namngivna spärren fäller svaret."""
     sparr = getattr(generera, sparrnamn)
     try:
-        if sparrnamn == "krav_pa_att_troskeln_inte_ar_forfattningstext":
+        if sparrnamn in UTAN_FORFRAGAN:
             sparr(svar)
         else:
             sparr(svar, fall)

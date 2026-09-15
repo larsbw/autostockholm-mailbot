@@ -843,6 +843,62 @@ def _mangden(hamta) -> frozenset[str]:
     return sedda[0].franvaro_far_pastas
 
 
+def _forfragan_for(arendet) -> generera.Forfragan:
+    """Kör kedjan och ger den förfrågan generatorn fick."""
+    sedda: list[generera.Forfragan] = []
+    klient = FejkKlient("fråga om a-traktorkonvertering", "Hej, vi hör av oss.")
+    riktig = generera.generera_utkast
+
+    def fangar(klienten, forfragan, **rest):
+        sedda.append(forfragan)
+        return riktig(klienten, forfragan, **rest)
+
+    generera.generera_utkast = fangar
+    try:
+        # `hamta_saknas` OCH INTE `hamta_kraschar`: en källa som kastar blir
+        # `Kallfel` och stoppar kedjan innan generatorn nås, alltså hade
+        # `sedda` varit tom för det ärende som BÄR ett nummer.
+        kedja.kor(arendet, klient=klient, hamta=hamta_saknas, hinkar=HINKAR,
+                  taxonomi=TAXONOMI, exempel=[])
+    finally:
+        generera.generera_utkast = riktig
+
+    return sedda[0]
+
+
+def test_kedjan_sager_till_generatorn_om_mailet_BAR_ETT_NUMMER():
+    """SKIVA 46 DEL B. Flaggan ska komma ur ärendet och inte ur ett förval.
+
+    Utan den här raden kunde `kor` sluta skicka `regnr_i_mailet` med hela sviten
+    grön: förvalet är `True`, alltså hade ett mail utan registreringsnummer tyst
+    fått tillbaka ärende 14:s besked om ett misslyckat uppslag.
+    """
+    assert _forfragan_for(arende(regnr=None)).regnr_i_mailet is False
+    assert _forfragan_for(arende(regnr="ABC123")).regnr_i_mailet is True
+
+
+def test_ETT_BLANKT_regnr_raknas_som_INGET_nummer_i_BADA_leden():
+    """SAMMA UTTRYCK PÅ BÅDA STÄLLENA, och det var det inte.
+
+    `fordonsuppslag.slag_upp` kastar *"registreringsnummer saknas"* när
+    `normalisera_regnr` ger tomt, alltså är ett nummer som bara bär blanktecken
+    inget nummer. `uppslagskalla` prövade `not arende.regnr`, som är FALSKT för
+    en sträng med ett mellanslag, alltså hade härkomstraden sagt MISSLYCKADES
+    medan prompten säger att mailet inte bär något nummer. Granskaren läser de
+    två bredvid varandra.
+    """
+    blankt = arende(regnr="   ")
+
+    assert _forfragan_for(blankt).regnr_i_mailet is False
+
+    utfall = Kedjeutfall(
+        kategori="fråga om a-traktorkonvertering", hink="auto", utkast="Hej.",
+        steg=(Steg("uppslag", "misslyckades", "registreringsnummer saknas"),),
+    )
+    assert "BÄR INGET REGISTRERINGSNUMMER" in kedja.uppslagskalla(
+        blankt, utfall, skarp=True)
+
+
 def test_REGISTRET_SAKNAR_ger_INGEN_ratt_att_pasta_franvaro():
     """VÄG TRE, LARS BESLUT I SKIVA 41 PÅ LUCKA 50.
 

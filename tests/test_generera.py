@@ -10,7 +10,11 @@ namn är konstruerade för testet (§6).
 SPÄRRARNA FÄLLS EN I TAGET OCH ALDRIG I PAR. Skiva 27 mätte att en sammanslagen
 fällning ger RÖD och därmed falskt ÄKTA: ett rött utfall bevisar bara att MINST
 EN av de fällda raderna bär. Varje `krav_pa_*` har därför sitt eget test, och
-`krav_pa_svaret` har ett eget som visar att den anropar alla tre.
+`krav_pa_svaret` har ett eget som visar att den anropar spärrarna i sin tabell.
+
+*Här stod "att den anropar alla tre". Tabellen bar tre rader medan
+`krav_pa_svaret` anropade fem spärrar, alltså påstod meningen en fullständighet
+som inte fanns. Fällt i skiva 46, som lade till en fjärde rad.*
 """
 
 from __future__ import annotations
@@ -1510,7 +1514,10 @@ def test_forfattningsord_utan_troskeln_slapps_igenom():
     )
 
 
-# ------------------------------------------------ alla tre tillsammans
+# ------------------------------------------ spärrarna tillsammans
+#
+# *Rubriken löd "alla tre tillsammans". Tabellen nedan bär fyra rader och
+# `krav_pa_svaret` anropar sex spärrar. Fällt av §7-granskningen av skiva 46.*
 
 
 @pytest.mark.parametrize(
@@ -1532,13 +1539,29 @@ def test_forfattningsord_utan_troskeln_slapps_igenom():
                                 draganordning=True),
             ),
         ),
+        # SKIVA 46, LUCKA 59. Raden bär varken tal eller prisord, alltså kan
+        # ingen annan spärr rapportera den: det är hela skälet till att klassen
+        # behövde en egen.
+        #
+        # **RADEN SÄGER `Rekonden` OCH INTE `Dragkroken`, och det är mätt.** Den
+        # utlösande meningen i ärende 19 bär ordet `dragkrok`, som är ett
+        # `FORDONSORD`, alltså rapporterade `genererat-fordonsfaktum` den först
+        # och raden prövade fel spärr. Just den fällan varnar docstringen nedan
+        # för, och den slog till vid första körningen.
+        ("Rekonden ingår i bygget.", "atagande-om-priset", forfragan()),
     ],
 )
-def test_krav_pa_svaret_anropar_alla_tre(svar, sparr, fall):
-    """`krav_pa_svaret` ska fälla på var och en av de tre.
+def test_krav_pa_svaret_anropar_sparrarna_i_tabellen(svar, sparr, fall):
+    """`krav_pa_svaret` ska fälla på var och en av spärrarna i tabellen ovan.
 
     Faller en av dem ur den samlande funktionen syns det här, och inte först när
     ett svar med det felet går vidare.
+
+    *Raden hette `test_krav_pa_svaret_anropar_alla_tre` och tabellen bar tre rader
+    medan `krav_pa_svaret` anropade fem spärrar. Namnet påstod en fullständighet
+    tabellen inte hade. `tomt-svar` och `pastaende-om-franvaro` står fortfarande
+    utanför den här tabellen och prövas av sina egna rader. Rättat i skiva 46,
+    som lade till en fjärde rad och därmed gjorde namnet ännu falskare.*
 
     **SPÄRRARNA ÖVERLAPPAR, och ordningen avgör vilken som rapporteras.** Ett
     svar med ett okällat tal faller på spärr 1 även när det också bryter mot
@@ -2217,6 +2240,133 @@ def test_BEDOMNINGSRADEN_sjalv_passerar_spärrarna():
     generera.krav_pa_svaret(bedomning, forfr)
 
 
+# --------------------- MAILET SOM ALDRIG BAR ETT NUMMER, SKIVA 46 DEL B
+
+
+def test_de_TVA_RADERNA_for_saknat_regnr_star_ORDAGRANT():
+    """Sändvägstext, alltså bunden som `PRISFOT` och `UNDERLAGSRUBRIK`.
+
+    Ett test som bara söker en delsträng släpper igenom en lydelse som också
+    låter modellen påstå ett misslyckat uppslag. Det är lucka 25:s form.
+    """
+    assert generera.SAKNAT_REGNR_UNDERLAG == (
+        "Fordonsuppslag: INGET UPPSLAG GJORDES. Vi har inget "
+        "registreringsnummer för det här ärendet, alltså har vi aldrig försökt "
+        "slå upp bilen och ingenting har misslyckats. Nämn inte tjänstevikt, "
+        "släpvagnsvikt eller draganordning."
+    )
+    assert generera.SAKNAT_REGNR_BEDOMNING == (
+        "vi har inget registreringsnummer att gå på, alltså har vi inte bedömt "
+        "bilen. Säg ALDRIG att ett uppslag misslyckats, att vi inte kunnat "
+        "hitta bilen eller att vi inte kunnat slå upp den: vi har inte "
+        "försökt. Skriv ingenting om bilens uppgifter. Står "
+        "registreringsnumret inte i mailet: BE KUNDEN SKICKA DET så tittar vi "
+        "på bilen. Står det där: läs det ur mailet och fråga inte efter det."
+    )
+
+
+def test_INGENDERA_raden_pastar_att_MAILET_saknar_ett_nummer():
+    """Vad vi vet är att VI inte har ett nummer, inte vad mailet bär.
+
+    **EXTRAKTIONEN ÄR SNÄVARE ÄN VERKLIGHETEN**, se LUCKA 62 i
+    `docs/sparrar.md`: mönstret söker inte i ämnesraden och täcker inte varje
+    skrivform. En rad som påstår att mailet saknar ett nummer blir därför falsk
+    så snart extraktionen missar, och den gamla lydelsen beordrade i samma
+    andetag ovillkorligt att kunden skulle skicka det. Det är precis den form
+    promptens regel 11 förbjuder.
+
+    Raden binder BÅDA leden: inget påstående om mailet, och en VILLKORAD fråga.
+    """
+    for rad in (generera.SAKNAT_REGNR_UNDERLAG, generera.SAKNAT_REGNR_BEDOMNING):
+        assert "Mailet bär inget" not in rad
+        assert "mailet bär inget" not in rad
+
+    # Frågan efter numret ska vara villkorad av vad modellen läser i mailet.
+    assert "Står registreringsnumret inte i mailet" in (
+        generera.SAKNAT_REGNR_BEDOMNING
+    )
+    assert "fråga inte efter det" in generera.SAKNAT_REGNR_BEDOMNING
+
+
+def test_de_TVA_LAGENA_utan_uppslag_ger_OLIKA_underlag():
+    """LARS ORDER I DEL B: skilj de två lägena i prompten.
+
+    **BÅDA HAR `uppslag=None` OCH `utfall=None`, alltså är de oskiljbara för
+    varje led utom flaggan.** Det är precis ärende 14:s läge: kundens mail bär
+    inget registreringsnummer, och svaret inleds *"Vi har inte kunnat slå upp
+    bilen i registret"*. Kunden får veta att något misslyckats utan att förstå
+    varför, och blir aldrig ombedd att skicka numret.
+    """
+    utan_nummer = generera._underlag(
+        forfragan(utfall=None, regnr_i_mailet=False))
+    fallet_uppslag = generera._underlag(
+        forfragan(utfall=None, regnr_i_mailet=True))
+
+    # DET FALLNA UPPSLAGET säger fortfarande att vi inte kunnat slå upp bilen.
+    # Raden binder att det läget finns kvar, alltså att ändringen SKILJER dem
+    # och inte bara byter text i båda.
+    assert "inte kunnat slå upp bilen" in fallet_uppslag
+
+    # DET SAKNADE NUMRET säger det ALDRIG, och ber om numret i stället, om det
+    # inte står i mailet.
+    #
+    # **PRÖVNINGEN GÄLLER PÅSTÅENDET OCH INTE ORDET.** Båda raderna för det
+    # saknade numret nämner ett misslyckande, och båda NEKAR det: *"ingenting
+    # har misslyckats"* och *"Säg ALDRIG att ett uppslag misslyckats"*. En rad
+    # som sökte efter ordet `misslyckats` hade därför gått röd på just den
+    # formulering den finns för att framtvinga. Uppmätt vid första körningen.
+    assert "inte kunnat slå upp bilen" not in utan_nummer
+    assert "Fordonsuppslag: INGET." not in utan_nummer
+    assert "BE KUNDEN SKICKA DET" in utan_nummer
+    assert utan_nummer != fallet_uppslag
+
+
+def test_ETT_LYCKAT_UPPSLAG_gar_fore_flaggan():
+    """Finns ett uppslag är det uppslaget som är bedömningen.
+
+    Kedjan kan inte ge ett lyckat uppslag utan ett nummer, men bedömningsraden
+    ska säga vad som GÄLLER och inte vad en anropare lovat. Utan `uppslag is
+    None` i villkoret hade en motsägande anropare fått en prompt som både bär
+    bilens vikter och ber kunden skicka registreringsnumret.
+    """
+    text = generera._underlag(forfragan(
+        utfall=Utfall.GRONT, uppslag=GRONT_UPPSLAG, regnr_i_mailet=False))
+
+    assert generera.SAKNAT_REGNR_BEDOMNING not in text
+    assert generera.SAKNAT_REGNR_UNDERLAG not in text
+    assert "tjänstevikt 1400 kg" in text
+
+
+def test_BEDOMNINGSRADEN_utan_regnr_passerar_sparrarna():
+    """Det prompten ber om ska aldrig fällas av spärrarna. §7.1.
+
+    Samma form som `test_BEDOMNINGSRADEN_sjalv_passerar_spärrarna`: texten tas
+    ur prompten själv, alltså går raden röd om bedömningsraden börjar be om
+    något spärrarna fäller.
+    """
+    forfr = forfragan(utfall=None, regnr_i_mailet=False)
+
+    bedomning = [
+        r for r in generera._underlag(forfr).splitlines()
+        if r.startswith("Bedömning:")
+    ][0]
+
+    generera.krav_pa_svaret(bedomning, forfr)
+
+
+def test_ett_svar_som_BER_OM_NUMRET_passerar_sparrarna():
+    """Den form bedömningsraden beställer ska gå igenom hela vägen.
+
+    Bedömningsraden är en instruktion. Raden ovan prövar instruktionen som text;
+    den här prövar ett SVAR skrivet efter den, alltså det utfall kunden läser.
+    """
+    generera.krav_pa_svaret(
+        "Hej! Vi hjälper gärna till med en ombyggnad. Skicka bilens "
+        "registreringsnummer så tittar vi på den och hör av oss.",
+        forfragan(utfall=None, regnr_i_mailet=False),
+    )
+
+
 def test_rott_utfall_namner_INTE_troskeln():
     """Skälet får inte bli en återgiven föreskrift.
 
@@ -2386,6 +2536,183 @@ def test_REGEL_15_beordrar_en_form_som_SPARRARNA_slapper_igenom():
         f"Ring oss på {telefon} så tittar vi på just den bilen.",
         forfr,
     )
+
+
+# ------------------------- SPÄRR: ÅTAGANDE OM VAD PRISET TÄCKER, LUCKA 59
+#
+# Skiva 46 DEL A, Lars beslut: ett åtagande om vad som ingår i ett pris är samma
+# klass som ett påhittat pris.
+
+
+def test_PRISFILENS_EGNA_lydelser_passerar_atagandesparren():
+    """SPÄRREN FÅR INTE FÄLLA DET `PRISFOT` BEORDRAR. §7.1.
+
+    Posten för a-traktorkonverteringen bär orden *"de delar som INGÅR i
+    grundpaketet"*, och `PRISFOT` kräver att ett pris återges ORDAGRANT och i
+    SIN HELHET. En spärr som fäller åtagandeordet ovillkorligt hade alltså fällt
+    varje svar prompten ber om, vilket är den motsägelse §9.1 finns för.
+
+    **VÄRDENA LÄSES UR KONFIGFILEN och skrivs inte av här**, så att raden följer
+    med den dag Lars ändrar en post.
+    """
+    varden = list(generera.las_priser().values())
+
+    # VAKUITETSKONTROLL. Bär ingen post ett åtagandeord prövar raden ingenting,
+    # och den vore då grön av fel skäl.
+    barande = [v for v in varden if generera.ATAGANDEORD.search(v)]
+    assert barande, (
+        "ingen post i config/priser.json bär ett åtagandeord, alltså prövar "
+        "raden inte undantaget den finns för"
+    )
+
+    for varde in varden:
+        generera.krav_pa_atagande_med_kalla(f"En ombyggnad kostar {varde}.")
+
+
+def test_ett_atagande_UTANFOR_prisfilen_faller_aven_nar_priset_citeras():
+    """UNDANTAGET FÅR INTE TVÄTTA RESTEN AV SVARET. Ärende 19, i sin form.
+
+    Utkastet återgav prisraden OCH skrev *"dragkrok ingår i bygget"* i en annan
+    mening. Strykningen tar bort prisvärdet och ingenting annat, alltså står det
+    andra åtagandet kvar och fäller.
+    """
+    pris = PRISER_SOM_LARS_BESLUTAT["a_traktorkonvertering"]
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_atagande_med_kalla(
+            f"En ombyggnad kostar {pris}. Dragkrok ingår i bygget."
+        )
+
+    assert fel.value.sparr == "atagande-om-priset"
+
+
+def test_en_OMSKRIVEN_prisrad_faller_i_atagandesparren():
+    """`ORDAGRANT` ÄR LASTBÄRANDE, och formen är den ärende 19 skrev.
+
+    Utkastet skrev *"och DET priset gäller arbetet och de delar som ingår i
+    grundpaketet"*. Ett inskjutet ord gör strängen till något annat än det värde
+    `config/priser.json` bär, alltså stryks den inte och åtagandeordet står kvar.
+
+    **ÖVERBLOCKERINGEN ÄR DEN SÄKRA RIKTNINGEN.** Utfallet blir ett utkast Lars
+    läser ändå, och en prisrad som inte är ordagrant återgiven bryter redan mot
+    `PRISFOT`. Samma avvägning som lucka 55.
+    """
+    pris = PRISER_SOM_LARS_BESLUTAT["a_traktorkonvertering"]
+    omskrivet = pris.replace("och priset gäller", "och det priset gäller")
+    assert omskrivet != pris, "bytet gav samma sträng, alltså prövas ingenting"
+
+    with pytest.raises(Sparrfalld):
+        generera.krav_pa_atagande_med_kalla(f"En ombyggnad kostar {omskrivet}.")
+
+
+def test_att_KUNNA_UTFORA_ett_arbete_ar_INGET_atagande():
+    """LARS SKILLNAD: kan utföra är inget prisåtagande, ingår är det.
+
+    Båda formerna står i ärende 19, och bara den ena ska falla. En spärr som
+    fällde båda hade fällt promptens regel 13, som uttryckligen ber om
+    erbjudandet att montera en dragkrok.
+    """
+    generera.krav_pa_atagande_med_kalla("Extraljusen kopplar vi in.")
+    generera.krav_pa_atagande_med_kalla("Vi kan montera en dragkrok.")
+
+    with pytest.raises(Sparrfalld):
+        generera.krav_pa_atagande_med_kalla("Dragkrok ingår i bygget.")
+
+
+def test_strykningen_fogar_inte_ihop_tva_halvor_till_ett_atagandeord(monkeypatch):
+    """VÄRDET BYTS MOT ETT BLANKSTEG, inte mot ingenting.
+
+    Byttes det mot ingenting kunde strykningen foga ihop två halvor till ett
+    åtagandeord som aldrig stod i svaret. Det är samma fälla
+    `_prisord_over_skarven` beskriver för hopfogningen, åt andra hållet.
+
+    **RADEN BINDER BARA DEN FORMEN, och det ledet är fällt fram.** En term som
+    ligger INTILL skarven får en ny ordgräns av blanksteget och kan då matcha
+    där den inte matchade förut, se raden nedan. Skillnaden är riktningen: den
+    här formen vore en falsk FRIKÄNNANDE, den andra en överblockering.
+    """
+    monkeypatch.setattr(generera, "las_priser", lambda *a, **k: {"x": "MITTEN"})
+
+    # Utan blanksteget blir strängen `ingår` och raden fälls.
+    generera.krav_pa_atagande_med_kalla("Vi ingMITTENår med jobbet.")
+
+
+def test_strykningen_KAN_tillverka_en_traff_INTILL_skarven():
+    """ÖVERBLOCKERINGEN ÄR MÄTT och står i spärrens docstring.
+
+    Blanksteget ger en term som ligger intill skarven en ny ordgräns.
+    `…motortvätt 500 kringår.` bär ingen term, och efter strykningen står
+    `ingår` där. Utfallet blir ett utkast Lars läser, aldrig ett släppt
+    åtagande, alltså är formen ofarlig, men påståendet att strykningen inte kan
+    tillverka en träff var falskt och raden hindrar att det skrivs igen.
+
+    Fällt av §7-granskningen av skiva 46.
+    """
+    varde = PRISER_SOM_LARS_BESLUTAT["service"]
+    text = f"Vi {varde}ingår."
+
+    assert not generera.ATAGANDEORD.search(text), (
+        "texten bär redan en term, alltså prövar raden inte skarven"
+    )
+
+    with pytest.raises(Sparrfalld):
+        generera.krav_pa_atagande_med_kalla(text)
+
+
+def test_prisraden_FORST_I_EN_MENING_passerar():
+    """§7.1: SPÄRREN FÅR INTE FÄLLA DET REGEL 15 BEORDRAR.
+
+    Regel 15 säger att ett a-traktorsvar ALLTID skriver vad ombyggnaden kostar.
+    En strykning som är skiftlägeskänslig fäller då varje svar som INLEDER en
+    mening med prisraden: `Från 20 000 till…` är inte `från 20 000 till…`, och
+    posten bär själv ordet `ingår`. Enligt §9.1 blir det ett stopptecken, alltså
+    inget utkast alls på just den kategori boten finns för.
+
+    Uppmätt av §7-granskningen av skiva 46.
+    """
+    varde = PRISER_SOM_LARS_BESLUTAT["a_traktorkonvertering"]
+    versal = varde[0].upper() + varde[1:]
+    assert versal != varde
+
+    generera.krav_pa_atagande_med_kalla(f"{versal}. Ring oss så tittar vi.")
+
+
+def test_en_RADBRUTEN_prisrad_passerar():
+    """Samma led, andra formen: ett radbrott inuti prisraden.
+
+    Ett svar sätts ihop av modellen och radbryts där den vill. Ett mellanslag i
+    `config/priser.json` som blir en radbrytning i svaret är samma ORD i samma
+    ordning, alltså ordagrant i den mening `PRISFOT` kräver.
+    """
+    varde = PRISER_SOM_LARS_BESLUTAT["a_traktorkonvertering"]
+    radbrutet = varde.replace("och priset gäller", "och\npriset gäller", 1)
+    assert radbrutet != varde
+
+    generera.krav_pa_atagande_med_kalla(f"En ombyggnad kostar {radbrutet}.")
+
+
+def test_ett_TOMT_prisvarde_tystar_INTE_sparren():
+    """Ett tomt mönster matchar mellan varje tecken och stryker HELA svaret.
+
+    `las_konfigvarden` utelämnar tomma värden, men den invarianten bor i en
+    annan funktion. Raden binder att spärren inte tystnar om den ändras.
+    """
+    assert not generera._UTAN_PRISVARDE("").search("vad som helst ingår här")
+
+    with pytest.raises(Sparrfalld):
+        generera.krav_pa_atagande_med_kalla("Dragkroken ingår i bygget.")
+
+
+def test_ett_PRISVARDE_tolkas_aldrig_som_ett_reguljart_uttryck():
+    """`re.escape` på varje del. Ett värde är text, aldrig ett mönster.
+
+    Utan den skulle en prisrad med en parentes eller ett plustecken antingen
+    kasta vid kompileringen eller matcha något helt annat än sin egen text.
+    """
+    monster = generera._UTAN_PRISVARDE("från 1 (ett) + 2 kr")
+
+    assert monster.search("Det kostar från 1 (ett) + 2 kr.")
+    assert not monster.search("Det kostar från 1 ett 2 kr.")
 
 
 def test_REGEL_15_kraver_INGET_PRIS_nar_underlaget_saknar_det(monkeypatch):

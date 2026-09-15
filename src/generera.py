@@ -6,8 +6,12 @@ importgrafen och källtexten, och `tests/test_generera.py` kör den mot den här
 modulen. Samma spärr som vyn har, samma två lager.
 
 **DET HÄR ÄR SÄNDVÄG enligt CLAUDE.md §7.** Modulen avgör med vilket INNEHÅLL ett
-mail lämnar servern den dag fas 7 kopplar in sändningen. Tre granskningsvarv,
+mail lämnar servern den dag fas 7 kopplar in sändningen. En granskningsomgång,
 ovillkorligt.
+
+*Här stod "Tre granskningsvarv". CLAUDE.md 1.0.0 ersatte tre varv med en omgång,
+och raden pekade alltså ut en styrande regel som inte längre finns. Rättat i
+skiva 46.*
 
 SPÄRRARNA PÅ DET GENERERADE, var och en med sin negativkontroll:
 
@@ -15,14 +19,26 @@ SPÄRRARNA PÅ DET GENERERADE, var och en med sin negativkontroll:
                                  utkast. De andra SÖKER EFTER SAKER och släppte
                                  därför igenom det tomma.
   `genererat-tal-har-kalla`      Ett tal i svaret ska komma ur uppslaget eller ur
-                                 config. `config/priser.json` är TOM, alltså
-                                 faller varje svar som nämner ett pris i känd
-                                 form. Fyller Lars en post prövas priset som
-                                 vilket tal som helst, mot sin källa.
+                                 config. `config/priser.json` är FYLLD sedan
+                                 skiva 44, alltså prövas ett pris mot filens
+                                 egna tal: en prissats måste bära minst ett tal,
+                                 och varje tal i satsen ska komma därifrån.
+                                 *Här stod att filen är TOM och att varje svar
+                                 som nämner ett pris därför faller. Lars fyllde
+                                 den i skiva 44. Rättat i skiva 46.*
   `genererat-fordonsfaktum`      Ett fordonsfaktum kräver ett LYCKAT uppslag.
                                  Kopplar `fordonsfakta-ur-uppslag` uppströms.
+  `pastaende-om-franvaro`        Att en uppgift SAKNAS måste vara belagt av ett
+                                 avläst värde. *Raden saknades i den här listan
+                                 sedan skiva 40 byggde spärren, alltså påstod
+                                 uppräkningen en fullständighet den inte hade.
+                                 Rättat i skiva 46.*
   `troskeln-som-forfattningstext` Tröskeln 1 000 kg får inte återges som en
                                  sammanfattad föreskrift.
+  `atagande-om-priset`           Ett påstående om att ett arbete INGÅR, är
+                                 KOSTNADSFRITT eller TÄCKS av priset är ett
+                                 prisbesked, och kräver samma källa som ett
+                                 belopp: `config/priser.json`, ordagrant.
 
 **SPÄRRARNA FÄLLER TILL UTKAST, DE RÄTTAR ALDRIG TEXTEN.** §9.1: en fälld text är
 ett stopptecken och inte ett formuleringsproblem. Att skriva om svaret tills
@@ -105,6 +121,29 @@ class Forfragan:
     utfall: Utfall | None
     uppslag: Uppslag | None = None
     uppslag_gjordes: bool = True
+
+    # OM MAILET ÖVER HUVUD TAGET BAR ETT REGISTRERINGSNUMMER. Skiva 46 DEL B.
+    #
+    # **`uppslag=None` HADE TVÅ BETYDELSER KVAR, och den ena blev ett falskt
+    # besked till kunden.** `uppslag_gjordes` skilde ut kategorin som inte gatas.
+    # Kvar i samma `None` låg ändå två helt olika lägen: mailet bar inget nummer
+    # att slå upp, och numret fanns men uppslaget föll. Ärende 14 i
+    # `data/granskningsfall.jsonl` är det första: kundens mail bär inget
+    # registreringsnummer, och svaret inleds *"Vi har inte kunnat slå upp bilen i
+    # registret"*. Kunden får veta att något misslyckats utan att förstå varför,
+    # och blir aldrig ombedd att skicka numret.
+    #
+    # **FÖRVALET ÄR `True`, ALLTSÅ OFÖRÄNDRAT BETEENDE FÖR VARJE ANROPARE.**
+    # Samma val som `uppslag_gjordes` ovan och av samma skäl. Det motsatta
+    # förvalet är INTE det säkra här: en anropare som inte känner fältet hade då
+    # fått prompten att be om ett registreringsnummer som redan står i mailet,
+    # vilket är precis den form promptens regel 11 finns för att hindra.
+    #
+    # **VILLKORET SÄTTS UR SAMMA FUNKTION SOM FÄLLER UPPSLAGET.** `src/kedja.py`
+    # skickar `fordonsuppslag.normalisera_regnr(arende.regnr)`, alltså exakt det
+    # uttryck vars tomhet får `slag_upp` att kasta *"registreringsnummer
+    # saknas"*. Två skrivsätt för samma faktum hade kunnat gå isär.
+    regnr_i_mailet: bool = True
 
     # VILKA FRÅNVAROPÅSTÅENDEN SOM ÄR BELAGDA. Skiva 40 DEL B.
     #
@@ -482,6 +521,112 @@ FORFATTNINGSTERMER = (
 
 FORFATTNINGSORD = re.compile("|".join(FORFATTNINGSTERMER), flags=re.IGNORECASE)
 
+# ORD SOM GÖR ETT SVAR TILL ETT ÅTAGANDE OM VAD PRISET TÄCKER. LUCKA 59.
+#
+# **ETT ÅTAGANDE OM VAD SOM INGÅR ÄR SAMMA KLASS SOM ETT PÅHITTAT PRIS, och det
+# är Lars besked.** Ärende 19 i `data/granskningsfall.jsonl` skrev *"dragkrok
+# ingår i bygget"*. Prisfilens post säger att priset gäller arbetet och de delar
+# som ingår i GRUNDPAKETET, och boten vet inte vad grundpaketet innehåller.
+# Alltså lovade den bort ett arbete gratis. Ingen befintlig spärr rörde den
+# meningen: den bär inget tal och inget prisord, alltså är den varken en prissats
+# för `krav_pa_tal_med_kalla` eller ett fordonsfaktum.
+#
+# **SKILLNADEN MOT ETT ERBJUDANDE ÄR HELA REGELN, och den är Lars.** Ett svar FÅR
+# säga att vi KAN UTFÖRA ett arbete: *"Extraljusen kopplar vi in"* och *"vi kan
+# montera en dragkrok"* är inga prisåtaganden och står orörda här. Det som fälls
+# är påståendet att arbetet inte kostar något extra.
+#
+# TERMERNA ÄR MÄTTA, inte uppfunna. `data/par.jsonl` är Mattes egna skickade svar
+# och bär `ingår`, `inkluderar`, `omfattar`, `bjuder ... på` och `på köpet` i just
+# den betydelsen, och `data/granskningsfall.jsonl` bär botens `ingår`.
+# `kostnadsfri\w*`, `gratis` och `täcker`/`täcks` står för de två klasser Lars
+# namnger utöver INGÅR, alltså KOSTNADSFRITT och TÄCKS av priset, och de är inte
+# uppmätta i korpusen. Det redovisas som ett val.
+#
+# **FORMER SOM REDAN FÄLLS AV `PRISORD` STÅR MED FLIT INTE HÄR.** *"utan
+# kostnad"*, *"utan extra kostnad"* och *"kostar inget"* bär alla en PRISTERM,
+# alltså blir meningen en prissats utan tal och faller redan på
+# `krav_pa_tal_med_kalla`. Ett andra lager på samma form hade gjort båda
+# oprövbara var för sig, vilket §7.1 varnar för.
+#
+# **INGA ASCII-VARIANTER, och det är ett mätt beslut och ingen glömska.**
+# `PRISTERMER` bär `\bspann\b` bredvid `\bspänn\b`, men den vägen är stängd för
+# den här mängden. ASCII-formen av `ingår` är `ingar`, av `på köpet` är `pa
+# kopet`, och av `täcks` är `tacks`, som ligger en bokstav från `tack`: ordet
+# står 37 gånger i `data/par.jsonl`:s utgående svar. En mängd som får
+# ASCII-varianter för somliga termer och inte för andra är just den
+# inkonsekvens `laglig\w*` och `lagstadga\w+` fälldes för i skiva 34, alltså
+# faller de för alla. Formen står som LUCKA 60 i `docs/sparrar.md`.
+#
+# *Här stod att `tack` är "verkstadssvarets vanligaste ord". Räknat över
+# `utgaende_text` i `data/par.jsonl` står `att` 372 gånger och `vi` 323, alltså
+# är det inte ens i närheten. Talet 37 stämde, superlativen inte. Fällt av
+# §7-granskningen av skiva 46.*
+#
+# **EN TERM PER RAD, UTAN INTERN ALTERNATION.** Samma krav som de tre mängderna
+# ovan, bundet av `test_ingen_term_gommer_en_alternation`.
+ATAGANDETERMER = (
+    r"\bingår\b",
+    # `\w+` DÄR DEN NAKNA STAMMEN INTE ÄR ETT ORD. `inkluder` förekommer aldrig
+    # ensamt på svenska, alltså vore den tomma böjningen en gren ingen rad kan
+    # pröva. Samma skäl som `bestämmels\w+`. `kostnadsfri` ÄR ett ord och
+    # behåller därför `\w*`, med en isolerande rad i naken form.
+    r"\binkluder\w+",
+    # `omfattar` OCH INTE `omfatt\w*`. Stammen delar sträng med `omfattning`,
+    # som är ett MÄNGDORD och inget åtagande: *"från 2 500 kr beroende på
+    # omfattning"* står i `data/par.jsonl` och är ett prisförbehåll, alltså
+    # motsatsen till det som fälls här.
+    r"\bomfattar\b",
+    r"\bkostnadsfri\w*",
+    r"\bgratis\b",
+    r"\bpå köpet\b",
+    # **`täcker` OCH `täcks` STÅR INTE HÄR, och det är ett fynd och ingen
+    # glömska.** Lars klass är att ett arbete TÄCKS AV PRISET, och en naken
+    # täck-term är inte ankrad till priset: den fäller varje mening om vad en
+    # FÖRSÄKRING eller en GARANTI täcker. Två inkommande mail i `data/par.jsonl`
+    # nämner en försäkring, och noll utgående svar bär `täcker` eller `täcks` i
+    # någon betydelse. En fällning rapporterad som `atagande-om-priset` på ett
+    # försäkringsbesked är dessutom ett STOPPTECKEN enligt §9.1, alltså inget
+    # utkast alls.
+    #
+    # **DEN PRISANKRADE FORMEN FÄLLS REDAN.** *"Priset täcker monteringen"* och
+    # *"det täcks av priset"* bär båda `\bpriset\b`, som är en PRISTERM, alltså
+    # blir meningen en prissats utan tal och faller på `krav_pa_tal_med_kalla`.
+    # En term här hade varit ett andra lager på samma form, vilket §7.1 varnar
+    # för. Den oankrade formen *"det täcker vi"* står kvar som en del av
+    # LUCKA 61. Fällt av §7-granskningen av skiva 46.
+    # BÅDA ORDFÖLJDERNA, som var sin term. `bjuder` ensamt är för svagt: *"vi
+    # bjuder in dig"* är ingen utfästelse om priset. Båda formerna står i
+    # `data/par.jsonl`: *"Vi bjuder på en Guldtvätt"* och *"Denna bjuder vi på"*.
+    r"\bbjuder på\b",
+    r"\bbjuder vi på\b",
+)
+
+ATAGANDEORD = re.compile("|".join(ATAGANDETERMER), flags=re.IGNORECASE)
+
+
+def _UTAN_PRISVARDE(varde: str) -> re.Pattern:
+    """Mönstret som stryker ETT prisvärde ur ett svar. Se `krav_pa_atagande_med_kalla`.
+
+    Varje tecken i värdet citeras med `re.escape`, alltså kan ingen prisrad
+    tolkas som ett reguljärt uttryck. Blankteckensrun blir `\\s+`, så att en
+    radbrytning i svaret matchar ett mellanslag i filen. Skiftläget är fritt, så
+    att en prisrad först i en mening matchar.
+
+    **`\\s+` OCH INTE `\\s*`.** Ett blanktecken i värdet ska motsvaras av minst
+    ett i svaret: `20 000` och `20000` är inte samma skrivform, och `_tal_i`
+    normaliserar dem bara för talspärren.
+    """
+    delar = [re.escape(bit) for bit in varde.split()]
+    if not delar:
+        # ETT TOMT VÄRDE SKULLE GE ETT TOMT MÖNSTER, som matchar mellan varje
+        # tecken och därmed stryker HELA svaret. Spärren hade då tystnat utan
+        # att något blev rött. `las_konfigvarden` utelämnar tomma värden, men
+        # den invarianten bor i en annan funktion, och en sändvägsspärr ska
+        # inte kunna tystna av att en granne ändras.
+        return re.compile(r"(?!)")
+    return re.compile(r"\s+".join(delar), flags=re.IGNORECASE)
+
 
 # EN BILMODELL LÄSES SOM ETT TAL, och det är lucka 30. Utan den
 #
@@ -606,10 +751,15 @@ def krav_pa_tal_med_kalla(svar: str, forfragan: Forfragan) -> None:
 
     **PRISGRENEN VILAR PÅ VAD `config/priser.json` BÄR, inte på att den finns.**
     Före skiva 41 fällde den varje prisord ovillkorligt, med skälet att filen
-    inte existerade. Filen finns nu och är TOM, alltså är utfallet oförändrat.
+    inte existerade. Filen finns sedan skiva 41 och är FYLLD sedan skiva 44,
+    alltså prövas ett pris nu mot filens egna tal.
 
     *Skälet var dessutom FALSKT så snart filen skapades. Fällt av
     §7-granskningen av skiva 41, varv 1.*
+
+    *Här stod i presens att filen är TOM och att utfallet därför är oförändrat.
+    Lars fyllde fem av sex poster i skiva 44. Fällt av §7-granskningen av
+    skiva 46.*
 
     *Noten sade också att strängen går in i `logg/beslut.jsonl` och i vyn. Båda
     leden är falska: `kedja.logga_beslut` skriver uttryckligen inget `skal`, och
@@ -1062,10 +1212,91 @@ def krav_pa_att_troskeln_inte_ar_forfattningstext(svar: str) -> None:
         )
 
 
+def krav_pa_atagande_med_kalla(svar: str) -> None:
+    """SPÄRR: ett åtagande om vad priset täcker kräver en källa. LUCKA 59.
+
+    Faller svaret här är det ett STOPPTECKEN. Texten skrivs inte om tills den
+    passerar, se §9.1.
+
+    **REGELN ÄR LARS, och skälet är hans:** ett åtagande om vad som ingår i ett
+    pris är samma klass som ett påhittat pris. Ärende 19 skrev *"dragkrok ingår i
+    bygget"* medan prisfilens post säger att priset gäller de delar som ingår i
+    GRUNDPAKETET, ett innehåll boten inte känner. Meningen bär varken tal eller
+    prisord, alltså rörde ingen befintlig spärr den.
+
+    **KÄLLAN GODTAS ORDAGRANT, och ingenting annat.** Varje värde ur
+    `config/priser.json` stryks ur svaret innan orden söks. Står ett åtagandeord
+    kvar efter det, så kommer det inte ur prisfilen. Det är samma krav som
+    `PRISFOT` ställer på prompten: ett värde ur en §10-grindad källa återges som
+    det står, annars är det inte det värdet.
+
+    **ORDAGRANNHETEN GÄLLER ORDEN, inte versalen och inte radbrytningen, och det
+    ledet är fällt fram.** En första lydelse strök värdet med `str.replace`,
+    alltså skiftlägeskänsligt och teckenexakt på varje blanktecken. Följden var
+    att ett svar som INLEDER en mening med prisraden föll: `Från 20 000 till…`
+    är inte `från 20 000 till…`. Promptens regel 15 beordrar att priset ALLTID
+    skrivs i ett a-traktorsvar, alltså hade en versal begynnelsebokstav eller en
+    radbrytning mitt i raden gjort varje sådant svar till ett STOPPTECKEN enligt
+    §9.1, på precis den kategori boten finns för. Uppmätt av §7-granskningen av
+    skiva 46.
+
+    Strykningen är därför skiftlägesokänslig, och varje blankteckensrun i värdet
+    matchar en godtycklig blankteckensrun i svaret. **DET ÄR INGEN SÄNKT
+    TRÖSKEL:** varje ORD och varje siffra måste fortfarande stå i sin ordning,
+    och ett inskjutet eller struket ord fäller lika hårt som förut.
+
+    **ETT TOMT VÄRDE NÅR ALDRIG HIT.** `las_konfigvarden` utelämnar det, och det
+    ledet är lastbärande: ett mönster byggt ur en tom sträng matchar mellan varje
+    tecken, alltså hade hela svaret strukits och spärren tystnat helt.
+    `config/priser.json` bär en tom post i dag, `tillbehor`.
+
+    **VARFÖR PRÖVNINGEN INTE SKER PER SATS.** De andra spärrarna delar svaret
+    därför att ett ord i en sats inte ska kunna hämta sin KÄLLA ur en annan.
+    Här hämtas ingenting: strykningen är textuell, och den enda skillnaden mot en
+    satsvis prövning vore att ett prisvärde som spänner över en meningsgräns inte
+    skulle kunna strykas alls. Hela svaret är alltså både enklare och snävare.
+
+    **STRYKNINGEN KAN TILLVERKA EN TRÄFF, och det är en ÖVERBLOCKERING.** Värdet
+    byts mot ett BLANKSTEG och inte mot ingenting, alltså kan två halvor inte
+    fogas ihop till en term som spänner över skarven. Men en term som ligger
+    INTILL skarven får en ny ordgräns av blanksteget: `…motortvätt 500 kringår.`
+    bär ingen term, och efter strykningen står `ingår` där. Utfallet blir ett
+    utkast Lars läser, aldrig ett släppt åtagande.
+
+    *Här stod att strykningen INTE KAN tillverka ett åtagandeord, med skälet att
+    varje term är ordgränsad. Skälet täcker bara en term som spänner ÖVER
+    skarven, och påståendet var alltså falskt för en term intill den. Fällt av
+    §7-granskningen av skiva 46.*
+
+    **ÖVERBLOCKERAR NÄR MODELLEN SKRIVER OM PRISRADEN, och det är den säkra
+    riktningen.** Ärende 19 skrev *"och DET priset gäller arbetet och de delar
+    som ingår i grundpaketet"*, alltså ett inskjutet ord i en rad `PRISFOT`
+    beordrar ordagrant. Den formen faller här. Utfallet blir `utkast`, som Lars
+    läser ändå, och en prisrad som inte är ordagrant återgiven är redan ett brott
+    mot `PRISFOT`. Samma avvägning som lucka 55.
+
+    **UPPRÄKNINGEN AV ORD ÄR INTE UTTÖMMANDE.** Samma sak gäller `PRISORD` och
+    `FORDONSORD`: en modell kan alltid formulera ett åtagande utan något av
+    orden. Vad som bär i det fallet står som LUCKA 61 i `docs/sparrar.md`, och
+    det är ingen promptregel i dag: §11 gör promptens ordalydelse till Lars.
+    """
+    kvar = svar
+    for varde in las_priser().values():
+        kvar = _UTAN_PRISVARDE(varde).sub(" ", kvar)
+
+    traff = ATAGANDEORD.search(kvar)
+    if traff:
+        raise Sparrfalld(
+            "atagande-om-priset",
+            f"svaret säger {traff.group(0).lower()!r} om ett arbete, och det "
+            f"åtagandet står inte ordagrant i config/priser.json",
+        )
+
+
 def krav_pa_ett_svar(svar: str) -> None:
     """SPÄRR: ett tomt svar är inget utkast.
 
-    **DE TRE ANDRA SPÄRRARNA SÖKER EFTER SAKER, alltså släpper alla tre igenom
+    **VARJE ANNAN SPÄRR SÖKER EFTER SAKER, alltså släpper de alla igenom
     en tom sträng.** Följden var att ett tomt modellsvar blev ett godkänt
     utkast: `blev_utkast` sant, `forslag` tomt, ingen spärr angiven. I vyn blev
     det ett tomt textfält som gick att omdöma, och ett `forbattra` hade skrivit
@@ -1073,6 +1304,11 @@ def krav_pa_ett_svar(svar: str) -> None:
     få-exempel.
 
     Uppmätt som en möjlig väg av §7-granskningen av skiva 34, varv 2.
+
+    *Här stod "DE TRE ANDRA SPÄRRARNA" och "alla tre". `krav_pa_svaret` anropar
+    sex, alltså fem andra än den här. Talet var falskt redan när skiva 40 byggde
+    `pastaende-om-franvaro`, och skiva 46 gjorde det falskare. Fällt av
+    §7-granskningen av skiva 46.*
     """
     if not svar.strip():
         raise Sparrfalld("tomt-svar", "modellen svarade ingenting")
@@ -1090,6 +1326,7 @@ def krav_pa_svaret(svar: str, forfragan: Forfragan) -> None:
     krav_pa_fordonsfakta_ur_uppslag(svar, forfragan)
     krav_pa_belagt_franvaropastaende(svar, forfragan)
     krav_pa_att_troskeln_inte_ar_forfattningstext(svar)
+    krav_pa_atagande_med_kalla(svar)
 
 
 # ------------------------------------------------------------------ DEL B
@@ -1288,19 +1525,33 @@ def bygg_prompt(forfragan: Forfragan, exempel: list[dict]) -> str:
 
 
 def _bedomning(forfragan: Forfragan) -> str:
-    """Bedömningsraden, med tre lägen i stället för två.
+    """Bedömningsraden, med fyra lägen i stället för två.
 
     **DET TREDJE LÄGET ÄR "INGEN BEDÖMNING GJORDES", och det saknades.** En
     kategori som inte gatas av fordonsuppslaget har inget utfall, och `None`
     föll då till samma text som ett MISSLYCKAT uppslag. Följden var att en
     rekondbokning fick svaret att vi inte kunnat slå upp fordonet. Fällt av
     kedjans provkörning i skiva 34.
+
+    **DET FJÄRDE ÄR "MAILET BAR INGET NUMMER", och det är skiva 46 DEL B.** Samma
+    defektform ett steg in: kvar i `uppslag=None` låg två lägen som betyder helt
+    olika saker för kunden. Ärende 14 fick *"Vi har inte kunnat slå upp bilen i
+    registret"* på ett mail som aldrig bar ett registreringsnummer, alltså ett
+    besked om ett misslyckande som inte inträffat och ingen fråga efter det som
+    faktiskt saknades. Se `Forfragan.regnr_i_mailet`.
+
+    **VILLKORET BÄR `uppslag is None` OCKSÅ**, alltså inte bara flaggan. Kedjan
+    kan inte ge ett lyckat uppslag utan ett nummer, men bedömningsraden ska säga
+    vad som GÄLLER och inte vad en anropare lovat: finns ett uppslag är det
+    uppslaget som är bedömningen, oavsett vad flaggan säger.
     """
     if not forfragan.uppslag_gjordes:
         return (
             "ingen fordonsbedömning behövs för den här kategorin. Svara på det "
             "kunden faktiskt frågar om."
         )
+    if forfragan.uppslag is None and not forfragan.regnr_i_mailet:
+        return SAKNAT_REGNR_BEDOMNING
     return _utfallstext(forfragan.utfall, forfragan.uppslag is not None)
 
 
@@ -1317,6 +1568,12 @@ def _underlag(forfragan: Forfragan) -> str:
             "Fordonsuppslag: EJ AKTUELLT för den här kategorin. Nämn inte "
             "bilens uppgifter, och säg INTE att vi försökt slå upp något."
         )
+    elif forfragan.uppslag is None and not forfragan.regnr_i_mailet:
+        # MAILET BAR INGET NUMMER, alltså gjordes inget uppslag att misslyckas
+        # med. Raden ovanför sade tidigare samma sak i båda lägena, och
+        # bedömningsraden lade till att vi inte kunnat slå upp bilen. Se
+        # `_bedomning` och `Forfragan.regnr_i_mailet`.
+        rader.append(SAKNAT_REGNR_UNDERLAG)
     elif forfragan.uppslag is None:
         rader.append(
             "Fordonsuppslag: INGET. Du vet ingenting om kundens bil. Nämn inte "
@@ -1440,6 +1697,46 @@ UNDERLAGSRUBRIK = (
     "saknas, och gissa aldrig ett värde.\n"
 )
 
+# DE TVÅ RADERNA FÖR ETT MAIL UTAN REGISTRERINGSNUMMER. Skiva 46 DEL B.
+#
+# **EGNA KONSTANTER AV SAMMA SKÄL SOM `UNDERLAGSRUBRIK` OCH `PRISFOT`: de är
+# sändvägstext och ska gå att binda ORDAGRANT.** En lydelse som låter modellen
+# påstå ett misslyckat uppslag ändå skulle annars passera ett test som bara söker
+# en delsträng, vilket är lucka 25:s form.
+#
+# **BÅDA RADERNA BEHÖVS, och det är inte en upprepning.** `_underlag` säger vad
+# LÄGET är, `_bedomning` säger vad SVARET ska göra åt det. Skiva 34:s tredje läge
+# är byggt likadant, och skälet är detsamma: modellen läser bedömningsraden som
+# sin instruktion och uppslagsraden som sitt faktum. Fanns bara den ena, så
+# hämtade den andra sin text ur ett förval som säger något annat.
+#
+# **INGENDERA RADEN PÅSTÅR ATT MAILET SAKNAR ETT NUMMER, och det ledet är fällt
+# fram.** En första lydelse sade *"Mailet bär inget registreringsnummer"* och
+# beordrade ovillkorligt *"BE KUNDEN SKICKA REGISTRERINGSNUMRET"*. Vad vi
+# faktiskt vet är att VI inte har något nummer, alltså att extraktionen inte gav
+# något, och den är snävare än verkligheten: mönstret söker inte i ämnesraden
+# och täcker inte varje skrivform. Se LUCKA 62 i `docs/sparrar.md`.
+#
+# Följden av den gamla lydelsen var att en missad extraktion blev en ORDER att
+# fråga efter ett nummer som står i mailet, alltså precis det promptens regel 11
+# förbjuder. Raderna säger nu vad vi vet och lämnar frågan villkorad av vad
+# modellen läser i mailet. Fällt av §7-granskningen av skiva 46.
+SAKNAT_REGNR_UNDERLAG = (
+    "Fordonsuppslag: INGET UPPSLAG GJORDES. Vi har inget registreringsnummer "
+    "för det här ärendet, alltså har vi aldrig försökt slå upp bilen och "
+    "ingenting har misslyckats. Nämn inte tjänstevikt, släpvagnsvikt eller "
+    "draganordning."
+)
+
+SAKNAT_REGNR_BEDOMNING = (
+    "vi har inget registreringsnummer att gå på, alltså har vi inte bedömt "
+    "bilen. Säg ALDRIG att ett uppslag misslyckats, att vi inte kunnat hitta "
+    "bilen eller att vi inte kunnat slå upp den: vi har inte försökt. Skriv "
+    "ingenting om bilens uppgifter. Står registreringsnumret inte i mailet: "
+    "BE KUNDEN SKICKA DET så tittar vi på bilen. Står det där: läs det ur "
+    "mailet och fråga inte efter det."
+)
+
 # FAKTABLOCKETS RAM, som egna konstanter för att gå att binda ORDAGRANT.
 #
 # **RUBRIKEN ÄR SÄNDVÄGSTEXT OCH VAR OBUNDEN.** En lydelse som uttryckligen bad
@@ -1509,10 +1806,16 @@ def _prisrader(prisfil: Path | None = None) -> str:
     tiga när filen är tom hade lämnat modellen att gissa om den får nämna ett
     pris.
 
-    **FILEN FINNS SEDAN SKIVA 41 OCH ÄR TOM.** Lars §10-beslut. Åtta av nio
-    spärrade svar i skiva 40:s mätning föll på att svaret nämner ett pris medan
-    filen inte fanns, se `docs/beslutslogg.md` #90. Att filen finns ändrar
-    ingenting förrän Lars fyller en post: en tom fil ger samma rad som ingen fil.
+    **FILEN FINNS SEDAN SKIVA 41 OCH ÄR FYLLD SEDAN SKIVA 44.** Lars §10-beslut
+    båda gångerna. Åtta av nio spärrade svar i skiva 40:s mätning föll på att
+    svaret nämner ett pris medan filen inte fanns, se `docs/beslutslogg.md` #90.
+    Fem av sex poster bär i dag ett pris, och `PRISRUBRIK` renderas. `tillbehor`
+    står tom, alltså utelämnas den ur prompten och är ingen källa.
+
+    `INGA_PRISER` nås fortfarande, men bara om varje post töms.
+
+    *Här stod i presens att filen ÄR TOM och att en tom fil ger samma rad som
+    ingen fil. Lars fyllde den i skiva 44. Fällt av §7-granskningen av skiva 46.*
     """
     priser = las_priser(prisfil)
     if not priser:
