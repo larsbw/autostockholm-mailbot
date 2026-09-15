@@ -16,6 +16,7 @@ import binascii
 import hashlib
 import html
 import re
+from datetime import datetime, timezone
 from email.utils import getaddresses
 
 # Huvuden som bara finns på post som PASSERAT INKOMMANDE LEVERANS. Ett mail som
@@ -133,6 +134,25 @@ def kundadress(meddelande: dict) -> str:
             if adress != BREVLADA:
                 return adress
     return ""
+
+
+def tidsstampel(meddelande: dict) -> str:
+    """Meddelandets tid, ISO 8601 i UTC. Tom sträng när fältet saknas.
+
+    `internalDate` är millisekunder sedan epok, som sträng.
+
+    **EN DEFINITION OCH INTE TVÅ.** Funktionen låg som `_tidsstampel` i
+    `src/extract.py` och behövdes av en andra läsare. Modulens egen inledning
+    säger varför den flyttades hit i stället för att kopieras: urvalet och
+    utvinningen ur en Gmail-tråd bor på ett ställe, eftersom två kopior driver
+    isär. Tidsstämpeln följer med kundens ärende hela vägen till loggraden och
+    till vyn, och två läsare som daterar samma mail olika är inte ett fel som
+    syns.
+    """
+    ra = meddelande.get("internalDate")
+    if not ra:
+        return ""
+    return datetime.fromtimestamp(int(ra) / 1000, timezone.utc).isoformat()
 
 
 def hasha(adress: str) -> str:

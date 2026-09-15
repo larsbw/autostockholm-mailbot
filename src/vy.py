@@ -101,6 +101,34 @@ FORBJUDET_MONSTER = re.compile(
     r"messages\s*\(\s*\)\s*\.\s*send|sendmail|SMTP\s*\("
 )
 
+# MODULERNA SOM FÅR DRA IN EN GMAIL-TJÄNST, och ingen annan. Skiva 48.
+#
+# **SKUGGLÄGET KAN INTE LIGGA UNDER "INGEN VÄG FINNS", och det är inte ett
+# undantag utan en annan spärr.** `scripts/respond.py` måste läsa brevlådan,
+# alltså måste `googleapiclient` in i dess importgraf. Vad som bär i stället är
+# tre lager: läsatokenets scope (`src/auth.py::LASSCOPES`, det enda Google
+# upprätthåller), den kapade tjänsten (`src/inkorg.py::Lastjanst`), och den här
+# uppräkningen.
+#
+# **UPPRÄKNINGEN ÄR NAMNGIVEN OCH INTE EN REGEL.** En fjärde modul som börjar
+# importera `googleapiclient` fäller spärren tills Lars skriver in den här. Det
+# är skillnaden mot att ta bort importlagret: vägen är fortfarande EN, och den
+# är utpekad.
+#
+# `src.auth` står här därför att `src.inkorg` och `src.mine` når
+# `googleapiclient.discovery` genom den. `smtplib` står i `FORBJUDNA_MODULER`
+# och undantas ALDRIG av någon lista: den vägen har inget ärende i det här
+# repot.
+GMAILBARANDE_MODULER = frozenset({
+    "src.inkorg",
+    "src.mine",
+    "src.auth",
+})
+
+# Undantaget gäller de moduler som når en Gmail-TJÄNST. `smtplib` är inte en
+# sådan väg och står utanför, så att en tillåtningslista aldrig kan öppna den.
+UNDANTAGBARA = frozenset({"googleapiclient", "src.auth"})
+
 
 def _lokala_importer(kalla: str, i_modul: str) -> set[str]:
     """Modulnamnen en källfil importerar.
@@ -254,8 +282,20 @@ def _rot(rot: Path | None) -> Path:
     return ROT if rot is None else rot
 
 
-def krav_pa_sandvagsfrihet(start: str = "src.vy", rot: Path | None = None) -> None:
+def krav_pa_sandvagsfrihet(start: str = "src.vy", rot: Path | None = None,
+                           tillatna: frozenset[str] = frozenset()) -> None:
     """Kastar när vyn drar in något som kan skicka mail.
+
+    `tillatna` är de MODULER som får importera ett namn ur `FORBJUDNA_MODULER`,
+    och den är TOM SOM FÖRVAL. Ett förval som släppte igenom något hade gjort
+    spärren fail-open för varje anropare som inte vet att parametern finns, och
+    vyns egen prövning är den som absolut inte får mjukas upp: `src/vy.py` och
+    `src/kedja.py` anropar utan argumentet och ska fortsätta göra det.
+    `test_vyns_och_kedjans_sparr_far_INGA_undantag` binder det.
+
+    **BARA `UNDANTAGBARA` GÅR ATT TILLÅTA.** `smtplib` står utanför den mängden,
+    alltså kan ingen uppräkning öppna den vägen. En tillåtningslista som kunde
+    öppna vad som helst hade varit en avstängningsknapp med ett annat namn.
 
     **SPÄRREN ÄR ATT DET INTE FINNS NÅGON VÄG, inte att vägen är stängd.** En
     knapp som inte syns, eller ett anrop bakom ett villkor, är en väg som råkar
@@ -275,12 +315,25 @@ def krav_pa_sandvagsfrihet(start: str = "src.vy", rot: Path | None = None) -> No
     Prövningen körs vid `starta`, alltså innan vyn tar emot något, och den är
     ett vanligt Python-anrop som testet kan göra direkt.
     """
+    otillatna = tillatna - UNDANTAGBARA
+    if otillatna:
+        raise Sandvagsfel(
+            f"{sorted(otillatna)} går inte att undanta. Bara {sorted(UNDANTAGBARA)} "
+            "är undantagbara, och smtplib aldrig."
+        )
+
     kallor = moduler_i_vyn(start, _rot(rot))
 
     for modul, kalla in sorted(kallor.items()):
         for importerad in sorted(_lokala_importer(kalla, modul)):
             rot_namn = importerad.split(".")[0]
             if importerad in FORBJUDNA_MODULER or rot_namn in FORBJUDNA_MODULER:
+                # UNDANTAGET GÄLLER MODULEN SOM IMPORTERAR, inte namnet som
+                # importeras. `src.inkorg` får dra in `googleapiclient`; en
+                # godtycklig modul får det inte, fastän namnet är detsamma.
+                if modul in GMAILBARANDE_MODULER and (
+                        importerad in tillatna or rot_namn in tillatna):
+                    continue
                 raise Sandvagsfel(
                     f"{modul} importerar {importerad}, som kan skicka mail. "
                     f"Vyn får inte ha någon sändväg alls."

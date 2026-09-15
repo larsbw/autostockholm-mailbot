@@ -1,7 +1,12 @@
 """OAuth-desktopflöde mot Gmail för info@autostockholm.se.
 
-Scopelistan är låst till gmail.modify och gmail.send (CLAUDE.md §0). Ett nytt
-scope är ett §10-stopp och läggs aldrig till av kod.
+TVÅ SCOPELISTOR OCH TVÅ TOKEN. `SCOPES` är miningens och fas 7:s, låst till
+gmail.modify och gmail.send. `LASSCOPES` är skugglägets, gmail.readonly och
+ingenting annat. Ett nytt scope är ett §10-stopp och läggs aldrig till av kod;
+`LASSCOPES` tillkom på Lars uttryckliga beslut i skiva 48.
+
+*Här stod att scopelistan är låst till gmail.modify och gmail.send, i singular.
+Det blev falskt av samma skiva som skrev den andra listan.*
 
 Idempotens: en giltig token återanvänds och filen rörs INTE. En utgången token
 med refresh_token förnyas utan webbläsare. Webbläsaren öppnas bara när inget av
@@ -24,9 +29,37 @@ SCOPES = [
     "https://www.googleapis.com/auth/gmail.send",
 ]
 
+# SKUGGLÄGETS SCOPE. Lars §10-beslut i skiva 48.
+#
+# **DET HÄR ÄR DET ENDA LAGRET GOOGLE UPPRÄTTHÅLLER.** De andra tre ligger i vår
+# kod och kan brytas av en rad; det här vägrar på serversidan. Lars ordagranna
+# skäl: sändförmågan ska inte finnas, inte vara bortbyggd.
+#
+# AVLÄST 2026-09-15 ur
+# https://developers.google.com/workspace/gmail/api/auth/scopes :
+#
+#   gmail.readonly  "View your email messages and settings."   restricted
+#   gmail.modify    "Read, compose, and send emails from your Gmail account.
+#                    This scope does not allow immediate, permanent deletion of
+#                    threads and messages, bypassing the trash."   restricted
+#   gmail.send      "Send email on your behalf."   sensitive
+#
+# **`gmail.modify` TILLÅTER ALLTSÅ SÄNDNING**, och det är hela skälet att det
+# inte räcker att utelämna `gmail.send`. Det nuvarande tokenet bär TVÅ av
+# varandra oberoende vägar ut, och läsatokenet tar bort båda.
+LASSCOPES = [
+    "https://www.googleapis.com/auth/gmail.readonly",
+]
+
 ROT = Path(__file__).resolve().parent.parent
 CLIENT_SECRET = ROT / "client_secret.json"
 TOKEN = ROT / "token.json"
+
+# SKILD FIL, INTE SAMMA. Två auktoriseringar med olika scope kan inte dela
+# token: `_las_token` prövar `has_scopes` mot det filen bär, och en skrivning
+# hade skrivit över den andra. Filen är gitignorerad på samma villkor som
+# `token.json`.
+LASTOKEN = ROT / "token-las.json"
 
 
 class AuthFel(Exception):
@@ -84,10 +117,17 @@ def hamta_credentials(
             return cred
 
     if not tillat_webblasare:
+        # KOMMANDOT I MEDDELANDET MÅSTE MATCHA SCOPET SOM BEGÄRDES. Raden bar
+        # `--auktorisera` utan `--las` oavsett vilken token som saknades, alltså
+        # anvisade den läsvägens användare att auktorisera om med gmail.modify
+        # och gmail.send. Ett felmeddelande som leder till fel scope är värre än
+        # inget felmeddelande.
+        flagga = " --las" if token_sokvag == LASTOKEN else ""
         raise AuthFel(
             f"Ingen giltig eller förnybar token i {token_sokvag.name}. "
             "Auktorisering kräver webbläsare och är ett §10-stopp: kör "
-            "`.venv/bin/python -m src.auth --auktorisera` efter Lars beslut."
+            f"`.venv/bin/python -m src.auth{flagga} --auktorisera` efter Lars "
+            "beslut."
         )
 
     if not client_secret.exists():
@@ -96,6 +136,61 @@ def hamta_credentials(
     flow = InstalledAppFlow.from_client_secrets_file(str(client_secret), scopes)
     cred = flow.run_local_server(port=0)
     _skriv_token(cred, token_sokvag)
+    return cred
+
+
+class Sandformaga(Exception):
+    """Credentialen bär ett scope som kan skicka mail."""
+
+
+def krav_pa_bara_lasning(cred: Credentials) -> None:
+    """Kastar om credentialen bär något annat scope än `LASSCOPES`.
+
+    **PRÖVNINGEN ÄR EN TILLÅTNINGSLISTA OCH INTE EN FÖRBUDSLISTA, och det är
+    avsiktligt.** En förbudslista hade krävt att vi vet vilka av Gmails scope som
+    kan skicka, och den kunskapen är en avläsning som åldras: `gmail.modify` och
+    `gmail.send` är de två jag läst 2026-09-15, men listan är inte uttömmande
+    prövad och ett scope vi inte känner till hade sluppit igenom. En exakt
+    likhet mot `LASSCOPES` behöver ingen sådan kunskap.
+
+    **DEN HÄR RADEN ÄR INTE GARANTIN, den är larmet.** `cred.scopes` kommer ur
+    vår egen tokenfil och säger vad Google BEVILJADE enligt filen, inte vad
+    Google faktiskt kommer att acceptera. Garantin är serversidans: ett
+    `messages.send` med ett readonly-token avvisas av Google oavsett vad filen
+    påstår. Kontrollen finns för att ett fel ska synas här, vid uppstart, i
+    stället för som ett 403 mitt i en körning.
+    """
+    beviljade = set(cred.scopes or [])
+    if beviljade != set(LASSCOPES):
+        raise Sandformaga(
+            f"credentialen bär {sorted(beviljade)}, inte {sorted(LASSCOPES)}. "
+            "Skuggläget läser med ett token som inte kan skicka. Kör "
+            "`.venv/bin/python -m src.auth --las --auktorisera`."
+        )
+
+
+def hamta_las_credentials(
+    *,
+    tillat_webblasare: bool = False,
+    token_sokvag: Path = LASTOKEN,
+    client_secret: Path = CLIENT_SECRET,
+) -> Credentials:
+    """Credentials som BARA kan läsa. Skugglägets enda väg till Gmail.
+
+    **`scopes` ÄR INGEN PARAMETER HÄR, och det är hela poängen.**
+    `hamta_credentials` tar scopelistan som argument, alltså kan en anropare be
+    om vad som helst. Den här funktionen kan inte ombes om något annat än
+    `LASSCOPES`, och prövar dessutom utfallet: pekar någon `token_sokvag` mot
+    `token.json` faller `krav_pa_bara_lasning` i stället för att ge en
+    sändförmögen credential till en läsväg.
+    """
+    cred = hamta_credentials(
+        tillat_webblasare=tillat_webblasare,
+        token_sokvag=token_sokvag,
+        client_secret=client_secret,
+        scopes=LASSCOPES,
+    )
+    krav_pa_bara_lasning(cred)
     return cred
 
 
@@ -118,20 +213,31 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="tillåt webbläsarflödet om token saknas eller inte går att förnya",
     )
+    tolk.add_argument(
+        "--las",
+        action="store_true",
+        help="skuggläget: gmail.readonly mot token-las.json, i stället för "
+             "gmail.modify och gmail.send mot token.json",
+    )
     arg = tolk.parse_args(argv)
 
-    print(_status(TOKEN))
+    token = LASTOKEN if arg.las else TOKEN
+    print(_status(token))
     print(f"client_secret.json: {'finns' if CLIENT_SECRET.exists() else 'saknas'}")
+    print("begär scopes: " + " ".join(LASSCOPES if arg.las else SCOPES))
 
     try:
-        cred = hamta_credentials(tillat_webblasare=arg.auktorisera)
-    except AuthFel as fel:
+        if arg.las:
+            cred = hamta_las_credentials(tillat_webblasare=arg.auktorisera)
+        else:
+            cred = hamta_credentials(tillat_webblasare=arg.auktorisera)
+    except (AuthFel, Sandformaga) as fel:
         print(f"FEL: {fel}")
         return 1
 
     print(f"giltig: {cred.valid}")
     print("scopes: " + " ".join(sorted(cred.scopes or [])))
-    print(_status(TOKEN))
+    print(_status(token))
     return 0
 
 

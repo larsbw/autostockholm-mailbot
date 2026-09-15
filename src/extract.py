@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 
 from src import klassa_maskin, urval
@@ -32,17 +31,6 @@ UTFIL = ROT / "data" / "par.jsonl"
 # Ett svar kortare än så här är en kvittens eller en hänvisning, inte ett svar
 # att bygga en mall ur. Valt tal, inget uppmätt, och det redovisas som ett val.
 MINSTA_TECKEN = 20
-
-
-def _tidsstampel(meddelande: dict) -> str:
-    """Kundmeddelandets tid, alltså när ärendet kom in. ISO 8601 i UTC.
-
-    `internalDate` är millisekunder sedan epok, som sträng.
-    """
-    ra = meddelande.get("internalDate")
-    if not ra:
-        return ""
-    return datetime.fromtimestamp(int(ra) / 1000, timezone.utc).isoformat()
 
 
 def par_ur_trad(trad: dict) -> list[dict]:
@@ -61,7 +49,7 @@ def par_ur_trad(trad: dict) -> list[dict]:
             par.append({
                 "inkommande_text": inkommande,
                 "utgaende_text": utgaende,
-                "tidsstampel": _tidsstampel(senaste_kund),
+                "tidsstampel": urval.tidsstampel(senaste_kund),
                 "avsandare_hash": urval.hasha(urval.kundadress(senaste_kund)),
             })
         elif urval.ar_kundmeddelande(meddelande):

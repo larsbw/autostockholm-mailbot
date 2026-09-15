@@ -1,6 +1,6 @@
 # Roadmap
 
-**Version:** 0.15.5 · **Uppdaterad:** 2026-09-14 · **Implementerar** CLAUDE.md §10
+**Version:** 0.16.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §10
 
 Fasordning och grindar. En fas lämnas inte därför att arbetet i den är gjort, utan
 därför att **Lars fattat fasens grindbeslut**. Grinden står i varje fas och är det
@@ -794,11 +794,37 @@ och #62. `src/kedja.py` binder ihop klassificering, fordonsuppslag, generering,
 spärrar och vy, och `kedja.logga_beslut` skriver raden. Loggen finns alltså
 FÖRE skuggläget, som fasen kräver.
 
-**`respond.py` FINNS INTE ÄN.** Kedjan tar ETT ärende och anropas i dag av
-`scripts/kedja-prov.py`. Det som återstår för fasen är hämtningen av inkommande
-mail ur brevlådan och en slinga över dem, alltså kopplingen till `src/mine.py`.
-Den kopplingen drar in `googleapiclient` och är därmed det första steg som INTE
-kan ligga under `vyn-har-ingen-sandvag`. Var gränsen ska gå är ett eget beslut.
+**SLINGAN ÄR BYGGD I SKIVA 48**, `scripts/respond.py`. Den bygger ett ärende ur
+varje Gmail-tråd, sållar bort maskinmail vid källan, kör kedjan per ärende,
+loggar en rad för VARJE utfall och sparar fallen till vyn. Den har ingen
+`--send` och ingen väg till en brevlåda.
+
+**HÄMTNINGEN UR BREVLÅDAN ÄR BYGGD I SAMMA SKIVA**, `src/inkorg.py`, efter
+Lars §10-beslut om ett nytt OAuth-scope. Se `docs/beslutslogg.md` #113.
+
+`vyn-har-ingen-sandvag` i sin ursprungliga form går inte att hålla för en modul
+som ska läsa brevlådan: `src/mine.py` drar in `googleapiclient.errors` och
+`src.auth`, och den senare `googleapiclient.discovery`. Uppmätt i skiva 48.
+Lars beslut var FYRA LAGER i stället, och bara det första är Googles:
+
+| # | lager | vad det är |
+| --- | --- | --- |
+| 1 | scopet | `gmail.readonly` mot `token-las.json`. Sändförmågan FINNS INTE. |
+| 2 | tjänsten | `inkorg.Lastjanst`, bara läsvägarna öppna. |
+| 3 | importlagret | `vy.GMAILBARANDE_MODULER`, tre namngivna moduler. |
+| 4 | källtexten | `vy.FORBJUDET_MONSTER`, oförändrat över hela grafen. |
+
+**VYNS OCH KEDJANS PRÖVNING ÄR OFÖRÄNDRAD.** `tillatna` är tom som förval, och
+`src/vy.py` och `src/kedja.py` anropar utan den: för dem gäller fortfarande
+ingen väg alls.
+
+**`token.json` RÖRS INTE.** Fas 7 bygger sin sändmodul mot den filen, alltså
+kräver vägen tillbaka till sändning ingen ny consent.
+
+*Här stod att `respond.py` FINNS INTE ÄN och att kedjan anropas i dag bara av
+`scripts/kedja-prov.py`. Båda blev falska av skiva 48, i den fas Lars läser för
+att veta vad som är byggt. Samma defektform som de rättade posterna i fas 5 och
+fas 5.5.*
 
 **Grind:** Lars beslutar att skuggläget upphör, efter att ha läst
 `logg/beslut.jsonl` och funnit klassificeringen och spärrutfallen godtagbara.
@@ -817,6 +843,19 @@ visat dagsvolymen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.16.0 — 2026-09-15
+
+**FAS 6:s SLINGA ÄR BYGGD, `scripts/respond.py`.** Fasens stycke sade att
+`respond.py` FINNS INTE ÄN och att kedjan anropas bara av
+`scripts/kedja-prov.py`. Båda blev falska av skiva 48 och är rättade med en
+kursiv not.
+
+**HÄMTNINGEN UR BREVLÅDAN ÄR OCKSÅ BYGGD, `src/inkorg.py`.** Lars §10-beslut
+om ett nytt OAuth-scope, se `docs/beslutslogg.md` #113. Fasens stycke bär de
+fyra lagren och noterar att vyns och kedjans prövning är oförändrad.
+
+Två byggda led i en fas ⇒ MINOR.
 
 ### 0.15.5 — 2026-09-14
 

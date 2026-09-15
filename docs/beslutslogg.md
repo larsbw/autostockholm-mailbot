@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.68.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
+**Version:** 0.70.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -6213,7 +6213,183 @@ den obelagda (det gäller bara när den obelagda är ett `FORDONSORD`).
 
 ---
 
+## #112 — Skugglägets slinga byggs FÖRE hämtningen, och spärren är skälet
+
+**Datum:** 2026-09-15 · **Berör:** `scripts/respond.py`, `src/urval.py`,
+`src/extract.py`
+
+**BESLUT.** `scripts/respond.py` byggs i två steg. Slingan först, hämtningen ur
+brevlådan sedan och efter ett §10-beslut av Lars. Skälet är inte arbetsmängd
+utan en spärr: hämtningen drar in `googleapiclient` och fäller
+`vy.krav_pa_sandvagsfrihet`, och vad som ska ersätta det lagret är inte något
+kod får avgöra. **Beslutet fattades i samma skiva, se #113.**
+
+**VAD SPÄRREN FÄLLER PÅ, UPPMÄTT.** En modul som importerar `src.mine` fäller på
+`src.mine` → `googleapiclient.errors` och på `src.mine` → `src.auth` →
+`googleapiclient.discovery`. Mätt genom att köra `krav_pa_sandvagsfrihet` mot en
+provfil som importerar `src.mine` och inget annat.
+
+**KÄLLTEXTLAGRET FÄLLER INTE.** `FORBJUDET_MONSTER` mot `_kod_utan_prosa` av
+`src/mine.py` och `src/auth.py` ger ingen träff: ingendera bär `messages().send`,
+`sendmail` eller `SMTP(`. Det är det lagret som kan behållas oförändrat, och
+skillnaden mellan de två lagren är hela grunden för valet.
+
+**ATT GÖMMA IMPORTEN ÄR INGEN UTVÄG.** `_lokala_importer` läser AST och ser en
+import inuti en funktionskropp lika väl som en högst upp. Uppmätt: ett
+`import googleapiclient` inlagt i `bygg_kalla`:s kropp fäller
+`test_respond_har_ingen_sandvag`. Det vore dessutom §9.1:s förbjudna åtgärd,
+alltså att skriva om tills spärren släpper i stället för att röra orsaken.
+
+**KÄLLAN NAMNGES ALLTID.** Det finns ingen förvald källa: `--inkorg` är
+brevlådan, `--tradar` en skördad `tradar.jsonl`, och ingendera är förval. Samma
+skäl som `kedja.kor` anger för sitt `hamta`: en tyst standardkälla i en
+sändvägsmodul är vad §10 finns för att hindra, och skälet väger tyngre när
+källan är en brevlåda.
+
+**INGEN `--send`, OCH DET PRÖVAS I KÄLLTEXTEN.**
+`test_respond_har_INGEN_send_flagga` läser filens flaggning.
+
+**ÄRENDET BYGGS UR SAMMA MEDDELANDE SOM MASKINBEDÖMNINGEN PRÖVAR.**
+`klassa_maskin.tradens_skal` stannar på trådens FÖRSTA inkommande meddelande.
+Väljer slingan ett annat bedöms en tråd på ett mail och besvaras på ett annat,
+och en tråd som friats som kund kan svaras på en utskicksnotis längre ned.
+Kriteriet är därför ordagrant detsamma.
+
+**TRE SÅLLNINGAR MED SKILDA SKÄL**, av samma skäl som
+`klassa_maskin.skal_maskinmail` returnerar ett skäl i stället för ett ja eller
+nej: maskinmail är post som inte skulle besvarats, en tråd utan inkommande
+meddelande är en tråd vi själva inlett, och tom brödtext är ett mail vi inte fick
+ut texten ur, alltså VÅRT problem. Slås de ihop går det inte att se vilket som
+hände.
+
+**UPPMÄTT MOT `data/tradar_obesvarade.jsonl`:** 1604 trådar, 939 sållade,
+665 ärenden. Av de sållade är 934 maskinmail och 5 tom brödtext. Mätningen rör
+inte modellen och inte nätet.
+
+**KÖRNINGEN SKRIVER ALDRIG UT KUNDTEXT ELLER UTKAST**, bara räknare,
+kategorinamn och spärrnamn. Därför behöver modulen ingen maskering: den har
+ingenting att maskera. `test_summeringen_skriver_ingen_kundtext` fäller om ett
+utkast börjar skrivas ut.
+
+**`tidsstampel` FLYTTAS FRÅN `src/extract.py` TILL `src/urval.py`.** Slingan
+behövde samma konvertering av `internalDate`. `src/urval.py`:s egen inledning
+säger varför den flyttades i stället för att kopieras: urvalet och utvinningen ur
+en Gmail-tråd bor på ett ställe, eftersom två kopior driver isär. Två läsare som
+daterar samma mail olika är inte ett fel som syns i något utfall.
+
+**KÄND BEGRÄNSNING: ämnesraden genomsöks inte efter registreringsnummer.**
+Webbformuläret, som är den kanal numret oftast kommer genom, bär det i
+brödtexten. En kund som skriver numret bara i ämnesraden får inget uppslag, och
+vyn säger då att mailet inte bär något nummer. Det är en begränsning och ingen
+mätning.
+
+---
+
+## #113 — Lars §10-beslut: skuggläget läser med ett scope som inte kan skicka
+
+**Datum:** 2026-09-15 · **Berör:** `src/auth.py`, `src/inkorg.py`, `src/vy.py`,
+`scripts/respond.py`
+
+**BESLUTET ÄR LARS OCH LYDELSEN ÄR HANS.** Alternativ 3, läsande scope. Hans
+skäl, ordagrant: *"token.json bär gmail.send i dag och ingen kodspärr rår på
+det. Lager 1 och 2 kan brytas av en rad, lager 3 kan kringgås. Ett scope kan
+inte, för då vägrar Google på serversidan. Kostnaden är en ny auktorisering.
+Vinsten är att sändförmågan inte finns, inte att den är bortbyggd."*
+
+**OCH LAGER 1, 2 OCH 3 OCKSÅ**, på hans order: *"De är billiga och de fångar ett
+misstag tidigare än ett 403 gör."*
+
+FYRA LAGER, OCH BARA DET FÖRSTA ÄR GOOGLES:
+
+| # | lager | var | vad som fäller det |
+| --- | --- | --- | --- |
+| 1 | scopet | `auth.LASSCOPES`, `token-las.json` | Google, på serversidan |
+| 2 | tjänsten | `inkorg.Lastjanst` | `Sandforsok` vid anropet |
+| 3 | importlagret | `vy.GMAILBARANDE_MODULER` | `Sandvagsfel` vid uppstart |
+| 4 | källtexten | `vy.FORBJUDET_MONSTER` | `Sandvagsfel` vid uppstart |
+
+**`gmail.modify` TILLÅTER SÄNDNING, och det avgör scopelistans innehåll.**
+Avläst 2026-09-15 ur
+`https://developers.google.com/workspace/gmail/api/auth/scopes`: modify är
+*"Read, compose, and send emails from your Gmail account."* Det nuvarande tokenet
+bär alltså TVÅ av varandra oberoende vägar ut, och det hade inte räckt att
+utelämna `gmail.send`. `LASSCOPES` är `gmail.readonly` och ingenting annat.
+
+**PRÖVNINGEN ÄR EN TILLÅTNINGSLISTA.** `krav_pa_bara_lasning` kräver exakt
+likhet mot `LASSCOPES` i stället för att räkna upp vilka scope som kan skicka.
+En förbudslista hade krävt en uttömmande avläsning av Gmails scope, och ett
+scope vi inte känner till hade sluppit igenom.
+
+**LAGER 3 TAR INTE BORT IMPORTLAGRET, DET SMALNAR AV DET.**
+`krav_pa_sandvagsfrihet` fick en `tillatna`-parameter som är TOM SOM FÖRVAL, och
+`src/vy.py` och `src/kedja.py` anropar utan den: vyns och kedjans prövning är
+oförändrat den starka formen, ingen väg alls. Bara `UNDANTAGBARA` går att
+undanta, och `smtplib` står utanför den mängden och kan därför aldrig öppnas.
+
+**UNDANTAGET GÄLLER MODULEN SOM IMPORTERAR, inte namnet som importeras.** Gällde
+det namnet vore lagret borta: vilken modul som helst hade kunnat dra in
+`googleapiclient` så snart någon annan redan gjort det.
+
+**LAGRET BEVISADE SIG UNDER BYGGET.** Ett `from src import auth` i
+`scripts/respond.py`, inskrivet för att kunna skriva ut vilket scope körningen
+har, fällde spärren. Slingan står inte i `GMAILBARANDE_MODULER` och ska inte
+göra det; utskriften går nu via `inkorg.LASSCOPES`, som är samma listobjekt som
+`auth.LASSCOPES` och inte en kopia.
+
+**DAGSGRÄNSEN DRAS AV OSS OCH INTE AV GMAILS FRÅGA.** `after:` och `newer_than:`
+slogs upp 2026-09-15 i `https://support.google.com/mail/answer/7190`. **Sidan
+säger varken om `after:` är inklusiv eller vilken tidszon den mäter i.** Ett
+urval som vilade på det hade vilat på en gissning, vilket §1 förbjuder för just
+Gmail. Frågan är därför ett grovt nät, `-in:sent newer_than:2d`, och gränsen dras
+mot `internalDate` i Europe/Stockholm, eftersom det är det dygn Lars menar.
+
+**KRITERIET LIGGER PÅ ETT INKOMMANDE MEDDELANDE FRÅN DYGNET**, inte på tråden.
+En tråd vars enda dagsfärska meddelande är vårt eget svar är inget nytt ärende
+och skulle annars besvaras på nytt varje dag vi svarar i den.
+
+**SPAM OCH PAPPERSKORG SÅLLAS I VÅR KOD.** `users.threads.list`:s
+`includeSpamTrash` saknar dokumenterat förval på
+`https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.threads/list`,
+avläst 2026-09-15. Etiketterna står i meddelandet och prövas i stället för att
+förutsättas.
+
+**VAD LARS FÖRLORAR: ingenting repot gör i dag.** Uppmätt: hela repot rör Gmail
+genom två anrop, `users().threads().list` och `users().threads().get`. Ingen rad
+skriver en etikett, skapar ett utkast eller skickar. Det läsatokenet inte kan är
+allt det: markera en tråd som hanterad i Gmail, spara ett Gmail-utkast, skicka.
+
+**VÄGEN TILLBAKA TILL SÄNDNING ÄR ÖPPEN OCH KRÄVER INGEN NY CONSENT.**
+`token.json` med `gmail.modify` och `gmail.send` rörs inte av den här skivan och
+ligger kvar. Fas 7 bygger sin sändmodul mot DEN filen, i en egen modul som
+skrivs in i `GMAILBARANDE_MODULER` genom ett eget §10-beslut, och lindas i sin
+egen kapade tjänst med `send` som enda öppna väg. Beslutet låser alltså
+ingenting: det tar bort sändförmågan ur LÄSVÄGEN, inte ur projektet.
+
+---
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.70.0 — 2026-09-15
+
+**#113 TILLKOMMER: Lars §10-beslut om nytt OAuth-scope.** Skuggläget läser med
+`gmail.readonly` mot `token-las.json`. Fyra lager, och bara det första är
+Googles. `token.json` rörs inte, alltså är fas 7:s väg tillbaka öppen utan ny
+consent.
+
+**#112 ÄNDRAD FÖRE COMMIT.** Posten sade att §10-beslutet inte var fattat.
+Beslutet fattades i samma skiva, och två stycken rättades på plats enligt
+inledningens regel om att en ocommittad post är utkastarbete.
+
+En ny post och ett nytt scope ⇒ MINOR.
+
+### 0.69.0 — 2026-09-15
+
+**#112 TILLKOMMER: skugglägets slinga byggs före hämtningen.**
+`scripts/respond.py` bär slingan och ingen sändväg. Hämtningen ur brevlådan är
+gatad av `vyn-har-ingen-sandvag`, och posten bär mätningen av vad den spärren
+fäller på och vilket av dess två lager som inte gör det.
+
+En ny post ⇒ MINOR.
 
 ### 0.68.0 — 2026-09-15
 
