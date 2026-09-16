@@ -287,17 +287,17 @@ class Korning:
     sallade: list[tuple[str, str]] = field(default_factory=list)
     kallfel: int = 0
     utkast: int = 0
-    # SKIVA 49 DEL B. Ärenden kedjan inte skrev något svar på, oavsett vilket av
-    # de två skälen. Före ändringen gick de genom generatorn och räknades i
+    # SKIVA 49 DEL B. Ärenden kedjan inte skrev något svar på, oavsett vilket
+    # skäl. Före ändringen gick de genom generatorn och räknades i
     # `utkast`: kedjan producerade ett utkast för varje kategori, också de i
     # `aldrig`. Avläst i `logg/beslut.jsonl`, de sju raderna 2026-09-15T10:15
     # och 10:16 UTC: `blev_utkast` sant och `sparr` null i samtliga sju.
     #
     # *Här stod att talet räknar ärenden vars kategori står i hinken `aldrig`.
     # Sant i skiva 49, falskt sedan skiva 51 DEL B lade grinden: talet räknar
-    # båda skälen, och `per_inget_svar` nedan är det som skiljer dem åt.*
+    # alla skälen, och `per_inget_svar` nedan är det som skiljer dem åt.*
     inget_svar: int = 0
-    # SKIVA 51 DEL B. SAMMA TAL UPPDELAT PÅ DE TVÅ SKÄLEN, formen lånad från
+    # SKIVA 51 DEL B. SAMMA TAL UPPDELAT PER SKÄL, formen lånad från
     # `per_sparr`. Grinden gör `INGET SVAR` av varje kategori som inte är
     # a-traktor, alltså av nästan hela körningen, och ett odelat tal hade då
     # dolt hur många av dem hinken `aldrig` stod för.
@@ -398,7 +398,7 @@ def kor_alla(
         #
         # **SEDAN SKIVA 51 ÄR DEN HÄR GRENEN DEN BREDA.** Grinden i `kedja.kor`
         # släpper bara fram a-traktor, alltså går varje annan kategori hit.
-        # `utfall.inget_svar_skal` säger vilket av de två skälen det var.
+        # `utfall.inget_svar_skal` säger vilket skäl det var.
         #
         # **UTAN EN EGEN GREN HADE DEN FALLIT I `else`**, och då hade varje
         # maskinmail räknats som spärrat med `None` som spärrnamn. Det är

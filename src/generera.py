@@ -2811,6 +2811,11 @@ def _utfallstext(utfall: Utfall | None, uppslag: Uppslag | None) -> str:
     #
     # **INGA SIFFROR HÄR, och det är inte en glömska.** Vad kunden behöver veta
     # är att bilen redan är registrerad som ombyggd, inte vad den väger.
+    #
+    # **KEDJAN NÅR INTE TEXTEN SEDAN SKIVA 63.** `kedja.kor` ger INGET SVAR för
+    # ett redan ombyggt fordon innan generatorn anropas. Texten står kvar för en
+    # direkt konstruerad `Forfragan`, som annars hade fått viktskälet ovan,
+    # vilket är falskt för ett sådant fordon.
     rott_redan_ombyggd = (
         "REGISTRET SÄGER ATT BILEN REDAN ÄR OMBYGGD. Säg det vänligt och rakt: "
         "enligt registret är bilen redan registrerad som ombyggd, alltså finns "
@@ -2830,12 +2835,19 @@ def _utfallstext(utfall: Utfall | None, uppslag: Uppslag | None) -> str:
     #
     # **SIFFRAN SKA MED, och den har en källa.** `_tillatna_tal` bär uppslagets
     # släpvagnsvikt, alltså faller svaret inte på talspärren.
+    #
+    # **REGISTRET SÄGER NEJ, OCH DET ÄR DET SVARET SKA SÄGA.** Skiva 63 DEL B,
+    # Lars formulering. Texten sade *"Det enda registret inte visar är en
+    # dragkrok"*, och modellen skrev att registret inte visar en dragkrok. Det
+    # är sant, men kunden läser det som att bilen saknar en. Läget nås bara
+    # med ett avläst `Nej`, se `_bara_dragkroken_saknas`.
     oklart_bara_dragkroken = (
         "BILEN DUGER SOM DRAGFORDON. Säg det som ett JA: släpvagnsvikten i "
         "registret räcker, och skriv ut talet ur underlaget ovan som skälet. "
-        "Det enda registret inte visar är en dragkrok, så skriv i samma "
-        "andetag att vi monterar en om det behövs. Be aldrig kunden ordna "
-        "kroken själv, och gör inte dragkroken till ett villkor."
+        "Registret säger att bilen saknar registrerad draganordning. Skriv "
+        "just det, och i samma andetag att vi monterar en. Skriv inte att "
+        "registret inte visar en dragkrok. Be aldrig kunden ordna kroken "
+        "själv, och gör inte dragkroken till ett villkor."
     )
 
     oklart_utan_besked = "vi kan inte avgöra det på uppgifterna vi har."

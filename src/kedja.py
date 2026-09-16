@@ -11,8 +11,8 @@ här filen: den vandrar importgrafen och läser källtexten i varje modul den n�
 
 Ordningen är:
 
-    mail -> klassificering -> GRIND: a-traktor? -> uppslag -> generering
-         -> spärrar -> utkast
+    mail -> klassificering -> GRIND: a-traktor? -> uppslag
+         -> GRIND: redan ombyggd? -> generering -> spärrar -> utkast
 
 **KEDJAN SKRIVER SVAR PÅ A-TRAKTOR OCH PÅ INGENTING ANNAT.** Lars beslut i
 skiva 51 DEL B. En kategori utanför `A_TRAKTORKATEGORIER` blir `INGET SVAR`
@@ -34,9 +34,10 @@ inräknat. Fällt av §7-granskningen av skiva 34, varv 2.
 
 **TRE UTFALL, och `INGET SVAR` är det tredje.** `kor` returnerar en
 `Kedjeutfall` som bär antingen ett utkast, en fälld spärr, eller `inget_svar`.
-Det sista har sedan skiva 51 TVÅ skäl, och `inget_svar_skal` säger vilket:
-hinken `aldrig`, eller en kategori grinden inte släpper fram. I båda fallen
-anropas generatorn inte alls.
+Det sista har sedan skiva 63 TRE skäl, och `inget_svar_skal` säger vilket:
+hinken `aldrig`, en kategori grinden inte släpper fram, eller ett fordon
+registret säger redan är ombyggt. I alla tre fallen anropas generatorn
+inte alls.
 
 *Här stod att HINKEN AVGÖR INGENTING HÄR, och att ett utkast produceras för
 varje kategori också de i `aldrig`, med motiveringen att skuggläget annars inte
@@ -83,7 +84,7 @@ A_TRAKTORKATEGORIER = (
     "fråga om pris a-traktorkonvertering",
 )
 
-# DE TVÅ SKÄLEN TILL `INGET SVAR`. Strängarna står här och inte som literaler
+# SKÄLEN TILL `INGET SVAR`. Strängarna står här och inte som literaler
 # på användningsstället, eftersom de skrivs på två ställen i `kor`: i
 # `Steg.detalj`, som går till `logg/beslut.jsonl`, och i
 # `Kedjeutfall.inget_svar_skal`, som gick till vyn. Går de isär säger loggen och
@@ -103,6 +104,9 @@ A_TRAKTORKATEGORIER = (
 # allt annat i strängen.
 SKAL_ALDRIG = "hinken aldrig"
 SKAL_OGATAD = "ingen a-traktorkategori"
+# SKIVA 63 DEL A, Lars beslut. Ett fordon registret säger redan är ombyggt
+# behöver inget svar, oavsett vem som byggt om det.
+SKAL_REDAN_OMBYGGD = "redan ombyggd"
 
 # ÄLDRE ÄN SÅ FÅR SVARET EFTERSLÄPSRADEN. Skiva 61 DEL B, Lars tal.
 EFTERSLAP = timedelta(days=7)
@@ -225,15 +229,15 @@ class Kedjeutfall:
     # SKIVA 49 DEL B. Sant när generatorn hoppades över. Ett eget fält och inte
     # en spärrsträng, se klassens docstring.
     inget_svar: bool = False
-    # SKIVA 51 DEL B. VILKET av de två skälen. `SKAL_ALDRIG` eller
-    # `SKAL_OGATAD`, tom när `inget_svar` är falskt.
+    # SKIVA 51 DEL B. VILKET skäl. `SKAL_ALDRIG`, `SKAL_OGATAD` eller, sedan
+    # skiva 63, `SKAL_REDAN_OMBYGGD`. Tom när `inget_svar` är falskt.
     #
     # **ETT EGET FÄLT OCH INTE `skal`.** `skal` bär `Sparrfalld.skal`, som är
     # byggt av strängar lyfta ordagrant ur modellens svar och därför kan bära
     # ett telefonnummer eller ett registreringsnummer. Det fältet loggas aldrig
     # och renderas genom `maskera.maska_sparrskal`, som sedan skiva 57 DEL 0
-    # lämnar ETT tal omaskerat: det spärren namnger som skäl. Den här bär två
-    # fasta strängar ur den här modulen, och det är skillnaden som gör att den
+    # lämnar ETT tal omaskerat: det spärren namnger som skäl. Den här bär en av
+    # modulens `SKAL_*`-strängar, och det är skillnaden som gör att den
     # får gå till vyn rå.
     inget_svar_skal: str = ""
     skal: str = ""
@@ -430,6 +434,21 @@ def kor(
 
     uppslag, utfall, uppslagssteg = _uppslagssteg(arende, hamta)
     steg.append(uppslagssteg)
+
+    # **REDAN OMBYGGD GER INGET SVAR, OCH GENERATORN ANROPAS INTE.** Lars
+    # beslut i skiva 63 DEL A: ett sådant ärende behöver inget svar, oavsett om
+    # vi eller någon annan byggt om bilen. Samma väg som hinken `aldrig`.
+    #
+    # **BARA DET SKÄLET.** RÖTT av att fordonet inte duger som dragfordon går
+    # vidare till generatorn: den kunden ska få ett svar. Prövningen är samma
+    # funktion som gör utfallet RÖTT, `fordonsuppslag.utvardera` regel 1.
+    if utfall is Utfall.ROTT and fordonsuppslag.ar_redan_ombyggd(uppslag):
+        steg.append(Steg("generering", "hoppades över", SKAL_REDAN_OMBYGGD))
+        return Kedjeutfall(
+            kategori=kategori, hink=hink, uppslag=uppslag, utfall=utfall,
+            inget_svar=True, inget_svar_skal=SKAL_REDAN_OMBYGGD,
+            steg=tuple(steg),
+        )
 
     # **ETT AVLÄST `Nej` ÄR DEN ENDA VÄGEN IN I MÄNGDEN.** Lars beslut i
     # skiva 41, VÄG TRE på lucka 50, se `docs/beslutslogg.md` #93.
@@ -649,7 +668,7 @@ def till_granskningsfall(arende: Arende, utfall: Kedjeutfall,
         forslag=utfall.utkast or "",
         sparr=utfall.sparr or "",
         inget_svar=utfall.inget_svar,
-        # `inget_svar_skal` bär en av modulens två FASTA strängar och går rakt
+        # `inget_svar_skal` bär en av modulens FASTA `SKAL_*`-strängar och går rakt
         # in på sidan. `sparrskal` och `sparrsats` bär text lyft ur modellens
         # svar och MASKERAS av `vy.rendera_granskning` innan de renderas.
         #

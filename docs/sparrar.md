@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.69.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.70.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -6323,6 +6323,72 @@ a-traktorsvar fälls inget.
 
 ---
 
+## LUCKA UTAN SPÄRR: `franvaroordet_saknar_ordgrans`
+
+**LUCKA 78, ÖPPEN OCH MÄTT. Uppmätt i skiva 63 DEL E.** Ingen spärr är rörd,
+§9.1.
+
+`FRANVAROORD` i `src/generera.py` har inga ordgränser, alltså träffar `ingen`
+slutet av ett ord som `beräkningen`. En av skiva 63:s tjugo fälldes av
+`pastaende-om-franvaro` så, i en mening som säger att bilen HAR en
+släpvagnsvikt. Återskapat med påhittad text, fälls i båda riktningarna:
+
+- *Det är värt att ha med i beräkningen: bilen har en släpvagnsvikt på 1500 kg.*
+- *Bilen har en släpvagnsvikt på 1500 kg, vilket är värt att ha med i beräkningen.*
+
+Riktningen är den säkra: ett utkast blir spärrat, inget falskt går ut. Att
+lägga till ordgränser smalnar av spärren och är Lars beslut.
+
+---
+
+## LUCKA UTAN SPÄRR: `en_dag_ar_ingen_langd`
+
+**LUCKA 79, ÖPPEN OCH MÄTT. Uppmätt i skiva 63 DEL E.** Ingen spärr är rörd,
+§9.1.
+
+`drojsmalets-langd` fäller ett eftersläpssvar som bekräftar en bokning med
+*"hör av er så bestämmer vi en dag som passar"*. `en dag` läses som en
+tidslängd. En av skiva 63:s tjugo fälldes så. Återskapat med påhittad text.
+
+Överfällningen är den skiva 62 valde, se spärrposten, men den här formen är
+ingen längd alls och står i ett svar regel 10 beordrar. Formen `dröjt en dag`
+är däremot en längd, alltså skiljer ordet inte de två.
+
+---
+
+## LUCKA UTAN SPÄRR: `okand_dragkrok_kan_inte_namnas`
+
+**LUCKA 80, ÖPPEN. Registrerad i skiva 63 DEL B.**
+
+Lars formulering för en bil där registret inte bär någon uppgift om
+draganordning, *"registret visar ingen uppgift om dragkrok, har bilen redan en
+behöver vi inte montera någon, annars gör vi det"*, är inte byggd. Uppmätt:
+varje mening som nämner dragkrok när fältet är tomt fälls av
+`genererat-fordonsfaktum`, och meningen om registret fälls dessutom av
+`pastaende-om-franvaro`. Båda vilar på skiva 41:s väg tre och skiva 55:s
+prövning per fält. Att bygga formuleringen kräver att en av dem ändras, och det
+är Lars beslut.
+
+**I SKIVA 63:s TJUGO NÅR LÄGET INTE GENERATORN.** Av de lyckade uppslagen
+saknar bara de redan ombyggda bilarna uppgiften, och de får inget svar sedan
+DEL A. Två misslyckade uppslag saknade också fältet; för dem säger underlaget
+att vi inte vet något om bilen.
+
+---
+
+## LUCKA UTAN SPÄRR: `ombyggd_bil_med_misslyckat_uppslag_far_svar`
+
+**LUCKA 81, ÖPPEN. Fälld fram av §7-granskningen av skiva 63.**
+
+Grinden i `kedja.kor` ger INGET SVAR för ett redan ombyggt fordon bara när
+uppslaget LYCKAS. `Kaross` läses först när hela uppslaget godkänts, och
+`UppslagMisslyckades` bär inte fältet. Fälls uppslaget, till exempel på en
+saknad tjänstevikt, går ärendet till generatorn med `utfall=None` och får ett
+svar om att vi inte kunnat slå upp bilen. Svaret påstår inget falskt om bilen,
+men ärendet får ett svar trots Lars beslut. Hur ofta det händer är inte mätt.
+
+---
+
 ## Mall för en spärrpost
 
 Kopiera blocket nedan per spärr. Varje fält fylls i, tomma fält är en ofärdig
@@ -6345,6 +6411,13 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.70.0 — 2026-09-16
+
+**LUCKA 78 TILL 81 REGISTRERADE**, skiva 63. Två falska fällningar ur
+körningen, Lars dragkroksformulering som två spärrar står emot, och ett
+ombyggt fordon med misslyckat uppslag som fortfarande får svar. Ingen
+spärr är rörd. Nya poster ⇒ MINOR.
 
 ### 0.69.0 — 2026-09-16
 

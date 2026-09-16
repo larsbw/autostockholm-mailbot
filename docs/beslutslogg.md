@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.82.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §8
+**Version:** 0.83.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -7834,7 +7834,43 @@ fångas och inte fångas står i luckposten i `docs/sparrar.md`.
   Allt rättat före skepp.
 
 
+## #128 — Skiva 63: redan ombyggt ger inget svar, och Nej-läget säger vad registret säger
+
+**Datum:** 2026-09-16 · **Berör:** `src/kedja.py`, `src/generera.py`,
+`src/vy.py`, `scripts/kedja-prov.py`
+
+### 1. REDAN OMBYGGD GER INGET SVAR
+
+**Lars beslut.** Ett ärende där registret säger att bilen redan är ombyggd
+behöver inget svar, oavsett vem som byggt om den. `kedja.kor` ger INGET SVAR
+med skälet `redan ombyggd` direkt efter ett lyckat uppslag, och generatorn
+anropas inte. RÖTT av att fordonet inte duger som dragfordon ger fortfarande
+ett utkast. Ett ombyggt fordon vars uppslag misslyckas får ännu ett svar,
+LUCKA 81.
+
+### 2. DRAGKROKEN
+
+**Nej-läget byggt med Lars formulering.** Bedömningstexten sade *"Det enda
+registret inte visar är en dragkrok"*, och kunden läste svaret som att bilen
+saknar en. Nu ber den om *"bilen saknar registrerad draganordning"* och att vi
+monterar en.
+
+**Läget utan uppgift är inte byggt.** Lars formulering fälls av
+`genererat-fordonsfaktum` och `pastaende-om-franvaro`, som vilar på skiva 41:s
+väg tre och skiva 55. Frågan står som LUCKA 80.
+
+### 3. OMKÖRNINGENS FYND
+
+Två falska fällningar, båda i den säkra riktningen och båda lämnade enligt
+§9.1: `ingen` utan ordgräns i `beräkningen`, LUCKA 78, och `en dag` i en
+bokningsbekräftelse, LUCKA 79.
+
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.83.0 — 2026-09-16
+
+**#128 TILLKOMMER.** Skiva 63. Ny post ⇒ MINOR.
 
 ### 0.82.0 — 2026-09-16
 

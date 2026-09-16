@@ -96,10 +96,10 @@ A_TRAKTORETIKETTER = (
     "fråga om pris a-traktorkonvertering",
 )
 
-# VAD SIDAN SÄGER FÖR VART OCH ETT AV KEDJANS TVÅ `INGET SVAR`-SKÄL.
+# VAD SIDAN SÄGER FÖR VART OCH ETT AV KEDJANS `INGET SVAR`-SKÄL.
 # Skiva 51 DEL B.
 #
-# **NYCKLARNA ÄR `kedja.SKAL_ALDRIG` OCH `kedja.SKAL_OGATAD`, skrivna som
+# **NYCKLARNA ÄR KEDJANS `SKAL_*`-KONSTANTER, skrivna som
 # strängar här och INTE importerade.** `src/kedja.py` importerar den här
 # modulen, alltså vore en import åt andra hållet cirkulär. Det är samma val som
 # `A_TRAKTORETIKETTER` ovan gör, och det binds på samma sätt:
@@ -112,6 +112,10 @@ _INTETSKAL = {
         "Kedjan skriver svar på a-traktorförfrågningar och på ingenting annat, "
         "och kategorin är ingen av de tre. Klassningen gjordes ändå: den står "
         "ovanför mailet och i <code>logg/beslut.jsonl</code>.",
+    # SKIVA 63 DEL A, `kedja.SKAL_REDAN_OMBYGGD`.
+    "redan ombyggd":
+        "Registret säger att bilen redan är ombyggd, och ett sådant ärende "
+        "behöver inget svar.",
 }
 
 # En post SPARAD FÖRE SKIVA 51 bär inget skäl, och en sådan ska inte få en
@@ -986,7 +990,7 @@ def rendera_granskning(
     står kvar därför att en äldre sparad `data/granskningsfall.jsonl` kan bära
     dem.
 
-    **`inget_svar_skal` SÄGER VILKET AV DE TVÅ SKÄLEN DET ÄR.** Skiva 51. Fram
+    **`inget_svar_skal` SÄGER VILKET SKÄL DET ÄR.** Skiva 51. Fram
     till dess fanns ett skäl, och raden stod som en fast mening om hinken
     `aldrig`. Med grinden på plats är den meningen falsk för de flesta posterna:
     de allra flesta får inget svar därför att kategorin inte är a-traktor, och
@@ -1119,7 +1123,7 @@ class Granskningsfall:
     # visas som en egen sorts post: mailet, kategorin, och beskedet. Inget
     # textfält, inga omdömesknappar.
     #
-    # **FLAGGAN SÄGER INTE VARFÖR, och sedan skiva 51 finns två skäl.** Här stod
+    # **FLAGGAN SÄGER INTE VARFÖR, och sedan skiva 51 finns flera skäl.** Här stod
     # att posten bär flaggan därför att kategorin står i hinken `aldrig`. Det var
     # sant i skiva 49 och är falskt sedan DEL B: grinden i `kedja.kor` sätter
     # samma flagga för varje kategori utanför `A_TRAKTORKATEGORIER`, och de är de
@@ -1129,8 +1133,8 @@ class Granskningsfall:
     # spärrad post bär ett svar som fälldes, alltså något att titta på. Den här
     # bär ingenting: generatorn anropades aldrig.
     inget_svar: bool = False
-    # SKIVA 51 DEL B. VILKET av de två skälen posten bär, ordagrant ur
-    # `kedja.SKAL_ALDRIG` eller `kedja.SKAL_OGATAD`. Vyn renderar det.
+    # SKIVA 51 DEL B. VILKET skäl posten bär, ordagrant ur en av
+    # kedjans `SKAL_*`-konstanter. Vyn renderar det.
     #
     # **BARA KEDJANS EGNA FASTA STRÄNGAR.** Fältet skrivs till
     # `data/granskningsfall.jsonl` och HTML-escapas in på sidan. `Sparrfalld.skal`

@@ -288,6 +288,52 @@ def test_en_kategori_UTANFOR_a_traktor_ger_INGET_SVAR():
                                    kedja.SKAL_OGATAD)
 
 
+def hamta_redan_ombyggd(_regnr: str) -> dict:
+    """Ett fordon registret säger redan är ombyggt. Vikterna duger."""
+    return {**GRONT_SVAR, "kaross": "Ombyggd Bil"}
+
+
+def hamta_rott_av_vikten(_regnr: str) -> dict:
+    """RÖTT ur §42: båda vikterna avlästa och för låga. Inte ombyggt."""
+    return {"tjanstevikt_kg": 960, "slapvagnsvikt_kg": 600,
+            "draganordning": False, "kaross": "Halvkombi"}
+
+
+def test_REDAN_OMBYGGD_ger_INGET_SVAR_och_generatorn_anropas_inte():
+    """Lars beslut i skiva 63 DEL A. Samma väg som hinken `aldrig`."""
+    klient = FejkKlient("fråga om a-traktorkonvertering", "onådd")
+
+    utfall = kedja.kor(
+        arende(), klient=klient, hamta=hamta_redan_ombyggd, hinkar=HINKAR,
+        taxonomi=TAXONOMI, exempel=[], nu=NU,
+    )
+
+    assert utfall.utfall is Utfall.ROTT
+    assert utfall.inget_svar
+    assert utfall.inget_svar_skal == kedja.SKAL_REDAN_OMBYGGD
+    assert utfall.utkast is None and utfall.sparr is None
+    assert klient.anrop == 1, "generatorn ska inte ha anropats"
+    assert utfall.steg[-1] == Steg("generering", "hoppades över",
+                                   kedja.SKAL_REDAN_OMBYGGD)
+    assert kedja.till_granskningsfall(arende(), utfall, skarp=True).inget_svar
+
+
+def test_ROTT_av_VIKTEN_ger_fortfarande_ett_utkast():
+    """Den kunden ska få ett svar. Skiva 63 DEL A."""
+    klient = FejkKlient("fråga om a-traktorkonvertering",
+                        "Hej, bilen ser inte ut att gå att bygga om.")
+
+    utfall = kedja.kor(
+        arende(), klient=klient, hamta=hamta_rott_av_vikten, hinkar=HINKAR,
+        taxonomi=TAXONOMI, exempel=[], nu=NU,
+    )
+
+    assert utfall.utfall is Utfall.ROTT
+    assert not utfall.inget_svar
+    assert utfall.blev_utkast
+    assert klient.anrop == 2
+
+
 def test_de_TVA_skalen_till_INGET_SVAR_HALLS_ISAR():
     """Hinken `aldrig` och grinden är olika saker, och loggen ska visa vilket.
 
@@ -777,7 +823,8 @@ def test_vyns_INGET_SVAR_skal_matchar_kedjans():
     formuleras om. Sidan hade då sagt *"posten är sparad av en körning före
     skiva 51"* om en post som kördes i dag.
     """
-    assert set(vy._INTETSKAL) == {kedja.SKAL_ALDRIG, kedja.SKAL_OGATAD}
+    assert set(vy._INTETSKAL) == {kedja.SKAL_ALDRIG, kedja.SKAL_OGATAD,
+                                  kedja.SKAL_REDAN_OMBYGGD}
 
 
 def test_VYN_sager_vilket_av_de_tva_skalen_det_var():

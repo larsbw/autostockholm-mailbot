@@ -4671,6 +4671,22 @@ def test_bedomningen_blir_ett_JA_nar_bara_dragkroken_saknas():
     assert "talet" in text
     assert "monterar" in text
     assert "kan inte avgöra" not in text
+    # SKIVA 63 DEL B, Lars formulering för ett avläst Nej.
+    assert "saknar registrerad draganordning" in text
+    assert "Det enda registret inte visar" not in text
+
+
+def test_NEJ_formuleringen_passerar_spärrarna():
+    """Det Nej-läget ber om ska inte fällas. Skiva 63 DEL B."""
+    forfr = Forfragan(
+        text="x", kategori="fråga om a-traktorkonvertering",
+        utfall=Utfall.OKLART, uppslag=XJZ_LIK,
+        franvaro_far_pastas=frozenset({"draganordning"}),
+    )
+
+    generera.krav_pa_svaret(
+        "Bilen duger som dragfordon, släpvagnsvikten är 1600 kg. Bilen saknar "
+        "registrerad draganordning, så vi monterar en.", forfr)
 
 
 def test_bedomningen_ber_INTE_om_siffran_nar_slapvagnsvikten_saknas():

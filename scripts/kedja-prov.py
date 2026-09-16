@@ -376,8 +376,9 @@ def _kor_och_visa(args) -> int:
             # SKÄLET UR UTFALLET OCH INTE EN FAST MENING. Skiva 51 gav `INGET
             # SVAR` ett andra skäl, grinden, och raden påstod hinken `aldrig`
             # för varje sådan post.
-            print(f"\nINGET SVAR ({utfall.inget_svar_skal}). Kategorin "
-                  f"{utfall.kategori!r} nådde aldrig generatorn.")
+            # SKIVA 63: skälet kan vara fordonet och inte kategorin.
+            print(f"\nINGET SVAR ({utfall.inget_svar_skal}). Ärendet, kategori "
+                  f"{utfall.kategori!r}, nådde aldrig generatorn.")
         elif utfall.blev_utkast:
             raknare["utkast"] += 1
             print("\nUTKAST, maskerat:")
