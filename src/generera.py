@@ -100,11 +100,52 @@ class Sparrfalld(Exception):
 
     Bär spärrens NAMN och skälet, så att `logg/beslut.jsonl` kan räkna per spärr
     och per dygn i stället för att bara veta att något föll.
+
+    **`sats` ÄR SKIVA 56 DEL 0, Lars beslut.** Skälet namnger det fällande talet
+    eller ordet; `sats` bär den sats det stod i. Utan den gick ett spärrat
+    ärende inte att granska: skiva 55:s enda spärrade post lyder *"talet 113
+    kommer varken ur uppslaget eller ur config"*, och var 113 kom ifrån gick
+    inte att avgöra, eftersom texten som fälldes inte fanns kvar någonstans.
+
+    **SATSEN ÄR DEN TEXT SPÄRREN PRÖVADE, och det är inte alltid en ordagrann
+    delsträng ur svaret.** Två spärrar prövar en bearbetad text, och för dem är
+    satsen den bearbetade:
+
+      `genererat-tal-har-kalla`  prisgrenen läser `_prissatser`, som FOGAR IHOP
+                                 två meningar när delningen klöv en prisfras.
+                                 `Det är inkl.\\n\\nmoms.` blir `Det är inkl.
+                                 moms.`, en sträng som inte stod i svaret.
+      `atagande-om-priset`       läser `kvar`, alltså svaret med prisraden
+                                 struken och ersatt av ett blanksteg.
+
+    Övriga grenar ger en sats ur `_meningar`, alltså ordagrant utom
+    blankteckensnormalisering. *Här stod ORDAGRANT utan förbehåll, och sedan att
+    åtagandespärren var den ENDA med en bearbetad sats. Båda leden falska.
+    Fällt av §7-granskningen av skiva 56.*
+
+    **BÅDE `skal` OCH `sats` BÄR TEXT UR MODELLENS SVAR**, alltså möjlig
+    persondata: ett telefonnummer, ett registreringsnummer, ett namn.
+
+    **VAR DE MASKERAS: `vy.rendera_granskning` innan de når sidan, och
+    `scripts/kedja-prov.py` innan de når terminalen.** Det är de två vägar
+    kedjan tar. `kedja.logga_beslut` skriver ingendera.
+
+    **DET ÄR INGEN INVARIANT FÖR HELA REPOT.** `scripts/generera-prov.py` och
+    `scripts/generator-matning.py` skriver `skal` OMASKERAT, den senare också
+    till sin utfil. Båda är mätverktyg som körs för hand, och deras utdata
+    stannar i terminalen eller i den gitignorerade `scratchpad/`. Formen är
+    äldre än den här skivan och är INTE åtgärdad här. Uppmätt av
+    §7-granskningen av skiva 56.
+
+    **TOM NÄR DET INTE FINNS NÅGON SATS ATT PEKA PÅ.** `tomt-svar` fäller ett
+    svar som inte bär någon text alls, och en uppfunnen sats hade varit sämre
+    än ingen.
     """
 
-    def __init__(self, sparr: str, skal: str):
+    def __init__(self, sparr: str, skal: str, sats: str = ""):
         self.sparr = sparr
         self.skal = skal
+        self.sats = sats
         super().__init__(f"{sparr}: {skal}")
 
 
@@ -890,11 +931,13 @@ def krav_pa_tal_med_kalla(svar: str, forfragan: Forfragan) -> None:
     Lars fyllde fem av sex poster i skiva 44. Fällt av §7-granskningen av
     skiva 46.*
 
-    *Noten sade också att strängen går in i `logg/beslut.jsonl` och i vyn. Båda
-    leden är falska: `kedja.logga_beslut` skriver uttryckligen inget `skal`, och
-    `till_granskningsfall` skickar `sparr` och aldrig `skal`. En rättelsetext som
-    inflaterade allvaret i det den rättade, med en dataväg repot redan tagit
-    bort. Fällt av §7-granskningen av skiva 41, varv 2.*
+    *Noten sade också att strängen går in i `logg/beslut.jsonl` och i vyn. Det
+    LOGGLEDET är falskt än i dag: `kedja.logga_beslut` skriver uttryckligen
+    inget `skal`. VYLEDET var falskt när noten skrevs och är sant sedan skiva
+    56: `till_granskningsfall` skickar numera `sparrskal` och `sparrsats`, och
+    vyn renderar dem MASKERADE på Lars beslut. Noten stod kvar med sitt gamla
+    andra led, alltså med ett påstående den här skivan gjorde falskt. Fällt av
+    §7-granskningen av skiva 56.*
 
     **DEN DAG LARS FYLLER EN POST HADE DEN GAMLA GRENEN FÄLLT VARJE SVAR SOM
     PROMPTEN BEDER OM.** `_prisrader` skriver in priset och ber modellen återge
@@ -969,12 +1012,14 @@ def krav_pa_tal_med_kalla(svar: str, forfragan: Forfragan) -> None:
                 "genererat-tal-har-kalla",
                 "svaret nämner ett pris utan att ange ett tal som går att "
                 "slå upp mot config/priser.json",
+                sats.strip(),
             )
         for tal in sorted(talen - priskallans_tal):
             raise Sparrfalld(
                 "genererat-tal-har-kalla",
                 f"talet {tal} står i en prismening men kommer inte ur "
                 f"config/priser.json",
+                sats.strip(),
             )
 
     traff_i_ord = TAL_I_ORD.search(svar)
@@ -983,6 +1028,7 @@ def krav_pa_tal_med_kalla(svar: str, forfragan: Forfragan) -> None:
             "genererat-tal-har-kalla",
             f"svaret skriver talet {traff_i_ord.group(0).lower()!r} i ord, "
             "och ett talord slås inte upp mot någon källa",
+            _satsen_med(svar, traff_i_ord.group(0)),
         )
 
     tillatna = _tillatna_tal(forfragan)
@@ -991,6 +1037,9 @@ def krav_pa_tal_med_kalla(svar: str, forfragan: Forfragan) -> None:
             raise Sparrfalld(
                 "genererat-tal-har-kalla",
                 f"talet {tal} kommer varken ur uppslaget eller ur config",
+                # DEN SATS TALET FAKTISKT STÅR I, och det är hela DEL 0:s
+                # ärende: `talet 113` utan satsen gick inte att spåra.
+                _satsen_med_talet(svar, tal),
             )
 
 
@@ -1061,12 +1110,14 @@ def krav_pa_fordonsfakta_ur_uppslag(svar: str, forfragan: Forfragan) -> None:
             raise Sparrfalld(
                 "genererat-fordonsfaktum",
                 f"svaret nämner {ord_.lower()} utan ett lyckat uppslag",
+                _satsen_med(svar, ord_),
             )
 
         raise Sparrfalld(
             "genererat-fordonsfaktum",
             f"svaret nämner {ord_.lower()} men uppslaget bär ingen uppgift om "
             f"{falt}",
+            _satsen_med(svar, ord_),
         )
 
 
@@ -1230,6 +1281,7 @@ def krav_pa_belagt_franvaropastaende(svar: str, forfragan: Forfragan) -> None:
                 "pastaende-om-franvaro",
                 f"svaret påstår att {namn} saknas, och det är inte belagt att "
                 f"registret saknar uppgiften",
+                mening.strip(),
             )
 
 
@@ -1274,6 +1326,40 @@ def _meningar(svar: str) -> list[str]:
     2000 kg"* är EN mening med två satser.
     """
     return _delat_pa_satsbrott(_delat_pa_mening(svar))
+
+
+def _satsen_med(svar: str, del_: str) -> str:
+    """Den FÖRSTA satsen som bär `del_`, eller tom sträng. Skiva 56 DEL 0.
+
+    Används av spärrarna för att fylla `Sparrfalld.sats`. Delningen är
+    `_meningar`, alltså samma satser flera av spärrarna redan prövar, och
+    urvalet är det första träffande: ett ord som står i två satser fälldes på
+    den första, eftersom varje spärr som använder hjälparen letar framifrån.
+
+    **TOM STRÄNG ÄR ETT GILTIGT SVAR och inte ett fel.** Fäller en spärr på
+    något som inte står som en sammanhängande delsträng i någon sats, så finns
+    ingen sats att peka på, och vyn skriver då ut skälet utan sats. En sats
+    gissad fram hade pekat läsaren på fel mening.
+    """
+    for sats in _meningar(svar):
+        if del_ in sats:
+            return sats.strip()
+    return ""
+
+
+def _satsen_med_talet(svar: str, tal: str) -> str:
+    """Den första satsen vars TAL innehåller `tal`, eller tom sträng.
+
+    **EGEN HJÄLPARE, och skillnaden mot `_satsen_med` är lastbärande.** `_tal_i`
+    normaliserar bort blanksteg och avskiljare, alltså är `25000` det tal
+    spärren namnger medan svaret skriver `25 000`. En delsträngssökning på det
+    normaliserade talet hade då inte träffat någon sats alls, och varje fällning
+    på ett grupperat tal hade blivit utan sats.
+    """
+    for sats in _meningar(svar):
+        if tal in _tal_i(sats):
+            return sats.strip()
+    return ""
 
 
 def _prisord_over_skarven(forsta: str, andra: str) -> bool:
@@ -1451,6 +1537,7 @@ def krav_pa_barlastflak_som_galler_fordonet(svar: str,
             "barlastflak-galler-fordonet",
             f"svaret nämner {traff.group(0).lower()} för ett fordon som §39 "
             f"inte gäller",
+            _satsen_med(svar, traff.group(0)),
         )
 
 
@@ -1461,10 +1548,16 @@ def krav_pa_att_troskeln_inte_ar_forfattningstext(svar: str) -> None:
     förenade med ELLER. Ett svar som återger det ena som "kravet" gör en
     ofullständig föreskrift till ett besked, se `docs/roadmap.md` fas 4.5.
     """
-    if TROSKELTAL.search(svar) and FORFATTNINGSORD.search(svar):
+    traff = TROSKELTAL.search(svar)
+    if traff and FORFATTNINGSORD.search(svar):
         raise Sparrfalld(
             "troskeln-som-forfattningstext",
             "svaret återger tröskeln 1 000 kg som ett krav eller en regel",
+            # SATSEN MED TRÖSKELTALET, och det är ett VAL av de två träffarna:
+            # spärren fäller på att båda finns i svaret, inte på att de står i
+            # samma sats, alltså kan de ligga i var sin. Talet är det Lars ska
+            # kunna slå upp mot `docs/roadmap.md` fas 4.5.
+            _satsen_med(svar, traff.group(0)),
         )
 
 
@@ -1608,6 +1701,15 @@ def krav_pa_atagande_med_kalla(svar: str, forfragan: Forfragan) -> None:
 
     delar = _uppraknade_delar(forfragan.kategori)
 
+    # **SATSEN SOM GÅR TILL `Sparrfalld.sats` KOMMER UR `kvar` OCH INTE UR
+    # `svar`, alltså med prisraden struken.** Skiva 56 DEL 0. Valet är
+    # medvetet: `kvar` är den text spärren FAKTISKT prövade, och en
+    # sats ur `svar` hade visat Lars en annan mening än den som fälldes. Skulle
+    # prisraden ha strukits mitt i satsen syns det som ett blanksteg.
+    #
+    # *Här stod att det är den ENDA spärr vars sats inte står ordagrant i
+    # svaret. Falskt: prisgrenen i `krav_pa_tal_med_kalla` läser `_prissatser`,
+    # som fogar ihop två meningar. Fällt av §7-granskningen av skiva 56.*
     for sats in _meningar(kvar):
         traff = ATAGANDEORD.search(sats)
         if not traff:
@@ -1625,6 +1727,7 @@ def krav_pa_atagande_med_kalla(svar: str, forfragan: Forfragan) -> None:
                 "atagande-om-priset",
                 f"svaret säger {ord_!r} om {fordon.group(0).lower()}, och den "
                 f"delen står inte i config/priser.json",
+                sats.strip(),
             )
 
         # FÖREMÅLET PRÖVAS MOT KÄLLANS UPPRÄKNING. Namnger satsen minst en del
@@ -1636,6 +1739,7 @@ def krav_pa_atagande_med_kalla(svar: str, forfragan: Forfragan) -> None:
             "atagande-om-priset",
             f"svaret säger {ord_!r} om ett arbete som inte står i "
             f"config/priser.json",
+            sats.strip(),
         )
 
 

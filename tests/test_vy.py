@@ -542,6 +542,83 @@ def test_sparrfalld_post_visar_aldrig_textfalt():
     assert "fordonsfakta-ur-sida" in sida
 
 
+def test_sparrad_post_sager_VAD_som_fallde_och_i_vilken_sats():
+    """SKIVA 56 DEL 0, Lars beslut. En spärrad post utan skäl går inte att granska.
+
+    Fram till skiva 56 bar sidan bara spärrens NAMN. Lars läser varje utkast, och
+    skiva 55:s enda spärrade post lyder *"talet 113 kommer varken ur uppslaget
+    eller ur config"* — utan satsen gick 113 inte att spåra till någon mening.
+    """
+    sida = vy.rendera_granskning(
+        ett_fall(), "", sparr="genererat-tal-har-kalla",
+        sparrskal="talet 113 kommer varken ur uppslaget eller ur config",
+        sparrsats="Vi har byggt om 113 bilar av samma modell.",
+    )
+
+    assert "genererat-tal-har-kalla" in sida
+    assert "talet 113" in sida
+    assert "byggt om 113 bilar" in sida
+    # NEGATIVKONTROLLEN FÖR SJÄLVA SPÄRRGRENEN står kvar: skälet får inte ge
+    # posten en väg vidare.
+    assert "<textarea" not in sida
+
+
+def test_spärrskälet_i_vyn_ar_MASKERAT():
+    """§6. Skälet och satsen bär text lyft ORDAGRANT ur modellens svar.
+
+    **DET ÄR SKILLNADEN MOT `fall.text` OCH `forslag`**, som renderas råa med
+    flit: Lars ska läsa ärendet som kunden skrev det. Skälet är inte den texten
+    utan ett fragment ur den, återgivet bredvid en spärr, och Lars beslut i
+    skiva 56 var att det maskeras.
+
+    **RADEN FÄLLS AV ATT MASKERINGEN TAS BORT.** Tas `maska_fritext` ur
+    `_sparrskal` går den röd på var och en av de fyra formerna nedan.
+    """
+    sida = vy.rendera_granskning(
+        ett_fall(), "", sparr="genererat-tal-har-kalla",
+        sparrskal="talet 0708123456 kommer varken ur uppslaget eller ur config",
+        sparrsats="Hej Andersson, ring oss på 070-812 34 56 om ABC123.",
+    )
+
+    assert "0708123456" not in sida
+    assert "070-812 34 56" not in sida
+    assert "ABC123" not in sida
+    assert "Andersson" not in sida
+    # ATT DET INTE BARA BLEV TOMT: raden ska fortfarande säga något.
+    assert "[SIFFROR]" in sida
+    assert "[REGNR]" in sida
+    assert "[NAMN]" in sida
+
+
+def test_sparrad_post_UTAN_skal_far_ingen_uppfunnen_forklaring():
+    """En post sparad före skiva 56 bär inga fält, och gissningen vore fel.
+
+    Samma form som `_INTETSKAL_OKANT` har för `INGET SVAR`-grenen: raden säger
+    att skälet inte står i posten, i stället för att låta läsaren tro att
+    spärren föll utan att namnge något.
+    """
+    sida = vy.rendera_granskning(ett_fall(), "", sparr="genererat-tal-har-kalla")
+
+    assert "bär inget skäl" in sida
+    assert "Skäl:" not in sida
+    assert "Satsen som fälldes" not in sida
+
+
+def test_en_OSPARRAD_post_bar_ingen_sparrtext():
+    """NEGATIVKONTROLL: skälraden hör till spärrgrenen och ingen annan.
+
+    Utan den här raden hade `_sparrskal` kunnat renderas för varje post, och en
+    godkänd post hade burit en mening om ett skäl som inte finns.
+    """
+    sida = vy.rendera_granskning(ett_fall(), "ett förslag",
+                                 sparrskal="talet 113 saknar källa",
+                                 sparrsats="En sats.")
+
+    assert "talet 113" not in sida
+    assert "bär inget skäl" not in sida
+    assert "<textarea" in sida
+
+
 def test_osparrad_post_visar_textfalt():
     """NEGATIVKONTROLL: regeln gäller den spärrfällda posten och inte alla.
 
@@ -649,6 +726,10 @@ def test_varje_strangparameter_till_renderarna_escapas():
                 # tripwiren grön för en parameter den aldrig lät nå sidan.
                 if namn == "inget_svar_skal":
                     argument["inget_svar"] = True
+                # SAMMA SAK FÖR SPÄRRGRENEN, skiva 56: `sparrskal` och
+                # `sparrsats` renderas bara när posten är spärrad.
+                if namn in ("sparrskal", "sparrsats"):
+                    argument["sparr"] = "en spärr"
             sida = renderare(**argument)
             assert OND not in sida, f"{renderare.__name__} escapar inte {namn}"
 
@@ -665,8 +746,12 @@ def test_varje_strangparameter_till_renderarna_escapas():
     # som inte är en av kedjans två, alltså kan ett fientligt värde inte nå
     # sidan alls. Raden prövas ändå, av samma skäl som `inget_svar`: byts
     # tabellen mot en f-sträng ska den bli röd.
+    # `sparrskal` och `sparrsats` NÅR SIDAN GENOM `maskera.maska_fritext` och
+    # sedan `html.escape`. Maskeringen rör inte `OND`, som är gemen markup utan
+    # siffror, alltså är det escapningen som prövas här och ingenting annat.
+    # Vad maskeringen gör prövas av `test_spärrskälet_i_vyn_ar_MASKERAT`.
     assert provade == ["forslag", "sparr", "uppslagskalla", "inget_svar",
-                       "inget_svar_skal"]
+                       "inget_svar_skal", "sparrskal", "sparrsats"]
 
 
 def test_felmeddelandet_escapas_innan_det_reflekteras():
@@ -1121,6 +1206,32 @@ def test_INGET_SVAR_overlever_en_tur_genom_disken(tmp_path, monkeypatch):
     assert [p.inget_svar for p in lasta] == [True, False]
 
 
+def test_RUTTEN_bar_sparrskalet_hela_vagen_till_sidan(tmp_path, monkeypatch):
+    """VÄGEN IN, och den saknades. Skiva 56 DEL 0.
+
+    **`_sparrskal` KUNDE RENDERA OCH RUTTEN ÄNDÅ SLÄPPA FÄLTEN.** Prövat med
+    `scripts/sparr-prova.sh`: satt `sparrskal=""` i `_granskning`:s anrop gick
+    hela sviten GRÖN, alltså band ingen rad att det Lars läser i webbläsaren är
+    det posten bär. Det är samma form som skiva 34 fällde, då
+    `rendera_granskning` fanns men ingen rutt anropade den.
+    """
+    peka_om_katalogerna(monkeypatch, tmp_path)
+    poster = [_granskningsfall(
+        forslag="", sparr="genererat-tal-har-kalla",
+        sparrskal="talet 113 kommer varken ur uppslaget eller ur config",
+        sparrsats="Vi har byggt om 113 bilar.",
+    )]
+    hanterare = vy.bygg_hanterare(
+        [], granskning=poster, parfil=tmp_path / "data" / "par.jsonl")
+
+    fejk = FejkHanterare(hanterare, "/granskning/0")
+    fejk.get()
+
+    assert fejk.kod == 200
+    assert "talet 113" in fejk.svar
+    assert "byggt om 113 bilar" in fejk.svar
+
+
 @pytest.mark.parametrize(
     "vag",
     [
@@ -1214,7 +1325,13 @@ def test_sparade_granskningsfall_kommer_tillbaka_ORORDA(tmp_path, monkeypatch):
         _granskningsfall(forslag="Hej, det löser vi.",
                          uppslagskalla="Uppslag mot biluppgifter.se: lyckades"),
         _granskningsfall(forslag="", sparr="genererat-tal-har-kalla",
-                         uppslagskalla="Inget uppslag: mailet bär inget regnr"),
+                         uppslagskalla="Inget uppslag: mailet bär inget regnr",
+                         # SKIVA 56: utan de två raderna går fälten att utelämna
+                         # ur `spara_granskningsfall` med grön svit, och varje
+                         # spärrad post hade lästs tillbaka utan sitt skäl.
+                         sparrskal="talet 113 kommer varken ur uppslaget "
+                                   "eller ur config",
+                         sparrsats="Vi har byggt om 113 bilar."),
     ]
 
     vy.spara_granskningsfall(fore, fil)

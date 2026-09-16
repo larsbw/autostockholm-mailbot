@@ -7392,6 +7392,100 @@ uppräkningen för dem och spärren fäller den om modellen skriver den ändå, 
 POSTEN är oförändrad. Att ändra den är §10.
 
 
+## #122 — Skiva 56: spärrskälet syns i vyn maskerat, och Lars avgör skiva 55:s fyra öppna punkter
+
+**Datum:** 2026-09-16 · **Berör:** `src/generera.py`, `src/kedja.py`,
+`src/vy.py`, `config/priser.json`, `docs/sparrar.md`
+
+Skiva 55 lämnade fyra punkter hos Lars. Alla fyra är avgjorda här, och tre av
+dem utan ny kod.
+
+### 1. Prisposten rörs inte, men posten säger nu att uppräkningen är villkorad
+
+**Lars §10-beslut.** Värdets LYDELSE är oförändrad. Skälet är att en källa som
+citeras ordagrant har skrivits om sex skivor i följd, se #101 till #110, och
+varje omskrivning har kostat mer än den löst.
+
+Det som bär i stället är två lager utanför filen: `generera._barlastrad`
+utelämnar uppräkningen ur prompten för ett fordon där §39 inte gäller, och
+spärren `barlastflak-galler-fordonet` fäller ordet om modellen skriver det ändå.
+
+**En `_`-kommentarnyckel tillkommer i filen**, `_a_traktorkonvertering_villkor`,
+så att den som öppnar prisfilen ser förbehållet på samma ställe som
+uppräkningen. Lars skäl: det är prisfilens läsare som ska nås, inte
+beslutsloggens. Nyckeln kan inte bli en talkälla: `_varden_ur` och
+`las_konfigvarden` utelämnar varje `_`-nyckel, vilket är kommentarhålet från
+skiva 36, stängt och prövat. Verifierat efter ändringen: prompten ser posten
+oförändrad, och de tillåtna talen ur filen är `20000` och `25000`.
+
+### 2. `Fordonskategori EU` blir INTE ett andra belägg
+
+**Lars beslut, med mitt eget skäl som grund.** Fältet är tomt på exakt samma
+fyra fordon som bär `Kaross: Ombyggd Bil`, men ett tomt värde och ett oläsbart
+ser likadana ut i vår kod. Att läsa tomheten som ett belägg vore ett antagande.
+Ingen kod är byggd.
+
+### 3. Promptens regler 17 till 19 står som de är skrivna
+
+§11 gör promptens ordalydelse till Lars. De tre reglerna är lästa ordagrant och
+godkända, och de står i `src/generera.py::SYSTEM` och bundna i
+`tests/test_generera.py::REGLER_I_PROMPTEN`.
+
+### 4. SPÄRRSKÄLET SKA SYNAS I VYN, MASKERAT
+
+**Lars beslut, och skivans enda nya kod.** En spärrad post visade fram till nu
+bara spärrens NAMN. Lars läser varje utkast, och en post som inte säger vad som
+fällde går inte att granska: skiva 55:s enda spärrade post lyder *"talet 113
+kommer varken ur uppslaget eller ur config"*, och 113 gick inte att spåra,
+eftersom texten som fälldes inte fanns kvar någonstans.
+
+**Tre led:**
+
+1. `generera.Sparrfalld` bär ett tredje fält, `sats`, som fylls på varje
+   fällningsställe med den sats spärren faktiskt prövade.
+2. `kedja.Kedjeutfall.sats` bär det vidare, och `till_granskningsfall` sätter
+   `Granskningsfall.sparrskal` och `.sparrsats`.
+3. `vy.rendera_granskning` maskerar båda med `maskera.maska_fritext` innan de
+   escapas in på sidan.
+
+**MASKERINGEN LIGGER I RENDERINGEN OCH INTE HOS PRODUCENTEN.** Det finns tre
+vägar in i en `Granskningsfall`: kedjan, den sparade filen, och en direkt
+konstruktion. Renderingen är den enda punkt alla tre passerar.
+
+**ETT TIDIGARE BESLUT UPPHÄVS.** Ett test band att skälet ALDRIG fick nå
+granskningsfallet, med §6 som skäl. Det är omskrivet: fälten når posten råa,
+precis som `forslag` och kundens text redan gör i den gitignorerade
+`data/granskningsfall.jsonl`, och §6 hålls av maskeringen i stället för av
+frånvaron.
+
+**VAD MASKERINGEN KOSTAR, och det är mätt.** `maskera.SIFFROR` maskerar varje
+siffergrupp på fyra tecken eller mer. `talet 70` står alltså kvar, medan
+`talet 25 000` blir `talet [SIFFROR]`. Ett fällande PRISTAL går därför inte att
+läsa ur vyn; spärrens namn och satsen står kvar. Maskeringen tar också varje
+versalt ord, alltså blir en meningsinledning `[NAMN]`.
+
+**SKÄLET LOGGAS INTE.** `logga_beslut` skriver fortfarande varken `skal` eller
+`sats`, och `logg/beslut.jsonl` är därmed oförändrad. Lars order gällde vyn, och
+villkoret om maskering i loggen faller därmed inte ut.
+
+### Lucka 30 är mätt på nytt och står kvar öppen
+
+**Lars order: mät, bygg ingen fjärde lydelse.** `scripts/lucka30-matning.py`,
+ny. Av botens tjugo svar bär **noll** en modellbeteckning alls, och **noll**
+fällningar är lucka 30. Av Mattes 45 skickade a-traktorsvar redovisar **2** ett
+beteckningstal, `A1` och `A5`, men **noll** av de 45 passerar samtliga spärrar
+när varje trolig beteckning stryks, alltså är beteckningen aldrig det enda
+hindret. Talen och metoden står i `docs/sparrar.md`.
+
+### LUCKA 72 registreras: 429 från biluppgifter.se
+
+**Lars order: registrera, bygg inget.** Tio sidor med 1,5 sekunders paus gav 429
+på den elfte, och `_hamta_sidan` försöker aldrig om en statuskod. Marginalen i
+drift, 5 till 25 sekunder per ärende, är en BIVERKAN av att modellanropet ligger
+före uppslaget och inget skydd: en snabbare modell äter upp den. Ett omförsök på
+429 är en egen skiva.
+
+
 ## Appendix — versionshistorik (nyaste överst)
 
 ### 0.77.0 — 2026-09-15

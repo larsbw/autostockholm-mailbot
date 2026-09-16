@@ -773,17 +773,24 @@ def test_SKALET_overlever_vagen_till_disk_och_tillbaka(tmp_path, monkeypatch):
     assert tillbaka[0].inget_svar_skal == kedja.SKAL_OGATAD
 
 
-def test_SPARRENS_SKAL_nar_ALDRIG_granskningsfallet():
-    """§6. `Sparrfalld.skal` bär text lyft ORDAGRANT ur modellens svar.
+def test_SPARRENS_SKAL_nar_granskningsfallet_och_MASKERAS_i_vyn():
+    """SKIVA 56 DEL 0, Lars beslut. Skälet syns i vyn, maskerat.
 
-    Skrivs ett telefonnummer ut lyder skälet *"talet ... kommer varken ur
-    uppslaget eller ur config"* med numret inbakat. `Granskningsfall` skrivs till
-    disk och renderas på sidan, alltså får `skal` aldrig följa med dit.
-    `inget_svar_skal` får det, och skillnaden är att den bär en av kedjans egna
-    två fasta strängar.
+    **DEN HÄR RADEN BAND MOTSATSEN FRAM TILL SKIVA 56.** Den hette
+    `test_SPARRENS_SKAL_nar_ALDRIG_granskningsfallet` och krävde att `skal`
+    inte fanns bland postens värden. Priset var att Lars såg ATT ett svar
+    fälldes och aldrig VAD som fällde: skiva 55:s enda spärrade post lyder
+    *"talet 113 kommer varken ur uppslaget eller ur config"*, och 113 gick inte
+    att spåra, eftersom texten som fälldes inte fanns kvar någonstans.
 
-    Raden finns därför att de två fälten ligger bredvid varandra på
-    `Kedjeutfall` och är ett tangenttryck isär.
+    **§6 HÅLLS AV MASKERINGEN I STÄLLET FÖR AV FRÅNVARON.** `skal` och `sats`
+    bär text ur modellens svar, alltså möjligen ett telefonnummer eller ett
+    registreringsnummer. De når posten RÅA, precis som
+    `forslag` och kundens text redan gör, och `vy.rendera_granskning` maskerar
+    dem på vägen till sidan.
+
+    Raden prövar båda leden: att fälten kommer FRAM, och att sidan inte bär dem
+    omaskerade.
     """
     klient = FejkKlient(
         "fråga om a-traktorkonvertering",
@@ -797,7 +804,19 @@ def test_SPARRENS_SKAL_nar_ALDRIG_granskningsfallet():
 
     assert utfall.skal, "spärren ska ha lämnat ett skäl att pröva mot"
     assert post.inget_svar_skal == ""
-    assert utfall.skal not in dataclasses.asdict(post).values()
+    assert post.sparrskal == utfall.skal
+    assert post.sparrsats == utfall.sats
+    assert SENTINELPRIS_IHOP in post.sparrsats, (
+        "satsen ska bära det tal som fällde, alltså vara den text spärren prövade"
+    )
+
+    sida = vy.rendera_granskning(post.fall, post.forslag, post.sparr,
+                                 sparrskal=post.sparrskal,
+                                 sparrsats=post.sparrsats)
+
+    assert post.sparr in sida
+    assert SENTINELPRIS_IHOP not in sida, "§6: siffergruppen ska vara maskerad"
+    assert "[SIFFROR]" in sida
 
 
 def test_a_traktorkategorierna_FINNS_i_taxonomin():

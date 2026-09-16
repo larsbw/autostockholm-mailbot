@@ -205,6 +205,11 @@ class Kedjeutfall:
     # här modulen, och det är skillnaden som gör att den får gå till vyn.
     inget_svar_skal: str = ""
     skal: str = ""
+    # SKIVA 56 DEL 0. Satsen `skal` handlar om, alltså den text spärren prövade.
+    # För två av spärrarna är den bearbetad och inte en ordagrann delsträng ur
+    # svaret, se `generera.Sparrfalld`. Bär samma sorts text som `skal` och
+    # lyder under samma villkor: maskeras innan den når en skärm, loggas aldrig.
+    sats: str = ""
     steg: tuple[Steg, ...] = field(default_factory=tuple)
 
     @property
@@ -429,7 +434,7 @@ def kor(
         steg.append(Steg("spärrar", "fälld", fel.sparr))
         return Kedjeutfall(
             kategori=kategori, hink=hink, uppslag=uppslag, utfall=utfall,
-            sparr=fel.sparr, skal=fel.skal, steg=tuple(steg),
+            sparr=fel.sparr, skal=fel.skal, sats=fel.sats, steg=tuple(steg),
         )
 
     # INGEN RÄKNING HÄR. Strängen `alla tre` stod här och skrevs in i
@@ -601,10 +606,22 @@ def till_granskningsfall(arende: Arende, utfall: Kedjeutfall,
         forslag=utfall.utkast or "",
         sparr=utfall.sparr or "",
         inget_svar=utfall.inget_svar,
-        # `inget_svar_skal` OCH ALDRIG `skal`. Den första bär en av modulens två
-        # fasta strängar, den andra text lyft ur modellens svar. Bara den första
-        # får nå disken och sidan, se `Kedjeutfall`.
+        # `inget_svar_skal` bär en av modulens två FASTA strängar och går rakt
+        # in på sidan. `sparrskal` och `sparrsats` bär text lyft ur modellens
+        # svar och MASKERAS av `vy.rendera_granskning` innan de renderas.
+        #
+        # *Här stod att bara `inget_svar_skal` får nå disken och sidan. Det var
+        # sant till skiva 56, där Lars beslutade att spärrskälet ska synas i
+        # vyn, maskerat: utan det såg Lars ATT ett svar fälldes men aldrig VAD
+        # som fällde, och skiva 55:s `talet 113` gick inte att spåra.*
         inget_svar_skal=utfall.inget_svar_skal,
+        # **RÅ HÄR, MASKERAD I VYN.** `data/granskningsfall.jsonl` är
+        # gitignorerad och bär redan rå kundtext och råa utkast, alltså är det
+        # inte filen som är gränsen. Gränsen är skärmen, och den ligger i
+        # `vy.rendera_granskning`, som maskerar varje väg in: kedjans,
+        # den sparade filens, och en direkt konstruerad post.
+        sparrskal=utfall.skal,
+        sparrsats=utfall.sats,
         uppslagskalla=uppslagskalla(arende, utfall, skarp=skarp),
     )
 

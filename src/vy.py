@@ -53,7 +53,10 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs
 
-from src import inloggning, sokvagar
+# `maskera` KOM IN I SKIVA 56 DEL 0, för spärrskälet. Modulen är ren text och
+# `re`, alltså drar den ingen ny väg in i vyns importgraf: `krav_pa_sandvagsfrihet`
+# går igenom den som varje annan.
+from src import inloggning, maskera, sokvagar
 
 ROT = Path(__file__).resolve().parent.parent
 
@@ -846,10 +849,80 @@ def rendera_referens(fall: Fall, index: int, antal: int,
     )
 
 
+def _sparrskal(skal: str, sats: str) -> str:
+    """Spärrens skäl och den fällda satsen, MASKERADE enligt §6. Skiva 56 DEL 0.
+
+    **MASKERINGEN LIGGER HÄR OCH INTE HOS PRODUCENTEN, och det är ett val.**
+    `kedja.till_granskningsfall` är EN väg in; `las_granskningsfall` och en
+    direkt konstruerad `Granskningsfall` är två till. Renderingen är den enda
+    punkt alla tre passerar, alltså är det den punkt som kan bära kravet.
+
+    **`maska_fritext` ÄR SAMMA MASKERING `scripts/kedja-prov.py` REDAN KÖR PÅ
+    SAMMA STRÄNG** när den skriver ut skälet i terminalen, och samma som
+    `src/cluster.py` kör på citat som ska committas.
+
+    *Lars brief sade "samma maskering som vyn redan använder på kundtexten".
+    Vyn maskerar INTE kundtexten: `rendera_granskning` escapar `fall.text` och
+    renderar den rå, vilket modulens egen §6-not säger är hela poängen med vyn.
+    Maskeringen som lånas är alltså provskriptets, inte vyns.*
+
+    **VAD MASKERINGEN KOSTAR, och det är mätt och inte försumbart.**
+
+      `maskera.SIFFROR`      maskerar varje siffergrupp på fyra tecken eller
+                             mer. `talet 70` står kvar, `talet 25 000` blir
+                             `talet [SIFFROR]`.
+      `maskera.VERSALT_ORD`  maskerar varje versalt ord utanför `EJ_NAMN`, och
+                             `_maska_namn` har inget positionsundantag. Alltså
+                             maskeras också en meningsinledning: satsen
+                             *"Konverteringen kostar 25 000 kr."* renderas
+                             `[NAMN] kostar [SIFFROR] kr.`
+
+    **FÖR EN PRISFÄLLNING FÖRSVINNER DÄRMED BÅDE BELOPPET OCH SUBJEKTET**, och
+    kvar står spärrens namn, satsens byggnad och dess småord. Det är mindre än
+    ingenting bara om spärrnamnet inte säger något; för de fällningar som
+    faktiskt inträffat säger det vilken regel som brast. *Här stod att satsen
+    "bär sammanhanget", vilket är falskt för just den vanligaste formen. Fällt
+    av §7-granskningen av skiva 56.*
+
+    Avvägningen är Lars, och §6 är skälet: skäl och sats kan bära ett
+    telefonnummer eller ett registreringsnummer som modellen hittat på.
+
+    **EN SPÄRRAD POST UTAN SKÄL ÄR INTE ETT FEL.** En post sparad före skiva 56
+    bär inga fält, och en uppfunnen förklaring vore sämre än ingen. Raden säger
+    då att skälet inte står i posten, samma form som `_INTETSKAL_OKANT`.
+    """
+    if not skal and not sats:
+        return ("<p>Posten bär inget skäl: den är sparad av en körning före "
+                "skiva 56.</p>")
+
+    rader = []
+    if skal:
+        rader.append(
+            f"<p><strong>Skäl:</strong> "
+            f"{html.escape(maskera.maska_fritext(skal))}</p>"
+        )
+    if sats:
+        rader.append(
+            f"<p><strong>Satsen som fälldes:</strong> "
+            f"<q>{html.escape(maskera.maska_fritext(sats))}</q></p>"
+        )
+    # RADEN RÄKNAR INTE UPP PLATSHÅLLARNA. En första lydelse namngav tre av de
+    # sju `maska_fritext` producerar, och den som såg `[GATA]` hittade ingen
+    # förklaring på sidan. En uppräkning i en mall glider dessutom isär från
+    # `src/maskera.py` utan att något larmar. Fällt av §7-granskningen av
+    # skiva 56.
+    rader.append("<p class='etikett'>Skäl och sats är maskerade enligt §6: "
+                 "namn, adresser, länkar, registreringsnummer och längre "
+                 "siffergrupper är utbytta mot en platshållare i "
+                 "hakparentes.</p>")
+    return "".join(rader)
+
+
 def rendera_granskning(
     fall: Fall, forslag: str, sparr: str = "", index: int = 0,
     uppslagskalla: str = "", inget_svar: bool = False,
-    inget_svar_skal: str = "", drift: str = "",
+    inget_svar_skal: str = "", drift: str = "", sparrskal: str = "",
+    sparrsats: str = "",
 ) -> str:
     """GRANSKNINGSLÄGE: förslag med fyra omdömen.
 
@@ -864,6 +937,17 @@ def rendera_granskning(
     vilken post den gällde eller skilja ett skarpt uppslag från ett uteblivet,
     och när skiva 36 kopplade in den skarpa källan blev den dessutom utan
     producent. Parametern är struken, och raden bor per post.*
+
+    **`sparrskal` OCH `sparrsats` SÄGER VAD SOM FÄLLDE, och de kom i skiva 56 på
+    Lars beslut.** Fram till dess bar en spärrad post bara spärrens NAMN, och
+    Lars läser varje utkast: en post som inte säger vad som fällde går inte att
+    granska. Skiva 55:s enda spärrade post lyder *"talet 113 kommer varken ur
+    uppslaget eller ur config"*, och 113 gick inte att spåra, eftersom texten
+    som fälldes inte fanns kvar någonstans.
+
+    De MASKERAS, till skillnad från `fall.text` och `forslag`, eftersom de bär
+    fragment ur modellens svar utan att vara det svaret: se `_sparrskal`, som
+    också skriver ut vad maskeringen kostar.
 
     **EN SPÄRRFÄLLD POST VISAR ALDRIG ETT TEXTFÄLT, oavsett läge.** Beslut av
     Lars, `docs/beslutslogg.md` #40. §9.1 väger tyngre än bekvämligheten att
@@ -934,6 +1018,7 @@ def rendera_granskning(
             + "<div class='sparr'><p><strong>Spärrad av "
             + html.escape(sparr)
             + "</strong></p>"
+            + _sparrskal(sparrskal, sparrsats)
             + "<p>Inget textfält, ingen väg vidare. Behövs ett referenssvar för"
             + " den här kategorin, ta en annan post.</p></div>"
             + SIDFOT
@@ -1044,6 +1129,17 @@ class Granskningsfall:
     # invändning i skiva 36 var att en post spärrades i stället för att slås upp,
     # alltså är det just den skillnaden som ska synas där utkastet läses.
     uppslagskalla: str = ""
+    # SKIVA 56 DEL 0, Lars beslut. VAD som fällde, och i vilken sats. Fram till
+    # dess bar en spärrad post bara spärrens NAMN, och en post som inte säger
+    # vad som fällde går inte att granska: skiva 55:s enda spärrade post lyder
+    # `talet 113 kommer varken ur uppslaget eller ur config`, och 113 gick inte
+    # att spåra.
+    #
+    # **BÄR TEXT UR MODELLENS SVAR, till skillnad från `inget_svar_skal`.**
+    # Därför maskerar `rendera_granskning` båda enligt §6. Fälten är RÅA här och
+    # i `data/granskningsfall.jsonl`, precis som `forslag` och `fall.text`.
+    sparrskal: str = ""
+    sparrsats: str = ""
 
 
 def spara_granskningsfall(fall: list[Granskningsfall],
@@ -1084,6 +1180,8 @@ def spara_granskningsfall(fall: list[Granskningsfall],
                 "inget_svar": post.inget_svar,
                 "inget_svar_skal": post.inget_svar_skal,
                 "uppslagskalla": post.uppslagskalla,
+                "sparrskal": post.sparrskal,
+                "sparrsats": post.sparrsats,
             }, ensure_ascii=False) + "\n")
 
     return mal
@@ -1123,6 +1221,11 @@ def las_granskningsfall(fil: Path | None = None) -> list[Granskningsfall]:
             # skiva 51 bär inte nyckeln, och renderingen har ett läge för det.
             inget_svar_skal=post.get("inget_svar_skal", ""),
             uppslagskalla=post.get("uppslagskalla", ""),
+            # FÖRVALET ÄR TOMT av samma skäl som de två raderna ovan: en fil
+            # skriven före skiva 56 bär inte nycklarna, och renderingen har ett
+            # läge för en spärrad post utan skäl.
+            sparrskal=post.get("sparrskal", ""),
+            sparrsats=post.get("sparrsats", ""),
         ))
     return fall
 
@@ -1282,7 +1385,9 @@ def bygg_hanterare(
                                    uppslagskalla=post.uppslagskalla,
                                    inget_svar=post.inget_svar,
                                    inget_svar_skal=post.inget_svar_skal,
-                                   drift=self._drift())
+                                   drift=self._drift(),
+                                   sparrskal=post.sparrskal,
+                                   sparrsats=post.sparrsats)
                 + f"<p><a href='/granskning/{index + 1}'>nästa</a></p>"
             )
 

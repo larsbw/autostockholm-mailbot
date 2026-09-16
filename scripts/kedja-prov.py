@@ -384,6 +384,10 @@ def _kor_och_visa(args) -> int:
             # modellens svar, alltså kan det bära ett telefonnummer eller ett
             # regnr. Fällt av §7-granskningen av skiva 34, varv 1.
             print(f"skäl: {maskera.maska_fritext(utfall.skal)}")
+            # SATSEN OCKSÅ, skiva 56 DEL 0. Skälet namnger talet eller ordet,
+            # satsen säger var det stod. Maskeras av samma skäl som raden ovan.
+            if utfall.sats:
+                print(f"sats: {maskera.maska_fritext(utfall.sats)}")
         print("")
 
     print("=" * 72)

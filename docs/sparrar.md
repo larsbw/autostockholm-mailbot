@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.62.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.63.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -3012,6 +3012,41 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   i stället för `auto`, alltså en manuell läsning. En falsk passering hade
   kostat ett felaktigt mail.
 
+  **MÄTT PÅ NYTT I SKIVA 56, EFTER PROMPTENS REGEL 17 OCH 18.**
+  `scripts/lucka30-matning.py`, körd 2026-09-16. Regel 17 säger *"SKRIV ALDRIG
+  BILENS MODELLBETECKNING"*, alltså angriper den förutsättningen och inte
+  spärren. Ingen fjärde lydelse är byggd.
+
+  | Korpus | Texter | Fällda | Lucka 30 som redovisat skäl | Bär en beteckning alls |
+  | --- | --- | --- | --- | --- |
+  | Botens egna svar, de tjugo | 20 | 2 | **0** | **0** |
+  | Mattes skickade a-traktorsvar | 45 | 44 | 2 | 20 |
+
+  **NOLL AV BOTENS TJUGO SVAR BÄR EN BETECKNING**, alltså kan luckan inte
+  utlösas av dem. De två fällningarna i den körningen är
+  `pastaende-om-franvaro` och ett prisord utan belopp, ingendera lucka 30.
+
+  **MATTES TVÅ ÄR `A1` OCH `A5`**, alltså luckans form i en människas text. De
+  räknas ändå inte som ett hinder: måttet
+  `_bara_beteckningen_stod_i_vagen` stryker varje trolig beteckning och kör om
+  samtliga spärrar, och **noll av de 45** passerar då. Varje sådant svar faller
+  på något annat också, i praktiken på ett pris Matte skriver som
+  `config/priser.json` inte bär.
+
+  **RÄKNINGEN AV REDOVISADE SKÄL UNDERSKATTAR, och det är skälet att det andra
+  måttet finns.** `krav_pa_tal_med_kalla` fäller på det första okällade talet i
+  sorteringsordning, alltså kan ett beteckningstal ligga bakom ett annat och
+  aldrig bli det skäl som redovisas.
+
+  **STRYKNINGEN SKER I MÄTVERKTYGET OCH ALDRIG I EN SPÄRR.** Det är exakt vad
+  skiva 33 varv 3 gjorde inuti spärren, med `ca10 dagar` och `ca950 kg` som
+  följd. Ett mätverktyg får göra det en spärr inte får: ingenting därifrån når
+  ett kundmail.
+
+  **LUCKAN STÅR ALLTSÅ KVAR ÖPPEN OCH ÄR STÄNGD I PRAKTIKEN.** Avvägningen ovan
+  är oförändrad, och `test_en_BETECKNING_faller_FORTFARANDE` står kvar: spärren
+  fäller fortfarande en beteckning den dag en modell skriver en.
+
   *Här stod först att luckan är INTE ÅTGÄRDAD och hör till samma skiva som lucka
   29. Sedan stod, i tur och ordning, att den är stängd av `_tillatna_tal` som
   läser `forfragan.text`, av samma funktion begränsad till beteckningar, och av
@@ -5862,6 +5897,46 @@ markupändring ut som en dag med ovanligt många ombyggda bilar.
 `test_kand_lucka_omdopt_draganordning_ser_ut_som_ett_registerfaktum` och
 `test_kand_lucka_trunkerad_sida_ser_ut_som_ett_tunt_register` blir röda den dag
 någon tror sig ha stängt den.
+
+---
+
+## LUCKA UTAN SPÄRR: `kallan-svarar-429-och-forsoket-gors-aldrig-om`
+
+**LUCKA 72, ÖPPEN.** Registrerad i skiva 56 DEL B på Lars order. **Ingen kod är
+byggd, och ett omförsök på 429 är en egen skiva.**
+
+**MÄTNINGEN.** Tio fordonssidor hämtade med 1,5 sekunders paus gav **HTTP 429
+Too Many Requests på den elfte**. Mätt 2026-09-15, redovisad i skiva 55:s
+rapport.
+
+**VAD SOM HÄNDER DÅ.** `biluppgifter._ett_forsok` översätter varje statuskod
+utom 404 till `Hamtningsfel`. `_hamta_sidan` gör ETT omförsök, och det fångar
+bara `URLError`, `TimeoutError`, `OSError` och `HTTPException`, alltså de RÅA
+nätverksfelen. **En statuskod försöks aldrig om**, vilket är Lars beslut i
+skiva 29 och skrivet i funktionens docstring: *"ett 403 blir inte 200 av att
+frågas igen"*. `Hamtningsfel` blir `Kallfel` i `src/kedja.py`, och kedjan
+stannar: ärendet får varken uppslag eller utkast, och `logga_kallfel` skriver
+en rad.
+
+**MARGINALEN I DRIFT ÄR EN BIVERKAN OCH INGET SKYDD.** Mellan två uppslag
+ligger `PAUS_S = 1.0` i `scripts/kedja-prov.py` OCH minst ett modellanrop:
+`kedja.kor` klassificerar innan uppslaget görs och genererar efter det. Den
+faktiska takten blev därför 5 till 25 sekunder per ärende, mätt i skiva 55.
+Skiva 55:s omkörning av de tjugo gav noll källfel, och skiva 56:s likaså.
+
+**Ingen av de sekunderna är beställd.** De kommer ur hur lång tid modellen tar
+på sig. En snabbare modell, ett kortare svar eller en cache äter upp dem, och
+då är det bara pausen som står kvar. Den är vald och inte mätt: sidans gräns är
+opublicerad, och tio sidor på 1,5 sekunder räckte för att nå den.
+
+**RIKTNINGEN PÅ FELET ÄR SYNLIG OCH INTE TYST.** Ett 429 ger `Kallfel`, alltså
+ett stoppat ärende och en loggrad, aldrig ett tomt uppslag som ser ut som ett
+fordon utan uppgifter. Det är samma skäl som `Kallfel` finns för.
+
+**VAD SOM SKULLE STÄNGA DEN**, för den skiva som tar det: ett omförsök som
+gäller 429 och ingen annan statuskod, med en paus som växer, och ett tak för
+antalet försök. Det kräver Lars beslut, eftersom det ökar trafiken mot en sida
+som redan avvisat oss.
 
 ---
 

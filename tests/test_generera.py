@@ -678,6 +678,193 @@ def test_ett_pris_FALLER_nar_prisfilen_ar_tom(monkeypatch):
     assert "kommer inte ur config/priser.json" in fel.value.skal
 
 
+def test_spärren_lamnar_SATSEN_talet_stod_i(monkeypatch):
+    """SKIVA 56 DEL 0, Lars beslut: skälet ska gå att spåra till en mening.
+
+    Skiva 55:s enda spärrade post lyder *"talet 113 kommer varken ur uppslaget
+    eller ur config"*, och var 113 kom ifrån gick inte att avgöra: texten som
+    fälldes sparades ingenstans. `Sparrfalld.sats` bär den nu.
+    """
+    _med_priser(monkeypatch, {})
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla(
+            "Hej. Vi har byggt om 113 bilar.", forfragan())
+
+    assert "113" in fel.value.skal
+    assert fel.value.sats == "Vi har byggt om 113 bilar."
+
+
+def test_satsen_hittas_aven_for_ett_GRUPPERAT_tal(monkeypatch):
+    """`_tal_i` normaliserar bort avskiljaren, satsen skriver ut den.
+
+    **DET ÄR SKÄLET ATT `_satsen_med_talet` FINNS.** Spärren namnger `20000`
+    medan svaret skriver `20 000`, alltså hade en delsträngssökning på det
+    normaliserade talet inte träffat någon sats alls, och varje fällning på ett
+    grupperat tal hade blivit utan sats. Raden går röd om hjälparen byts mot
+    `_satsen_med`.
+    """
+    _med_priser(monkeypatch, {})
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla(
+            "Hej. Vi har byggt om 20 000 bilar.", forfragan())
+
+    assert fel.value.sats == "Vi har byggt om 20 000 bilar."
+
+
+# EN INDATA PER SPÄRR SOM `krav_pa_svaret` KÖR, med den sats som ska följa med.
+#
+# **§7.1. UTAN DEN HÄR TABELLEN ÄR NIO AV TIO SATSER OBUNDNA.** Uppmätt av
+# §7-granskningen av skiva 56 med `scripts/sparr-prova.sh`: satt till `""` på
+# nio av fällningsställena gick hela sviten GRÖN, alltså kunde fem av spärrarna
+# tappa sin sats utan att något larmade, och vyn hade fallit tillbaka till att
+# säga ATT något fälldes utan att säga VAD. Bara talloopen, prisgrenens andra
+# fällning och `tomt-svar` var bundna.
+#
+# Uppslaget som gatar barlastflaket är FYRHJULSDRIVET, alltså faller §39:s andra
+# led och `kraver_barlastflak` svarar `False`.
+FYRHJULSDRIVET = Uppslag(tjanstevikt_kg=1400, slapvagnsvikt_kg=1500,
+                         draganordning=True, fyrhjulsdrift=True)
+
+# ETT LYCKAT UPPSLAG MED HÅL, skiva 55: släpvagnsvikten är utelämnad mot belägg.
+UTAN_SLAPVAGNSVIKT = Uppslag(tjanstevikt_kg=1400, slapvagnsvikt_kg=None,
+                             draganordning=True)
+
+SATS_PER_SPARR = (
+    (
+        "genererat-tal-har-kalla, prisord utan belopp",
+        "Hej. Hör av dig så skickar vi en offert.",
+        {},
+        "Hör av dig så skickar vi en offert.",
+    ),
+    (
+        "genererat-tal-har-kalla, talord",
+        "Hej. Vi har byggt om tjugofemtusen bilar.",
+        {},
+        "Vi har byggt om tjugofemtusen bilar.",
+    ),
+    (
+        "genererat-tal-har-kalla, tal utan källa",
+        "Hej. Vi har byggt om 113 bilar.",
+        {},
+        "Vi har byggt om 113 bilar.",
+    ),
+    (
+        "genererat-fordonsfaktum",
+        "Hej. Bilens tjänstevikt räcker gott.",
+        {},
+        "Bilens tjänstevikt räcker gott.",
+    ),
+    # ANDRA GRENEN AV SAMMA SPÄRR: uppslaget lyckades men bär inte det fält
+    # termen påstår något om. Skiva 55 gjorde den grenen möjlig genom att låta
+    # ett uppslag lyckas med hål. Uppmätt av §7-granskningen av skiva 56: utan
+    # den här raden går just den fällningens sats att nolla med grön svit.
+    (
+        "genererat-fordonsfaktum, fältet saknas i uppslaget",
+        "Hej. Bilens släpvagnsvikt räcker gott.",
+        {"uppslag": UTAN_SLAPVAGNSVIKT, "utfall": Utfall.OKLART},
+        "Bilens släpvagnsvikt räcker gott.",
+    ),
+    (
+        "pastaende-om-franvaro",
+        "Hej. Bilen saknar dragvikt i registret.",
+        {"uppslag": GRONT_UPPSLAG, "utfall": Utfall.GRONT},
+        "Bilen saknar dragvikt i registret.",
+    ),
+    (
+        "barlastflak-galler-fordonet",
+        "Hej. I bygget monterar vi barlastflak.",
+        {"uppslag": FYRHJULSDRIVET, "utfall": Utfall.GRONT},
+        "I bygget monterar vi barlastflak.",
+    ),
+    # TRÖSKELN SKRIVS `ett ton` OCH INTE `1 000 kg`, och det är inte en
+    # smaksak: `krav_pa_tal_med_kalla` körs FÖRE och fäller varje siffra utan
+    # källa, alltså hade siffran gjort raden till en andra mätning av talspärren
+    # med den här spärrens etikett. Formen `ett ton` står i `TROSKELTERMER` och
+    # bär ingen siffra.
+    (
+        "troskeln-som-forfattningstext",
+        "Hej. Lagen kräver ett ton för en a-traktor.",
+        {},
+        "Lagen kräver ett ton för en a-traktor.",
+    ),
+    # ÅTAGANDET SÄGS OM `bygget` OCH INTE OM `priset`, av samma skäl: `priset`
+    # är ett PRISORD, alltså gör det satsen till en prissats och talspärren
+    # fäller den först.
+    (
+        "atagande-om-priset",
+        "Hej. I bygget ingår lackering.",
+        {},
+        "I bygget ingår lackering.",
+    ),
+    # ANDRA GRENEN: ett FORDONSORD i samma sats fäller alltid. Uppslaget är
+    # grönt, alltså är draganordningen avläst och `genererat-fordonsfaktum`
+    # släpper igenom meningen; utan det uppslaget hade den spärren fällt först
+    # och den här grenens sats varit obunden. Uppmätt av §7-granskningen av
+    # skiva 56.
+    (
+        "atagande-om-priset, fordonsord i satsen",
+        "Hej. I bygget ingår dragkrok.",
+        {"uppslag": GRONT_UPPSLAG, "utfall": Utfall.GRONT},
+        "I bygget ingår dragkrok.",
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    "namn,svar,andrat,vantad",
+    SATS_PER_SPARR,
+    ids=[rad[0] for rad in SATS_PER_SPARR],
+)
+def test_VARJE_sparr_lamnar_satsen_som_fallde(namn, svar, andrat, vantad,
+                                              monkeypatch):
+    """SKIVA 56 DEL 0: en spärrad post ska säga VAD som fällde och VAR.
+
+    Raden går röd om en enda av fällningarna slutar sätta sin sats, vilket är
+    hela poängen: en tappad sats syns ingen annanstans än i vyn, och den läses
+    av Lars och inte av sviten.
+
+    **PRISFILEN ÄR TOM I MÄTNINGEN**, alltså bidrar den med noll tillåtna tal.
+    Det är samma val som `test_ett_pris_FALLER_nar_prisfilen_ar_tom` gör, och
+    det håller raderna oberoende av vad Lars fyllt.
+    """
+    _med_priser(monkeypatch, {})
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_svaret(svar, forfragan(**andrat))
+
+    # SPÄRREN PRÖVAS OCKSÅ, och raden är inte kosmetisk: faller indatan på en
+    # ANNAN spärr än den avsedda mäter fallet inte det etiketten säger, och den
+    # avsedda fällningens sats blir obunden igen. Namnet står före kommat i
+    # etiketten, eftersom flera rader prövar olika grenar av samma spärr.
+    assert fel.value.sparr == namn.split(",")[0], (
+        f"{namn} föll på {fel.value.sparr} i stället"
+    )
+    assert fel.value.sats == vantad, (
+        f"{namn} fällde men lämnade satsen {fel.value.sats!r}"
+    )
+
+
+def test_ett_tomt_svar_far_INGEN_uppfunnen_sats():
+    """`tomt-svar` har ingen sats att peka på, och en påhittad vore värre.
+
+    Fältet är tomt, och vyn har ett läge för det.
+
+    **RADEN BINDER EN DATAKLASSDEFAULT OCH INGEN RAD I KODEN**, alltså finns
+    här ingenting att fälla: `krav_pa_ett_svar` skickar inget tredje argument.
+    Den räknas därför inte som täckning. Den står kvar som en pinne åt andra
+    hållet: skulle någon ge `Sparrfalld.sats` ett förval som är en text, eller
+    låta den här spärren hitta på en sats, blir raden röd. Uppmätt av
+    §7-granskningen av skiva 56.
+    """
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_ett_svar("   ")
+
+    assert fel.value.sparr == "tomt-svar"
+    assert fel.value.sats == ""
+
+
 def test_ett_AVLAST_pris_slapps_igenom_nar_Lars_fyllt_filen(monkeypatch):
     """**DEN DAG LARS FYLLER EN POST MÅSTE PROMPTENS EGET SVAR PASSERA.**
 
