@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.84.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §8
+**Version:** 0.85.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -7891,7 +7891,44 @@ frånvaroordet i båda riktningarna. Ett understreck räknas som gräns.
   byggt, Lars beslut: vi vet inte att bilen är ombyggd när uppslaget fälls.
 
 
+## #130 — Skiva 67: lucka 44 stängd, Ja plus kopplingstyp är dragkrok
+
+**Datum:** 2026-09-16 · **Berör:** `src/biluppgifter.py` · **River:** #86 i
+den del som gäller lucka 44
+
+### 1. BESLUTET
+
+**Lars beslut.** `Ja Kula` betyder att bilen har dragkrok. Kula är
+kopplingstypen, alltså en precisering och inte ett förbehåll.
+
+#86 lät `ja` plus efterled ge `None`, eftersom `Ja avmonterad` och `Ja
+borttagen` också blev `True`. Skiva 65 mätte att `Ja Kula` är den enda
+jakande form i materialet och att ett ensamt `Ja` inte förekommer. Med #86
+kunde ja-sidan alltså aldrig inträffa i materialet, och GRÖNT var oåtkomligt
+för varje form som mätts på en sida. Det var inte avsikten.
+
+### 2. KOPPLINGSTYP SKILJS FRÅN FÖRBEHÅLL AV EN UPPRÄKNING
+
+`_draganordning` godtar `ja` följt av en typ i `KOPPLINGSTYPER`. Typerna är
+uppslagna i TSFS 2009:59, Transportstyrelsens föreskrifter om fordonsuppgifter
+i vägtrafikregistret, bilaga 1: kula, demonterbar kula, bygel, krok och
+vändskiva, och för traktor jordbruksdrag.
+
+Uppräkningen är inte uttömmande. En okänd typ ger `None`, alltså OKLART, som
+är den säkra riktningen. Förbehåll ger `None` som förut, så lucka 48 står
+stängd. `_ja_nej` är oförändrad och läser `Fyrhjulsdrift`.
+
+### 3. MÄTT
+
+Omkörningen av de tjugo gav GRÖNT för två av dem, ärende 4 och 20. Båda
+sidorna bär `Ja Kula`, avläst i skiva 66.
+
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.85.0 — 2026-09-16
+
+**#130 TILLKOMMER.** Skiva 67. Ny post ⇒ MINOR.
 
 ### 0.84.0 — 2026-09-16
 

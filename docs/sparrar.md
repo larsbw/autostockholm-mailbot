@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.71.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.72.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -3216,7 +3216,7 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
 
   | Värde | Utfall DÅ | Utfall NU |
   | --- | --- | --- |
-  | `Ja Kula` | `True`, formen lucka 44 stängdes för | `None` |
+  | `Ja Kula` | `True`, formen lucka 44 stängdes för | `None`, och `True` igen sedan skiva 67 |
   | `Ja avmonterad` | `True` | `None` |
   | `Ja borttagen` | `True` | `None` |
   | `Ja saknas` | `True` | `None` |
@@ -3242,6 +3242,10 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   **PRISET ÄR ATT LUCKA 44 ÅTERÖPPNAS**, och det är utskrivet i Lars beslut.
   `Ja Kula` faller till utkast igen. Se posten för lucka 44 och
   `docs/beslutslogg.md` #86.
+
+  *Skiva 67 stängde lucka 44 med den första vägen, uppräkningen, ur TSFS
+  2009:59 i stället för ur sidor. Lucka 48 står stängd: förbehållen ger
+  fortfarande `None`. Se `docs/beslutslogg.md` #130.*
 
   **HUR MÖNSTRET SER UT.** Varv 2 fällde `Ja, avmonterad` och rättelsen band
   KOMMATECKNET: tabellraden skriver ut det själv, *"kommatecken i första
@@ -3964,183 +3968,39 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   talsektion i stället för varje värde. Båda är §10-beslut, eftersom de ändrar
   vad filen betyder. Uppmätt av §7-granskningen av skiva 37, varv 1.
 
-- **Lucka 44. ÅTERÖPPNAD I SKIVA 39 på Lars beslut, och priset är valt.**
-  `_ja_nej` kräver åter `ja` eller `nej` BART. `Ja Kula` ger `None`, nyckeln
-  utelämnas, `_kontrollera` fäller, och stickprovets enda möjliga GRÖNT blir ett
-  utkast utan bedömning. Se `docs/beslutslogg.md` #86.
+- **Lucka 44. STÄNGD I SKIVA 67 på Lars beslut, som river skiva 39:s.**
+  `Ja Kula` betyder att bilen har dragkrok: kula är kopplingstypen. Det är en
+  precisering, inte ett förbehåll. Se `docs/beslutslogg.md` #130.
 
-  *Här stod "stickprovets enda fordon med registrerad dragkrok". Det är tredje
-  lydelsen av en sats som strukits två gånger, i skiva 37 varv 1 och skiva 38
-  varv 2: den sjätte sidan bär inte fältet, alltså är dess status OKÄND och inte
-  nej, och tillägget "registrerad" rör inte den orsaken. Fällt av
-  §7-granskningen av skiva 39, varv 3.*
+  **VARFÖR SKIVA 39:S BESLUT RIVS.** Det vilade på att `Ja avmonterad` och `Ja
+  borttagen` också blev `True`. Mätningen i skiva 65 visar att `Ja Kula` är den
+  enda jakande form i materialet: sex av tio sparade sidor bär etiketten, fem
+  med `Nej`, en med `Ja Kula`, ingen med ett ensamt `Ja`. De fyra utan etikett
+  har alla `Kaross: Ombyggd Bil`. Luckan var alltså hela ja-sidan, och GRÖNT
+  var oåtkomligt för varje form som mätts på en sida. I skiva 66 kopplades de två ärenden bland de tjugo som föll
+  med `svaret saknar draganordning`, ärende 4 och 20, till sina sidor. Båda bär
+  `Ja Kula`, alltså behandlades två av tjugo dragkrokar som okända.
 
-  **LUCKAN ÄR ÖPPEN MED FLIT OCH INTE AV FÖRBISEENDE**, och det är skillnaden
-  mot hur den stod i skiva 37. Då var den en oavsiktlig följd av en regel ingen
-  hade prövat. Nu är den den mätta kostnaden för att stänga lucka 48.
+  **VAD SOM STÄNGDE LUCKAN: uppräkningen.** `biluppgifter._draganordning` godtar
+  `ja` följt av en typ i `KOPPLINGSTYPER`: kula, demonterbar kula, bygel, krok,
+  vändskiva och jordbruksdrag, ur TSFS 2009:59 bilaga 1. `_ja_nej` är
+  oförändrad och läser fortfarande `Fyrhjulsdrift`.
 
-  **SKÄLET ÄR ATT EFTERLEDET INTE GÅR ATT TOLKA.** `Ja Kula` och `Ja avmonterad`
-  har samma form. En regel som godtar den ena godtar den andra, eftersom
-  villkoret är ordantal och teckenklass och aldrig betydelse. `slag_upp` skriver
-  redan att en omonterad dragkrok och en monterad men oregistrerad ser likadana
-  ut i registret, vilket är hela skälet till att förvalet är OKLART. `Ja Kula`
-  hör hemma i samma osäkerhet: sidan säger att något står REGISTRERAT, inte att
-  det sitter på bilen.
+  **UPPRÄKNINGEN ÄR INTE UTTÖMMANDE.** En typ som inte står i den ger `None`,
+  alltså OKLART, vilket är den säkra riktningen. Förbehållen, `Ja avmonterad`,
+  `Ja borttagen` och `Ja saknas`, ger `None` som i skiva 39, så lucka 48 står
+  stängd.
 
-  **VAD SOM STÄNGER LUCKAN.** En uppräkning av observerade kopplingstyper, så
-  att efterledet måste stå i en lista. Den kräver fler sidor än sex för att veta
-  vilka typer som förekommer, och de sidorna finns inte. Luckan står alltså
-  öppen tills materialet finns, inte tills någon kommer på en bättre regel.
+  **KVAR AV SKIVA 39:S INVÄNDNING.** En dragkrok som står i registret men är
+  demonterad på bilen ser likadan ut som en monterad. Lars har valt att läsa
+  registret.
 
-  **NEJ-SIDAN KRÄVER EXAKT `nej`.** `Nej.`, `Nej tack` och `Nej, uppgift saknas`
-  ger alla `None` och faller till utkast. Det COMMITTADE slutläget är detsamma
-  före skiva 38 och efter skiva 39.
+  **MÄTT EFTER STÄNGNINGEN.** Omkörningen av de tjugo gav GRÖNT för två,
+  ärende 4 och 20.
 
-  *Här stod att nej-sidan är "oförändrad genom HELA skiva 38 och 39". Det är
-  samma sats som skiva 38 varv 1 fällde, och den noten står 26 rader längre ned
-  i den här posten: under skivans gång vidgades nej-sidan, och `Nej, uppgift
-  saknas` gav `False`. Det är slutläget som är oförändrat, inte förloppet. Fällt
-  av §7-granskningen av skiva 39, varv 3.*
-
-  **REGELN ÄR BETEENDEMÄSSIGT IDENTISK MED DEN I `f5d26d6`**, alltså den som
-  gällde före skiva 38. Vad de två skivorna lämnar är inte en ny gräns utan ett
-  BELÄGG för den gamla: regressionstabellen, negativkontrollen, och
-  fällningstabellen nedan.
-
-  *Här stod "STÄNGD I SKIVA 38 på Lars beslut. `_ja_nej` läser nu FÖRSTA ORDET".
-  Den lydelsen var dessutom fälld i skiva 38 varv 2 och överlevde här, vilket
-  varv 3 rättade en gång redan. Nu är den borta av en annan orsak: regeln den
-  beskrev finns inte.*
-
-  *Här stod också att ASYMMETRIN FÖLJER AV MÄTNINGEN, att sidan skriver ja med
-  efterled och nej ensamt, och att ja-sidan därför behövde vidgas. Mätningen står
-  kvar och är oförändrad; slutsatsen gör det inte. Att sidan skriver `Ja Kula`
-  säger vad sidan skriver, inte att vi kan tolka det.*
-
-  *Här stod att skälet är RIKTNINGEN PÅ FELET: att ett felläst ja är "synligt
-  för kunden, som känner sin egen bil", medan bara ett felläst nej blir ett
-  påstående i underlaget. Det första var ett obelagt antagande om kundbeteende
-  som ensamt bar en vidgning av sändvägen. Det andra är falskt:
-  `src/generera.py:875` skriver `f"draganordning {'ja' if u.draganordning else
-  'nej'}."`, alltså blir BÅDA riktningarna ett faktum i underlaget. Fällt av
-  §7-granskningen av skiva 38, varv 2 för docstringen och varv 3 här.*
-
-  *Första lydelsen lade ordsplitten före BÅDA grenarna, alltså vidgades
-  nej-sidan i samma svep, och `Nej, uppgift saknas` blev `False`. Flera dokument
-  påstod samtidigt att nej-sidan var oförändrad, och INGENTING band den: en
-  fällning som återställde den strikta nej-sidan var GRÖN. Fällt av
-  §7-granskningen av skiva 38, varv 1.*
-
-  **FÄLLNINGSTABELLEN ÄR HELT OMKÖRD I SKIVA 39**, eftersom regeln den mätte inte
-  finns kvar. SJU fällningar: tre per gren, plus en som återinför skiva 38:s
-  villkor ordagrant. Alla neutraliserade och alla med `scripts/sparr-prova.sh`.
-  Varje återställning kvitterad med *"sha256 identisk"* och *"git diff identisk
-  med utgångsdiffen"*.
-
-  *Här stod "Sex fällningar, tre per gren". Det var sant om tabellen som den såg
-  ut innan varv 1:s rättelse lade en sjunde rad ÖVERST, och falskt tre rader
-  ovanför tabellen efteråt. Det är den mekanism §7 namnger: en post som läggs
-  överst föråldrar räkningen över sig i samma skrivning. Fällt av
-  §7-granskningen av skiva 39, varv 2.*
-
-  | Fälld rad | Utfall | Form |
-  | --- | --- | --- |
-  | **SKIVA 38:s EXAKTA VILLKOR återinfört**, ordantal och teckenklass | RÖD, `8 failed, 262 passed` | neutraliserad |
-  | ja-grenen VIDGAD till första ordet, `rensat.split()[:1] == ["ja"]` | RÖD, `10 failed, 260 passed` | neutraliserad |
-  | ja-grenen vidgad till PREFIX, `rensat.startswith("ja")` | RÖD, `15 failed, 255 passed` | neutraliserad |
-  | ja-grenen satt till `if False:` | RÖD, `5 failed, 265 passed` | neutraliserad |
-  | nej-grenen VIDGAD till första ordet, `rensat.split()[:1] == ["nej"]` | RÖD, `5 failed, 265 passed` | neutraliserad |
-  | nej-grenen vidgad till PREFIX, `rensat.startswith("nej")` | RÖD, `13 failed, 257 passed` | neutraliserad |
-  | nej-grenen satt till `if False:` | RÖD, `37 failed, 233 passed` | neutraliserad |
-
-  Mot `tests/test_biluppgifter.py`, som bar 270 test vid mätningen, avläst ur
-  `--collect-only -q`.
-
-  **FÖRSTA RADEN ÄR DEN SOM BÄR SKIVANS BESLUT**, och bara den. Den återinför
-  skiva 38:s villkor ORDAGRANT, alltså `ord_[:1] == ["ja"]` med både
-  ordantalsledet och `isalpha()`. Att den är RÖD är det som hindrar att just den
-  gränsen glider tillbaka.
-
-  *Den raden saknades, och i stället stod att fällning 2 "återinför exakt skiva
-  38:s gräns". Det är falskt: fällning 2 saknar båda leden och är alltså STRIKT
-  VIDARE än skiva 38:s regel, vilket syns på att den fäller `ja men avmonterad`
-  och `Ja (borttagen)`, som skiva 38 gav `None`. Tabellen bevisade därmed att en
-  vidare gräns är röd, inte att skiva 38:s gräns är det. Fällt av
-  §7-granskningen av skiva 39, varv 1.*
-
-  **DE TVÅ RADERNA SKILJER SIG MED TVÅ TEST**, `8 failed` mot `10 failed`, och
-  det är precis `ja men avmonterad` och `Ja (borttagen)`.
-
-  `test_ett_JA_MED_KOPPLINGSTYP_faller_till_UTKAST` ligger bland de röda i BÅDA,
-  alltså är den raden inte vakuös mot någondera gränsen.
-
-  **Båda prefixraderna finns för att skilja ORD från TECKENFÖLJD**, på var sin
-  sida. Utan dem hade `Jacobsen`, `Ja/Nej` och `Nejlika` passerat.
-
-  **DE TRE SOM SKIVA 38 SLÄPPTE IGENOM STÅR NU I TABELLEN SOM EGNA RADER.** `Ja
-  avmonterad`, `Ja borttagen` och `Ja saknas` gav alla `True`, alltså hade ett
-  fordon UTAN dragkrok gått till GRÖNT.
-
-  **VAD DE TRE FAKTISKT BÄR.** Fällningen med skiva 38:s exakta villkor ger åtta
-  röda, och de fördelar sig så här, avläst ur `FAILED`-raderna:
-
-  | Röd rad | Vad den säger |
-  | --- | --- |
-  | `Ja Kula`, `Ja Krok`, `Ja Kulhandske`, `ja kula` | ett värde blev `True` av sin KOPPLINGSTYP, alltså lucka 44:s pris |
-  | `Ja avmonterad`, `Ja borttagen`, `Ja saknas` | ett värde blev `True` fast efterledet betyder MOTSATSEN |
-  | `test_ett_JA_MED_KOPPLINGSTYP_faller_till_UTKAST` | konsekvensen hela vägen |
-
-  De tre nya raderna är alltså inte det som gör fällningen röd, den vore röd på
-  fem rader utan dem. De är det som gör att tabellen kan SKILJA ett felaktigt
-  grönt som beror på kopplingstyp från ett som beror på ett efterled med motsatt
-  betydelse. Det är den skillnaden Lars beslut vilar på.
-
-  *Här stod att de är tillagda "just för att fällning 1 ska ha något att falla
-  på". Falskt, och rättelsens första lydelse skrev i stället att skiva 38:s
-  villkor "utan dem inte hade haft något att falla på alls", vilket är samma fel
-  en gång till: fem röda återstår. Fällt av §7-granskningen av skiva 39 varv 1,
-  och av en omkörning under rättelsen.*
-
-  *Här stod skiva 38:s femradiga tabell, mätt mot den regel som nu är borttagen.
-  Den är bevarad ordagrant i den här filens 0.42.0-post.*
-
-  *Noten sade först att tabellen redovisas i `docs/beslutslogg.md` #83 och i
-  0.40.0- och 0.41.0-posterna. Ingen av dem bär en tabell, och tre av de fem
-  talen fanns inte längre någonstans i `docs/`. Fällt av §7-granskningen av
-  skiva 39, varv 2.*
-
-  **Negativkontroll:** `test_ett_TREDJE_varde_blir_ALDRIG_Nej`, skild från
-  tabellen med flit. Tabellen prövar att varje form ger RÄTT svar; den här att
-  en hel KLASS aldrig ger `False`. En framtida tabellrad med fel väntevärde
-  fångas därför ändå.
-
-  *Lydelsen som beskrev luckan när den var öppen. Statusraden är struken, resten
-  står ordagrant, fetstilen inbegripen:*
-
-  > **ETT FÄLT STÅR PÅ SIDAN OCH TOLKAS INTE.**
-  > `Draganordning` har på minst en sida värdet `Ja Kula`, alltså ja plus
-  > kopplingstyp. `biluppgifter._ja_nej` kräver exakt `ja` eller `nej`, ger `None`
-  > för allt annat, och då utelämnas nyckeln och `_kontrollera` fäller.
-  >
-  > **DEN ÄR DYRARE ÄN DEN SER UT.** `utvardera` ger GRÖNT bara när
-  > `draganordning` är sann. I skiva 37:s stickprov på sex sidor BÄR fem fältet,
-  > och av dessa fem visar **exakt en** en dragkrok. Det är den enda parsern
-  > avvisar. Mätt: med `Ja Kula` tolkat som ja blir utfallet `gront`. Stickprovets
-  > enda möjliga GRÖNT föll alltså på formen.
-  >
-  > *Här stod "av sex fordon har exakt ett en dragkrok". Den sjätte sidan bär inte
-  > fältet, alltså är dess status OKÄND och inte nej. Fällt av §7-granskningen av
-  > skiva 37, varv 1.*
-  >
-  > **VARFÖR DEN INTE ÄR RÄTTAD.** Skiva 37 DEL B: ingen ändring i uppslaget. Det
-  > är sändväg, och den naturliga lydelsen, att godta ett värde som BÖRJAR med
-  > `ja`, är inte gratis: `_ja_nej`:s docstring skriver ut att ett tredje värde
-  > betyder att vi inte vet, och att tolka `Okänd` som `Nej` vore ett påstående om
-  > att dragkrok saknas. En prefixregel måste visa att den inte öppnar den vägen.
-  >
-  > **VAD SOM STÄNGER LUCKAN.** Lars beslut om hur `_ja_nej` ska läsa ett värde med
-  > efterled, plus rader i regressionstabellen för `Ja`, `Nej`, `Ja Kula`, `Okänd`
-  > och tomt. Se `docs/beslutslogg.md` #78.
+  **FÄLLNINGAR, en rad i taget, alla RÖDA:** ja-grinden, typgrinden åt båda
+  hållen, slutreturen, `_ja_nej`-grenen, en struken typ i `KOPPLINGSTYPER`, och
+  `TOLKARE` återpekad på `_ja_nej`.
 
 - **Lucka 43. STÄNGD I SKIVA 37 på Lars §10-beslut.** Bokningsbeskedet är
   flyttat till `config/fakta.json`, konstanten i `src/generera.py` är borttagen,

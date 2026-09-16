@@ -871,70 +871,78 @@ def _ja_nej(varde: str) -> bool | None:
 
       `ja`     ensamt, bortsett från versaler och omgivande blanktecken
       `nej`    ensamt, på samma villkor
-      allt annat, `Ja Kula` och `Ja avmonterad` lika mycket, ger `None`
+      allt annat ger `None`
 
-    **ETT EFTERLED GÖR VÄRDET OKLART, OCH DET ÄR ETT BESLUT AV LARS.** Skiva 39
-    DEL 0, se `docs/beslutslogg.md` #86. Regeln hellre faller än gissar, och en
-    regel som godtar efterled gissar JAKANDE.
-
-    **SKÄLET ÄR RIKTNINGEN PÅ FELET, mätt och inte antagen.** Skiva 38:s regel
-    godtog `ja` plus vilket bokstavsord som helst, alltså gav `Ja avmonterad`,
-    `Ja borttagen` och `Ja saknas` alla `True`. `fordonsuppslag.utvardera` når
-    GRÖNT utan att fråga så snart `draganordning` är sann, så ett fordon UTAN
-    dragkrok gick till grönt. Villkoret var ordantal och teckenklass, aldrig
-    betydelse, och kunde därför inte skilja en kopplingstyp från sin motsats.
-
-    **LUCKA 44 ÄR DÄRMED ÅTERÖPPNAD, och det är det avsedda priset.** `Ja Kula`
-    faller till `None`, nyckeln utelämnas, `_kontrollera` fäller, och ärendet
-    blir ett utkast utan bedömning. Det var stickprovets enda möjliga GRÖNT.
-
-    Priset är avsett därför att `fordonsuppslag.slag_upp` redan skriver att en
-    omonterad dragkrok och en monterad men oregistrerad ser likadana ut i
-    registret, vilket är hela skälet till att förvalet är OKLART. `Ja Kula` hör
-    hemma i samma osäkerhet: sidan säger att NÅGOT står registrerat, inte att
-    det sitter på bilen.
-
-    **EN UPPRÄKNING AV KOPPLINGSTYPER VALDES BORT** därför att den kräver fler
-    sidor än sex för att veta vilka typer som förekommer, och de sidorna finns
-    inte. Det är ett beslut om vad vi VET, inte om vad som vore elegant.
-
-    **REGELN ÄR BETEENDEMÄSSIGT IDENTISK MED DEN SOM GÄLLDE FÖRE SKIVA 38**,
-    alltså den i `f5d26d6`. Vad skiva 38 och 39 lämnar efter sig är inte en ny
-    gräns utan ett BELÄGG för den gamla: en regressionstabell över varje form
-    sidan använder och varje form den inte gör, plus en negativkontroll.
+    Tolkaren för `Fyrhjulsdrift`, och grunden för `_draganordning`, som ensam
+    läser ja med en kopplingstyp. Regeln här är oförändrad sedan skiva 39.
 
     **ETT TREDJE VÄRDE BLIR ALDRIG `Nej`.** `Okänd`, `Uppgift saknas` och en tom
-    sträng ger `None`, nyckeln utelämnas, och `fordonsuppslag._kontrollera`
-    KASTAR `UppslagMisslyckades("svaret saknar draganordning")`. Ärendet blir ett
-    utkast utan bedömning. Ett utelämnat fält är inte ett nekande fält, och den
-    skillnaden är hela skälet till att regeln inte är gratis.
+    sträng ger `None`, och nyckeln utelämnas. Ett utelämnat fält är inte ett
+    nekande fält. `src/generera.py` skriver `draganordning nej` i underlaget för
+    `False`, alltså blir ett felläst nej ett faktum i ett utgående mail.
 
-    *Här stod att `utvardera` "faller till OKLART". Den anropas aldrig i det
-    fallet: `fordonsuppslag.py` konstruerar `Uppslag` först EFTER nyckelkontrollen,
-    alltså fälls uppslaget före utvärderingen. Meningen skrevs om av den här
-    skivan, så §7.2:s omskrivningsregel gällde den. Fällt av §7-granskningen av
-    skiva 39, varv 2.*
-
-    **MÄTNINGEN REGELN VILAR PÅ.** Avläst 2026-09-11 ur skiva 37:s stickprov på
-    sex sparade sidor: `Nej` fyra gånger, `Ja Kula` en gång, fältet saknas på en.
-    Den mätningen är oförändrad. Det som ändrats är vad vi gör med `Ja Kula`.
-
-    *Skiva 38 vidgade ja-sidan i tre lydelser och varje rättelse band den instans
-    fyndet räknade upp i stället för egenskapen. Först låg ordsplitten före BÅDA
-    grenarna, så `Nej, uppgift saknas` blev `False`. Sedan band rättelsen
-    KOMMATECKNET i `Ja, avmonterad`, så `Ja avmonterad` utan komma blev
-    fortfarande `True`. Skivan stoppades med luckan öppen, se
-    `docs/beslutslogg.md` #85 och `docs/incidentlogg.md` I10.*
+    *Skiva 38 godtog `ja` plus vilket bokstavsord som helst, och då gav `Ja
+    avmonterad`, `Ja borttagen` och `Ja saknas` alla `True`. Villkoret var
+    ordantal och teckenklass, aldrig betydelse. Skiva 39 strök alla efterled och
+    öppnade därmed lucka 44. Se `docs/beslutslogg.md` #85 och #86, och
+    `docs/incidentlogg.md` I10.*
     """
     rensat = varde.strip().lower()
 
-    # BARA ORDET. Inget efterled, varken kopplingstyp eller förbehåll: båda är
-    # `None`, eftersom regeln inte kan skilja dem åt. Se LUCKA 44, återöppnad.
     if rensat == "ja":
         return True
 
     if rensat == "nej":
         return False
+
+    return None
+
+
+# KOPPLINGSTYPERNA I VÄGTRAFIKREGISTRET. Skiva 67, LUCKA 44 STÄNGD på Lars beslut.
+#
+# **UPPSLAGNA OCH INTE GISSADE.** TSFS 2009:59, Transportstyrelsens föreskrifter
+# om fordonsuppgifter i vägtrafikregistret, bilaga 1: kopplingsanordningen anges
+# *"för fordon med kula, demonterbar kula, bygel, krok eller vändskiva"*, och för
+# traktor dessutom *"jordbruksdrag"*. Läst 2026-09-16 ur
+# transportstyrelsen.se/tsfs/TSFS_2009-59.pdf.
+#
+# **UPPRÄKNINGEN ÄR INTE UTTÖMMANDE.** Föreskriften kan ha ändrats sedan den
+# utgåvan, och biluppgifter.se kan skriva en typ i en annan form än registret.
+# En typ som inte står här ger `None`, alltså OKLART, vilket är den säkra
+# riktningen. Den enda jakande form som är avläst på en sida är `Ja Kula`.
+KOPPLINGSTYPER = frozenset({
+    "kula", "demonterbar kula", "bygel", "krok", "vändskiva", "jordbruksdrag",
+})
+
+
+def _draganordning(varde: str) -> bool | None:
+    """`Draganordning` som bool: `_ja_nej`, plus ja följt av en KOPPLINGSTYP.
+
+    **`Ja Kula` BETYDER ATT BILEN HAR DRAGKROK.** Kula är kopplingstypen, alltså
+    dragkulan. Det är en precisering och inte ett förbehåll. Lars beslut i
+    skiva 67, som river skiva 39:s: med den regeln kunde ja-sidan aldrig
+    inträffa, eftersom `Ja Kula` är den enda jakande form som mätts på en sida
+    och ett ensamt `Ja` inte förekommer. GRÖNT var alltså oåtkomligt för
+    varje form som mätts på en sida.
+
+    **KOPPLINGSTYP OCH FÖRBEHÅLL SKILJS ÅT AV EN UPPRÄKNING, inte av formen.**
+    Skiva 38:s fel var att `Ja avmonterad` har samma form som `Ja Kula`. Här
+    godtas bara efterled som står i `KOPPLINGSTYPER`. Allt annat ger `None`:
+    `avmonterad`, `borttagen`, `saknas`, och varje typ vi inte känner.
+
+    **NEJ-SIDAN ÄR OFÖRÄNDRAD.** `Nej Kula` ger `None`, eftersom bara ordet `ja`
+    öppnar uppräkningen.
+    """
+    grund = _ja_nej(varde)
+    if grund is not None:
+        return grund
+
+    ord_ = varde.split()
+    if not ord_ or ord_[0].lower() != "ja":
+        return None
+
+    if " ".join(ord_[1:]).lower() in KOPPLINGSTYPER:
+        return True
 
     return None
 
@@ -1141,7 +1149,7 @@ def _arsparet(varde: str) -> tuple[int, int] | None:
 # `scripts/faltinventering.py --visa-varden`, 2026-09-14:
 #
 #   `1201 kg`                   vikterna, inklusive obromsad
-#   `Ja Kula` och `Nej`         draganordning
+#   `Ja Kula` och `Nej`         draganordning, se `KOPPLINGSTYPER`
 #   `Ja` och `Nej`              fyrhjulsdrift
 #   `Halvkombi`, `Ombyggd Bil`  kaross
 #   `3 st + förare`             passagerare
@@ -1158,7 +1166,7 @@ TOLKARE = {
     "slapvagnsvikt_kg": _tal,
     "totalvikt_kg": _tal,
     "slapvagnsvikt_obromsad_kg": _tal,
-    "draganordning": _ja_nej,
+    "draganordning": _draganordning,
     "fyrhjulsdrift": _ja_nej,
     "kaross": _text,
     "status": _text,

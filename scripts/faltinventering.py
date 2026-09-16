@@ -128,8 +128,8 @@ def _skriv_tolkbarheten(rader_per_sida) -> None:
                 tolkas += 1 if biluppgifter._tal(ravarde) is not None else 0
                 faller += 1 if biluppgifter._tal(ravarde) is None else 0
             elif etikett == "Draganordning":
-                tolkas += 1 if biluppgifter._ja_nej(ravarde) is not None else 0
-                faller += 1 if biluppgifter._ja_nej(ravarde) is None else 0
+                tolkas += 1 if biluppgifter._draganordning(ravarde) is not None else 0
+                faller += 1 if biluppgifter._draganordning(ravarde) is None else 0
             else:
                 # INGEN PARSER FINNS ÄN. Ett icke-tomt värde räknas som läsbart
                 # råtext, vilket är allt DEL A behöver veta om det.

@@ -416,9 +416,9 @@ def _sidan_saknar_faltet(svar: Mapping, nyckel: str) -> bool:
                            STOD på sidan och att VÅR läsning föll.
 
     **`tolkas ej` FÄLLER FORTFARANDE HELA UPPSLAGET.** Ett fält vi inte kunde
-    läsa säger ingenting om bilen, och skiva 24 och 39 band beteendet: `Ja Kula`
-    i `Draganordning` ger `None` ur `_ja_nej` med avsikt, och ärendet blir ett
-    utkast utan bedömning. Att behandla det som *"registret bär ingen uppgift"*
+    läsa säger ingenting om bilen: `Ja avmonterad` i `Draganordning` ger `None`
+    ur `biluppgifter._draganordning`, och ärendet blir ett utkast utan
+    bedömning. Att behandla det som *"registret bär ingen uppgift"*
     hade bytt ut ett eget fel mot en egenskap hos registret, vilket är precis det
     `biluppgifter.dragviktslage` ordnar sin prövningsordning för att undvika.
     """
