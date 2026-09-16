@@ -3125,9 +3125,9 @@ def test_EFTERSLAPSRADEN_passerar_VARJE_sparr(rad, lage):
 # ------------------------------ DRÖJSMÅLETS LÄNGD, SKIVA 62 DEL B, LUCKA 77
 
 
-def _hal(text: str) -> pytest.param:
+def _hal(text: str, lucka: int = 77) -> pytest.param:
     return pytest.param(text, marks=pytest.mark.xfail(
-        strict=True, reason="lucka 77, formen fångas inte"))
+        strict=True, reason=f"lucka {lucka}, formen fångas inte"))
 
 
 # FORMERNA, MÄTTA MOT SPÄRREN. En vanlig rad fälls. En `_hal`-rad är en
@@ -3192,6 +3192,12 @@ DROJSMAL_SKA_FALLA = [
     _hal("Ursäkta att det dröjt tre hela långa veckor."),
     _hal("Ursäkta att det dröjt sedan midsommar."),
     _hal("Vi har haft semester i tre veckor, därav vårt svar nu."),
+    # SKIVA 64, LUCKA 79: stycket med ursäkten prövas, inte hela svaret
+    "Hej!\n\nVi bokar gärna in er.\n\nUrsäkta att det dröjt två veckor.",
+    "Hej!\n\nUrsäkta dröjsmålet.\nDet har gått två veckor.",
+    _hal("Ursäkta dröjsmålet.\n\nDet har gått två veckor sedan ni skrev.",
+         lucka=79),
+    "Hej!\r\n\r\nUrsäkta att det dröjt två veckor.",
 ]
 
 
@@ -3211,6 +3217,12 @@ def test_DROJSMALETS_LANGD_falls(svar):
     "Ursäkta att det dröjt. Ha en fin dag!",
     "Ursäkta att det dröjt så länge. Trevlig helg och ha en trevlig helg!",
     "Ursäkta att det dröjt, det har varit fullt upp i veckan.",
+    # SKIVA 64, LUCKA 79: bokningstiden i ett annat stycke än ursäkten.
+    "Hej Anna,\n\nUrsäkta att det dröjt, det har varit fullt upp.\n\n"
+    "Juni löser vi, hör av er så bestämmer vi en dag som passar.",
+    "Hej Anna,\n\nUrsäkta att det dröjt.\n  \nVi bestämmer en dag som passar.",
+    "Hej Anna,\r\n\r\nUrsäkta att det dröjt.\r\n\r\nVi bestämmer en dag "
+    "som passar.",
 ])
 def test_DROJSMALETS_LANGD_slapper_igenom(svar):
     generera.krav_pa_drojsmal_utan_langd(svar)
@@ -3224,8 +3236,9 @@ def test_DROJSMALETS_LANGD_slapper_igenom(svar):
 def test_DROJSMALETS_LANGD_faller_OCKSA_en_ledtid(svar):
     """ÖVERFÄLLNINGEN ÄR ETT VAL, fällt fram av §7-granskningen av skiva 62.
 
-    Grinden prövar hela svaret och läser ett ord, inte en ursäkt. En längd
-    saknar alltid källa, alltså fälls inget som fick gå ut."""
+    Grinden prövar stycket med dröjsmålsordet, sedan skiva 64, och läser ett
+    ord, inte en ursäkt. En längd saknar alltid källa, alltså fälls inget som
+    fick gå ut."""
     with pytest.raises(Sparrfalld):
         generera.krav_pa_drojsmal_utan_langd(svar)
 
@@ -4210,6 +4223,11 @@ def test_GENERERAT_FORDONSFAKTUM_fangade_INTE_det_fallda_utkastet():
         # VILLKORSSATS, och en första lydelse friade båda.
         "Din bil saknar dragkrok så det ordnar vi.",
         "Bilen saknar dragvikt men det ordnar vi.",
+        # SKIVA 64: ordgränsen står bara FÖRE, så en svans tappas inte.
+        "Registret säger ingenting om dragvikten.",
+        # SKIVA 64, §7-granskningen: markdown-kursiv är en ordgräns.
+        "Bilen har _ingen_ dragvikt.",
+        "Dragvikten är _okänd_.",
     ],
 )
 def test_varje_form_av_franvaropastaende_sparras(svar):
@@ -4240,6 +4258,10 @@ def test_varje_form_av_franvaropastaende_sparras(svar):
         "Vi monterar gärna en dragkrok om du saknar en sådan.",
         # SATSBROTT. Frånvaroordet hör till tiden och inte till dragvikten.
         "Vi saknar tyvärr en ledig tid, men dragvikten är 2000 kg.",
+        # SKIVA 64, LUCKA 78. Frånvaroordet är svansen på ett vanligt ord.
+        "Det är värt att ha med i beräkningen: bilen har en dragvikt på 2000 kg.",
+        "Bilen har en dragvikt på 2000 kg, värt att ha med i beräkningen.",
+        "Bilen har en dragvikt på 2000 kg, hej så länge.",
     ],
 )
 def test_ett_svar_som_INTE_pastar_franvaro_slapps_igenom(svar):

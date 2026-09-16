@@ -1345,8 +1345,17 @@ FRANVAROPASTAENDE = {
     namn: re.compile(
         # BÅDA RIKTNINGARNA. `saknar dragvikt` och `dragvikt saknas` är samma
         # påstående, och en spärr som bara tog den ena hade fällts av den andra.
-        rf"(?:(?:{FRANVAROORD}){_AVSTAND}(?:{ord_})"
-        rf"|(?:{ord_}){_AVSTAND}(?:{FRANVAROORD_EFTER}))",
+        #
+        # **ORDGRÄNS FÖRE FRÅNVAROORDET, skiva 64, LUCKA 78.** Utan den träffade
+        # `ingen` slutet av `beräkningen`, och en mening som sade att bilen HAR
+        # en släpvagnsvikt fälldes. Lars jämförde
+        # med lucka 28: ett vanligt ord som fäller ett önskat svar. Gränsen
+        # står bara FÖRE: `ingenting` är ett frånvaroord med en svans.
+        # Gränsen är `(?<![^\W_])` och inte `\b`, så att ett understreck
+        # räknas som gräns och `_ingen_` fortfarande fångas. Fällt fram av
+        # §7-granskningen av skiva 64.
+        rf"(?:(?<![^\W_])(?:{FRANVAROORD}){_AVSTAND}(?:{ord_})"
+        rf"|(?:{ord_}){_AVSTAND}(?<![^\W_])(?:{FRANVAROORD_EFTER}))",
         re.IGNORECASE,
     )
     for namn, ord_ in FRANVAROFAKTA.items()
@@ -1906,6 +1915,11 @@ TIDSLANGD = re.compile(
 )
 
 
+# ETT STYCKE SLUTAR VID EN TOM RAD, också en som bara bär blanktecken, och
+# också med `\r\n`. Fällt fram av §7-granskningen av skiva 64.
+STYCKESBROTT = re.compile(r"\r?\n[^\S\r\n]*\r?\n")
+
+
 def krav_pa_drojsmal_utan_langd(svar: str) -> None:
     """SPÄRR: ett svar som ber om ursäkt för ett dröjsmål säger aldrig HUR LÄNGE.
 
@@ -1914,36 +1928,46 @@ def krav_pa_drojsmal_utan_langd(svar: str) -> None:
     saknar källa precis som ett pris gör. Prompten hindrar, regel 20 och
     `EFTERSLAPSRAD`; spärren fångar.
 
-    **HELA SVARET PRÖVAS OCH INTE SATSEN.** *"Ursäkta dröjsmålet. Det har gått
-    tre veckor."* bär ursäkten och längden i var sin mening. Bär svaret ett
-    `DROJSMALSORD` någonstans faller varje `TIDSLANGD` i det. Ingen tidslängd
-    har någon källa: `config/` bär ingen.
+    **STYCKET MED URSÄKTEN PRÖVAS, INTE SATSEN OCH INTE HELA SVARET.** Lars
+    beslut i skiva 64, LUCKA 79: ankra spärren till eftersläpsraden. I skiva
+    64:s körning stod ursäkten i ett eget stycke efter hälsningen i vart och
+    ett av de tolv utkast som bar den. Prompten KRÄVER inget eget stycke. *"Ursäkta dröjsmålet. Det har gått tre veckor."* bär
+    ursäkten och längden i var sin mening och fälls, eftersom de står i samma
+    stycke. Ett stycke utan `DROJSMALSORD` prövas inte.
+
+    *Här stod att HELA SVARET prövas. Det fällde en bokningsbekräftelse,
+    "bestämmer vi en dag som passar", i en sats utan dröjsmålsord, och
+    kostade ett svar. Uppmätt i skiva 63 DEL E.*
+
+    **EN LÄNGD I ETT ANNAT STYCKE ÄN URSÄKTEN PASSERAR.** Det är priset för
+    avgränsningen, och mot den formen står bara regel 20. Strikt xfail i
+    `DROJSMAL_SKA_FALLA`.
 
     **UTAN DRÖJSMÅLSORD PRÖVAS INGENTING.** En ledtid utan ursäkt är regel 6 och
     10, inte den här spärren.
 
-    **SPÄRREN FÄLLER FÖR MYCKET, OCH DET ÄR ETT VAL.** Ett eftersläpssvar som
-    också bär en ledtid, en bokningstid eller *"Bilen är ett år gammal"*
-    fälls. Varje sådan längd saknar källa och är förbjuden av regel 6, 8 eller
-    10, alltså fäller spärren inget som fick gå ut. Utfallet blir ett utkast
-    Lars läser. Bundet av `test_DROJSMALETS_LANGD_faller_OCKSA_en_ledtid`.
+    **SPÄRREN FÄLLER FORTFARANDE FÖR MYCKET INOM STYCKET, OCH DET ÄR ETT VAL.**
+    En ledtid eller en bokningstid i samma stycke som ursäkten fälls. Varje
+    sådan längd saknar källa, alltså fäller spärren inget som fick gå ut.
+    Bundet av `test_DROJSMALETS_LANGD_faller_OCKSA_en_ledtid`.
 
     **TAL I ORD FÅNGAS SOM TAL I SIFFROR.** `3` står i `ALLTID_TILLATNA_TAL` och
     `två veckor` har ingen multiplikand för `TAL_I_ORD`, alltså passerade båda
     talspärren. Formerna spärren fångar, och de den inte fångar som strikt
     xfail, står i `tests/test_generera.py::DROJSMAL_SKA_FALLA`.
     """
-    if not DROJSMALSORD.search(svar):
-        return
+    for stycke in STYCKESBROTT.split(svar):
+        if not DROJSMALSORD.search(stycke):
+            continue
 
-    traff = TIDSLANGD.search(svar)
-    if traff:
-        raise Sparrfalld(
-            "drojsmalets-langd",
-            f"svaret ber om ursäkt för ett dröjsmål och säger hur länge: "
-            f"{traff.group(0).lower()!r}",
-            _satsen_med(svar, traff.group(0)),
-        )
+        traff = TIDSLANGD.search(stycke)
+        if traff:
+            raise Sparrfalld(
+                "drojsmalets-langd",
+                f"svaret ber om ursäkt för ett dröjsmål och säger hur länge: "
+                f"{traff.group(0).lower()!r}",
+                _satsen_med(stycke, traff.group(0)),
+            )
 
 
 def krav_pa_ett_svar(svar: str) -> None:

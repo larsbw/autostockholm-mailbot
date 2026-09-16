@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.70.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.71.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -5281,10 +5281,11 @@ oavsett vad boten skriver. Att ändra posten är §10 och Lars beslut.
 ## `drojsmalets-langd`
 
 - **Spärr.** `src/generera.py::krav_pa_drojsmal_utan_langd`, anropad sist i
-  `krav_pa_svaret`. Två villkor fattar beslutet: grinden
-  `if not DROJSMALSORD.search(svar):` som släpper igenom ett svar utan ursäkt,
-  och `if traff:` efter `traff = TIDSLANGD.search(svar)` som fäller. Grinden
-  prövar hela svaret, inte satsen.
+  `krav_pa_svaret`. Svaret delas i stycken med `STYCKESBROTT`
+  (`for stycke in STYCKESBROTT.split(svar):`). Två villkor fattar beslutet:
+  grinden `if not DROJSMALSORD.search(stycke):` som hoppar över ett stycke utan
+  ursäkt, och `if traff:` efter `traff = TIDSLANGD.search(stycke)` som fäller.
+  Sedan skiva 64 prövas stycket med ursäkten, inte hela svaret, LUCKA 79.
 - **Vad den skyddar mot.** Ett utkast som säger hur länge kundens mail legat,
   *"Ursäkta att det dröjt i två veckor"*. Längden saknar källa. Skiva 62,
   LUCKA 77, där formerna den fångar och inte fångar står.
@@ -6313,8 +6314,9 @@ Grinden öppnas också av `sorry`, `sent`, `hunnit`, `liggande`, `tagit oss`,
 | *Vi har haft semester i tre veckor, därav vårt svar nu.* | inget ord ur `DROJSMALSORD` |
 
 **SPÄRREN FÄLLER FÖR MYCKET, och det är ett val.** Grinden läser ett ord och
-inte en ursäkt, och den prövar hela svaret. *"Det kan dröja två veckor"* och ett
-eftersläpssvar med en bokningstid fälls. Ingen längd har en källa, alltså fälls
+inte en ursäkt. *"Det kan dröja två veckor"* och en bokningstid i samma stycke
+som ursäkten fälls. *Här stod att grinden prövar hela svaret; sedan skiva 64
+prövas stycket, LUCKA 79.* Ingen längd har en källa, alltså fälls
 inget som fick gå ut. Bundet av `test_DROJSMALETS_LANGD_faller_OCKSA_en_ledtid`.
 
 **MÄTT MOT MATTES SVAR**, `data/par.jsonl`: av 222 svar bär 10 ett
@@ -6325,10 +6327,9 @@ a-traktorsvar fälls inget.
 
 ## LUCKA UTAN SPÄRR: `franvaroordet_saknar_ordgrans`
 
-**LUCKA 78, ÖPPEN OCH MÄTT. Uppmätt i skiva 63 DEL E.** Ingen spärr är rörd,
-§9.1.
+**LUCKA 78, STÄNGD i skiva 64 på Lars order.** Uppmätt i skiva 63 DEL E.
 
-`FRANVAROORD` i `src/generera.py` har inga ordgränser, alltså träffar `ingen`
+`FRANVAROORD` i `src/generera.py` hade inga ordgränser, alltså träffade `ingen`
 slutet av ett ord som `beräkningen`. En av skiva 63:s tjugo fälldes av
 `pastaende-om-franvaro` så, i en mening som säger att bilen HAR en
 släpvagnsvikt. Återskapat med påhittad text, fälls i båda riktningarna:
@@ -6336,15 +6337,24 @@ släpvagnsvikt. Återskapat med påhittad text, fälls i båda riktningarna:
 - *Det är värt att ha med i beräkningen: bilen har en släpvagnsvikt på 1500 kg.*
 - *Bilen har en släpvagnsvikt på 1500 kg, vilket är värt att ha med i beräkningen.*
 
-Riktningen är den säkra: ett utkast blir spärrat, inget falskt går ut. Att
-lägga till ordgränser smalnar av spärren och är Lars beslut.
+**MÄTT I SKIVA 64.** Satsen var inget frånvaropåstående: frånvaroordet var
+svansen på `beräkningen`, och faktumet var släpvagnsvikten, som satsen sade att
+bilen HAR. Lars jämförde med lucka 28, ett vanligt ord som fäller ett önskat
+svar, som lämnades öppen med talet noll. Här var talet ett.
+
+**STÄNGNINGEN.** `FRANVAROPASTAENDE` kräver en ordgräns FÖRE frånvaroordet i
+båda riktningarna, skriven `(?<![^\W_])` så att ett understreck räknas som
+gräns och markdown-kursiv som `_ingen_` fortfarande fångas. Ingen gräns efter: `ingenting` fångas fortfarande. Kvar är
+prefixträffar: `utanför` läses som `utan`, och efter faktumet läses
+`intervall` som `inte`. Riktningen är den säkra. Negativkontrollerna står i
+`test_ett_svar_som_INTE_pastar_franvaro_slapps_igenom`, och varje gräns är
+fälld för sig med RÖD.
 
 ---
 
 ## LUCKA UTAN SPÄRR: `en_dag_ar_ingen_langd`
 
-**LUCKA 79, ÖPPEN OCH MÄTT. Uppmätt i skiva 63 DEL E.** Ingen spärr är rörd,
-§9.1.
+**LUCKA 79, STÄNGD i skiva 64 på Lars order.** Uppmätt i skiva 63 DEL E.
 
 `drojsmalets-langd` fäller ett eftersläpssvar som bekräftar en bokning med
 *"hör av er så bestämmer vi en dag som passar"*. `en dag` läses som en
@@ -6353,6 +6363,17 @@ tidslängd. En av skiva 63:s tjugo fälldes så. Återskapat med påhittad text.
 Överfällningen är den skiva 62 valde, se spärrposten, men den här formen är
 ingen längd alls och står i ett svar regel 10 beordrar. Formen `dröjt en dag`
 är däremot en längd, alltså skiljer ordet inte de två.
+
+**MÄTT I SKIVA 64.** Den fällda satsen bar inget dröjsmålsord, alltså stod
+längden utanför ursäkten. Det sparade fallet bär bara satsen, inte utkastet.
+
+**STÄNGNINGEN, Lars beslut.** Spärren prövar varje stycke som bär ett
+dröjsmålsord, i stället för hela svaret. I skiva 64:s körning skrev samma
+ärende `en dag` i ett annat stycke än ursäkten, och utkastet passerade.
+Kvar öppet: en längd i ett annat stycke än ursäkten fångas inte, strikt xfail i
+`DROJSMAL_SKA_FALLA`, och mot den formen står bara regel 20. Prompten kräver
+inget eget stycke för ursäkten; i skiva 64:s körning stod den ändå i ett eget
+stycke i vart och ett av de tolv utkast som bar den.
 
 ---
 
@@ -6369,7 +6390,13 @@ varje mening som nämner dragkrok när fältet är tomt fälls av
 prövning per fält. Att bygga formuleringen kräver att en av dem ändras, och det
 är Lars beslut.
 
-**I SKIVA 63:s TJUGO NÅR LÄGET INTE GENERATORN.** Av de lyckade uppslagen
+**OMMÄTT I SKIVA 64, efter stängningen av LUCKA 78 och 79.** Av de
+lyckade uppslagen saknar noll bilar som inte är ombyggda uppgiften. Två
+misslyckade uppslag saknar fältet, och ett av dem spärrades av
+`genererat-fordonsfaktum` på en mening om draganordningen. Talet är två, alltså
+står luckan som ett kantfall på Lars beslut.
+
+*Skiva 63:s mått.* **I SKIVA 63:s TJUGO NÅR LÄGET INTE GENERATORN.** Av de lyckade uppslagen
 saknar bara de redan ombyggda bilarna uppgiften, och de får inget svar sedan
 DEL A. Två misslyckade uppslag saknade också fältet; för dem säger underlaget
 att vi inte vet något om bilen.
@@ -6385,7 +6412,13 @@ uppslaget LYCKAS. `Kaross` läses först när hela uppslaget godkänts, och
 `UppslagMisslyckades` bär inte fältet. Fälls uppslaget, till exempel på en
 saknad tjänstevikt, går ärendet till generatorn med `utfall=None` och får ett
 svar om att vi inte kunnat slå upp bilen. Svaret påstår inget falskt om bilen,
-men ärendet får ett svar trots Lars beslut. Hur ofta det händer är inte mätt.
+men ärendet får ett svar trots Lars beslut.
+
+**MÄTT I SKIVA 64: NOLL AV TJUGO.** Hämtningen läser `Kaross` också när
+uppslaget sedan fälls. Två uppslag fälldes, och ingen av bilarna var ombyggd.
+
+**INGET BYGGT, Lars beslut.** Det är samma osäkerhet som OKLART bygger på: när
+uppslaget fälls vet vi inte att bilen är ombyggd.
 
 ---
 
@@ -6411,6 +6444,12 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.71.0 — 2026-09-16
+
+**LUCKA 78 OCH 79 STÄNGDA**, skiva 64, på Lars order: ordgräns före
+frånvaroordet, och `drojsmalets-langd` prövar stycket med ursäkten.
+LUCKA 80 och 81 ommätta och lämnade. Två stängda luckor ⇒ MINOR.
 
 ### 0.70.0 — 2026-09-16
 

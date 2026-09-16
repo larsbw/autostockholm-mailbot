@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.83.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §8
+**Version:** 0.84.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -7866,7 +7866,36 @@ Två falska fällningar, båda i den säkra riktningen och båda lämnade enligt
 bokningsbekräftelse, LUCKA 79.
 
 
+## #129 — Skiva 64: två falska fällningar stängda, två luckor ommätta
+
+**Datum:** 2026-09-16 · **Berör:** `src/generera.py`
+
+### 1. LUCKA 79: DRÖJSMÅLSSPÄRREN PRÖVAR STYCKET MED URSÄKTEN
+
+**Lars beslut.** Den fällda satsen bar inget dröjsmålsord, alltså stod `en dag`
+utanför ursäkten. `drojsmalets-langd` prövar nu varje stycke som bär ett
+dröjsmålsord, i stället för hela svaret. Priset är att en längd i ett annat
+stycke än ursäkten passerar; mot den står bara regel 20.
+
+### 2. LUCKA 78: ORDGRÄNS FÖRE FRÅNVAROORDET
+
+**Lars order.** `ingen` i `beräkningen` fällde en mening som sade att bilen har
+en släpvagnsvikt. `FRANVAROPASTAENDE` kräver nu en ordgräns före
+frånvaroordet i båda riktningarna. Ett understreck räknas som gräns.
+
+### 3. LUCKA 80 OCH 81, OMMÄTTA OCH LÄMNADE
+
+- **LUCKA 80.** Efter stängningarna når läget utan uppgift om draganordning
+  generatorn i två av tjugo, båda misslyckade uppslag. Kantfall, Lars beslut.
+- **LUCKA 81.** Ombyggda bilar med misslyckat uppslag: noll av tjugo. Inget
+  byggt, Lars beslut: vi vet inte att bilen är ombyggd när uppslaget fälls.
+
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.84.0 — 2026-09-16
+
+**#129 TILLKOMMER.** Skiva 64. Ny post ⇒ MINOR.
 
 ### 0.83.0 — 2026-09-16
 
