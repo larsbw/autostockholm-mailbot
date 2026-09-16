@@ -68,7 +68,8 @@ MONSTER: list[tuple[str, re.Pattern]] = [
 ]
 
 # Undantag. Varje post är en RAD som får innehålla en träff, med skälet
-# utskrivet. Undantaget gäller exakt strängen, inte mönstret.
+# utskrivet. Undantaget gäller exakt strängen, inte mönstret, och en DEL av en
+# post godtas bara när hela posten står i samma rad. Se `_tillaten`.
 TILLATNA = {
     # Brevlådan själv står i CLAUDE.md §0 och är företagets, inte en persons.
     "info@autostockholm.se",
@@ -83,6 +84,29 @@ TILLATNA = {
     # test använder som kanariefågel. `test_telefonnummer_falls` använder en
     # annan sträng, alltså står beviset kvar.
     "076-860 38 15",
+    # VERKSTADENS EGEN POSTADRESS, av samma klass som brevlådan och växelnumret
+    # ovan: den är publicerad på autostockholm.se och tillhör företaget, inte en
+    # person. Lars §10-beslut i skiva 58 DEL A skrev in den i
+    # `config/fakta.json`, som är en bevakad katalog, och spärren fällde
+    # commit:en precis som den gjorde för numret i skiva 44.
+    #
+    # **UNDANTAGET RÖR ORSAKEN och skriver inte om texten.** Skriptets eget
+    # stoppmeddelande föreskriver den här åtgärden och förbjuder den andra:
+    # adressen ÄR en gatuadress och ett postnummer, och den är inte persondata.
+    #
+    # **EN POST OCH INTE TVÅ, och det ledet är fällt fram av §7-granskningen av
+    # skiva 58.** Två mönster träffar var sin DEL av värdet: `gatuadress` tar
+    # gatudelen, `postnummer` de fem siffrorna utan orten. En första lydelse la
+    # de två delsträngarna här var för sig, och då var de undantagna ÖVERALLT:
+    # en KUNDS postnummer med samma siffror hade passerat vakten tyst, vilket är
+    # precis den invändning `postnummer`-mönstrets egen kommentar reser. Posten
+    # är därför HELA adressen, och `_tillaten` godtar en del av den bara när hela
+    # värdet står i samma rad.
+    #
+    # **UNDANTAGET TYSTAR INTE VAKTENS EGET BEVIS.** `test_gatuadress_falls` och
+    # `test_postnummer_med_ort_falls` använder andra strängar, alltså står båda
+    # kanariefåglarna kvar.
+    "Surbrunnsgatan 42, 113 48 Stockholm",
     # Exempeladresser i regler och mallar.
     "noreply@example.com",
     "kund@exempel.se",
@@ -128,8 +152,28 @@ def bevakad(sokvag: str) -> bool:
     return any(sokvag == post or sokvag.startswith(post) for post in BEVAKADE)
 
 
-def _tillaten(traff: str) -> bool:
-    return traff.strip() in TILLATNA
+def _tillaten(traff: str, rad: str) -> bool:
+    """Är träffen undantagen, ensam eller som del av ett undantaget värde?
+
+    **DEN ANDRA GRENEN ÄR SKIVA 58:s, och den SNÄVAR undantaget.** Verkstadens
+    postadress träffas av två mönster som var för sig returnerar en DEL av
+    värdet: `gatuadress` tar gatudelen, `postnummer` tar de fem siffrorna utan
+    orten, som ligger i en lookahead. Lades de två delarna i `TILLATNA` var för
+    sig blev de undantagna ÖVERALLT, alltså hade en KUNDS postnummer eller en
+    KUNDS gatuadress med samma siffror passerat vakten tyst. Det är precis den
+    invändning `postnummer`-mönstrets egen kommentar reser mot att lägga bara tal
+    i `TILLATNA`.
+
+    Undantaget gäller därför den HELA adressen, och en del av den godtas bara när
+    hela värdet står i samma rad. Grenen kan bara göra vakten snävare: utan den
+    hade posterna behövt vara de två delsträngarna.
+
+    Fällt av §7-granskningen av skiva 58.
+    """
+    ren = traff.strip()
+    if ren in TILLATNA:
+        return True
+    return any(ren in tillaten and tillaten in rad for tillaten in TILLATNA)
 
 
 def granska(text: str, sokvag: str) -> list[tuple[int, str, str]]:
@@ -149,14 +193,15 @@ def granska(text: str, sokvag: str) -> list[tuple[int, str, str]]:
     for nummer, rad in enumerate(text.splitlines(), start=1):
         for sort, monster in MONSTER:
             for traff in monster.finditer(rad):
-                if not _tillaten(traff.group(0)):
+                if not _tillaten(traff.group(0), rad):
                     fynd.append((nummer, sort, traff.group(0)))
 
     redan = {(sort, traff) for _, sort, traff in fynd}
+    hopfogad = _hopfogad(text)
     for sort, monster in MONSTER:
-        for traff in monster.finditer(_hopfogad(text)):
+        for traff in monster.finditer(hopfogad):
             varde = traff.group(0)
-            if (sort, varde) in redan or _tillaten(varde):
+            if (sort, varde) in redan or _tillaten(varde, hopfogad):
                 continue
             fynd.append((0, f"{sort} (över radslut)", varde))
 

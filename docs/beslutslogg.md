@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.78.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §8
+**Version:** 0.79.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -7550,7 +7550,177 @@ det redan i skiva 56. Skyddet är alltså ett skydd för framtida lydelser, inte
 för dagens.
 
 
+## #124 — Skiva 58: ett faktavärde är en källa bara ORDAGRANT, och adressen skrivs in
+
+**Datum:** 2026-09-16 · **Berör:** `src/generera.py`, `config/fakta.json`,
+`tests/test_generera.py`, `scripts/persondatakontroll.py`,
+`scripts/faktakalla-matning.py`, `docs/sparrar.md`
+
+Skiva 57 lämnade en fråga hos Lars: modellen skriver av Mattes signaturblock ur
+ett få-exempel, och utan en adress i `config/` fällde talspärren postnumret.
+Skiva 58 mätte vad ett inskrivet adressvärde skulle kosta och fann att den
+kostnaden redan var betald en gång, oregistrerat.
+
+### 1. VÄG B: ett faktavärde med siffror är en källa bara där det står ordagrant
+
+**Lars beslut.** Ett faktavärde som bär siffror blir källa bara när värdet står
+ORDAGRANT i satsen. Dess siffergrupper går aldrig in i den globala mängden
+tillåtna tal.
+
+**HÅLET SOM STÄNGS FANNS REDAN OCH VAR OMÄTT.** `_tillatna_tal` la varje
+faktavärdes siffergrupper i en global mängd. Telefonnumret har sedan skiva 44
+gjort fyra siffergrupper skrivbara i vilken mening som helst, och tre svar
+uppmättes passera i skiva 58 DEL 0.1: en påhittad ledtid i dagar, en påhittad
+ledtid i en annan form, och ett påhittat antal ombyggda bilar. Alla tre faller
+efter ändringen, uppmätt mot `krav_pa_svaret` med
+`scripts/faktakalla-matning.py`. Det är samma klass som hålet skiva 36 stängde,
+där kommentarnycklarnas paragraftecken gjorde 7 och 10 tillåtna.
+
+**LARS SKÄL MOT VÄG A, ordagrant:** väg A gör spärren mätbart svagare i utbyte
+mot att en falsk positiv försvinner, och adressens två tvåsiffriga tal ligger
+precis i det intervall en påhittad ledtid hamnar i.
+
+**FORMEN ÄR LARS EGEN FRÅN SKIVA 44, och att den bara gällde prisgrenen var en
+begränsning ingen valt.** Båda grenarna i `krav_pa_tal_med_kalla` går nu genom
+`_tal_utan_ordagrann_kalla`, som drar bort siffergrupperna i varje faktavärde
+som står ordagrant i satsen. Slutkontrollen går därmed PER SATS, av samma skäl
+som prisgrenen redan gjorde det: ett tal ska inte kunna hämta sin källa ur ett
+värde som står i en annan mening.
+
+**SUBTRAKTION OCH INTE ETT TILLÄGG, oförändrat sedan skiva 44.** Ett tillägg
+hade gjort en mening som bara bär numret till ett godkänt prisbesked utan
+belopp.
+
+**ÖVERBLOCKERINGEN ÄR MÄTT och den är noll.** Mattes 45 skickade a-traktorsvar
+körda genom `krav_pa_svaret`: noll texter går från passerande till fälld. En
+text går åt andra hållet, se punkt 2. Texträkningen har ett tak på ett, eftersom
+44 av 45 redan föll, och därför mäts också det som faktiskt betalas: antalet
+texter där ett tal förlorar sin källa av väg B. Det är 1 av 45, och talet är
+telefonnumrets sista siffergrupp.
+
+### 2. ADRESSEN IN I `config/fakta.json`
+
+**Lars §10-beslut.** Verkstadens postadress skrivs in som ett faktavärde,
+ordagrant i den form filen bär den. Med väg B på plats kan dess siffergrupper
+inte bli globalt tillåtna tal: de är en källa bara i den sats där hela adressen
+står tecken för tecken.
+
+**UPPMÄTT I SKARP KÖRNING.** De tjugo kördes om: 19 utkast, 1 spärrad, 0 inget
+svar, 0 källfel. Signaturfällningen är borta. 15 av 20 utkast skriver adressen,
+samtliga 15 ordagrant, och ingen av dem fälls. Den enda spärrade posten föll på
+`atagande-om-priset` och har inget med adressen att göra.
+
+**OCH DEN SYNS I MATTES EGEN KORPUS.** Ett av hans 45 svar bär adressen och inga
+andra tal alls. Det föll före skivan och passerar efter den, alltså är den falska
+positiven bekräftad i verkligt material och inte bara i botens utkast.
+
+### 3. KORPUSENS `113` BYTS MOT SENTINELVÄRDET
+
+**Lars beslut, samma precedens som skiva 43:** korpusen ska byta exempeltal, inte
+verkligheten. Talet är de tre första siffrorna i postnumret, alltså ett exempel
+ur samma domän som en §10-fil, och lucka 58 kallar det en tripwire i förklädnad.
+Två rader i `tests/test_generera.py` bär det som sitt källösa tal och bär nu
+`SENTINELPRIS_IHOP` i stället.
+
+**INGEN RAD VAR RÖD AV BYTET, och det redovisas som sådant.** Kollisionen
+mätte upp två röda rader när adressen prövades mot den GAMLA spärren. Med väg B
+inne faller talet i de raderna lika hårt efter DEL A som före, alltså tvingade
+ingen mätning fram bytet. Det som byts är risken: skulle den globala vägen någon
+gång öppnas igen blir kollisionen omedelbar.
+
+### 4. `persondatakontroll` FÄLLDE COMMIT:EN, och undantaget rör orsaken
+
+Adressen ligger i en bevakad katalog och träffar två mönster, `gatuadress` och
+`postnummer`. Åtgärden är den skriptets eget stoppmeddelande föreskriver och den
+Lars avgjorde för växelnumret i skiva 44: strängarna står i `TILLATNA` med skälet
+utskrivet. Adressen är publicerad på autostockholm.se och tillhör företaget, inte
+en person. Texten är INTE omskriven, vilket är §9.1:s förbjudna åtgärd i
+dokumentform. Två strängar och inte en, eftersom `_tillaten` jämför den matchade
+delsträngen. Båda vakternas kanariefåglar använder andra strängar och står kvar.
+
+### 5. TVÅ FÖRÄLDRALÖSA LED OCH EN VAKUÖS PARAMETRISERING
+
+`_satsen_med_talet` är borttagen. Den letade i efterhand upp den sats ett fällt
+tal stod i; slutkontrollen går per sats och känner satsen när den fäller.
+Egenskapen hjälparen bar, att ett grupperat tal får med sin sats, binds kvar.
+
+`test_ett_NYCKELNAMN_ar_ALDRIG_en_talkalla` var parametriserad över båda
+§10-filerna. `[PRISER]`-fallet var vakuöst sedan skiva 52: `priser_for` slår upp
+kategorin och returnerar värden, alltså kan ett nyckelnamn inte nå talspärren
+oavsett filtrering. Fallet är struket och skälet står i raden.
+
+**LUCKA 58:s FÖRSTA HALVA ÄR STÄNGD.** De spärrtest som läste en OPATCHAD
+§10-fil patchar nu båda. Uppmätt med prisposten för a-traktor satt till ett
+tvåsiffrigt belopp: samtliga fem rader står gröna, alltså går de inte längre
+röda av Lars beslut i stället för av en defekt. Prisfilen är återställd och
+kvitterad oförändrad.
+
+### 6. §7-GRANSKNINGEN FÄLLDE ETT SÄNDVÄGSHÅL I SKIVANS EGEN FÖRSTA LYDELSE
+
+**HÅLET.** Väg B:s första lydelse drog bort faktavärdets siffergrupper ur HELA
+satsens talmängd. `_meningar` delar vid `[.!?]` och ALDRIG vid radbrytning,
+alltså ligger en kroppsmening utan avslutande punkt i samma sats som hela
+signaturblocket. Med adressen inskriven fick den satsen därmed `42`, `113` och
+`48` som källor, och ett påhittat tal i kroppen tvättades av signaturen.
+
+Uppmätt mot `krav_pa_tal_med_kalla`, samma text mot HEAD och mot arbetsträdet:
+ett svar med *"Vi har byggt om 113 bilar"* utan avslutande punkt, följt av
+signaturen med adressen, FÖLL mot HEAD och PASSERADE med första lydelsen. Samma
+form friade *"Ring oss på 076-860 38 15 så hör vi av oss inom 15 dagar."*, som
+inte var en regression men som skivans egen text påstod var stängd.
+
+**ÅTGÄRDEN RÖR ORSAKEN.** `_tal_utan_ordagrann_kalla` stryker värdets EGEN
+förekomst ur satsen och prövar resten. Ett tal utanför värdet kan därmed inte
+låna dess källa, oavsett hur stor satsen är. Ersättningstecknet är ett
+KOMMATECKEN och inte ett blanksteg, eftersom `TAL_I_TEXT` läser `[\s.]` följt av
+exakt tre siffror som en del av talet och ett blanksteg alltså hade kunnat foga
+ihop siffrorna på var sida till ett tal som aldrig stod i svaret.
+
+**BÅDA LEDEN ÄR BUNDNA.** `test_ett_tal_UTANFOR_vardet_lanar_ALDRIG_dess_kalla`
+med två former, och `test_strykningen_FOGAR_ALDRIG_IHOP_tva_tal`. Den lydelse
+granskningen fällde ger nu RÖD svit.
+
+**DEL B:s SIFFROR STÅR KVAR.** Rättelsen kom efter körningen av de tjugo, alltså
+kontrollerades den mot de sparade utkasten: gammal och ny regel ger IDENTISK
+talmängd för varje sats i varje utkast, noll skillnader. Fördelningen 19 utkast
+och 1 spärrad gäller alltså också den skeppade koden.
+
+### 7. ÅTTA FALSKA PÅSTÅENDEN OCH TVÅ TILL, SAMTLIGA RÄTTADE
+
+Granskningen fällde dessutom tio påståenden, varav åtta i text som skivan själv
+hade gjort falsk: uppräkningen av vilka belopp subtraktionen överblockerade
+(stämde inte ens för den lydelse den beskrev, `76` mot numrets `076`), "de två
+värden filen bär i dag" när filen bär tre, `_med_konfig`:s beskrivning av vad
+`_tillatna_tal` läser, en presensmening om `_varden_ur` i testfilen, lucka 45:s
+huvudpåstående, lucka 57:s "de fyra rader står gröna" om en rad skivan strök,
+och två påståenden i mätskriptets docstring. Därtill en död loopgren i ett test
+och en oskriven asymmetri mellan spärrens och promptens läsare.
+
+### 8. UNDANTAGET I `persondatakontroll` VAR FÖR BRETT, OCH ÄR SNÄVAT
+
+Granskningen fann att de två delsträngarna `TILLATNA` först fick gjorde en
+KUNDS postnummer och en KUNDS gatuadress undantagna överallt, alltså precis den
+invändning `postnummer`-mönstrets egen kommentar reser mot att lägga bara tal i
+listan. Posten är nu HELA adressen, och `_tillaten` godtar en del av en post bara
+när hela posten står i samma rad. Grenen kan bara göra vakten snävare. Två nya
+rader binder den, och båda fällningarna ger RÖD.
+
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.79.0 — 2026-09-16
+
+**#124 TILLKOMMER.** Skiva 58: Lars väg B, ett faktavärde är en källa bara
+ordagrant och bara i den sats där det står; adressen in i `config/fakta.json`;
+korpusens exempeltal byts; `persondatakontroll` får undantaget för verkstadens
+egen adress, snävat till hela strängen. LUCKA 45, LUCKA 57 och LUCKA 58:s första
+halva stängda, LUCKA 74 tillkommer.
+
+**§7-GRANSKNINGEN FÄLLDE ETT SÄNDVÄGSHÅL I SKIVANS EGEN FÖRSTA LYDELSE**, plus
+tio falska påståenden och ett för brett persondataundantag. Allt rättat före
+skepp, se posten punkt 6 till 8.
+
+Ny post ⇒ MINOR.
 
 ### 0.78.0 — 2026-09-16
 

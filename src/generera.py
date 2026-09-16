@@ -240,12 +240,12 @@ class Forfragan:
 # och hålls kort med flit: varje tillägg är ett hål i spärren.
 ALLTID_TILLATNA_TAL = frozenset({"1", "2", "3"})
 
-# NYCKELN I `config/fakta.json` VARS VÄRDE FÅR STÅ I EN PRISSATS.
-#
-# Egen konstant därför att `krav_pa_tal_med_kalla` slår upp just den posten, och
-# ett nyckelnamn som bara står inuti en spärr är ett obundet led. Lars beslut i
-# skiva 44; skälet står i spärrens docstring.
-TELEFONNYCKEL = "telefon"
+# `TELEFONNYCKEL = "telefon"` STOD HÄR OCH ÄR BORTTAGEN I SKIVA 58. Den fanns
+# därför att `krav_pa_tal_med_kalla` slog upp just den posten i
+# `config/fakta.json`. Väg B slår inte upp någon nyckel alls: VARJE faktavärde
+# är en källa där det står ordagrant, och `_faktakallor` läser värden utan att
+# känna till ett enda namn. Ett namn kvar här hade pekat ut en post som inte har
+# någon särställning längre.
 
 # VARJE SIFFERFÖLJD, med tusengruppering som en del av talet.
 #
@@ -838,13 +838,27 @@ def _tal_i(text: str) -> set[str]:
 
 
 def _tillatna_tal(forfragan: Forfragan) -> set[str]:
-    """Talen ett svar får nämna: uppslagets egna plus config plus undantagen.
+    """Talen ett svar får nämna VAR SOM HELST: uppslagets, prispostens, undantagen.
 
-    **PRISFILEN FINNS OCH ÄR TOM.** `config/priser.json` upprättades i skiva 41
-    på Lars §10-beslut, med varje värde tomt. Den bidrar alltså med noll tal, och
-    det är avsiktligt: ett svar som nämner ett pris faller tills Lars fyllt en
-    post. *Här stod att filen inte existerar, vilket blev falskt av den skiva som
-    skapade den. Fällt av §7-granskningen av skiva 41, varv 1.*
+    **FAKTAFILENS TAL STÅR INTE HÄR LÄNGRE. LARS BESLUT I SKIVA 58, VÄG B.**
+    Raden `for varde in _varden_ur(las_konfig(FAKTA))` la varje faktavärdes
+    siffergrupper i den här mängden, alltså gjorde telefonnumret `076`, `860`,
+    `38` och `15` skrivbara i vilken mening som helst. Uppmätt före ändringen:
+    *"Vi hör av oss inom 15 dagar."*, *"Ombyggnaden tar 38 dagar."* och *"Vi har
+    byggt om 860 bilar."* passerade alla tre. Det är samma klass som hålet skiva
+    36 stängde, där kommentarnycklarnas `§7.2` och `§10` gjorde 7 och 10
+    tillåtna.
+
+    Ett faktavärde som bär siffror är i stället en källa BARA i den sats där
+    värdet står ORDAGRANT, se `_faktakallor` och `krav_pa_tal_med_kalla`. Det är
+    formen Lars beslutade för telefonnumret i skiva 44; att den bara gällde
+    prisgrenen var en begränsning ingen valt.
+
+    **PRISFILEN ÄR FYLLD SEDAN SKIVA 44**, alltså bidrar prisposten för ärendets
+    kategori med sina tal. *Här stod i presens att filen är TOM och bidrar med
+    noll tal, en mening skriven i skiva 41 och oläst sedan Lars fyllde fem av sex
+    poster. Samma falskhet som §7-granskningen av skiva 46 fällde i
+    `krav_pa_tal_med_kalla`, kvarlämnad tjugo rader ovanför. Rättad i skiva 58.*
 
     **KUNDENS TEXT ÄR INGEN KÄLLA, och det ledet är fällt fram i två varv.**
     Skiva 33 lade två gånger `forfragan.text` här, för att lösa lucka 30, och
@@ -860,27 +874,9 @@ def _tillatna_tal(forfragan: Forfragan) -> set[str]:
         tillatna.add(str(forfragan.uppslag.tjanstevikt_kg))
         tillatna.add(str(forfragan.uppslag.slapvagnsvikt_kg))
 
-    # **BARA VÄRDENA, ALDRIG KOMMENTARERNA.** Raden läste tidigare hela filen
-    # och plockade tal ur `json.dumps(data)`. Skiva 36 gav `config/fakta.json`
-    # två kommentarnycklar som nämner `§7.2` och `§10`, och därmed blev 7 och 10
-    # TILLÅTNA TAL i ett utgående mail: "vi hör av oss inom 10 dagar" passerade
-    # spärren, uppmätt. Det bryter §0:s ramverksregel 3, som är obrytbar.
-    #
-    # En kommentar i en konfigurationsfil får aldrig kunna vidga en sändvägsspärr.
-    #
-    # **FÖRSTA RÄTTELSEN STÄNGDE BARA TOPPNIVÅN, och det räckte inte.** Den
-    # filtrerade `_`-nycklar och dumpade sedan hela dicten, alltså gick både
-    # NYCKELNAMN och NÄSTLADE kommentarer vidare: `{"ledtid_14_dagar": ...}` gav
-    # 14, och `{"a": {"_om": "se §7.2"}}` gav 7. Fällt av §7-granskningen av
-    # skiva 36, varv 2.
-    #
-    # `_varden_ur` plockar VÄRDEN och aldrig nycklar, hela vägen ned.
-    for varde in _varden_ur(las_konfig(FAKTA)):
-        tillatna.update(_tal_i(varde))
-
     # **PRISFILEN GÅR EN ANNAN VÄG SEDAN SKIVA 52, och det är hela skivan.**
-    # Raden ovanför läste tidigare `PRISER` på samma sätt, alltså blev VARJE
-    # prispostal ett tillåtet tal oavsett kategori. Se `priser_for`.
+    # Den lästes tidigare med `_varden_ur`, alltså blev VARJE prispostal ett
+    # tillåtet tal oavsett kategori. Se `priser_for`.
     #
     # **`priser_for` ÄR SNÄVARE ÄN `_varden_ur` OCKSÅ PÅ EN ANDRA PUNKT, och
     # riktningen är den säkra.** `_varden_ur` går NED genom en nästlad struktur
@@ -897,8 +893,11 @@ def _tillatna_tal(forfragan: Forfragan) -> set[str]:
 def _varden_ur(data: object) -> list[str]:
     """Varje VÄRDE i en konfigurationsstruktur, som text. Aldrig en nyckel.
 
-    **DEN HÄR FUNKTIONEN ÄR SÄNDVÄG.** Allt den returnerar blir tal boten får
-    skriva i ett kundmail, se `_tillatna_tal`.
+    **DEN HÄR FUNKTIONEN ÄR SÄNDVÄG.** Allt den returnerar blir ett tal boten
+    får skriva i ett kundmail, se `_faktakallor`. Fram till skiva 58 gick talen
+    in i den GLOBALA mängden tillåtna tal; sedan dess är de en källa bara i den
+    sats där värdet står ordagrant. Skillnaden är var talet får stå, inte om
+    värdet är en källa.
 
     Går ned genom dictar och listor. **`_`-nycklar hoppas över på VARJE nivå**,
     inte bara den översta: en kommentar en nivå ned är lika mycket en kommentar.
@@ -925,6 +924,96 @@ def _varden_ur(data: object) -> list[str]:
 
     text = str(data).strip()
     return [text] if text else []
+
+
+def _faktakallor() -> list[str]:
+    """Faktavärdena, i den form `config/fakta.json` skriver dem.
+
+    **DE ÄR KÄLLOR BARA ORDAGRANT. LARS BESLUT I SKIVA 58, VÄG B.** Ett värde
+    härifrån gör sina siffergrupper skrivbara i den sats där HELA värdet står som
+    det står, och ingen annanstans. Se `_tal_utan_ordagrann_kalla`.
+
+    **BARA VÄRDENA, ALDRIG KOMMENTARERNA.** `_tillatna_tal` läste tidigare hela
+    filen och plockade tal ur `json.dumps(data)`. Skiva 36 gav
+    `config/fakta.json` två kommentarnycklar som nämner `§7.2` och `§10`, och
+    därmed blev 7 och 10 TILLÅTNA TAL i ett utgående mail: *"vi hör av oss inom
+    10 dagar"* passerade spärren, uppmätt. Det bryter §0:s ramverksregel 3, som
+    är obrytbar. En kommentar i en konfigurationsfil får aldrig kunna vidga en
+    sändvägsspärr.
+
+    *Första rättelsen stängde bara TOPPNIVÅN, och det räckte inte: den
+    filtrerade `_`-nycklar och dumpade sedan hela dicten, alltså gick både
+    NYCKELNAMN och NÄSTLADE kommentarer vidare. `{"ledtid_14_dagar": ...}` gav
+    14, och `{"a": {"_om": "se §7.2"}}` gav 7. Fällt av §7-granskningen av
+    skiva 36, varv 2.* `_varden_ur` plockar VÄRDEN och aldrig nycklar, hela vägen
+    ned.
+
+    **VÄRDEN UTAN SIFFROR FILTRERAS INTE BORT, och det är ett val.** Ett sådant
+    värde, `bokningar` är ett, drar bort noll tal ur en sats och kan alltså inte
+    ändra ett utfall. En rad som ändå sållade dem hade varit VAKUÖS enligt §7.1:
+    ingen indata kan skilja den från dess frånvaro.
+
+    **FUNKTIONEN ÄR BREDARE ÄN PROMPTEN, och riktningen är motsatt `priser_for`:s.**
+    `_varden_ur` går NED i en nästlad struktur, medan `las_konfigvarden`, som
+    bygger prompten, utelämnar ett nästlat värde helt. Ett nästlat faktavärde kan
+    därför vara en källa här utan att modellen sett det. Det är avsiktligt och
+    bundet av `test_en_NASTLAD_kommentar_vidgar_ALDRIG_talsparren`: ett värde är
+    ett värde oavsett djup, och skiva 36:s lärdom var att filtrera på KOMMENTAR
+    och inte på nivå. Skillnaden är noll för en platt fil, som lucka 53 kräver och
+    `test_bada_konfigfilerna_i_repot_ar_PLATTA` gatar. Registrerat här i stället
+    för som lucka, eftersom §7-granskningen av skiva 58 fann att asymmetrin stod
+    oskriven medan grannfunktionens motsatta riktning stod utskriven.
+    """
+    return _varden_ur(las_konfig(FAKTA))
+
+
+def _tal_utan_ordagrann_kalla(sats: str, kallor: list[str]) -> set[str]:
+    """Satsens tal, utan dem som står INUTI ett ordagrant faktavärde.
+
+    **VÄRDETS EGEN FÖREKOMST STRYKS, och resten av satsen prövas. Det ledet är
+    fällt fram av §7-granskningen av skiva 58.** Den första lydelsen drog bort
+    värdets siffergrupper ur HELA satsens talmängd, och det öppnade ett hål så
+    snart adressen skrevs in: `_meningar` delar vid `[.!?]` och aldrig vid
+    radbrytning, alltså ligger en kroppsmening utan avslutande punkt i SAMMA sats
+    som signaturblocket. Uppmätt före rättelsen: ett svar vars sista rad saknar
+    punkt och som följs av signaturen med adressen passerade med *"Vi har byggt
+    om 113 bilar"*, eftersom adressens `113` tvättade kroppens `113`. Samma form
+    friade *"Ring oss på 076-860 38 15 så hör vi av oss inom 15 dagar."*
+    Strykningen tar bara de siffror som står i värdets egen förekomst, alltså
+    kan ett tal någon annanstans i satsen inte längre låna dess källa.
+
+    **AVSKILJAREN ÄR ETT KOMMATECKEN och inte ett blanksteg.** `TAL_I_TEXT` läser
+    `[\\s.]` följt av exakt tre siffror som en del av talet, alltså hade ett
+    blanksteg kunnat foga ihop siffrorna före och efter det strukna värdet till
+    ETT tal som aldrig stod i svaret. Ett kommatecken ligger utanför den klassen.
+
+    **SUBTRAKTION OCH INTE ETT TILLÄGG, och skillnaden är lastbärande.**
+    Prisgrenen kräver att en prissats bär MINST ETT tal ur priskällan. Hade
+    numrets siffergrupper lagts till de tillåtna i stället hade *"Ring oss på
+    076-860 38 15 för pris."* blivit ett godkänt prisbesked utan belopp, alltså
+    hade den gren som fäller ett prisord utan tal tagits bort. Lars beslut i
+    skiva 44, oförändrat i skiva 58.
+
+    **ORDAGRANT, och därför `in` mot satsen och inte mot talen.** Ett värde som
+    är omskrivet är inte det värde `config/fakta.json` bär: `076 860 38 15` i
+    stället för `076-860 38 15` matchar inte och satsen faller. Det är samma krav
+    som `PRISFOT` och `FAKTAFOT` ställer på modellen.
+
+    **DET ÄR INGEN SÄNKT TRÖSKEL, och skillnaden är exaktheten.** Villkoret är en
+    identisk delsträng ur en §10-grindad källa. Ett godtyckligt tal går inte att
+    tvätta den vägen.
+
+    **ETT VÄRDE SOM SPÄNNER ÖVER EN SATSGRÄNS KAN ALDRIG BLI EN KÄLLA.** `sats`
+    kommer ur `_meningar`. Bär ett faktavärde en punkt eller ett `, men `, så står
+    det aldrig helt i en sats, och dess tal faller överallt. Utfallet blir
+    `utkast`, alltså den säkra riktningen, och inget av filens tre värden har en
+    sådan avskiljare.
+    """
+    kvar = sats
+    for varde in kallor:
+        if varde in kvar:
+            kvar = kvar.replace(varde, ",")
+    return _tal_i(kvar)
 
 
 def krav_pa_tal_med_kalla(svar: str, forfragan: Forfragan) -> None:
@@ -977,33 +1066,38 @@ def krav_pa_tal_med_kalla(svar: str, forfragan: Forfragan) -> None:
     hämta sin källa ur ett tal i en annan. Vilka satser som prövas avgörs av
     `_prissatser`, som fogar ihop de par delningen klöv mitt i en prisfras.
 
-    **TELEFONNUMRET ÄR EN KÄLLA OCKSÅ I EN PRISSATS, MEN BARA ORDAGRANT.** Lars
-    beslut i skiva 44, se `docs/beslutslogg.md`. Prompten beordrar sedan samma
-    skiva att ett svar som nämner ett pris ska följa det med numret, och
-    prisgrenen fällde den formen: numrets siffergrupper kommer inte ur
-    `config/priser.json`. Uppmätt över tjugo körda mail spärrades FYRA på just
-    `talet 076 står i en prismening`, alltså på ett svar som var korrekt för
-    kunden.
+    **ETT FAKTAVÄRDE ÄR EN KÄLLA BARA DÄR DET STÅR ORDAGRANT. LARS BESLUT I
+    SKIVA 58, VÄG B.** Formen kom ur skiva 44 och gällde då telefonnumret i en
+    prissats: prompten beordrar sedan dess att ett svar som nämner ett pris ska
+    följa det med numret, och prisgrenen fällde precis den formen, eftersom
+    numrets siffergrupper inte kommer ur `config/priser.json`. Uppmätt över tjugo
+    körda mail spärrades FYRA på just `talet 076 står i en prismening`, alltså på
+    ett svar som var korrekt för kunden.
 
-    **DET ÄR INGEN SÄNKT TRÖSKEL, och skillnaden är exaktheten.** Villkoret är
-    att `config/fakta.json`:s telefonvärde står ORDAGRANT i satsen, alltså en
-    identisk delsträng ur en §10-grindad källa. Ett godtyckligt tal går inte att
-    tvätta den vägen, och en omskriven form av numret, `076 860 38 15` i stället
-    för `076-860 38 15`, matchar inte och fäller. Det är samma krav som
-    `PRISFOT` och `FAKTAFOT` ställer: ett värde härifrån återges som det står.
+    **ATT REGELN BARA GÄLLDE PRISGRENEN VAR EN BEGRÄNSNING INGEN VALT, och den
+    kostade ett hål i den allmänna grenen.** Där la `_tillatna_tal` faktafilens
+    tal i en GLOBAL mängd, alltså var `15` skrivbart i vilken mening som helst så
+    snart numret stod i filen. Uppmätt före skiva 58: *"Vi hör av oss inom 15
+    dagar."*, *"Ombyggnaden tar 38 dagar."* och *"Vi har byggt om 860 bilar."*
+    passerade alla tre. Nu prövas BÅDA grenarna per sats med samma hjälpare,
+    `_tal_utan_ordagrann_kalla`, och den bär skälen för subtraktionen och för
+    exaktheten.
 
-    **INVARIANTEN STÅR KVAR: en prissats måste bära minst ett tal ur
-    priskällan.** Numrets siffergrupper DRAS BORT ur satsens tal innan regeln
-    tillämpas, i stället för att läggas till de tillåtna. Skillnaden är
-    lastbärande: ett tillägg hade gjort *"Ring oss på 076-860 38 15 för pris."*
-    till ett godkänt prisbesked utan belopp, alltså tagit bort den gren som
-    fäller ett prisord utan tal.
+    **DEN ALLMÄNNA GRENEN GÅR PER SATS AV SAMMA SKÄL SOM PRISGRENEN GÖR DET.**
+    Ett tal i en sats ska inte kunna hämta sin källa ur ett faktavärde som står i
+    en annan: *"Ring oss på 076-860 38 15. Vi hör av oss inom 15 dagar."* har sitt
+    nummer i första meningen och sin påhittade ledtid i andra.
 
-    **SUBTRAKTIONEN ÖVERBLOCKERAR I ETT FALL, och det är den säkra riktningen.**
-    Bär samma sats både numret och ett pris vars belopp är IDENTISKT med en av
-    numrets siffergrupper, faller satsen på att inget tal återstår. Det kräver
-    ett pris på 76, 860, 38 eller 15 kronor i samma mening som numret. Utfallet
-    blir `utkast`, som Lars läser ändå. Samma avvägning som lucka 55.
+    **DEN ÖVERBLOCKERING SKIVA 44 REDOVISADE FINNS INTE LÄNGRE.** Här stod att
+    en prissats som bär både numret och ett pris vars belopp är IDENTISKT med en
+    av numrets siffergrupper faller på att inget tal återstår, med en uppräkning
+    av de belopp som utlöser det. Det gällde subtraktionen, och skiva 58:s
+    §7-granskning ersatte den med en STRYKNING av värdets egen förekomst: ett
+    belopp utanför värdet står kvar och prövas mot priskällan som vilket pris som
+    helst. Uppmätt mot `krav_pa_tal_med_kalla` med numret och ett belopp i samma
+    mening, för var och en av numrets och adressens siffergrupper: samtliga faller
+    på `står i en prismening men kommer inte ur config/priser.json`, alltså på sin
+    egen brist på priskälla och inte på tomhet.
     """
     # BARA ÄRENDETS EGEN PRISPOST, skiva 52. Raden läste tidigare hela filen,
     # alltså var `4650` ur `service` en giltig källa i ett a-traktorsvar. Skälet
@@ -1012,15 +1106,10 @@ def krav_pa_tal_med_kalla(svar: str, forfragan: Forfragan) -> None:
     for varde in priser_for(forfragan.kategori).values():
         priskallans_tal |= _tal_i(varde)
 
-    telefon = las_fakta().get(TELEFONNYCKEL, "")
-    telefonens_tal = _tal_i(telefon) if telefon else set()
+    kallor = _faktakallor()
 
     for sats in _prissatser(svar):
-        talen = _tal_i(sats)
-        # ORDAGRANT, och därför `in` mot satsen och inte mot talen. Ett nummer
-        # som är omskrivet är inte det värde `config/fakta.json` bär.
-        if telefon and telefon in sats:
-            talen -= telefonens_tal
+        talen = _tal_utan_ordagrann_kalla(sats, kallor)
         if not talen:
             raise Sparrfalld(
                 "genererat-tal-har-kalla",
@@ -1045,16 +1134,20 @@ def krav_pa_tal_med_kalla(svar: str, forfragan: Forfragan) -> None:
             _satsen_med(svar, traff_i_ord.group(0)),
         )
 
+    # SLUTKONTROLLEN GÅR PER SATS SEDAN SKIVA 58, och satsen är den spärren
+    # pekar på. Den byggdes förut fram i efterhand av `_satsen_med_talet`, som
+    # letade upp den sats talet stod i; nu är den redan känd, eftersom det är
+    # satsen som avgör vilka faktavärden som är källor. Skiva 56 DEL 0:s ärende
+    # är oförändrat: `talet 113` utan satsen gick inte att spåra.
     tillatna = _tillatna_tal(forfragan)
-    for tal in sorted(_tal_i(svar)):
-        if tal not in tillatna:
-            raise Sparrfalld(
-                "genererat-tal-har-kalla",
-                f"talet {tal} kommer varken ur uppslaget eller ur config",
-                # DEN SATS TALET FAKTISKT STÅR I, och det är hela DEL 0:s
-                # ärende: `talet 113` utan satsen gick inte att spåra.
-                _satsen_med_talet(svar, tal),
-            )
+    for sats in _meningar(svar):
+        for tal in sorted(_tal_utan_ordagrann_kalla(sats, kallor)):
+            if tal not in tillatna:
+                raise Sparrfalld(
+                    "genererat-tal-har-kalla",
+                    f"talet {tal} kommer varken ur uppslaget eller ur config",
+                    sats.strip(),
+                )
 
 
 def _faltet_ar_last(uppslag: Uppslag | None, falt: str) -> bool:
@@ -1361,19 +1454,12 @@ def _satsen_med(svar: str, del_: str) -> str:
     return ""
 
 
-def _satsen_med_talet(svar: str, tal: str) -> str:
-    """Den första satsen vars TAL innehåller `tal`, eller tom sträng.
-
-    **EGEN HJÄLPARE, och skillnaden mot `_satsen_med` är lastbärande.** `_tal_i`
-    normaliserar bort blanksteg och avskiljare, alltså är `25000` det tal
-    spärren namnger medan svaret skriver `25 000`. En delsträngssökning på det
-    normaliserade talet hade då inte träffat någon sats alls, och varje fällning
-    på ett grupperat tal hade blivit utan sats.
-    """
-    for sats in _meningar(svar):
-        if tal in _tal_i(sats):
-            return sats.strip()
-    return ""
+# `_satsen_med_talet` STOD HÄR OCH ÄR BORTTAGEN I SKIVA 58. Den letade i
+# efterhand upp den sats ett fällt tal stod i, eftersom slutkontrollen gick över
+# HELA svarets tal. Den går sedan skiva 58 per sats, alltså är satsen känd när
+# fällningen sker och en uppslagning har inget kvar att göra. Egenskapen
+# hjälparen bar, att ett GRUPPERAT tal ändå får med sin sats, står kvar och binds
+# av `test_satsen_hittas_aven_for_ett_GRUPPERAT_tal`.
 
 
 def _prisord_over_skarven(forsta: str, andra: str) -> bool:
@@ -2233,9 +2319,14 @@ def las_konfigvarden(fil: Path) -> dict:
     över foten *"Varje pris här återges ordagrant"*, alltså blev vårt INKÖPSPRIS
     ett citerbart pris.
 
-    **TALETS HALVA VAR REDAN STÄNGD, TEXTENS INTE.** `_varden_ur` hindrar att
-    9000 blir ett tillåtet tal, men ingenting hindrade att texten stod i
+    **TALETS HALVA VAR REDAN STÄNGD, TEXTENS INTE.** `_varden_ur` hindrade att
+    9000 blev ett tillåtet tal, men ingenting hindrade att texten stod i
     prompten. Det är skillnaden mellan de två läsarna, och den var hålet.
+
+    *Ledet stod i PRESENS och gäller inte längre den filen: skiva 52 tog
+    prisfilen ur `_varden_ur`:s väg, och sedan skiva 58 är det `config/fakta.json`
+    funktionen läser, med tal som är en källa bara ordagrant i sin egen sats.
+    Mätningen ovan står som den gjordes. Rättat i skiva 58.*
 
     **ETT NÄSTLAT VÄRDE UTELÄMNAS I STÄLLET FÖR ATT KASTA**, av samma skäl som
     raden ovanför: en fil av fel form ska inte kunna tala, och utelämnandet är

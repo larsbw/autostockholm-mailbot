@@ -61,6 +61,34 @@ def test_brevladan_ar_undantagen():
     assert sorter("skriv till info@autostockholm.se") == set()
 
 
+def test_verkstadens_adress_ar_undantagen_HEL():
+    """Verkstadens egen postadress är företagets och inte en persons.
+
+    Lars §10-beslut i skiva 58 DEL A skrev in den i `config/fakta.json`, som är
+    en bevakad katalog, och vakten fällde commit:en. Undantaget rör orsaken,
+    samma form som växelnumret i skiva 44.
+    """
+    adress = "Surbrunnsgatan 42, 113 48 Stockholm"
+
+    assert sorter(f"vi finns på {adress} och tar emot bokningar") == set()
+
+
+def test_en_DEL_av_adressen_ar_undantagen_BARA_med_helheten():
+    """SNÄVNINGEN, och utan den är undantaget en tyst lucka i §6.
+
+    Två mönster träffar var sin del av adressen, alltså hade posterna behövt
+    vara de två delsträngarna om `_tillaten` bara jämförde exakt. Då vore en
+    KUNDS postnummer med samma siffror, och en KUNDS gatuadress med samma namn
+    och nummer, undantagna överallt. Det är precis den invändning
+    `postnummer`-mönstrets egen kommentar reser mot att lägga bara tal i
+    `TILLATNA`.
+
+    Raden prövar båda delarna var för sig, i en rad där helheten INTE står.
+    """
+    assert "postnummer" in sorter("kunden bor på 113 48 Stockholm")
+    assert "gatuadress" in sorter("kunden bor på Surbrunnsgatan 42 i stan")
+
+
 def test_ren_text_ger_inga_fynd():
     assert sorter("Kategorin bär 33 ärenden med svar.") == set()
 

@@ -1,6 +1,8 @@
 {
   "_om_filen": "Fakta om Auto Stockholm som får stå i ett utgående mail. §7.2: varje tal är avläst ur en källa eller utelämnat, och den här filen ÄR källan. Ändras bara av Lars uttryckliga beslut, CLAUDE.md §10.",
   "_tomt_varde_betyder": "Ett tomt värde utelämnas ur prompten. Modellen får då inte veta talet, och kan därför inte skriva det. Det är avsiktligt och inte ett fel: hellre ett svar utan nummer än ett påhittat nummer.",
+  "_ett_varde_med_siffror_ar_en_kalla_bara_ORDAGRANT": "Lars beslut i skiva 58, VÄG B. Siffergrupperna i ett värde här går INTE in i den globala mängden tillåtna tal. De är en källa bara i den sats där HELA värdet står tecken för tecken. Skriv därför värdet i den form ett mail ska bära det: en omskriven form matchar inte och fälls. Ett värde som spänner över en punkt eller ett ', men ' kan aldrig stå helt i en sats, alltså faller dess tal överallt.",
+  "adress": "Surbrunnsgatan 42, 113 48 Stockholm",
   "bokningar": "vi tar emot bokningar löpande och kommer överens om tid med kunden",
   "telefon": "076-860 38 15"
 }

@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.64.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.65.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -2691,17 +2691,35 @@ Mot `tests/test_generera.py`, som bar 129 test vid mätningen.
 **BYGGD I SKIVA 31.** Generatorns första spärr.
 
 - **Spärr.** `src/generera.py::krav_pa_tal_med_kalla` kastar `Sparrfalld` när ett
-  genererat svar bär ett tal utan källa. **SEX villkor**, och alla sex ska fällas
+  genererat svar bär ett tal utan källa. **TIO villkor**, och alla tio ska fällas
   av den som prövar spärren enligt §7.1:
 
   | Beslutsrad | Vad den fäller |
   | --- | --- |
   | `while j + 1 < len(delar) and _prisord_over_skarven(delar[j], delar[j + 1]):` i `_prissatser` | fogar ihop en prisfras som meningsdelningen klöv |
-  | `if telefon and telefon in sats:` | avgör om satsen bär telefonnumret ORDAGRANT. Fälls den till `if telefon:` går sviten RÖD på två rader; se noten nedan om vilken skrivform som isolerar den |
+  | `kallor = _faktakallor()` | om ett faktavärde alls kan vara en källa. Fälld till `kallor = []`: RÖD |
+  | `if varde in kvar:` i `_tal_utan_ordagrann_kalla` | avgör om satsen bär faktavärdet ORDAGRANT. Fälld till `if varde in kvar and False:`: RÖD. Se noten nedan om vilken skrivform som isolerar den |
+  | `kvar = kvar.replace(varde, ",")` | stryker värdets EGEN förekomst. Fälld till `kvar = kvar`, med returen ändrad till en subtraktion, alltså tillbaka till den lydelse granskningen fällde: RÖD. Fälld enbart i ersättningstecknet, komma till blanksteg: RÖD |
+  | `return _tal_i(kvar)` | att RESTEN av satsen prövas och inte hela. Fälld till en subtraktion: RÖD |
   | `if not talen:` | ett prisord i en sats som inte bär något tal |
   | `for tal in sorted(talen - priskallans_tal):` | ett tal i en prissats som inte kommer ur `config/priser.json` |
   | `if traff_i_ord:` | varje tal skrivet i ord, `TAL_I_ORD` |
-  | `if tal not in tillatna:` | varje siffertal utan källa i uppslaget eller `config/` |
+  | `for sats in _meningar(svar):` i slutkontrollen | att prövningen sker PER SATS. Fälld till `for sats in [svar]:`: RÖD |
+  | `if tal not in tillatna:` | varje siffertal utan källa i uppslaget eller `config/priser.json` |
+
+  **PER SATS RÄCKER INTE ENSAMT, och det är §7-granskningen av skiva 58:s fynd.**
+  `_meningar` delar vid `[.!?]` och ALDRIG vid radbrytning, alltså ligger en
+  kroppsmening utan avslutande punkt i samma sats som hela signaturblocket. En
+  regel som drog bort värdets tal ur HELA satsen gjorde därför adressens `113`
+  till källa för ett påhittat `113` i kroppen. Strykningen av värdets egen
+  förekomst är det som stänger det, och båda formerna binds av
+  `test_ett_tal_UTANFOR_vardet_lanar_ALDRIG_dess_kalla`.
+
+  **TRE RADER UTANFÖR SPÄRREN BÄR OCKSÅ DESS KÄLLBEGREPP**, och de prövas på
+  samma sätt. `tillatna = set(ALLTID_TILLATNA_TAL)` i `_tillatna_tal`: vidgad
+  till att lägga in faktafilens tal globalt, alltså tillbaka till läget före
+  skiva 58, RÖD. De två filterraderna i `_varden_ur`, `_`-nyckelfiltret och
+  listgrenen: var för sig RÖD.
 
   **ATT FÄLLA TELEFONVILLKORET KRÄVER RÄTT KANARIEFÅGEL, och det ledet är fällt
   fram.** Prövningen måste använda en omskriven form med IDENTISK talmängd.
@@ -2737,15 +2755,26 @@ Mot `tests/test_generera.py`, som bar 129 test vid mätningen.
   *Här stod "Prisfilen finns och är TOM" och att "varje svar som nämner ett pris"
   faller, båda i presens. Det blev falskt av Lars §10-beslut i skiva 44. Fällt av
   skiva 44.*
-- **TELEFONNUMRET ÄR EN KÄLLA OCKSÅ I EN PRISSATS, MEN BARA ORDAGRANT.** Lars
-  beslut i skiva 44, VÄG TVÅ, se `docs/beslutslogg.md` #106. Regel 14 beordrar
-  att ett prissvar följs av numret, och prisgrenen fällde den formen: FYRA av
-  tjugo körda mail spärrades på `talet 076 står i en prismening`. Villkoret är en
-  identisk delsträng ur `config/fakta.json`, alltså ingen sänkt tröskel.
-  **Numrets tal DRAS BORT ur satsens tal i stället för att läggas till de
-  tillåtna**, så att invarianten står kvar: en prissats måste fortfarande bära
+- **ETT FAKTAVÄRDE ÄR EN KÄLLA BARA ORDAGRANT, OCH BARA I SIN EGEN SATS.** Lars
+  väg B i skiva 58, se `docs/beslutslogg.md` #124. Formen kom ur skiva 44, VÄG
+  TVÅ, #106, och gällde då telefonnumret i en prissats: regel 14 beordrar att ett
+  prissvar följs av numret, och prisgrenen fällde den formen. FYRA av tjugo körda
+  mail spärrades på `talet 076 står i en prismening`. Att regeln bara gällde
+  prisgrenen var en begränsning ingen valt, och den kostade ett hål i den
+  allmänna grenen: faktafilens tal låg där i en GLOBAL mängd, alltså passerade en
+  påhittad ledtid vars tal råkade vara en av numrets siffergrupper. Tre sådana
+  svar uppmättes i skiva 58 DEL 0.1, och alla tre faller nu.
+
+  Villkoret är en identisk delsträng ur `config/fakta.json`, alltså ingen sänkt
+  tröskel. **Värdets tal DRAS BORT ur satsens tal i stället för att läggas till
+  de tillåtna**, så att invarianten står kvar: en prissats måste fortfarande bära
   minst ett tal ur priskällan, och *"Ring oss på 076-860 38 15 för pris."* faller
   som förut.
+
+  **ÖVERBLOCKERINGEN ÄR MÄTT.** Mattes 45 skickade a-traktorsvar körda genom
+  `krav_pa_svaret`: noll texter går från passerande till fälld, och en går åt
+  andra hållet sedan adressen skrevs in. Texter där ett tal förlorar sin källa av
+  väg B: 1 av 45. `scripts/faktakalla-matning.py` kör mätningen.
 - **PRISER PRÖVAS MOT PRISKÄLLAN OCH INTE MOT ALLA TILLÅTNA TAL.** En sats som
   bär ett prisord får bara bära tal ur `config/priser.json`, och den måste bära
   minst ett. Utan den avgränsningen blev uppslagets TJÄNSTEVIKT ett tillåtet
@@ -3567,7 +3596,32 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   `str()`-renderas i prompten. Samma vakt gatar det, eftersom den kräver `str`.
 
 - **Lucka 57. KORPUSENS LEDTIDER KROCKAR MED `config/fakta.json` PÅ SAMMA SÄTT
-  SOM PRISERNA GJORDE. ÖPPEN OCH MÄTT. REGISTRERAD, INTE BYGGD.**
+  SOM PRISERNA GJORDE. STÄNGD I SKIVA 58 AV LARS VÄG B.**
+
+  **VAD SOM STÄNGDE DEN.** Krocken förutsatte att ett tal i `config/fakta.json`
+  blir ett GLOBALT tillåtet tal och därmed gör en korpusrad grön som ska vara
+  röd. Väg B tog bort den vägen: faktafilens siffergrupper går inte in i
+  `_tillatna_tal` längre, utan är en källa bara i den sats där hela värdet står
+  ordagrant. En korpusrad som fäller en påhittad ledtid kan alltså inte längre
+  friköpas av att Lars fyller en post.
+
+  **UPPMÄTT, exakt den mutation posten nedan föreskriver.** `bokningar` satt till
+  *"vi hör av oss inom 14 dagar"*, alltså precis vad §7.2 anvisar att filen ska
+  bära: `1 failed`, och den enda röda raden är §10-tripwiren
+  `test_faktafilen_i_repot_bar_EXAKT_det_Lars_BESLUTAT`, som SKA gå röd när filen
+  ändras. Filen är återställd och kvitterad oförändrad.
+
+  **TRE AV DE FYRA RADER POSTEN RÄKNAR UPP STÅR GRÖNA. DEN FJÄRDE FINNS INTE.**
+  `test_ett_NYCKELNAMN_ar_ALDRIG_en_talkalla[PRISER]` är struken i samma skiva,
+  eftersom parametriseringen var vakuös sedan skiva 52; noden samlas inte in av
+  `pytest --collect-only`. En rad som inte finns kan varken stå grön eller röd.
+  *Här stod "De fyra rader posten räknade upp står gröna", vilket påstod ett
+  utfall om en rad som skivan själv hade tagit bort. Fällt av §7-granskningen av
+  skiva 58.*
+
+  **VAD SOM STÅR KVAR ATT VETA.** Korpusens `14` är oförändrat som okällad
+  ledtid, och byte av korpusens ledtider är fortfarande ett eget beslut. Det är
+  bara inte längre tvingat av någon krock. Posten nedan står som den skrevs.
 
   Skiva 43 bytte korpusens kanoniska PRIS utan källa mot ett sentineltal, på Lars
   beslut. Samma defektform finns kvar för LEDTIDER. Korpusen använder `14` och
@@ -3656,6 +3710,24 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   en. Korpusens övriga tal, `15`, `50`, `70`, `90`, `156` och `1450`, ska prövas
   mot samma krav som priserna: ett exempeltal ur samma domän som en §10-fil blir
   en tripwire i förklädnad.
+
+  **FÖRSTA HALVAN ÄR STÄNGD I SKIVA 58.** Varje spärrtest som läste en OPATCHAD
+  §10-fil patchar nu båda, via `_med_priser` respektive `_med_konfig`. Det gäller
+  de tre posten namnger plus `test_ett_IFYLLT_konfigvarde_ger_FORTFARANDE_sitt_tal`,
+  som har samma form. Uppmätt med prisposten för a-traktor satt till `10 kr`:
+  samtliga fem rader står gröna, alltså går de inte längre röda av en laglig post
+  i den opatchade filen. Prisfilen är återställd och kvitterad oförändrad.
+
+  **HELA KLASSEN ÄR MINDRE SEDAN VÄG B.** `_tillatna_tal` läser inte
+  `config/fakta.json` längre, alltså kan ett värde där inte göra en korpusrad
+  grön. Kvar är prisfilen, som fortfarande går in i mängden för ärendets egen
+  kategori.
+
+  **ANDRA HALVAN STÅR KVAR ÖPPEN.** Korpusens `15`, `50`, `70`, `90`, `156` och
+  `1450` är oprövade mot kravet. Skiva 58 bytte `113`, som är det tal adressen
+  förde in i en §10-fil, och rörde ingen av de sex. Se `docs/beslutslogg.md` #124
+  punkt 3: bytet av `113` tvingades inte fram av någon röd rad, och de sex är
+  samma arbete en gång till.
 
   *`scripts/persondatakontroll.py` FÄLLDE DEN HÄR POSTEN när den först skrevs.
   Tabellraden citerade korpusens konstruerade registreringsnummer ordagrant, och
@@ -3852,11 +3924,27 @@ utskrivna här av samma skäl som `fordonsfakta-ur-uppslag` skriver ut sina.
   saknat bromsat värde betyder i registret. Det är inte en kodfråga.
 
 - **Lucka 45. VARJE ICKE-KOMMENTARVÄRDE I `config/fakta.json` ÄR EN TALKÄLLA.
-  ÖPPEN, OCH RISKEN VÄXTE I SKIVA 37.**
+  STÄNGD I SKIVA 58 AV LARS VÄG B.**
 
-  Filen är numera TVÅ saker: promptens faktakälla via `_faktarader`, och
-  talspärrens källa via `_varden_ur`. Varje värde vars nyckel inte börjar med
-  `_` vidgar `_tillatna_tal`.
+  **VAD SOM STÄNGDE DEN.** Luckan var att ett värde vidgade den GLOBALA mängden
+  tillåtna tal, alltså gjorde sitt tal skrivbart var som helst i ett mail. Väg B
+  tog bort den vägen: `_tillatna_tal` läser inte filen, och ett värde är en källa
+  bara i den sats där det står ordagrant. En policyrad som *"vi hör av oss inom
+  tre dagar"* gör därmed inte talet skrivbart; svaret måste återge hela värdet
+  tecken för tecken, vilket är samma krav `FAKTAFOT` ställer.
+
+  **UPPMÄTT.** Raden som la faktafilens tal globalt fälld tillbaka i
+  `_tillatna_tal`: RÖD svit, alltså finns vägen inte kvar och den går inte att
+  återinföra obemärkt. Verifierat med `scripts/sparr-prova.sh`.
+
+  **VAD SOM STÅR KVAR, i en snävare form:** ett värde som är ENBART ett tal är
+  fortfarande en källa överallt där talet står, eftersom värdet och talet då är
+  samma sträng. Det är LUCKA 74, som är registrerad, mätt och gatad av
+  §10-tripwiren. Posten nedan står som den skrevs.
+
+  *Här stod i presens att "varje värde vars nyckel inte börjar med `_` vidgar
+  `_tillatna_tal`". Väg B gjorde det falskt. Fällt av §7-granskningen av
+  skiva 58.*
 
   **FILEN VAR TÄNKT FÖR TAL SOM SKA VARA SKRIVBARA**, alltså telefonnummer,
   öppettider och ledtider, och för dem är kopplingen rätt: talet ÄR källan. Skiva
@@ -6011,6 +6099,47 @@ maskeras. Det är därför frågan är Lars och inte min.
 
 ---
 
+## LUCKA UTAN SPÄRR: `ett_faktavarde_som_ar_ENBART_ett_tal_ar_en_kalla_overallt`
+
+**LUCKA 74, ÖPPEN OCH MÄTT. Uppmätt i skiva 58 DEL 0.** Ingen kod är byggd för
+att stänga den, och den gäller ingen post `config/fakta.json` bär i dag.
+
+**VAD SOM ÄR ÖPPET.** Väg B säger att ett faktavärde är en källa bara där värdet
+står ORDAGRANT i satsen. Består värdet av ingenting annat än talet självt, så är
+värdet och talet samma sträng, och då är villkoret uppfyllt i varje sats där
+talet står. För ett sådant värde är väg B alltså ingen inskränkning alls, och den
+globala rätten är tillbaka i praktiken.
+
+**VAD SOM UTLÖSER DEN.** En post av formen `"ledtid_dagar": 14`, alltså ett bart
+tal som värde. Uppmätt mot `krav_pa_tal_med_kalla` i
+`test_ett_IFYLLT_konfigvarde_ger_FORTFARANDE_sitt_tal`, som binder både leden:
+meningen med talet passerar, en mening med ett annat tal faller.
+
+**VARFÖR DEN INTE GÄLLER I DAG.** Filens tre värden är en mening, ett
+telefonnummer och en adress. Inget av dem är ett bart tal, alltså kan inget av
+dem uppfylla villkoret på annat sätt än genom att stå helt i satsen. Luckan
+öppnar först den dag Lars fyller en post med enbart ett tal.
+
+**VAD SOM GATAR DEN.** `test_faktafilen_i_repot_bar_EXAKT_det_Lars_BESLUTAT`
+binder varje post vars nyckel INTE börjar med `_`, ordagrant. En ny post av den
+formen kräver alltså Lars beslut och gör tabellen röd tills någon skriver in den.
+Kommentarnycklarna är obundna, men en kommentar kan inte bli en källa: `_varden_ur`
+hoppar över dem på varje nivå.
+
+**VAD SOM SKULLE STÄNGA DEN**, för den skiva som tar det: kräv att värdet bär
+minst ett tecken som inte är en siffra, eller att värdets siffergrupper är fler
+än en. Priset är att en fullt rimlig post blir omöjlig att fylla, och det är ett
+§10-beslut och inte mitt.
+
+**EN ANDRA HALVA AV SAMMA OBSERVATION, åt motsatt håll.** Ett faktavärde som
+spänner över en SATSGRÄNS kan aldrig bli en källa alls: `_meningar` delar vid
+`[.!?]` och vid `SATSBROTT`, alltså står ett värde med en punkt eller ett
+`, men ` i aldrig helt i en sats, och dess tal faller överallt. Utfallet blir
+`utkast`, alltså den säkra riktningen. Föreskriften står i `config/fakta.json`
+som en egen kommentarnyckel, så att den som fyller filen läser den.
+
+---
+
 ## Mall för en spärrpost
 
 Kopiera blocket nedan per spärr. Varje fält fylls i, tomma fält är en ofärdig
@@ -6033,6 +6162,39 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.65.0 — 2026-09-16
+
+**`genererat-tal-har-kalla` HAR TIO BESLUTSRADER.** Lars väg B i skiva 58:
+telefonvillkoret är ersatt av `_tal_utan_ordagrann_kalla`, som gäller VARJE
+faktavärde och båda grenarna, och slutkontrollen går per sats. De nya raderna är
+fällda var för sig med RÖD, plus tre rader utanför spärren.
+
+**ETT SÄNDVÄGSHÅL FÄLLT AV §7-GRANSKNINGEN, före skepp.** Den första lydelsen
+drog bort faktavärdets tal ur HELA satsen. Med adressen inskriven gav det
+signaturblocket makt att tvätta ett påhittat tal i kroppen, eftersom `_meningar`
+inte delar vid radbrytning. Rättat till en strykning av värdets egen förekomst
+och bundet av två rader.
+
+**LUCKA 57 STÄNGD.** Krocken förutsatte den globala vägen, som väg B tog bort.
+Uppmätt med exakt den mutation posten föreskrev: `1 failed`, och den enda röda
+raden är §10-tripwiren.
+
+**LUCKA 58:s FÖRSTA HALVA STÄNGD.** Spärrtesten patchar båda §10-filerna.
+Uppmätt med prisposten satt till `10 kr`: fem rader gröna. Andra halvan, de sex
+kvarvarande korpustalen, står kvar öppen.
+
+**NY POST: `ett_faktavarde_som_ar_ENBART_ett_tal_ar_en_kalla_overallt`, LUCKA
+74.** Priset för väg B: är värdet bara talet självt sammanfaller "ordagrant" med
+"talet", och inskränkningen försvinner för just den posten. Gäller ingen post
+filen bär i dag, gatad av §10-tripwiren.
+
+En ny lucka, två stängda och en omskriven spärrpost ⇒ MINOR.
+
+*Appendix saknar poster för 0.63.0 och 0.64.0: huvudets version steg två gånger
+utan att en versionspost lades till. Raderna går inte att skriva i efterhand utan
+att gissa vad de bar, och §7.2 förbjuder det. Skarven namnges här i stället, av
+samma skäl som beslutsloggens ingress namnger sin.*
 
 ### 0.62.0 — 2026-09-15
 

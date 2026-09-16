@@ -222,23 +222,49 @@ def test_UNDERLAGET_sager_ifran_nar_fakta_SAKNAS(tmp_path, monkeypatch):
     assert "aldrig ett påhittat nummer" in underlag
 
 
-@pytest.mark.parametrize("filnamn", ["PRISER", "FAKTA"])
-def test_ett_NYCKELNAMN_ar_ALDRIG_en_talkalla(filnamn, tmp_path, monkeypatch):
+def test_ett_NYCKELNAMN_ar_ALDRIG_en_talkalla(tmp_path, monkeypatch):
     """SPÄRR: ett namn är en etikett, inte en avläsning.
 
     Första rättelsen filtrerade `_`-nycklar och dumpade sedan hela dicten, alltså
     gick NYCKELNAMNEN med: `{"ledtid_14_dagar": ...}` gjorde 14 till ett tal
     boten får skriva. Fällt av §7-granskningen av skiva 36, varv 2.
 
-    **BÅDA KONFIGFILERNA PRÖVAS.** `config/priser.json` hade ingen enda rad, och
-    det är den fil som mest sannolikt blir nästlad: ett prisregister per tjänst
-    är den naturliga formen.
+    **NAMNET STÅR ORDAGRANT I SATSEN, och det ledet är skiva 58:s.** Raden
+    hävdade förut `"14" not in _tillatna_tal(...)`. Faktafilens tal går inte in i
+    den mängden längre, alltså hade påståendet blivit sant oavsett vad
+    `_varden_ur` släpper igenom, och fällningen hade mätt ingenting (§7.1).
+    Prövningen sker nu där källbegreppet faktiskt avgörs: satsen bär nyckelnamnet
+    ORDAGRANT, alltså skulle ett nyckelnamn som räknades som källa dra bort 14 ur
+    satsens tal och meningen passera.
+
+    *Raden var parametriserad över BÅDA konfigfilerna och `[PRISER]`-fallet är
+    struket. Skiva 52 tog prisfilen ur `_varden_ur`:s väg: `priser_for` slår upp
+    ärendets kategori i `PRISNYCKEL_FOR_KATEGORI` och returnerar `.values()`,
+    alltså kan ett nyckelnamn inte nå talspärren oavsett filtrering, och ingen
+    indata kan skilja en filtrerad läsning från en ofiltrerad. Fallet var vakuöst
+    sedan dess. Prisfilens egen form binds i stället av
+    `test_ett_NASTLAT_PRIS_nar_ALDRIG_talsparren` nedan.*
+
+    **BÅDA §10-FILERNA PATCHAS, LUCKA 58:s föreskrivna form.** Läser raden den
+    RIKTIGA prisfilen går den röd den dag Lars fyller en post vars belopp är 14,
+    alltså av hans beslut i stället för av en defekt.
     """
     fil = tmp_path / "konfig.json"
     fil.write_text('{"ledtid_14_dagar": "snabbt"}', encoding="utf-8")
-    monkeypatch.setattr(generera, filnamn, fil)
+    monkeypatch.setattr(generera, "FAKTA", fil)
+    _med_priser(monkeypatch, {})
 
-    assert "14" not in generera._tillatna_tal(forfragan())
+    # SATSEN BÄR INGET ANNAT TAL ÄN NAMNETS EGET, och det ledet är fällt fram.
+    # En första lydelse skrev *"Vi hör av oss inom 14 dagar, se
+    # ledtid_14_dagar."*, alltså ett `14` UTANFÖR namnet. Det talet faller
+    # oavsett filtrering, eftersom strykningen bara tar namnets egen förekomst,
+    # och raden gick då GRÖN när filtret fälldes. Uppmätt med
+    # `scripts/sparr-prova.sh` under §7-granskningen av skiva 58.
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla(
+            "Vi läser ledtid_14_dagar i filen.", forfragan())
+
+    assert "talet 14" in fel.value.skal, fel.value.skal
 
 
 def test_en_NASTLAD_kommentar_vidgar_ALDRIG_talsparren(tmp_path, monkeypatch):
@@ -251,19 +277,40 @@ def test_en_NASTLAD_kommentar_vidgar_ALDRIG_talsparren(tmp_path, monkeypatch):
     `_varden_ur`:s väg i skiva 52 och prövas nu av
     `test_ett_NASTLAT_PRIS_nar_ALDRIG_talsparren` nedan, som binder ett STARKARE
     krav på just den filen.*
+
+    **KOMMENTAREN STÅR ORDAGRANT I SATSEN, och det ledet är skiva 58:s.** Raden
+    hävdade förut `"7" not in _tillatna_tal(...)`, och den mängden bär inte
+    faktafilens tal längre: påståendet hade blivit sant oavsett filtrering, alltså
+    vakuöst (§7.1). Står kommentaren ordagrant i meningen blir skillnaden mätbar
+    igen: en kommentar som räknades som källa hade STRUKITS ur satsen, och då
+    finns inget tal kvar att pröva.
+
+    **SATSEN BÄR INGET ANNAT TAL ÄN KOMMENTARENS EGNA, och det ledet är fällt
+    fram.** En första lydelse skrev en påhittad ledtid framför kommentaren. Det
+    talet står UTANFÖR kommentarens förekomst, alltså faller det oavsett
+    filtrering, och raden gick GRÖN när filtret fälldes. Uppmätt med
+    `scripts/sparr-prova.sh` under §7-granskningen av skiva 58.
+
+    **PRISFILEN PATCHAS OCKSÅ, och det är LUCKA 58:s föreskrivna form.** Utan det
+    är den riktiga filens `25 000` ett tillåtet tal via `priser_for`, och
+    negativkontrollen nedan hade varit grön av fel skäl.
     """
     fil = tmp_path / "konfig.json"
     fil.write_text(
         '{"a-traktor": {"_om": "se §7.2 och §10", "pris": 25000}}', encoding="utf-8"
     )
     monkeypatch.setattr(generera, "FAKTA", fil)
+    _med_priser(monkeypatch, {})
 
-    tillatna = generera._tillatna_tal(forfragan())
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla(
+            "Vi skriver se §7.2 och §10 i dokumentationen.", forfragan())
 
-    assert "7" not in tillatna
-    assert "10" not in tillatna
-    # NEGATIVKONTROLL i samma rad: det nästlade VÄRDET ska fortfarande fram.
-    assert "25000" in tillatna
+    assert "talet 10" in fel.value.skal, fel.value.skal
+
+    # NEGATIVKONTROLL i samma rad: det nästlade VÄRDET ska fortfarande fram, och
+    # sedan skiva 58 gör det det ORDAGRANT i den sats där värdet står.
+    generera.krav_pa_tal_med_kalla("Vi har byggt om 25000 bilar.", forfragan())
 
 
 def test_en_KOMMENTAR_i_en_LISTA_vidgar_ALDRIG_talsparren(tmp_path, monkeypatch):
@@ -281,6 +328,11 @@ def test_en_KOMMENTAR_i_en_LISTA_vidgar_ALDRIG_talsparren(tmp_path, monkeypatch)
     53 avgjorde motsatsen i skiva 42: filen ska vara platt. Prisfilen gick
     dessutom ur `_varden_ur`:s väg i skiva 52. Kvar är `config/fakta.json`, som
     är den fil vägen faktiskt går igenom.*
+
+    **PRÖVNINGEN GÅR VIA SPÄRREN SEDAN SKIVA 58**, av samma skäl som raden
+    ovanför: faktafilens tal når inte `_tillatna_tal` längre, alltså mäter ett
+    påstående om den mängden ingenting. Satsen bär inget annat tal än
+    kommentarens egna, av samma skäl som raden ovanför skriver ut.
     """
     fil = tmp_path / "konfig.json"
     fil.write_text(
@@ -288,12 +340,15 @@ def test_en_KOMMENTAR_i_en_LISTA_vidgar_ALDRIG_talsparren(tmp_path, monkeypatch)
         encoding="utf-8",
     )
     monkeypatch.setattr(generera, "FAKTA", fil)
+    _med_priser(monkeypatch, {})
 
-    tillatna = generera._tillatna_tal(forfragan())
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla(
+            "Vi skriver se §7.2 och §10 i dokumentationen.", forfragan())
 
-    assert "7" not in tillatna
-    assert "10" not in tillatna
-    assert "25000" in tillatna
+    assert "talet 10" in fel.value.skal, fel.value.skal
+
+    generera.krav_pa_tal_med_kalla("Vi har byggt om 25000 bilar.", forfragan())
 
 
 @pytest.mark.parametrize(
@@ -360,20 +415,32 @@ def test_en_KOMMENTAR_i_konfig_vidgar_ALDRIG_talsparren(tmp_path, monkeypatch):
     läste hela filen och plockade tal ur den, alltså blev 7 och 10 TILLÅTNA TAL:
     *"vi hör av oss inom 10 dagar"* passerade spärren och hade kunnat gå till en
     kund. Fällt av §7-granskningen av skiva 36, varv 1.
+
+    **KOMMENTAREN STÅR ORDAGRANT I DEN ANDRA MENINGEN, och det ledet är skiva
+    58:s.** Den första meningen faller på 10 oavsett filtrering, alltså band den
+    ingenting efter väg B. Den andra gör skillnaden mätbar: dess ENDA tal är
+    kommentarens egna, alltså hade en kommentar som räknades som källa strukits
+    ur satsen och lämnat inget att pröva. Ett tal utanför kommentarens förekomst
+    hade fallit oavsett filtrering och gjort raden grön när filtret fälldes.
     """
     fil = tmp_path / "fakta.json"
     fil.write_text(
         '{"_om": "se §7.2 och CLAUDE.md §10", "telefon": ""}', encoding="utf-8"
     )
     monkeypatch.setattr(generera, "FAKTA", fil)
-
-    tillatna = generera._tillatna_tal(forfragan())
-
-    assert "7" not in tillatna
-    assert "10" not in tillatna
+    # BÅDA §10-FILERNA PATCHAS, lucka 58: annars går raden röd den dag Lars
+    # fyller en prispost vars belopp är 7 eller 10.
+    _med_priser(monkeypatch, {})
 
     with pytest.raises(Sparrfalld):
         generera.krav_pa_tal_med_kalla("Vi hör av oss inom 10 dagar.", forfragan())
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla(
+            "Vi skriver se §7.2 och CLAUDE.md §10 i dokumentationen.",
+            forfragan())
+
+    assert "talet 10" in fel.value.skal, fel.value.skal
 
 
 def test_ett_IFYLLT_konfigvarde_ger_FORTFARANDE_sitt_tal(tmp_path, monkeypatch):
@@ -381,12 +448,30 @@ def test_ett_IFYLLT_konfigvarde_ger_FORTFARANDE_sitt_tal(tmp_path, monkeypatch):
 
     Utan raden vore "returnera alltid tomt" en grön lösning på raden ovan, och
     då hade Lars kunnat fylla filen utan att talet blev skrivbart.
+
+    **SEDAN SKIVA 58 ÄR VILLKORET ATT VÄRDET STÅR ORDAGRANT I SATSEN**, och båda
+    leden prövas: meningen som bär värdet passerar, meningen som bär ett annat
+    tal faller. Raden hävdade förut `"14" in _tillatna_tal(...)`, alltså att
+    talet var skrivbart var som helst i svaret. Det är precis den globala rätten
+    väg B tar bort.
+
+    **ETT VÄRDE SOM ÄR ENBART ETT TAL ÄR EN KÄLLA VAR SOM HELST DÄR TALET STÅR**,
+    eftersom värdet och talet då är samma sträng. Det är LUCKA 74 och gäller
+    ingen post `config/fakta.json` bär i dag.
     """
     fil = tmp_path / "fakta.json"
     fil.write_text('{"_om": "kommentar", "ledtid_dagar": 14}', encoding="utf-8")
     monkeypatch.setattr(generera, "FAKTA", fil)
+    # BÅDA §10-FILERNA PATCHAS, lucka 58: annars går raden röd den dag Lars
+    # fyller en prispost vars belopp är 15.
+    _med_priser(monkeypatch, {})
 
-    assert "14" in generera._tillatna_tal(forfragan())
+    generera.krav_pa_tal_med_kalla("Vi hör av oss inom 14 dagar.", forfragan())
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla("Vi hör av oss inom 15 dagar.", forfragan())
+
+    assert "talet 15" in fel.value.skal, fel.value.skal
 
 
 def test_ett_TOMT_telefonvarde_nar_ALDRIG_prompten(tmp_path):
@@ -428,7 +513,17 @@ def test_ett_IFYLLT_telefonvarde_nar_prompten_ORDAGRANT(tmp_path):
 # GRÖN SVIT. Ett tal kunde alltså skrivas in i den här filen och bli en citerbar
 # källa i ett utgående mail utan att en enda rad gick röd. Med hela innehållet
 # bundet är det ledet stängt.
+# **`adress` TILLKOM PÅ LARS §10-BESLUT I SKIVA 58 DEL A.** Skälet står i
+# skiva 57:s körning: modellen skriver av Mattes signaturblock ur ett få-exempel,
+# och utan en adress i config fällde talspärren postnumret. Fällningen var en
+# falsk positiv i sak, och den formen återkommer eftersom exemplen bär
+# signaturen.
+#
+# **VÄRDET SKRIVS I DEN FORM ETT MAIL SKA BÄRA DET**, och det är väg B:s krav:
+# siffergrupperna är en källa bara i den sats där HELA strängen står tecken för
+# tecken. En omskriven adress matchar inte och fälls.
 FAKTA_SOM_LARS_BESLUTAT = {
+    "adress": "Surbrunnsgatan 42, 113 48 Stockholm",
     "bokningar": "vi tar emot bokningar löpande och kommer överens om tid "
                  "med kunden",
     "telefon": "076-860 38 15",
@@ -684,25 +779,42 @@ def test_spärren_lamnar_SATSEN_talet_stod_i(monkeypatch):
     Skiva 55:s enda spärrade post lyder *"talet 113 kommer varken ur uppslaget
     eller ur config"*, och var 113 kom ifrån gick inte att avgöra: texten som
     fälldes sparades ingenstans. `Sparrfalld.sats` bär den nu.
+
+    **TALET I RADEN ÄR SENTINELVÄRDET OCH INTE LÄNGRE `113`. Lars beslut i skiva
+    58 DEL A, samma precedens som skiva 43.** `113` är de tre första siffrorna i
+    verkstadens postnummer, som samma skiva skrev in i `config/fakta.json`. Ett
+    exempeltal ur samma domän som en §10-fil är en tripwire i förklädnad, precis
+    som `25 000 kr` var innan prisfilen fylldes: korpusen ska byta exempeltal,
+    inte verkligheten.
+
+    **INGEN RAD VAR RÖD AV ADRESSEN, och bytet görs ändå.** Väg B håller
+    adressens siffergrupper utanför den globala mängden, alltså föll `113` i den
+    här raden lika hårt efter DEL A som före. Det som byts är risken: skulle den
+    globala vägen någon gång öppnas igen blir kollisionen omedelbar, och då står
+    två gröna rader mellan Lars beslut och en tyst regression.
     """
     _med_priser(monkeypatch, {})
 
     with pytest.raises(Sparrfalld) as fel:
         generera.krav_pa_tal_med_kalla(
-            "Hej. Vi har byggt om 113 bilar.", forfragan())
+            f"Hej. Vi har byggt om {SENTINELPRIS_IHOP} bilar.", forfragan())
 
-    assert "113" in fel.value.skal
-    assert fel.value.sats == "Vi har byggt om 113 bilar."
+    assert SENTINELTAL in fel.value.skal
+    assert fel.value.sats == f"Vi har byggt om {SENTINELPRIS_IHOP} bilar."
 
 
 def test_satsen_hittas_aven_for_ett_GRUPPERAT_tal(monkeypatch):
     """`_tal_i` normaliserar bort avskiljaren, satsen skriver ut den.
 
-    **DET ÄR SKÄLET ATT `_satsen_med_talet` FINNS.** Spärren namnger `20000`
-    medan svaret skriver `20 000`, alltså hade en delsträngssökning på det
-    normaliserade talet inte träffat någon sats alls, och varje fällning på ett
-    grupperat tal hade blivit utan sats. Raden går röd om hjälparen byts mot
-    `_satsen_med`.
+    Spärren namnger `20000` medan svaret skriver `20 000`, alltså skulle en
+    delsträngssökning på det normaliserade talet inte träffa någon sats alls, och
+    varje fällning på ett grupperat tal bli utan sats.
+
+    *Raden sade att `_satsen_med_talet` finns för den här egenskapens skull, och
+    att den går röd om hjälparen byts mot `_satsen_med`. Hjälparen är borttagen i
+    skiva 58: slutkontrollen går per sats, alltså är satsen redan känd när
+    fällningen sker och behöver inte sökas upp. EGENSKAPEN står kvar och binds
+    här; det som föll bort är en implementation, inte ett krav.*
     """
     _med_priser(monkeypatch, {})
 
@@ -744,11 +856,14 @@ SATS_PER_SPARR = (
         {},
         "Vi har byggt om tjugofemtusen bilar.",
     ),
+    # TALET ÄR SENTINELVÄRDET OCH INTE `113`, skiva 58 DEL A. Skälet står i
+    # `test_spärren_lamnar_SATSEN_talet_stod_i` ovan: `113` ligger i verkstadens
+    # postnummer, som samma skiva skrev in i `config/fakta.json`.
     (
         "genererat-tal-har-kalla, tal utan källa",
-        "Hej. Vi har byggt om 113 bilar.",
+        f"Hej. Vi har byggt om {SENTINELPRIS_IHOP} bilar.",
         {},
-        "Vi har byggt om 113 bilar.",
+        f"Vi har byggt om {SENTINELPRIS_IHOP} bilar.",
     ),
     (
         "genererat-fordonsfaktum",
@@ -963,13 +1078,18 @@ def test_ett_PRISORD_UTAN_TAL_faller_aven_nar_filen_ar_fylld(monkeypatch):
 def _med_konfig(monkeypatch, priser: dict, fakta: dict) -> None:
     """Låtsas att BÅDA §10-filerna bär `priser` respektive `fakta`.
 
-    **BÅDA PATCHAS, och det är LUCKA 58:s föreskrivna form.** Tre äldre
-    spärrtest patchar EN konfigfil och låter den andra vara den riktiga, medan
-    `_tillatna_tal` läser båda. Ett sådant test går rött av en laglig post i den
-    opatchade filen, alltså av Lars beslut i stället för av en defekt.
+    **BÅDA PATCHAS, och det är LUCKA 58:s föreskrivna form.** Ett spärrtest som
+    patchar EN §10-fil och låter den andra vara den riktiga går rött av en laglig
+    post i den opatchade filen, alltså av Lars beslut i stället för av en defekt.
 
     Byter ut den RÅA läsningen, `las_konfig`, av samma skäl som `_med_priser`:
     filen har två läsare med olika krav och båda går den vägen.
+
+    *Här stod "Tre äldre spärrtest patchar EN konfigfil … medan `_tillatna_tal`
+    läser båda". Båda leden är falska sedan skiva 58: `_tillatna_tal` läser inte
+    `config/fakta.json` alls, och de tre raderna patchar numera båda filerna. Att
+    läsa `config/fakta.json` spelar ändå roll för den här hjälparen, eftersom
+    spärren läser den via `_faktakallor`. Fällt av §7-granskningen av skiva 58.*
     """
     riktig = generera.las_konfig
 
@@ -1069,6 +1189,188 @@ def test_en_TOM_telefonpost_ger_INGEN_ratt_i_en_prissats(monkeypatch):
     assert "076" in fel.value.skal
 
 
+# --- SKIVA 58, LARS VÄG B: ETT FAKTAVÄRDE ÄR EN KÄLLA BARA ORDAGRANT --------
+
+
+@pytest.mark.parametrize(
+    "svar, talet",
+    [
+        ("Vi hör av oss inom 15 dagar.", "15"),
+        ("Ombyggnaden tar 38 dagar.", "38"),
+        ("Vi har byggt om 860 bilar.", "860"),
+    ],
+)
+def test_en_SIFFERGRUPP_ur_ett_faktavarde_faller_UTANFOR_sitt_varde(
+        svar, talet, monkeypatch):
+    """HÅLET VÄG B STÄNGER, och alla tre raderna passerade före skiva 58.
+
+    `_tillatna_tal` la varje faktavärdes siffergrupper i en GLOBAL mängd, alltså
+    gjorde telefonnumret `076`, `860`, `38` och `15` skrivbara i vilken mening
+    som helst. Två av de tre raderna är påhittade LEDTIDER, alltså precis den
+    klass hålet i skiva 36 hade: där gjorde kommentarnycklarnas `§7.2` och `§10`
+    talen 7 och 10 tillåtna och *"vi hör av oss inom 10 dagar"* passerade.
+
+    Hålet var oregistrerat och omätt tills skiva 58 DEL 0.1 mätte det.
+    """
+    _med_konfig(monkeypatch, {"a_traktorkonvertering": "25 000 kr"},
+                {"telefon": "076-860 38 15"})
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla(svar, forfragan())
+
+    assert fel.value.sparr == "genererat-tal-har-kalla"
+    assert f"talet {talet}" in fel.value.skal, fel.value.skal
+
+
+def test_faktavardet_ORDAGRANT_ar_en_kalla_ocksa_UTANFOR_en_prissats(monkeypatch):
+    """NEGATIVKONTROLL, och utan den är väg B bara en strypning.
+
+    Numret ska gå att skriva. Regel 14 beordrar att ett svar som nämner ett pris
+    följer det med numret, och `_faktarader` skriver in värdet i prompten just
+    för att modellen ska återge det. Utan den här raden vore "faktafilen är
+    aldrig en källa" en grön lösning på raden ovan.
+
+    Meningen bär inget prisord, alltså prövas den av SLUTKONTROLLEN och inte av
+    prisgrenen. Det är det led skiva 58 flyttade: ordagrannheten gällde förut
+    bara prissatser.
+    """
+    _med_konfig(monkeypatch, {"a_traktorkonvertering": "25 000 kr"},
+                {"telefon": "076-860 38 15"})
+
+    generera.krav_pa_tal_med_kalla(
+        "Ring oss på 076-860 38 15 så bokar vi in en tid.", forfragan())
+
+
+def test_ett_OMSKRIVET_faktavarde_faller_ocksa_UTANFOR_en_prissats(monkeypatch):
+    """LEDET SOM GÖR `ORDAGRANT` LASTBÄRANDE i slutkontrollen.
+
+    Samma siffror, annan skrivform, alltså inte det värde `config/fakta.json`
+    bär. Utan raden vore "dra alltid bort faktafilens siffergrupper" en grön
+    lösning, och då vore väg B ingen ändring alls: den globala rätten hade
+    kommit tillbaka genom bakdörren.
+
+    **SKRIVFORMEN GER IDENTISK TALMÄNGD**, av samma skäl som
+    `test_ett_OMSKRIVET_telefonnummer_faller_FORTFARANDE_i_en_prissats` skriver
+    ut: byts bindestrecket mot ett blanksteg blir `076 860` ETT tal, och då faller
+    raden på att talmängden blev en annan i stället för på `in`-prövningen.
+    """
+    _med_konfig(monkeypatch, {"a_traktorkonvertering": "25 000 kr"},
+                {"telefon": "076-860 38 15"})
+
+    omskrivet = "076-860-38-15"
+    assert generera._tal_i(omskrivet) == generera._tal_i("076-860 38 15"), (
+        "skrivformen ändrade talmängden, alltså prövar raden inte ordagrannheten"
+    )
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla(
+            f"Ring oss på {omskrivet} så bokar vi in en tid.", forfragan())
+
+    assert "talet 076" in fel.value.skal, fel.value.skal
+
+
+def test_ett_faktavarde_i_EN_ANNAN_SATS_ar_INGEN_kalla(monkeypatch):
+    """PRÖVNINGEN SKER PER SATS, också i slutkontrollen. Skiva 58.
+
+    Numret står i första meningen och den påhittade ledtiden i andra. Ett tal ska
+    inte kunna hämta sin källa ur ett värde som står någon annanstans i svaret,
+    och det är samma krav prisgrenen och `krav_pa_belagt_franvaropastaende` har
+    ställt sedan tidigare.
+
+    **PER SATS RÄCKER INTE ENSAMT**, och det ledet band raden inte förut. Ett
+    faktavärde i SAMMA sats som ett påhittat tal fälls av
+    `test_ett_tal_UTANFOR_vardet_lanar_ALDRIG_dess_kalla` nedan, som är den rad
+    §7-granskningen av skiva 58 tvingade fram.
+    """
+    _med_konfig(monkeypatch, {"a_traktorkonvertering": "25 000 kr"},
+                {"telefon": "076-860 38 15"})
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla(
+            "Ring oss på 076-860 38 15. Vi hör av oss inom 15 dagar.",
+            forfragan(),
+        )
+
+    assert "talet 15" in fel.value.skal, fel.value.skal
+    assert fel.value.sats == "Vi hör av oss inom 15 dagar."
+
+
+@pytest.mark.parametrize(
+    "svar, talet",
+    [
+        # SAMMA SATS, rakt av: numret och en påhittad ledtid i en mening.
+        ("Ring oss på 076-860 38 15 så hör vi av oss inom 15 dagar.", "15"),
+        # SAMMA SATS via SIGNATUREN, och det är den form en modell faktiskt
+        # skriver. `_meningar` delar vid `[.!?]` och ALDRIG vid radbrytning,
+        # alltså ligger en kroppsmening utan avslutande punkt i samma sats som
+        # hela signaturblocket.
+        ("Vi hör av oss inom 15 dagar\n"
+         "\n"
+         "Med vänliga hälsningar\n"
+         "Auto Stockholm\n"
+         "076-860 38 15", "15"),
+    ],
+    ids=["samma-mening", "over-radbrytning-till-signaturen"],
+)
+def test_ett_tal_UTANFOR_vardet_lanar_ALDRIG_dess_kalla(svar, talet, monkeypatch):
+    """SÄNDVÄGSHÅLET §7-GRANSKNINGEN AV SKIVA 58 FANN, bundet.
+
+    **VAD SOM VAR ÖPPET.** Väg B:s första lydelse drog bort faktavärdets
+    siffergrupper ur HELA satsens talmängd. Ett påhittat tal som råkade vara
+    samma siffergrupp fick då källa av att värdet stod någon annanstans i samma
+    sats, och satsen är stor: den sträcker sig från senaste meningsslut ned genom
+    signaturblocket.
+
+    **VAD SOM STÄNGER DET.** `_tal_utan_ordagrann_kalla` stryker värdets EGEN
+    förekomst ur satsen och prövar resten. Utan den formen vore *"dra bort
+    värdets tal ur satsen"* en grön lösning på varje annan rad i skivan, och
+    hålet vore kvar.
+
+    **RADEN GÅR RÖD OM STRYKNINGEN BYTS MOT EN SUBTRAKTION**, alltså mot exakt
+    den lydelse granskningen fällde.
+    """
+    _med_konfig(monkeypatch, {"a_traktorkonvertering": "25 000 kr"},
+                {"telefon": "076-860 38 15"})
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla(svar, forfragan())
+
+    assert f"talet {talet}" in fel.value.skal, fel.value.skal
+
+
+def test_strykningen_FOGAR_ALDRIG_IHOP_tva_tal(monkeypatch):
+    """AVSKILJAREN ÄR ETT KOMMATECKEN, och det ledet är lastbärande.
+
+    `TAL_I_TEXT` läser `[\\s.]` följt av exakt tre siffror som en del av talet.
+    Ströks värdets förekomst mot ett BLANKSTEG kunde siffrorna före och efter
+    fogas ihop till ett tal som aldrig stod i svaret: `12` plus `345` blir
+    `12345`, ett tal spärren sedan namnger i sitt skäl trots att kunden aldrig
+    skulle läsa det.
+
+    Raden binder att de två talen prövas var för sig. Båda saknar källa, alltså
+    fäller spärren, men på det FÖRSTA av dem och inte på en hopfogning.
+
+    **INDATAN SER KONSTRUERAD UT OCH ÄR DET, och det är inte ett val.** Värdet
+    står utan blanktecken omkring sig, eftersom hopfogningen kräver att
+    ersättningstecknet blir det ENDA tecknet mellan siffrorna: `[\\s.]` i
+    `TAL_I_TEXT` är en teckenklass och inte `\\s+`, alltså räcker redan ett
+    blanksteg på var sida för att talen ska skiljas åt. Uppmätt: med värdet
+    omgivet av blanksteg ger båda ersättningarna samma talmängd, och bara den
+    ihopskrivna formen skiljer dem. En rad som prövade den vanliga formen hade
+    därför varit GRÖN när kommatecknet byttes mot ett blanksteg, alltså vakuös
+    (§7.1). Verifierat med `scripts/sparr-prova.sh`.
+    """
+    _med_konfig(monkeypatch, {"a_traktorkonvertering": "25 000 kr"},
+                {"telefon": "076-860 38 15"})
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_tal_med_kalla(
+            "Vi har 12076-860 38 15345 kvar.", forfragan())
+
+    assert "talet 12 " in fel.value.skal + " ", fel.value.skal
+    assert "12345" not in fel.value.skal, fel.value.skal
+
+
 def test_prisblockets_ram_star_ORDAGRANT():
     """SÄNDVÄGSTEXT SOM VAR OBUNDEN, och kommentaren påstod motsatsen.
 
@@ -1133,10 +1435,17 @@ def test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal():
     står i en kommentar men saknar varje LAGLIG källa. Ett tal som fått en sådan
     är inte längre ett läckage.
 
-    **DE LAGLIGA KÄLLORNA ÄR `_tillatna_tal`:s EGNA, alla fyra.**
-    `ALLTID_TILLATNA_TAL`, uppslagets två vikter, och VÄRDENA i `config/priser.json`
-    OCH `config/fakta.json`. Fixturen ger inget uppslag, och raden binder det, så
+    **DE LAGLIGA KÄLLORNA ÄR `_tillatna_tal`:s EGNA, alla tre.**
+    `ALLTID_TILLATNA_TAL`, uppslagets två vikter, och VÄRDENA i
+    `config/priser.json`. Fixturen ger inget uppslag, och raden binder det, så
     att vikterna inte tyst börjar bära differensen.
+
+    *Här stod "alla fyra" och räknade in VÄRDENA i `config/fakta.json`. Väg B tog
+    faktafilen ur den mängden i skiva 58: dess tal är en källa bara i den sats där
+    värdet står ordagrant, alltså är de inte lagliga tal i den här meningen. Ledet
+    var dessutom lastbärande åt fel håll: det drog bort ett kommentartal som
+    råkade ligga i ett faktavärde, och gjorde därmed raden svagare än den skulle
+    vara. Rättat i skiva 58.*
 
     *Skiva 43:s FÖRSTA lydelse prövade STRÄNGIDENTITET och kallade det "strikt
     starkare". Den var strikt SVAGARE: en `_varden_ur` utan kommentarfilter
@@ -1154,15 +1463,18 @@ def test_prisfilens_KOMMENTARER_blir_ALDRIG_tillatna_tal():
     flyttad från `priser.json` till `fakta.json`. Fällt av §7-granskningen av
     skiva 43, varv 2.*
     """
+    # BARA PRISFILEN LÄSES, skiva 58. Faktafilens värden är en källa bara
+    # ordagrant i sin egen sats, alltså varken lagliga tal eller läckage här, och
+    # dess kommentarer räknades aldrig. En loop över båda filerna läste den ena
+    # och kastade allt den fann. Fällt av §7-granskningen av skiva 58.
     kommentarernas_tal = set()
     lagliga_tal = set(generera.ALLTID_TILLATNA_TAL)
-    for fil in (generera.PRISER, generera.FAKTA):
-        rat = json.loads(fil.read_text(encoding="utf-8"))
-        for namn, varde in rat.items():
-            if not str(namn).startswith("_"):
-                lagliga_tal |= generera._tal_i(str(varde))
-            elif fil == generera.PRISER:
-                kommentarernas_tal |= generera._tal_i(str(varde))
+    for namn, varde in json.loads(
+            generera.PRISER.read_text(encoding="utf-8")).items():
+        if str(namn).startswith("_"):
+            kommentarernas_tal |= generera._tal_i(str(varde))
+        else:
+            lagliga_tal |= generera._tal_i(str(varde))
 
     # LEDET SOM GÖR RADEN ICKE-VAKUÖS: kommentarerna bär faktiskt ett prisformat
     # tal, alltså finns det något att läcka. Ledet läser BARA kommentarerna och
@@ -1239,8 +1551,14 @@ def test_ett_NASTLAT_varde_nar_ALDRIG_prompten_FAKTA(tmp_path, monkeypatch):
 
     **VÄRDET I EXEMPLET ÄR VÅRT INKÖPSPRIS**, alltså precis det som inte får bli
     ett citerbart pris. Talets halva var redan stängd av `_varden_ur`, som
-    hindrar att 9000 blir ett tillåtet tal. TEXTENS halva var öppen: ingenting
+    hindrade att 9000 blev ett tillåtet tal. TEXTENS halva var öppen: ingenting
     hindrade att raden stod i prompten.
+
+    *Ledet stod i PRESENS och beskriver ett läge som inte gäller: sedan skiva 58
+    är ett värde ur `_varden_ur` inte ett tillåtet tal alls, utan en källa bara i
+    den sats där värdet står ordagrant. Samma formulering rättades i
+    `las_konfigvarden` i samma skiva och lämnades kvar här. Fällt av
+    §7-granskningen av skiva 58.*
 
     **NEGATIVKONTROLLEN LIGGER I SAMMA RAD.** Utan den vore "returnera alltid
     tomt" en grön lösning, och då hade filtret tagit Lars fakta med sig.
