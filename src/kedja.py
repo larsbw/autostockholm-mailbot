@@ -16,8 +16,9 @@ Ordningen är:
 
 **KEDJAN SKRIVER SVAR PÅ A-TRAKTOR OCH PÅ INGENTING ANNAT.** Lars beslut i
 skiva 51 DEL B. En kategori utanför `A_TRAKTORKATEGORIER` blir `INGET SVAR`
-utan att generatorn anropas. Klassningen görs ändå och kategorin loggas och
-visas, så att materialet finns den dag fas 6 tar nästa kategori.
+utan att generatorn anropas. Klassningen görs ändå och kategorin loggas, så att
+materialet finns den dag fas 6 tar nästa kategori. Sedan skiva 61 når posten
+inte vyn: anroparna sparar bara poster med ett utkast eller en spärr.
 
 *Skivan mätte vad grinden kostar. Med de pass-2-etiketter som finns att mäta
 mot i `data/ometiketterade.jsonl` skriver kedjan i dag ett utkast för 133
@@ -44,7 +45,8 @@ hinken `aldrig`, och skälet är att den mätningen inte finns: ramverksregel 1
 säger att INGENTING i `aldrig` någonsin får gå ut, alltså är svaret på "vad hade
 gått ut" känt utan att ett anrop görs. Vad det kostade var ett modellanrop per
 ärende i `aldrig` och en vy full av utkast som aldrig kan gå ut. Skuggläget ser
-posten ändå: kategorin och hinken loggas och visas som förut.*
+posten ändå: kategorin och hinken loggas och visas som förut.* *Visas gäller
+inte sedan skiva 61: posten loggas men sparas inte till vyn.*
 
 **HINKEN AVGÖR FORTFARANDE INGENTING OM SÄNDNING här.** Ramverksregel 1 gäller
 sändvägen, och den här modulen har ingen. `aldrig` stoppar GENERERINGEN, inte en
@@ -55,7 +57,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
 
@@ -84,8 +86,9 @@ A_TRAKTORKATEGORIER = (
 # DE TVÅ SKÄLEN TILL `INGET SVAR`. Strängarna står här och inte som literaler
 # på användningsstället, eftersom de skrivs på två ställen i `kor`: i
 # `Steg.detalj`, som går till `logg/beslut.jsonl`, och i
-# `Kedjeutfall.inget_svar_skal`, som går till vyn. Går de isär säger loggen och
-# sidan olika saker om samma post.
+# `Kedjeutfall.inget_svar_skal`, som gick till vyn. Går de isär säger loggen och
+# sidan olika saker om samma post. Sedan skiva 61 sparar ingen körning en post
+# utan svar till vyn, men äldre sparade filer bär fältet och vyn visar det.
 #
 # **VYN BÄR SAMMA STRÄNGAR SKRIVNA EN GÅNG TILL**, som nycklar i `vy._INTETSKAL`.
 # `src/vy.py` kan inte importera härifrån: importen går åt andra hållet. Samma
@@ -100,6 +103,26 @@ A_TRAKTORKATEGORIER = (
 # allt annat i strängen.
 SKAL_ALDRIG = "hinken aldrig"
 SKAL_OGATAD = "ingen a-traktorkategori"
+
+# ÄLDRE ÄN SÅ FÅR SVARET EFTERSLÄPSRADEN. Skiva 61 DEL B, Lars tal.
+EFTERSLAP = timedelta(days=7)
+
+
+def ar_efterslapande(tidsstampel: str, nu: datetime) -> bool:
+    """Är mailet ÄLDRE än `EFTERSLAP`, räknat från `nu`? Exakt sju dagar är nej.
+
+    `tidsstampel` är `urval.tidsstampel`:s ISO-sträng. **TOM STRÄNG GER NEJ**:
+    utan en känd ålder ska svaret inte ursäkta ett dröjsmål. En sträng utan
+    tidszon läses som UTC, samma zon som `urval.tidsstampel` skriver.
+    """
+    if not tidsstampel:
+        return False
+
+    mottaget = datetime.fromisoformat(tidsstampel)
+    if mottaget.tzinfo is None:
+        mottaget = mottaget.replace(tzinfo=timezone.utc)
+
+    return nu - mottaget > EFTERSLAP
 
 
 class Kallfel(Exception):
@@ -142,6 +165,10 @@ class Arende:
     regnr: str | None = None
     avsandare_hash: str = ""
     tidsstampel: str = ""
+    # SKIVA 61. Sant när tråden redan bär ett svar från oss. `tidsstampel` är
+    # trådens FÖRSTA kundmail, alltså hade en uppföljning i dag på ett gammalt,
+    # besvarat ärende annars fått eftersläpsraden. Fällt av §7-granskningen.
+    besvarad: bool = False
 
 
 @dataclass(frozen=True)
@@ -305,8 +332,17 @@ def kor(
     hinkar: dict,
     taxonomi: list[str],
     exempel: list[dict] | None = None,
+    nu: datetime | None = None,
 ) -> Kedjeutfall:
     """Hela vägen för ETT ärende. Returnerar aldrig ett skickat mail.
+
+    `nu` är KÖRNINGENS tidpunkt, och ärendets ålder räknas från den. Skiva 61.
+    `None` betyder att åldern inte prövas, alltså blir det aldrig någon
+    eftersläpsrad, och en tråd vi redan svarat i får den aldrig heller.
+    `scripts/respond.py` skickar alltid ett värde:
+    `test_CLI_satter_KORNINGENS_tidpunkt_och_inget_annat` binder att `_kor`
+    sätter klockan, och `test_slingan_skickar_KORNINGENS_tidpunkt` att
+    `kor_alla` lämnar den vidare.
 
     `klient`, `hamta` och `taxonomi` har inga förval. Den som anropar väljer
     modell, källa och kategorilista medvetet, vilket är samma skäl `slag_upp`
@@ -377,8 +413,8 @@ def kor(
     # båda vägarna slutar i `INGET SVAR` och ingen av dem anropar generatorn.
     #
     # **KLASSNINGEN GÖRS ÄNDÅ**, och det är hela skillnaden mot att sålla bort
-    # posten. Kategorin står i `logg/beslut.jsonl` och i vyn, så att fas 6 har
-    # materialet när nästa kategori tas.
+    # posten. Kategorin står i `logg/beslut.jsonl`, så att fas 6 har materialet
+    # när nästa kategori tas. I vyn står den inte sedan skiva 61.
     if kategori not in A_TRAKTORKATEGORIER:
         steg.append(Steg("generering", "hoppades över", SKAL_OGATAD))
         return Kedjeutfall(
@@ -430,6 +466,8 @@ def kor(
         # SKIVA 41. Mängden kommer ur ett AVLÄST VÄRDE och ingenting annat.
         # Hoppades uppslaget över, eller misslyckades det, är den tom.
         franvaro_far_pastas=franvaro_far_pastas,
+        efterslap=(nu is not None and not arende.besvarad
+                   and ar_efterslapande(arende.tidsstampel, nu)),
     )
 
     try:

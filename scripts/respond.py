@@ -63,6 +63,7 @@ import sys
 import time
 from collections import Counter
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -225,6 +226,10 @@ def arende_ur_trad(trad: dict, domaner: set[str]) -> tuple[Arende | None, str]:
         regnr=_regnr_i(text),
         avsandare_hash=urval.hasha(urval.kundadress(meddelande)),
         tidsstampel=urval.tidsstampel(meddelande),
+        # SKIVA 61. Ett svar från oss i tråden stänger av eftersläpsraden.
+        # Samma kriterium som paren byggs på, `urval.ar_gmail_svar`.
+        besvarad=any(urval.ar_gmail_svar(m)
+                     for m in trad.get("messages", []) or []),
     ), ""
 
 
@@ -311,6 +316,7 @@ def kor_alla(
     exempel: list[dict],
     skarp: bool,
     korning: Korning,
+    nu: datetime,
     loggfil: Path | None = None,
     skriv=print,
 ) -> Korning:
@@ -330,6 +336,9 @@ def kor_alla(
 
     **INGEN KUNDTEXT OCH INGET UTKAST SKRIVS UT**, se modulens §6-stycke.
 
+    `nu` är körningens tidpunkt, EN för hela körningen, och har inget förval.
+    Ärendets ålder räknas från den, se `kedja.ar_efterslapande`. Skiva 61.
+
     `loggfil` slås upp VID ANROPET och inte i signaturen. Ett förval i
     signaturen binds när modulen laddas, alltså före varje test som pekar om
     loggen, och `docs/incidentlogg.md` I1 bär precis den defekten. Formen är
@@ -341,7 +350,7 @@ def kor_alla(
         try:
             utfall = kedja.kor(
                 arende, klient=klient, hamta=hamta, hinkar=hinkar,
-                taxonomi=taxonomi, exempel=exempel,
+                taxonomi=taxonomi, exempel=exempel, nu=nu,
             )
         except Kallfel as fel:
             korning.kallfel += 1
@@ -354,8 +363,13 @@ def kor_alla(
         kedja.logga_beslut(arende, utfall, loggfil=loggfil)
         korning.per_kategori[utfall.kategori] += 1
         korning.per_hink[utfall.hink] += 1
-        korning.granskningsfall.append(
-            kedja.till_granskningsfall(arende, utfall, skarp=skarp))
+        # **EN POST UTAN SVAR NÅR INTE VYN, Lars beslut i skiva 61.** Vyn är en
+        # granskningssida, och en post utan utkast har ingenting att granska.
+        # Materialet skiva 49 ville bevara, kategori, hink och skäl per ärende,
+        # står i `logg/beslut.jsonl` via raden ovan.
+        if not utfall.inget_svar:
+            korning.granskningsfall.append(
+                kedja.till_granskningsfall(arende, utfall, skarp=skarp))
 
         # TRE GRENAR, EN PER UTFALL I `Kedjeutfall`. Grenen är NY och ersätter
         # ingen: före skiva 49 fanns inget tredje utfall, och ett ärende i
@@ -588,6 +602,7 @@ def _kor(arg) -> int:
         exempel=exempel,
         skarp=skarp,
         korning=korning,
+        nu=datetime.now(timezone.utc),
     )
 
     print("")

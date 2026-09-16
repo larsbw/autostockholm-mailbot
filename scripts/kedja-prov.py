@@ -43,6 +43,7 @@ import argparse
 import json
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -317,6 +318,8 @@ def _kor_och_visa(args) -> int:
 
     raknare = {"utkast": 0, "spärrad": 0, "inget svar": 0, "källfel": 0}
     granskningsfall = []
+    # KÖRNINGENS TIDPUNKT, en för hela körningen. Skiva 61 DEL B.
+    nu = datetime.now(timezone.utc)
 
     for nummer, post in enumerate(poster, start=1):
         regnr = _regnr_i(post["text"])
@@ -340,7 +343,7 @@ def _kor_och_visa(args) -> int:
         try:
             utfall = kedja.kor(
                 arende, klient=klient, hamta=hamta, hinkar=hinkar,
-                taxonomi=taxonomi, exempel=exempel,
+                taxonomi=taxonomi, exempel=exempel, nu=nu,
             )
         except Kallfel as fel:
             raknare["källfel"] += 1
@@ -359,8 +362,11 @@ def _kor_och_visa(args) -> int:
             print(rad)
 
         kedja.logga_beslut(arende, utfall)
-        granskningsfall.append(
-            kedja.till_granskningsfall(arende, utfall, skarp=skarp))
+        # SKIVA 61: en post utan svar når inte vyn, samma regel som
+        # `scripts/respond.py`. Klassningen står i loggen via raden ovan.
+        if not utfall.inget_svar:
+            granskningsfall.append(
+                kedja.till_granskningsfall(arende, utfall, skarp=skarp))
 
         # TRE GRENAR, EN PER UTFALL I `Kedjeutfall`. Skiva 49 DEL B: kategorier
         # i hinken `aldrig` når aldrig generatorn, alltså finns varken utkast

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -141,6 +142,91 @@ def arende(**andrat) -> Arende:
     }
     grund.update(andrat)
     return Arende(**grund)
+
+
+# ------------------------------------------------ EFTERSLÄPET, SKIVA 61 DEL B
+
+
+NU = datetime(2026, 9, 16, 12, 0, tzinfo=timezone.utc)
+
+
+class PromptSpion(FejkKlient):
+    """Som `FejkKlient`, men sparar användarmeddelandet i varje anrop."""
+
+    def __init__(self, *texter: str):
+        super().__init__(*texter)
+        self.prompter: list[str] = []
+        yttre = self
+        vidare = self.messages
+
+        class Messages:
+            def create(inre, **falt):  # noqa: N805
+                yttre.prompter.append(falt["messages"][-1]["content"])
+                return vidare.create(**falt)
+
+        self.messages = Messages()
+
+
+@pytest.mark.parametrize("alder, vantat", [
+    (timedelta(days=7, seconds=1), True),
+    (timedelta(days=30), True),
+    (timedelta(days=7), False),
+    (timedelta(days=7, seconds=-1), False),
+    (timedelta(days=1), False),
+    (timedelta(0), False),
+])
+def test_GRANSVARDET_sju_dagar_matt_at_BADA_hall(alder, vantat):
+    """Äldre än sju dagar ger raden. Exakt sju dagar och allt under ger den inte."""
+    tidsstampel = (NU - alder).isoformat()
+
+    assert kedja.ar_efterslapande(tidsstampel, NU) is vantat
+
+
+def test_okand_alder_ger_INGEN_efterslapsrad():
+    """Utan tidsstämpel vet vi inte att det dröjt, alltså ingen ursäkt."""
+    assert kedja.ar_efterslapande("", NU) is False
+
+
+def test_tidsstampel_utan_zon_lases_som_UTC():
+    """`2026-09-09T11:59` är sju dagar och en minut före `NU` i UTC."""
+    assert kedja.ar_efterslapande("2026-09-09T12:00:00", NU) is False
+    assert kedja.ar_efterslapande("2026-09-09T11:59:00", NU) is True
+
+
+@pytest.mark.parametrize("alder, nu, vantat", [
+    (timedelta(days=8), NU, True),
+    (timedelta(days=6), NU, False),
+    (timedelta(days=8), None, False),
+])
+def test_EFTERSLAPSRADEN_nar_prompten_bara_for_ett_GAMMALT_arende(
+        alder, nu, vantat):
+    """Kedjan räknar åldern och generatorns prompt bär raden, eller inte."""
+    klient = PromptSpion("fråga om a-traktorkonvertering", "Hej.")
+
+    kedja.kor(
+        arende(tidsstampel=(NU - alder).isoformat()), klient=klient,
+        hamta=hamta_gront, hinkar=HINKAR, taxonomi=TAXONOMI, exempel=[],
+        nu=nu,
+    )
+
+    assert len(klient.prompter) == 2
+    assert (generera.EFTERSLAPSRAD in klient.prompter[-1]) is vantat
+
+
+def test_en_BESVARAD_trad_far_ALDRIG_efterslapsraden():
+    """Tidsstämpeln är trådens första kundmail. En uppföljning i dag på ett
+    gammalt ärende vi redan svarat på ska inte få en ursäkt för dröjsmål."""
+    klient = PromptSpion("fråga om a-traktorkonvertering", "Hej.")
+
+    kedja.kor(
+        arende(tidsstampel=(NU - timedelta(days=30)).isoformat(),
+               besvarad=True),
+        klient=klient, hamta=hamta_gront, hinkar=HINKAR, taxonomi=TAXONOMI,
+        exempel=[], nu=NU,
+    )
+
+    assert len(klient.prompter) == 2
+    assert generera.EFTERSLAPSRAD not in klient.prompter[-1]
 
 
 # ------------------------------------------------------- vägen, steg för steg

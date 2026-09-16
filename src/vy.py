@@ -982,6 +982,10 @@ def rendera_granskning(
     fanns. Ingen av de två grenarna renderar ett textfält, alltså är ordningen
     mellan dem en fråga om vad läsaren får veta, inte om säkerhet.
 
+    **SEDAN SKIVA 61 SPARAR INGEN KÖRNING SÅDANA POSTER**, Lars beslut. Grenen
+    står kvar därför att en äldre sparad `data/granskningsfall.jsonl` kan bära
+    dem.
+
     **`inget_svar_skal` SÄGER VILKET AV DE TVÅ SKÄLEN DET ÄR.** Skiva 51. Fram
     till dess fanns ett skäl, och raden stod som en fast mening om hinken
     `aldrig`. Med grinden på plats är den meningen falsk för de flesta posterna:

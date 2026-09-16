@@ -15,13 +15,15 @@ import importlib.util
 import json
 import re
 import sys
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
 
-from src import kedja, klassa_maskin, vy
+from src import generera, kedja, klassa_maskin, vy
 from src.kedja import Arende, Kedjeutfall, Steg
-from tests.test_kedja import FejkKlient, HINKAR, TAXONOMI, hamta_gront
+from tests.test_kedja import (NU, FejkKlient, HINKAR, PromptSpion, TAXONOMI,
+                              hamta_gront)
 from tests.test_vy import peka_om_katalogerna
 
 ROT = Path(__file__).resolve().parent.parent
@@ -394,7 +396,7 @@ def _korning(arenden, klient, loggfil, hamta=hamta_gront, rader=None):
     respond.kor_alla(
         arenden, klient=klient, hamta=hamta, hinkar=HINKAR,
         taxonomi=TAXONOMI, exempel=[], skarp=True, korning=korning,
-        loggfil=loggfil,
+        nu=NU, loggfil=loggfil,
         skriv=(lambda *_: None) if rader is None else
               (lambda rad: rader.append(str(rad))),
     )
@@ -528,7 +530,7 @@ def test_INGET_SVAR_delas_upp_pa_SINA_TVA_SKAL(loggfil):
         respond.kor_alla(
             [_arende()], klient=FejkKlient(etikett, "onådd"),
             hamta=hamta_gront, hinkar=HINKAR, taxonomi=TAXONOMI, exempel=[],
-            skarp=True, korning=korning, loggfil=loggfil,
+            skarp=True, korning=korning, nu=NU, loggfil=loggfil,
             skriv=lambda *_: None)
 
     assert korning.inget_svar == 2
@@ -538,6 +540,69 @@ def test_INGET_SVAR_delas_upp_pa_SINA_TVA_SKAL(loggfil):
     # OCH ATT DELARNA GÅR IHOP MED HELHETEN. Två räknare som inte summerar till
     # samma tal är värre än en.
     assert sum(korning.per_inget_svar.values()) == korning.inget_svar
+
+
+def test_INGET_SVAR_loggas_och_raknas_men_NAR_INTE_vyn(loggfil):
+    """Lars beslut i skiva 61: vyn visar bara poster med utkast eller spärr.
+
+    Klassningen står kvar i loggen och i summeringens räknare.
+    """
+    korning = respond.Korning(tradar=2)
+    for klient in (FejkKlient("boka däckbyte", "onådd"), FejkKlient(*SVAR)):
+        respond.kor_alla(
+            [_arende()], klient=klient, hamta=hamta_gront, hinkar=HINKAR,
+            taxonomi=TAXONOMI, exempel=[], skarp=True, korning=korning,
+            nu=NU, loggfil=loggfil, skriv=lambda *_: None)
+
+    rader = [json.loads(r) for r in
+             loggfil.read_text(encoding="utf-8").splitlines() if r]
+    assert [r["inget_svar"] for r in rader] == [True, False]
+    assert rader[0]["kategori"] == "boka däckbyte"
+    assert korning.inget_svar == 1
+    assert korning.per_kategori["boka däckbyte"] == 1
+
+    assert len(korning.granskningsfall) == 1
+    assert not korning.granskningsfall[0].inget_svar
+    assert korning.granskningsfall[0].forslag
+
+
+@pytest.mark.parametrize("dagar, vantat", [(8, True), (6, False)])
+def test_slingan_skickar_KORNINGENS_tidpunkt(loggfil, dagar, vantat):
+    """`kor_alla` lämnar `nu` vidare, så att ett gammalt ärende får raden."""
+    klient = PromptSpion(*SVAR)
+    tidsstampel = (NU - timedelta(days=dagar)).isoformat()
+
+    _korning([Arende(text="Hej, går ABC12X att bygga om till a-traktor?",
+                     regnr="ABC12X", tidsstampel=tidsstampel)],
+             klient, loggfil)
+
+    assert len(klient.prompter) == 2
+    assert (generera.EFTERSLAPSRAD in klient.prompter[-1]) is vantat
+
+
+def test_ett_SVAR_fran_oss_i_traden_markerar_arendet_besvarat():
+    """Skiva 61, §7-granskningens fynd. Ett besvarat ärende får ingen ursäkt."""
+    fraga = meddelande("Hej, kan ni bygga om min bil?")
+    svar = meddelande(
+        "Hej, det kan vi.", sent=True,
+        huvuden={"From": "info@autostockholm.se",
+                 "To": "kund@exempel.invalid",
+                 "In-Reply-To": "<a@exempel.invalid>",
+                 "References": "<a@exempel.invalid>"})
+
+    obesvarad, _ = respond.arende_ur_trad(trad(fraga), set())
+    besvarad, _ = respond.arende_ur_trad(trad(fraga, svar), set())
+
+    assert obesvarad.besvarad is False
+    assert besvarad.besvarad is True
+
+
+def test_CLI_satter_KORNINGENS_tidpunkt_och_inget_annat():
+    """`_kor` skickar klockan, inte ett fast datum och inte `None`."""
+    kod = vy._kod_utan_prosa(RESPOND.read_text(encoding="utf-8"))
+    i_kor = kod.split("def _kor")[1]
+
+    assert "nu = datetime . now ( timezone . utc )" in i_kor
 
 
 def test_VARJE_arende_lamnar_exakt_en_loggrad(loggfil):
@@ -550,11 +615,11 @@ def test_VARJE_arende_lamnar_exakt_en_loggrad(loggfil):
     respond.kor_alla(
         [_arende()], klient=FejkKlient(*SVAR), hamta=hamta_gront,
         hinkar=HINKAR, taxonomi=TAXONOMI, exempel=[], skarp=True,
-        korning=korning, loggfil=loggfil, skriv=lambda *_: None)
+        korning=korning, nu=NU, loggfil=loggfil, skriv=lambda *_: None)
     respond.kor_alla(
         [_arende()], klient=FejkKlient(SVAR[0]), hamta=vaxlar,
         hinkar=HINKAR, taxonomi=TAXONOMI, exempel=[], skarp=True,
-        korning=korning, loggfil=loggfil, skriv=lambda *_: None)
+        korning=korning, nu=NU, loggfil=loggfil, skriv=lambda *_: None)
 
     rader = [r for r in
              loggfil.read_text(encoding="utf-8").splitlines() if r]

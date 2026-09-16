@@ -3046,6 +3046,71 @@ def test_BEDOMNINGSRADEN_sjalv_passerar_spärrarna():
     generera.krav_pa_svaret(bedomning, forfr)
 
 
+# ------------------------------------------- EFTERSLÄPSRADEN, SKIVA 61 DEL B
+
+
+def test_EFTERSLAPSRADEN_star_ORDAGRANT():
+    """Sändvägstext, bunden som `SAKNAT_REGNR_UNDERLAG`."""
+    assert generera.EFTERSLAPSRAD == (
+        "EFTERSLÄP: kundens mail har legat obesvarat en tid. INLED svaret med "
+        "en kort rad i den här andan, med egna ord i samma ton som exemplen "
+        "och inte ordagrant: \"Ursäkta att det dröjt, det har varit fullt upp "
+        "i verkstaden. Nu har vi kapacitet igen, så hör av er om det "
+        "fortfarande är aktuellt. Annars hoppas vi att det gått bra med ert "
+        "projekt.\" Skriv aldrig hur länge det dröjt. Svara sedan på mailet "
+        "som vanligt."
+    )
+
+
+def test_underlaget_bar_EFTERSLAPSRADEN_bara_nar_flaggan_ar_satt():
+    med = generera._underlag(forfragan(efterslap=True))
+    utan = generera._underlag(forfragan())
+
+    assert generera.EFTERSLAPSRAD in med
+    assert "EFTERSLÄP" not in utan
+    assert med.replace("\n" + generera.EFTERSLAPSRAD, "") == utan
+
+
+# ANDAN SOM PROMPTEN CITERAR, ur konstanten och inte avskriven.
+EFTERSLAPSANDAN = generera.EFTERSLAPSRAD.split('"')[1]
+
+# RADER I MATTES RÖST SOM PROMPTEN BER OM. Handskrivna mätprober: raden bär
+# ordet kapacitet och ett nekande, alltså prövas de mot varje spärr, bland dem
+# `atagande-om-priset` och `pastaende-om-franvaro`.
+EFTERSLAPSPROBER = (
+    EFTERSLAPSANDAN,
+    "Ursäkta att det dröjt med svaret, det har varit fullt upp i verkstaden. "
+    "Nu har vi kapacitet igen, så hör gärna av dig om det fortfarande är "
+    "aktuellt. Annars hoppas vi att det har gått bra med ditt projekt.",
+    "Förlåt att vi inte svarat förrän nu, det har varit väldigt mycket i "
+    "verkstaden. Nu har vi kapacitet igen, så hör av dig om det fortfarande "
+    "är aktuellt.",
+    "Ber om ursäkt för det sena svaret, vi har haft fullt upp. Nu har vi "
+    "kapacitet igen. Är det inte längre aktuellt hoppas vi att allt gått bra "
+    "med bygget.",
+    "Ursäkta dröjsmålet, det har varit fullt upp här. Nu har vi kapacitet "
+    "igen, men har ni redan löst det utan oss hoppas vi att det blev bra.",
+)
+
+
+@pytest.mark.parametrize("rad", EFTERSLAPSPROBER)
+@pytest.mark.parametrize("lage", [
+    {"utfall": Utfall.GRONT, "uppslag": GRONT_UPPSLAG},
+    {"utfall": Utfall.OKLART, "uppslag": None},
+    {"utfall": Utfall.ROTT, "uppslag": None},
+    {"utfall": None, "uppslag": None, "regnr_i_mailet": False},
+    {"kategori": "boka a-traktorkonvertering"},
+    {"kategori": "fråga om pris a-traktorkonvertering"},
+])
+def test_EFTERSLAPSRADEN_passerar_VARJE_sparr(rad, lage):
+    """Det prompten ber om ska aldrig fällas. Mätt före de tjugo körs."""
+    forfr = forfragan(efterslap=True, **lage)
+
+    generera.krav_pa_svaret(rad, forfr)
+    generera.krav_pa_svaret(rad + "\n\nVänliga hälsningar\nAuto Stockholm",
+                            forfr)
+
+
 # --------------------- MAILET SOM ALDRIG BAR ETT NUMMER, SKIVA 46 DEL B
 
 

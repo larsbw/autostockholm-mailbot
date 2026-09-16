@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.80.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §8
+**Version:** 0.81.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -7763,7 +7763,49 @@ beslutet, gatingsvillkoret och rekondträffens roll. Luckan är alltså ÖPPEN, 
 och BESLUTAD, och inte stängd.
 
 
+## #126 — Skiva 61: vyn visar bara svar, och ett gammalt mail får en eftersläpsrad
+
+**Datum:** 2026-09-16 · **Berör:** `scripts/respond.py`, `scripts/kedja-prov.py`,
+`src/kedja.py`, `src/generera.py`, `src/vy.py`
+
+### 1. INGET SVAR-POSTER SPARAS INTE TILL VYN
+
+**Lars beslut.** `data/granskningsfall.jsonl` får bara poster med ett utkast
+eller en spärr. Skiva 49 lät dem visas så att materialet skulle finnas när nästa
+kategori tas. Det materialet står i `logg/beslut.jsonl`, som bär kategori, hink
+och skäl per ärende. Vyn är en granskningssida, och en post utan utkast har
+ingenting att granska. Loggningen och summeringens räknare är oförändrade.
+Vyns rendering av en sådan post står kvar för äldre sparade filer.
+
+### 2. EFTERSLÄPSRADEN
+
+**Lars beslut och Lars text.** Är kundens mail äldre än sju dagar inleds svaret
+med en ursäkt för dröjsmålet, ett besked om att vi har kapacitet igen och en
+fråga om det fortfarande är aktuellt. Modellen skriver den med egna ord.
+
+- **Åldern** räknas från `Arende.tidsstampel` till körningens tidpunkt, en
+  tidpunkt per körning. Exakt sju dagar ger ingen rad. Saknas tidsstämpeln blir
+  det ingen rad.
+- **En tråd vi redan svarat i får ingen rad.** Tidsstämpeln är trådens första
+  kundmail, och `--inkorg` tar med en tråd när vilket inkommande meddelande
+  som helst kom under dygnet. Utan villkoret hade en uppföljning i dag på ett
+  besvarat ärende fått en ursäkt för dröjsmål. Fällt av §7-granskningen och
+  rättat åt det försiktiga hållet. Vilket meddelande som ska datera ärendet är
+  Lars fråga och står öppen.
+- **Raden bor i `generera.EFTERSLAPSRAD`** och inte i `config/fakta.json`, Lars
+  beslut: den är villkorad per ärende, och `_faktarader` skriver ut hela filen.
+  Flytten står som LUCKA 76.
+- **Mätt mot `krav_pa_svaret` före körningen**, standard sedan skiva 47. Den
+  citerade andan och fyra omskrivningar passerar i sex lägen. En påhittad
+  tidslängd passerar också, och det är LUCKA 77.
+
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.81.0 — 2026-09-16
+
+**#126 TILLKOMMER.** Skiva 61: INGET SVAR-poster sparas inte till vyn, och ett
+mail äldre än sju dagar får en eftersläpsrad. Ny post ⇒ MINOR.
 
 ### 0.80.0 — 2026-09-16
 

@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.67.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.68.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -6223,6 +6223,40 @@ ingenting om att sändvägen behöver ändras i dag.
 
 ---
 
+## LUCKA UTAN SPÄRR: `efterslapsbeskedet_bor_i_kod`
+
+**LUCKA 76, ÖPPEN. Registrerad i skiva 61 på Lars order.**
+
+`generera.EFTERSLAPSRAD` säger "Nu har vi kapacitet igen", alltså ett påstående
+om Auto Stockholm. §11 lägger sådana påståenden i `config/`. Lars beslut i skiva
+61: raden står i koden, eftersom den bara gäller ärenden äldre än sju dagar och
+`_faktarader` skriver ut hela `config/fakta.json` i varje prompt.
+
+**VAD SOM GÖR DEN AKTUELL.** Den dag `_faktarader` filtrerar per ärende ska
+beskedet flyttas till `config/fakta.json`. Flytten är §10.
+
+---
+
+## LUCKA UTAN SPÄRR: `drojsmalets_langd_passerar_sparrarna`
+
+**LUCKA 77, ÖPPEN OCH MÄTT. Uppmätt i skiva 61 DEL B.**
+
+Eftersläpsraden får inte säga hur länge det dröjt, eftersom modellen inte vet
+det. Förbudet står i prompten och inte i någon spärr. Uppmätt mot
+`krav_pa_svaret`, i läget grönt och i läget oklart:
+
+| mening | utfall |
+| --- | --- |
+| *Ursäkta att det dröjt i två veckor, nu har vi kapacitet igen.* | passerar |
+| *Ursäkta att det dröjt i 3 veckor, nu har vi kapacitet igen.* | passerar |
+| *Ursäkta att det dröjt i 5 veckor, nu har vi kapacitet igen.* | fälls, `genererat-tal-har-kalla` |
+
+Ett räkneord utan `tusen` eller `hundra` fångas inte av `TAL_I_ORD` (lucka 24),
+och `3` står i `ALLTID_TILLATNA_TAL`. I skivans tjugo utkast bär inget utkast
+orden `vecka`, `veckor`, `månad` eller `dagar`.
+
+---
+
 ## Mall för en spärrpost
 
 Kopiera blocket nedan per spärr. Varje fält fylls i, tomma fält är en ofärdig
@@ -6245,6 +6279,12 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.68.0 — 2026-09-16
+
+**LUCKA 76 OCH 77 REGISTRERADE**, skiva 61. Eftersläpsbeskedet bor i kod på
+Lars beslut, och en påhittad tidslängd i eftersläpsraden passerar spärrarna.
+Ingen spärr är rörd. Två nya poster ⇒ MINOR.
 
 ### 0.67.0 — 2026-09-16
 

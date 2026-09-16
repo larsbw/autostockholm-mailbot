@@ -229,6 +229,14 @@ class Forfragan:
     # 41, varv 1.*
     franvaro_far_pastas: frozenset[str] = frozenset()
 
+    # SKIVA 61 DEL B. Sant när kundens mail är äldre än `kedja.EFTERSLAP`.
+    # Då inleds svaret med `EFTERSLAPSRAD`.
+    #
+    # **FÖRVALET ÄR `False`, alltså ingen ursäkt.** Raden påstår att det dröjt
+    # och att vi har kapacitet igen. En anropare som inte vet ärendets ålder ska
+    # inte kunna få det påståendet utskrivet.
+    efterslap: bool = False
+
 
 # ------------------------------------------------------------------ DEL C
 
@@ -2265,6 +2273,8 @@ def _underlag(forfragan: Forfragan) -> str:
     # står i den §10-grindade källan, alltså där lucka 29 kräver att fakta om oss
     # bor. Lars beslut i skiva 37, lucka 43 stängd.
     rader.append(_faktarader())
+    if forfragan.efterslap:
+        rader.append(EFTERSLAPSRAD)
     # `_barlastrad` ger tom sträng för varje fordon §39 kan gälla, alltså för de
     # flesta. En tom rad i underlaget är ingen instruktion, men den ser ut som en
     # avdelare och delar blocket på ett ställe som inte betyder något.
@@ -2412,6 +2422,31 @@ SAKNAT_REGNR_BEDOMNING = (
     "ingenting om bilens uppgifter. Står registreringsnumret inte i mailet: "
     "BE KUNDEN SKICKA DET så tittar vi på bilen. Står det där: läs det ur "
     "mailet och fråga inte efter det."
+)
+
+# EFTERSLÄPSRADEN. Skiva 61 DEL B, Lars beslut och Lars text.
+#
+# **ANDAN, INTE ORDALYDELSEN.** Citatet är Lars. Modellen skriver raden med egna
+# ord i exemplens ton, alltså i Mattes röst.
+#
+# **ETT PÅSTÅENDE OM OSS SOM BOR I KOD, och det är ett medvetet val.** "Nu har
+# vi kapacitet igen" är av den sort §11 lägger i `config/`. Lars beslut i skiva
+# 61: raden är villkorad av ärendets ålder och hör hemma där villkoret prövas.
+# En post i `config/fakta.json` hade stått i underlaget för varje ärende,
+# eftersom `_faktarader` skriver ut hela filen. Flytten står som en öppen punkt
+# i `docs/sparrar.md`, LUCKA 76.
+#
+# **INGET TAL OCH INGEN TIDSLÄNGD.** Modellen vet inte hur länge mailet legat,
+# och "två veckor" i ord passerar talspärren. Därför förbjuder raden det.
+#
+# Bunden ordagrant av `test_EFTERSLAPSRADEN_star_ORDAGRANT`.
+EFTERSLAPSRAD = (
+    "EFTERSLÄP: kundens mail har legat obesvarat en tid. INLED svaret med en "
+    "kort rad i den här andan, med egna ord i samma ton som exemplen och inte "
+    "ordagrant: \"Ursäkta att det dröjt, det har varit fullt upp i verkstaden. "
+    "Nu har vi kapacitet igen, så hör av er om det fortfarande är aktuellt. "
+    "Annars hoppas vi att det gått bra med ert projekt.\" Skriv aldrig hur "
+    "länge det dröjt. Svara sedan på mailet som vanligt."
 )
 
 # FAKTABLOCKETS RAM, som egna konstanter för att gå att binda ORDAGRANT.
