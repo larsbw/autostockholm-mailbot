@@ -33,10 +33,12 @@ logg/
 **/logg/
 
 # CREDENTIALS. `token.json` kan skicka mail som info@autostockholm.se.
-# `token-las.json` kan läsa brevlådan. `client_secret.json` är desktopklientens.
+# `token-las.json` kan läsa brevlådan. `token-skriv.json` kan skapa utkast, och
+# därmed skicka. `client_secret.json` är desktopklientens.
 # Webbklientens hemlighet kommer ur en miljövariabel och finns inte som fil.
 token.json
 token-las.json
+token-skriv.json
 client_secret.json
 .env
 **/token*.json

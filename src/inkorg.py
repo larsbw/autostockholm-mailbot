@@ -1,9 +1,10 @@
 """Dagens inkommande mail ur info@autostockholm.se. LÄSER, SKICKAR ALDRIG.
 
 **DEN HÄR MODULEN ÄR DEN ENDA I SKUGGLÄGETS VÄG SOM RÖR EN BREVLÅDA**, och den
-är utpekad med namn i `src/vy.py::GMAILBARANDE_MODULER`. En fjärde modul som
+är utpekad med namn i `src/vy.py::GMAILBARANDE_MODULER`. En onamngiven modul som
 börjar importera `googleapiclient` fäller `krav_pa_sandvagsfrihet` tills Lars
-skriver in den där.
+skriver in den där. `src/gmailutkast.py` skriver till brevlådan och ligger
+utanför skugglägets väg.
 
 FYRA LAGER, OCH BARA DET FÖRSTA ÄR GOOGLES
 ------------------------------------------
@@ -19,7 +20,7 @@ den är bortbyggd.
   2  TJÄNSTEN      `Lastjanst` nedan. Bara `threads().list/get` och
                    `messages().list/get` går igenom; allt annat kastar
                    `Sandforsok`. Den råa tjänsten lämnar aldrig `las_tjanst`.
-  3  IMPORTLAGRET  `GMAILBARANDE_MODULER`, tre namngivna moduler.
+  3  IMPORTLAGRET  `GMAILBARANDE_MODULER`, namngivna moduler.
   4  KÄLLTEXTEN    `FORBJUDET_MONSTER` över hela grafen, OFÖRÄNDRAT. Den här
                    modulen bär inget sändanrop, och `src/mine.py` och
                    `src/auth.py` gör det inte heller: uppmätt i skiva 48.
@@ -250,7 +251,7 @@ def tradar_fran_dagen(tradar, *, granser) -> list[dict]:
 # --------------------------------------------------------------- GALLRINGEN
 
 
-# HUVUDEN VARS VÄRDE KEDJAN LÄSER. Fyra, och de står här som en egen lista
+# HUVUDEN VARS VÄRDE KEDJAN LÄSER. De står här som en egen lista
 # därför att anropen som läser dem inte går att importera: namnen skrivs i
 # anropet, som `urval.huvudvarde(meddelande, "subject")`, eller i en tupel som
 # en slinga går igenom, som `urval.kundadress`.
@@ -272,7 +273,12 @@ def tradar_fran_dagen(tradar, *, granser) -> list[dict]:
 # slinga. Att `reply-to` och `from` ändå stod här var en slump: de skrivs som
 # litteraler i `klassa_maskin`. En blind fläck som tiger är precis den felform
 # stycket ovan beskriver, alltså får den inte finnas.
-HUVUDEN_MED_VARDE = frozenset({"from", "reply-to", "subject", "precedence"})
+#
+# **`message-id` TILLKOM I SKIVA 68.** Gmail-utkastet svarar på kundens
+# meddelande med `In-Reply-To`, och värdet läses av `urval.meddelande_id`. Det
+# är en identifierare som avsändarens server satt, inte kundtext.
+HUVUDEN_MED_VARDE = frozenset({"from", "reply-to", "subject", "precedence",
+                               "message-id"})
 
 # HUVUDEN VARS ENBARA FÖREKOMST KEDJAN PRÖVAR. Värdet läses aldrig, alltså
 # skrivs det inte. Namnet blir kvar med ett tomt värde, eftersom det är namnet

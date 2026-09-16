@@ -834,7 +834,7 @@ def test_en_INLOGGAD_GET_slapps_igenom():
     assert "PÅHITTAT UTKAST SOM INTE FÅR SYNAS" in fejk.svar
 
 
-@pytest.mark.parametrize("vag", ["/omdome/0", "/referens/0"])
+@pytest.mark.parametrize("vag", ["/omdome/0", "/referens/0", "/gmailutkast/0"])
 def test_en_OINLOGGAD_POST_SKRIVER_INGENTING(vag, tmp_path, monkeypatch):
     """SPÄRR: grinden på SKRIVVÄGEN, och den var obunden.
 

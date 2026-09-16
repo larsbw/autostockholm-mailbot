@@ -33,6 +33,11 @@ TVÅ LÄGEN.
 kod som vyn drar in får importera eller anropa något som skickar mail. Se
 `krav_pa_sandvagsfrihet` nedan och `docs/sparrar.md` `vyn-har-ingen-sandvag`.
 
+**SEDAN SKIVA 68 KAN VYN LÄGGA ETT UTKAST I GMAIL**, när den som startar vyn
+injicerar `skapa_utkast`. Importgrafen är oförändrat fri: funktionen kommer ur
+`src/gmailutkast.py` via `scripts/serva.py`, och vyn vet bara att den är
+anropbar. Credentialen bakom den kan skicka, se den modulen.
+
 **§6.** Vyn visar RÅ KUNDTEXT på skärmen, eftersom det är hela poängen: Lars ska
 läsa ärendet som kunden skrev det. Den får därför aldrig skriva kundtext någon
 annanstans än under `data/` och `logg/`, som båda är gitignorerade. Se
@@ -42,6 +47,7 @@ annanstans än under `data/` och `logg/`, som båda är gitignorerade. Se
 from __future__ import annotations
 
 import ast
+import dataclasses
 import html
 import io
 import json
@@ -134,6 +140,11 @@ UTFALL = ("", "gront", "gult", "oklart", "rott")
 # aldrig ihop till godkänt eller icke godkänt.
 OMDOMESVARDEN = ("godkann", "forbattra", "forkasta", "neka")
 
+# SKIVA 68 DEL C. Knappen som lägger utkastet i Gmail loggas som ett EGET
+# omdöme. Det står inte i `OMDOMESVARDEN`: då hade omdömesformuläret fått en
+# femte knapp som loggar utan att skapa något.
+OMDOME_GMAILUTKAST = "gmailutkast"
+
 
 class Sandvagsfel(Exception):
     """Vyn drar in något som kan skicka mail."""
@@ -161,8 +172,12 @@ FORBJUDNA_MODULER = frozenset({
 # MÖNSTRET ÄR BLANKSTEGSTÅLIGT, eftersom `_kod_utan_prosa` skiljer tokens åt med
 # blanksteg. Utan det ledet letade det efter en teckenföljd som aldrig uppstår
 # efter tokeniseringen.
+#
+# **`drafts().send` STÅR HÄR SEDAN SKIVA 68.** Det skickar ett befintligt utkast.
+# Med den gamla lydelsen återställd blir `test_drafts_send_FALLS_av_kalltextlagret`
+# röd, prövat i skiva 68.
 FORBJUDET_MONSTER = re.compile(
-    r"messages\s*\(\s*\)\s*\.\s*send|sendmail|SMTP\s*\("
+    r"(?:messages|drafts)\s*\(\s*\)\s*\.\s*send|sendmail|SMTP\s*\("
 )
 
 # MODULERNA SOM FÅR DRA IN EN GMAIL-TJÄNST, och ingen annan. Skiva 48.
@@ -174,19 +189,22 @@ FORBJUDET_MONSTER = re.compile(
 # upprätthåller), den kapade tjänsten (`src/inkorg.py::Lastjanst`), och den här
 # uppräkningen.
 #
-# **UPPRÄKNINGEN ÄR NAMNGIVEN OCH INTE EN REGEL.** En fjärde modul som börjar
-# importera `googleapiclient` fäller spärren tills Lars skriver in den här. Det
-# är skillnaden mot att ta bort importlagret: vägen är fortfarande EN, och den
-# är utpekad.
+# **UPPRÄKNINGEN ÄR NAMNGIVEN OCH INTE EN REGEL.** En onamngiven modul som
+# börjar importera `googleapiclient` fäller spärren tills Lars skriver in den
+# här. Det är skillnaden mot att ta bort importlagret: vägarna är utpekade.
 #
 # `src.auth` står här därför att `src.inkorg` och `src.mine` når
 # `googleapiclient.discovery` genom den. `smtplib` står i `FORBJUDNA_MODULER`
 # och undantas ALDRIG av någon lista: den vägen har inget ärende i det här
 # repot.
+#
+# `src.gmailutkast` tillkom i skiva 68 och är den enda som SKRIVER till Gmail.
+# Vyn når den inte genom en import: `scripts/serva.py` injicerar funktionen.
 GMAILBARANDE_MODULER = frozenset({
     "src.inkorg",
     "src.mine",
     "src.auth",
+    "src.gmailutkast",
 })
 
 # Undantaget gäller de moduler som når en Gmail-TJÄNST. `smtplib` är inte en
@@ -673,6 +691,54 @@ def spara_omdome(
     return post
 
 
+def gmailutkast_finns(trad_id: str, omdomesfil: Path = OMDOMEN) -> bool:
+    """Har tråden redan fått ett Gmail-utkast ur vyn?
+
+    Ett andra tryck hade gett två utkast i samma tråd, och två utkast är två
+    mail som kan skickas.
+    """
+    if not omdomesfil.exists():
+        return False
+    for rad in omdomesfil.read_text(encoding="utf-8").splitlines():
+        try:
+            post = json.loads(rad)
+        except ValueError:
+            continue
+        if (isinstance(post, dict)
+                and post.get("omdome") == OMDOME_GMAILUTKAST
+                and post.get("trad_id") == trad_id):
+            return True
+    return False
+
+
+def spara_gmailutkast(fall: Fall, trad_id: str, utfall: str,
+                      gmail_id: str = "",
+                      omdomesfil: Path = OMDOMEN) -> dict:
+    """Loggar ett Gmail-utkast. Append-only, samma fil som omdömena.
+
+    **TRE UTFALL, OCH DET FÖRSTA SKRIVS FÖRE ANROPET.** `begärt` spärrar tråden
+    innan Gmail nås, så att ett utkast som skapades men sedan fälldes, eller en
+    loggskrivning som föll efter anropet, aldrig ger ett andra utkast. Därefter
+    `skapat` med id eller `misslyckades`. `trad_id` och `gmail_id` är
+    ogenomskinliga Gmail-strängar.
+    """
+    krav_pa_skrivbar_sokvag(omdomesfil)
+    post = {
+        "etikett": fall.etikett,
+        "omdome": OMDOME_GMAILUTKAST,
+        "avsandare_hash": fall.avsandare_hash,
+        "tidsstampel": fall.tidsstampel,
+        "trad_id": trad_id,
+        "utfall": utfall,
+        "gmail_id": gmail_id,
+        "skrivet": datetime.now(timezone.utc).isoformat(),
+    }
+    omdomesfil.parent.mkdir(parents=True, exist_ok=True)
+    with omdomesfil.open("a", encoding="utf-8") as fil:
+        fil.write(json.dumps(post, ensure_ascii=False) + "\n")
+    return post
+
+
 # ---------------------------------------------------------------- rendering
 
 SIDHUVUD = """<!doctype html>
@@ -935,7 +1001,7 @@ def rendera_granskning(
     fall: Fall, forslag: str, sparr: str = "", index: int = 0,
     uppslagskalla: str = "", inget_svar: bool = False,
     inget_svar_skal: str = "", drift: str = "", sparrskal: str = "",
-    sparrsats: str = "",
+    sparrsats: str = "", gmailknapp: bool = False,
 ) -> str:
     """GRANSKNINGSLÄGE: förslag med fyra omdömen.
 
@@ -1003,6 +1069,10 @@ def rendera_granskning(
     nedan är dagens post eller kvarlämnad text, alltså står den över alla tre
     grenarna och inte bara över den som visar ett förslag. Se `rendera_referens`
     om varför den skickas in i stället för att slås upp här.
+
+    **`gmailknapp` RENDERAS BARA I FÖRSLAGSGRENEN**, skiva 68. Varken en spärrad
+    post eller en post utan svar får knappen, oavsett flaggan. Formuläret bär
+    inget textfält: det som läggs i Gmail är förslaget som passerade spärrarna.
     """
     if inget_svar:
         return (
@@ -1052,6 +1122,11 @@ def rendera_granskning(
             for v in OMDOMESVARDEN
         )
         + "</p></form>"
+        + (f"<form method='post' action='/gmailutkast/{int(index)}'>"
+           "<p><button type='submit'>Skapa utkast i Gmail</button> "
+           "Förslaget ovan, oredigerat, läggs som ett svar i kundens tråd. "
+           "<strong>Det skickas inte.</strong></p></form>"
+           if gmailknapp else "")
         + SIDFOT
     )
 
@@ -1091,6 +1166,23 @@ def _navigering(index: int, antal: int) -> str:
 
 
 # ---------------------------------------------------------------- server
+
+
+@dataclass(frozen=True)
+class Svarsvag:
+    """Vad ett Gmail-utkast behöver för att bli ett svar i kundens tråd. Skiva 68.
+
+    **BÄR KUNDENS ADRESS**, och därför är den ett eget värde och inte ett fält
+    på `kedja.Arende`, som uttryckligen saknar adress. Den skrivs bara till
+    `data/granskningsfall.jsonl` och renderas aldrig.
+
+    `meddelande_id` är kundmeddelandets `Message-ID`-huvud, inte Gmails id.
+    """
+
+    trad_id: str
+    meddelande_id: str
+    mottagare: str
+    amne: str
 
 
 @dataclass
@@ -1157,6 +1249,9 @@ class Granskningsfall:
     # i `data/granskningsfall.jsonl`, precis som `forslag` och `fall.text`.
     sparrskal: str = ""
     sparrsats: str = ""
+    # SKIVA 68. None när posten inte kommer ur en Gmail-tråd, till exempel ur
+    # `scripts/kedja-prov.py`. Då får posten ingen Gmail-knapp.
+    svarsvag: Svarsvag | None = None
 
 
 def spara_granskningsfall(fall: list[Granskningsfall],
@@ -1199,6 +1294,8 @@ def spara_granskningsfall(fall: list[Granskningsfall],
                 "uppslagskalla": post.uppslagskalla,
                 "sparrskal": post.sparrskal,
                 "sparrsats": post.sparrsats,
+                "svarsvag": (dataclasses.asdict(post.svarsvag)
+                             if post.svarsvag else None),
             }, ensure_ascii=False) + "\n")
 
     return mal
@@ -1243,6 +1340,9 @@ def las_granskningsfall(fil: Path | None = None) -> list[Granskningsfall]:
             # läge för en spärrad post utan skäl.
             sparrskal=post.get("sparrskal", ""),
             sparrsats=post.get("sparrsats", ""),
+            # En fil skriven före skiva 68 bär ingen svarsväg.
+            svarsvag=(Svarsvag(**post["svarsvag"])
+                      if post.get("svarsvag") else None),
         ))
     return fall
 
@@ -1253,8 +1353,14 @@ def bygg_hanterare(
     granskning: list[Granskningsfall] | None = None,
     omdomesfil: Path = OMDOMEN,
     konfiguration=None,
+    skapa_utkast=None,
 ):
     """HTTP-hanteraren, med fallen inbakade.
+
+    **`skapa_utkast` ÄR GMAIL-KNAPPEN, skiva 68, och den är INJICERAD.** Vyn
+    importerar ingenting som når Gmail; funktionen kommer ur
+    `gmailutkast.utkastskapare` via `scripts/serva.py`. None ger ingen knapp och
+    en rutt som vägrar.
 
     **`konfiguration` ÄR INLOGGNINGEN, skiva 53.** Är den None körs vyn utan
     inloggning, och då har `starta` redan krävt att bindningen är `127.0.0.1`.
@@ -1404,7 +1510,9 @@ def bygg_hanterare(
                                    inget_svar_skal=post.inget_svar_skal,
                                    drift=self._drift(),
                                    sparrskal=post.sparrskal,
-                                   sparrsats=post.sparrsats)
+                                   sparrsats=post.sparrsats,
+                                   gmailknapp=(skapa_utkast is not None
+                                               and post.svarsvag is not None))
                 + f"<p><a href='/granskning/{index + 1}'>nästa</a></p>"
             )
 
@@ -1424,6 +1532,10 @@ def bygg_hanterare(
 
             if self.path.startswith("/omdome"):
                 self._omdome(falt)
+                return
+
+            if self.path.startswith("/gmailutkast"):
+                self._gmailutkast()
                 return
 
             # EN TOM `fall`-LISTA ÄR ETT RIMLIGT DRIFTLÄGE sedan skiva 34: vyn
@@ -1530,6 +1642,91 @@ def bygg_hanterare(
             self._svara(
                 SIDHUVUD.format()
                 + "<p>Omdöme sparat.</p>"
+                + f"<p><a href='/granskning/{nasta}'>nästa förslag</a></p>"
+                + SIDFOT
+            )
+
+        def _gmailutkast(self) -> None:
+            """Lägger förslaget som ett utkast i kundens Gmail-tråd. DEL C.
+
+            **SAMMA VÄGRANDEN SOM `_omdome`, och de prövas här innan den
+            injicerade funktionen anropas.** En spärrad post, en post utan svar
+            och en post utan svarsväg når aldrig Gmail.
+            `gmailutkast.krav_pa_utkastbar` prövar samma sak en gång till i
+            modulen som skriver.
+
+            **ETT FÖRSÖK PER TRÅD.** Ett andra tryck vägras, också efter ett
+            misslyckat försök, se `gmailutkast_finns`.
+
+            **KNAPPEN VET INTE OM TRÅDEN BESVARATS SEDAN KÖRNINGEN.** Vyn kan
+            inte läsa Gmail. Har Matte redan svarat får tråden ett andra
+            svarsutkast, som inte skickas av sig självt.
+            """
+            def vagra(skal: str) -> None:
+                self._svara(rendera_fel(ValueError(skal)), 400)
+
+            if skapa_utkast is None:
+                vagra("Gmail-utkast är inte inkopplat i den här vyn")
+                return
+            # CSRF. `serva.py --lokalt` kräver ingen session, och en annan
+            # sida i webbläsaren kan posta till 127.0.0.1. Webbläsaren sätter
+            # `Origin` på en POST och sidan kan inte ändra det. Fällt av
+            # §7-granskningen av skiva 68.
+            vard = self.headers.get("Host", "")
+            if not vard or self.headers.get("Origin", "") not in (
+                    f"http://{vard}", f"https://{vard}"):
+                vagra("begäran kommer inte från vyn själv")
+                return
+            index = _skrivindex_ur_vag(self.path, len(granskning),
+                                       "gmailutkast")
+            if index is None:
+                vagra("utkastet saknar en entydig post och skapas inte")
+                return
+
+            post = granskning[index]
+            if post.inget_svar:
+                vagra("posten har inget svar")
+                return
+            if post.sparr:
+                vagra(f"posten är spärrad av {post.sparr}")
+                return
+            if post.svarsvag is None:
+                vagra("posten bär ingen Gmail-tråd")
+                return
+            if gmailutkast_finns(post.svarsvag.trad_id, omdomesfil):
+                vagra("tråden har redan ett utkast ur vyn, eller ett försök "
+                      "som misslyckades. Se efter i Gmail under Utkast.")
+                return
+
+            # RADEN FÖRE UTKASTET. Den spärrar tråden också om anropet skapar
+            # ett utkast och sedan kastar. Fällt av §7-granskningen av skiva 68.
+            trad_id = post.svarsvag.trad_id
+            try:
+                spara_gmailutkast(post.fall, trad_id, "begärt",
+                                  omdomesfil=omdomesfil)
+            except Skrivfel as fel:
+                vagra(str(fel))
+                return
+            try:
+                gmail_id = skapa_utkast(post)
+            except Exception as fel:  # noqa: BLE001
+                spara_gmailutkast(post.fall, trad_id, "misslyckades",
+                                  omdomesfil=omdomesfil)
+                # Typen och Googles text. Texten bär ingen kundtext: vi
+                # skickar den, Google citerar den inte i ett fel.
+                vagra(f"utkastet skapades inte ({type(fel).__name__}): {fel}. "
+                      "Tråden är spärrad för nya försök ur vyn; se efter i "
+                      "Gmail under Utkast.")
+                return
+
+            spara_gmailutkast(post.fall, trad_id, "skapat", gmail_id,
+                              omdomesfil=omdomesfil)
+            nasta = min(index + 1, len(granskning) - 1)
+            self._svara(
+                SIDHUVUD.format()
+                + "<p>Utkastet ligger i Gmail, i kundens tråd. "
+                + f"Meddelande-id <code>{html.escape(gmail_id)}</code>. "
+                + "Det är inte skickat.</p>"
                 + f"<p><a href='/granskning/{nasta}'>nästa förslag</a></p>"
                 + SIDFOT
             )
@@ -1647,6 +1844,7 @@ def starta(
     granskning: list[Granskningsfall] | None = None,
     adress: str = LOOPBACK,
     konfiguration=None,
+    skapa_utkast=None,
 ) -> HTTPServer:
     """Startar vyn.
 
@@ -1671,5 +1869,6 @@ def starta(
     return HTTPServer(
         (adress, port),
         bygg_hanterare(fall, granskning=granskning,
-                       konfiguration=konfiguration),
+                       konfiguration=konfiguration,
+                       skapa_utkast=skapa_utkast),
     )

@@ -136,6 +136,16 @@ def kundadress(meddelande: dict) -> str:
     return ""
 
 
+def meddelande_id(meddelande: dict) -> str:
+    """`Message-ID`-huvudet, det ett svar pekar på. Skiva 68.
+
+    Läses här, med namnet som literal, så att
+    `test_varje_huvud_kedjan_LASER_ETT_VARDE_ur_star_i_HUVUDEN_MED_VARDE` ser
+    läsningen och fäller om skörden gallrar bort värdet.
+    """
+    return huvudvarde(meddelande, "message-id").strip()
+
+
 def tidsstampel(meddelande: dict) -> str:
     """Meddelandets tid, ISO 8601 i UTC. Tom sträng när fältet saknas.
 

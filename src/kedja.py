@@ -65,7 +65,7 @@ from typing import Callable
 from src import biluppgifter, fordonsuppslag, generera, ometikettera, sokvagar
 from src.fordonsuppslag import UppslagMisslyckades, Uppslag, Utfall
 from src.generera import Forfragan, Sparrfalld
-from src.vy import Fall, Granskningsfall, krav_pa_skrivbar_sokvag
+from src.vy import Fall, Granskningsfall, Svarsvag, krav_pa_skrivbar_sokvag
 
 ROT = Path(__file__).resolve().parent.parent
 
@@ -622,7 +622,8 @@ def uppslagskalla(arende: Arende, utfall: Kedjeutfall, *, skarp: bool) -> str:
 
 
 def till_granskningsfall(arende: Arende, utfall: Kedjeutfall,
-                         *, skarp: bool) -> Granskningsfall:
+                         *, skarp: bool,
+                         svarsvag: Svarsvag | None = None) -> Granskningsfall:
     """Kedjans utfall som ett fall vyn kan visa. **VÄGENS SLUTPUNKT.**
 
     Utan den här funktionen slutade vägen i en `Kedjeutfall` som ingen kunde
@@ -656,6 +657,10 @@ def till_granskningsfall(arende: Arende, utfall: Kedjeutfall,
     biluppgifter.se"* ovanför vikter konstruerade ur ett registreringsnummer.
     Utan förval kastar Python i stället, och det syns. Fällt av §7-granskningen
     av skiva 36, varv 1.
+
+    **`svarsvag` FÖLJER MED ORÖRD, skiva 68.** Den bär kundens adress och står
+    därför inte på `Arende`. None ger en post utan Gmail-knapp, vilket är det
+    ofarliga hållet.
     """
     return Granskningsfall(
         fall=Fall(
@@ -685,6 +690,7 @@ def till_granskningsfall(arende: Arende, utfall: Kedjeutfall,
         sparrskal=utfall.skal,
         sparrsats=utfall.sats,
         uppslagskalla=uppslagskalla(arende, utfall, skarp=skarp),
+        svarsvag=svarsvag,
     )
 
 

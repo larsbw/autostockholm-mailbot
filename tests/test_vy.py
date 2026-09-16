@@ -797,8 +797,10 @@ def test_varje_strangparameter_till_renderarna_escapas():
     # med ordet `talet`, alltså är det escapningen som prövas här och ingenting
     # annat.
     # Vad maskeringen gör prövas av `test_spärrskälet_i_vyn_ar_MASKERAT`.
+    # `gmailknapp` är en flagga av samma slag som `inget_svar`, skiva 68.
     assert provade == ["forslag", "sparr", "uppslagskalla", "inget_svar",
-                       "inget_svar_skal", "sparrskal", "sparrsats"]
+                       "inget_svar_skal", "sparrskal", "sparrsats",
+                       "gmailknapp"]
 
 
 def test_felmeddelandet_escapas_innan_det_reflekteras():
@@ -1050,6 +1052,9 @@ class FejkHanterare:
 
     def _omdome(self, falt: dict) -> None:
         self._klass._omdome(self, falt)
+
+    def _gmailutkast(self) -> None:
+        self._klass._gmailutkast(self)
 
     # INLOGGNINGENS LED, skiva 53. Samma skäl som raderna ovan.
     #

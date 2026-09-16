@@ -1,9 +1,11 @@
 """OAuth-desktopflöde mot Gmail för info@autostockholm.se.
 
-TVÅ SCOPELISTOR OCH TVÅ TOKEN. `SCOPES` är miningens och fas 7:s, låst till
+TRE SCOPELISTOR OCH TRE TOKEN. `SCOPES` är miningens och fas 7:s, låst till
 gmail.modify och gmail.send. `LASSCOPES` är skugglägets, gmail.readonly och
-ingenting annat. Ett nytt scope är ett §10-stopp och läggs aldrig till av kod;
-`LASSCOPES` tillkom på Lars uttryckliga beslut i skiva 48.
+ingenting annat. `SKRIVSCOPES` är Gmail-utkastens, gmail.compose och ingenting
+annat. Ett nytt scope är ett §10-stopp och läggs aldrig till av kod;
+`LASSCOPES` tillkom på Lars uttryckliga beslut i skiva 48 och `SKRIVSCOPES` i
+skiva 68.
 
 *Här stod att scopelistan är låst till gmail.modify och gmail.send, i singular.
 Det blev falskt av samma skiva som skrev den andra listan.*
@@ -53,6 +55,21 @@ LASSCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
 ]
 
+# GMAIL-UTKASTETS SCOPE. Lars §10-beslut i skiva 68.
+#
+# AVLÄST 2026-09-16 ur
+# https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.drafts/create :
+# `drafts.create` kräver ett av `mail.google.com`, `gmail.modify` eller
+# `gmail.compose`. Scopesidan säger om det sista *"Manage drafts and send
+# emails."*, restricted. Det är det snävaste av de tre.
+#
+# **DET HÄR SCOPET KAN SKICKA.** Inget scope ger utkast utan sändförmåga, alltså
+# finns lager 1 inte för den här vägen. Det är Googles gräns och inte vår, och
+# Lars beslut är fattat med det utskrivet. Se `src/gmailutkast.py`.
+SKRIVSCOPES = [
+    "https://www.googleapis.com/auth/gmail.compose",
+]
+
 ROT = Path(__file__).resolve().parent.parent
 
 # HEMLIGHETERNA UR `src/sokvagar.py`, skiva 53. Förvalet är repots rot, alltså
@@ -70,6 +87,9 @@ TOKEN = sokvagar.HEMLIGHETER / "token.json"
 # hade skrivit över den andra. Filen är gitignorerad på samma villkor som
 # `token.json`.
 LASTOKEN = sokvagar.HEMLIGHETER / "token-las.json"
+
+# TREDJE FILEN, skild från båda de andra av samma skäl. Skiva 68.
+SKRIVTOKEN = sokvagar.HEMLIGHETER / "token-skriv.json"
 
 
 class AuthFel(Exception):
@@ -132,7 +152,11 @@ def hamta_credentials(
         # anvisade den läsvägens användare att auktorisera om med gmail.modify
         # och gmail.send. Ett felmeddelande som leder till fel scope är värre än
         # inget felmeddelande.
-        flagga = " --las" if token_sokvag == LASTOKEN else ""
+        #
+        # SKIVA 68: FLAGGAN VÄLJS EFTER SCOPET OCH INTE EFTER FILEN. Det är
+        # scopet kommandot begär, och en omlagd sökväg ska inte ge fel kommando.
+        flagga = (" --las" if scopes == LASSCOPES
+                  else " --skriv" if scopes == SKRIVSCOPES else "")
         raise AuthFel(
             f"Ingen giltig eller förnybar token i {token_sokvag.name}. "
             "Auktorisering kräver webbläsare och är ett §10-stopp: kör "
@@ -204,6 +228,43 @@ def hamta_las_credentials(
     return cred
 
 
+class Scopefel(Exception):
+    """Credentialen bär något annat än exakt `SKRIVSCOPES`."""
+
+
+def krav_pa_bara_utkast(cred: Credentials) -> None:
+    """Kastar om credentialen bär något annat scope än `SKRIVSCOPES`.
+
+    Samma tillåtningslista som `krav_pa_bara_lasning`, av samma skäl. Den
+    fäller framför allt `token.json`, som bär `gmail.send` och `gmail.modify`
+    och därmed mer än utkastvägen behöver.
+    """
+    beviljade = set(cred.scopes or [])
+    if beviljade != set(SKRIVSCOPES):
+        raise Scopefel(
+            f"credentialen bär {sorted(beviljade)}, inte {sorted(SKRIVSCOPES)}. "
+            "Kör `.venv/bin/python -m src.auth --skriv --auktorisera`."
+        )
+
+
+def hamta_skriv_credentials(
+    *,
+    tillat_webblasare: bool = False,
+    token_sokvag: Path = SKRIVTOKEN,
+    client_secret: Path = CLIENT_SECRET,
+) -> Credentials:
+    """Credentials för Gmail-utkasten. `scopes` är ingen parameter, se
+    `hamta_las_credentials`."""
+    cred = hamta_credentials(
+        tillat_webblasare=tillat_webblasare,
+        token_sokvag=token_sokvag,
+        client_secret=client_secret,
+        scopes=SKRIVSCOPES,
+    )
+    krav_pa_bara_utkast(cred)
+    return cred
+
+
 def bygg_tjanst(cred: Credentials):
     """Gmail-tjänsten. cache_discovery=False för att slippa filcache-varningen."""
     return build("gmail", "v1", credentials=cred, cache_discovery=False)
@@ -229,19 +290,28 @@ def main(argv: list[str] | None = None) -> int:
         help="skuggläget: gmail.readonly mot token-las.json, i stället för "
              "gmail.modify och gmail.send mot token.json",
     )
+    tolk.add_argument(
+        "--skriv",
+        action="store_true",
+        help="Gmail-utkasten: gmail.compose mot token-skriv.json",
+    )
     arg = tolk.parse_args(argv)
+    if arg.las and arg.skriv:
+        tolk.error("--las och --skriv är två token. Välj ett.")
 
-    token = LASTOKEN if arg.las else TOKEN
+    if arg.las:
+        token, scopes, hamta = LASTOKEN, LASSCOPES, hamta_las_credentials
+    elif arg.skriv:
+        token, scopes, hamta = SKRIVTOKEN, SKRIVSCOPES, hamta_skriv_credentials
+    else:
+        token, scopes, hamta = TOKEN, SCOPES, hamta_credentials
     print(_status(token))
     print(f"client_secret.json: {'finns' if CLIENT_SECRET.exists() else 'saknas'}")
-    print("begär scopes: " + " ".join(LASSCOPES if arg.las else SCOPES))
+    print("begär scopes: " + " ".join(scopes))
 
     try:
-        if arg.las:
-            cred = hamta_las_credentials(tillat_webblasare=arg.auktorisera)
-        else:
-            cred = hamta_credentials(tillat_webblasare=arg.auktorisera)
-    except (AuthFel, Sandformaga) as fel:
+        cred = hamta(tillat_webblasare=arg.auktorisera)
+    except (AuthFel, Sandformaga, Scopefel) as fel:
         print(f"FEL: {fel}")
         return 1
 

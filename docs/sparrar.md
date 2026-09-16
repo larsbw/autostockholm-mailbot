@@ -6282,6 +6282,32 @@ uppslaget fälls vet vi inte att bilen är ombyggd.
 
 ---
 
+## `gmailutkast-bara-spärrfria-poster`
+
+**BYGGD I SKIVA 68**, se `docs/beslutslogg.md` #131.
+
+**LAGER 1 FINNS INTE HÄR.** `token-skriv.json` bär `gmail.compose` och kan
+skicka. Lagren nedan ligger i vår kod.
+
+- **Spärr.** Fyra led:
+  - `src/gmailutkast.py::_Drafts.__getattr__` och `_Users.__getattr__`
+    släpper bara `drafts().create`.
+  - `krav_pa_utkastbar` vägrar spärrade poster, poster utan svar eller
+    utkast, och poster med en ofullständig svarsväg.
+  - `src/vy.py` vägrar samma poster i `_gmailutkast`, plus ett andra utkast i
+    samma tråd, innan den injicerade funktionen anropas.
+  - `FORBJUDET_MONSTER` fäller `drafts().send`, och `src.gmailutkast` ligger
+    utanför vyns, kedjans och den dagliga körningens graf.
+- **Vad den skyddar mot.** Att ett spärrat svar blir ett utkast som Matte kan
+  skicka med ett klick, och att utkastvägen skickar själv.
+- **Negativkontroll.**
+  `tests/test_gmailutkast.py::test_en_GODKAND_post_blir_ett_utkast_och_ett_OMDOME`
+  och `test_drafts_create_GAR_IGENOM`.
+- **Redundant med.** Vyns och modulens vägran vaktar samma poster. Varje led är
+  fällt för sig i skiva 68.
+
+---
+
 ## Mall för en spärrpost
 
 Kopiera blocket nedan per spärr. Varje fält fylls i, tomma fält är en ofärdig

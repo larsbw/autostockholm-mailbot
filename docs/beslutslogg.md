@@ -7924,6 +7924,58 @@ Omkörningen av de tjugo gav GRÖNT för två av dem, ärende 4 och 20. Båda
 sidorna bär `Ja Kula`, avläst i skiva 66.
 
 
+## #131 — Skiva 68: Gmail-utkast på knapptryck, och lager 1 faller för den vägen
+
+**Datum:** 2026-09-16 · **Berör:** `src/auth.py`, `src/gmailutkast.py`,
+`src/vy.py`, `scripts/serva.py`, `scripts/respond.py` · **Ändrar:** #113 för
+skrivvägen
+
+### 1. LARS §10-BESLUT
+
+Scopet är `gmail.compose`, i en egen token, `token-skriv.json`.
+`token-las.json` behåller `gmail.readonly`.
+
+`drafts.create` kräver `mail.google.com`, `gmail.modify` eller
+`gmail.compose`. Google beskriver compose som *"Manage drafts and send
+emails."*, restricted. Inget scope ger utkast utan sändförmåga.
+
+**LAGER 1 FINNS INTE FÖR SKRIVVÄGEN.** Credentialen kan skicka. Det är Googles
+gräns, och beslutet är fattat med det utskrivet. Skugglägets lager 1 är orört.
+
+### 2. DE ANDRA TRE LAGREN
+
+- **Lager 2.** `gmailutkast.Utkastjanst` släpper bara igenom
+  `drafts().create`.
+- **Lager 3.** `src.gmailutkast` står i `GMAILBARANDE_MODULER`. Vyn, kedjan
+  och den dagliga körningen har den inte i sin graf. Vyn får funktionen
+  injicerad av `scripts/serva.py`, vars graf prövas med `tillatna`.
+- **Lager 4.** `FORBJUDET_MONSTER` fäller `drafts().send`.
+
+### 3. UTKASTET
+
+Utkastet är ett svar i kundens tråd, med `threadId`, `In-Reply-To`,
+`References` och `Re:` plus kundens ämne. Det svarar på trådens första
+kundmail, samma meddelande som texten kommer ur. `References` bär bara det
+meddelandets `Message-ID`: skörden gallrar bort förälderns `References`.
+
+Bara en post som passerat samtliga spärrar och bär en fullständig svarsväg
+kan bli ett utkast. Texten är förslaget som det står, utan redigering.
+
+Knappen loggas som omdömet `gmailutkast` i `logg/omdomen.jsonl`, med utfallet
+`begärt` INNAN Gmail nås och sedan `skapat` eller `misslyckades`. Ett försök
+per tråd: också ett misslyckat försök spärrar, eftersom Gmail kan ha skapat
+utkastet innan felet. Rutten kräver att `Origin` stämmer med `Host`, eftersom
+`scripts/serva.py --lokalt` saknar inloggning.
+
+**KÄNT OCH INTE BYGGT.** Vyn kan inte läsa Gmail och vet inte om tråden
+besvarats efter körningen. `urval.kundadress` väljer den alfabetiskt första av
+flera adresser i `Reply-To`.
+
+Svarsvägen bär kundens adress och är därför ett eget värde, `vy.Svarsvag`,
+och inget fält på `kedja.Arende`. Poster ur `scripts/kedja-prov.py` saknar
+den och får ingen knapp.
+
+
 ## Appendix — versionshistorik (nyaste överst)
 
 ### 0.85.0 — 2026-09-16

@@ -1,6 +1,7 @@
 client_secret.json
 token.json
 token-las.json
+token-skriv.json
 .env
 data/
 logg/

@@ -484,11 +484,14 @@ def test_skorden_bar_INGA_RAA_HUVUDEN_som_kedjan_inte_laser(tmp_path):
     assert "systern@exempel.se" not in ratext, "Cc:s värde nådde disken"
     assert "mx.google.com" not in ratext, "Received:s värde nådde disken"
     assert "Bcc" not in ratext
-    assert "Message-ID" not in ratext
 
     # Och namnen som BÄR ett beslut står kvar, utan värde.
     huvuden = extract.las_tradar(utfil).__next__()["messages"][0]["payload"]["headers"]
     som_dikt = {h["name"]: h["value"] for h in huvuden}
+    # SKIVA 68: `Message-ID` STÅR KVAR MED VÄRDE. Här stod att det faller. Gmail-
+    # utkastet svarar på det med `In-Reply-To`, och utan värdet hamnar svaret
+    # utanför kundens tråd.
+    assert som_dikt["Message-ID"] == "<abc@exempel.se>"
     assert som_dikt["Return-Path"] == ""
     assert som_dikt["Delivered-To"] == ""
     assert som_dikt["From"] == "Kund Kundsson <kund@exempel.se>"

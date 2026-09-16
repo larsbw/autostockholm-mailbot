@@ -38,8 +38,11 @@ i skiva 48 var FYRA LAGER i stället, och bara det första är Googles:
                    Sändförmågan FINNS INTE i credentialen. Det enda lagret som
                    inte kan brytas av en rad i vår kod.
   2  TJÄNSTEN      `src/inkorg.py::Lastjanst`. Bara läsvägarna går igenom.
-  3  IMPORTLAGRET  `vy.GMAILBARANDE_MODULER`, tre namngivna moduler. En fjärde
-                   som drar in `googleapiclient` fäller spärren.
+  3  IMPORTLAGRET  `vy.GMAILBARANDE_MODULER`, namngivna moduler. En onamngiven
+                   som drar in `googleapiclient` fäller spärren. Den skrivande
+                   `src.gmailutkast` står i listan men inte i den här filens
+                   graf, och `test_dagliga_korningen_nar_ALDRIG_gmailutkast`
+                   binder det.
   4  KÄLLTEXTEN    `FORBJUDET_MONSTER` över hela grafen, OFÖRÄNDRAT.
 
 Lager 3 och 4 körs av `vy.krav_pa_sandvagsfrihet("scripts.respond", tillatna=...)`
@@ -254,6 +257,28 @@ def arende_ur_trad(trad: dict, domaner: set[str]) -> tuple[Arende | None, str]:
     ), ""
 
 
+def svarsvag_ur_trad(trad: dict) -> vy.Svarsvag | None:
+    """Svarsvägen till det meddelande ärendet byggs ur. Skiva 68.
+
+    **SAMMA MEDDELANDE SOM `arende_ur_trad` LÄSER TEXTEN UR**, alltså trådens
+    första kundmail. Utkastet svarar på den text som bedömdes. Mottagaren är
+    `urval.kundadress`, samma adress som `avsandare_hash` hashar, och för en
+    formulärnotis alltså `Reply-To`.
+
+    None när meddelandet saknas. Tomma fält lämnas tomma, och
+    `gmailutkast.krav_pa_utkastbar` vägrar posten.
+    """
+    meddelande = _forsta_kundmeddelandet(trad)
+    if meddelande is None:
+        return None
+    return vy.Svarsvag(
+        trad_id=trad.get("id", ""),
+        meddelande_id=urval.meddelande_id(meddelande),
+        mottagare=urval.kundadress(meddelande),
+        amne=kanal.amnesrad(meddelande),
+    )
+
+
 # ----------------------------------------------------------- DEL B: slingan
 
 
@@ -340,6 +365,7 @@ def kor_alla(
     nu: datetime,
     loggfil: Path | None = None,
     skriv=print,
+    svarsvagar: list | None = None,
 ) -> Korning:
     """Kedjan för varje ärende. Loggar EN rad per ärende, oavsett utfall.
 
@@ -364,10 +390,19 @@ def kor_alla(
     signaturen binds när modulen laddas, alltså före varje test som pekar om
     loggen, och `docs/incidentlogg.md` I1 bär precis den defekten. Formen är
     lånad ur `src/vy.py::_rot`.
+
+    `svarsvagar` står i samma ordning som `arenden`, en per ärende. Skiva 68.
+    Olika längd kastar: en förskjutning hade lagt ett utkast i fel kunds tråd.
     """
     loggfil = kedja.BESLUTSLOGG if loggfil is None else loggfil
+    if svarsvagar is None:
+        svarsvagar = [None] * len(arenden)
+    if len(svarsvagar) != len(arenden):
+        raise ValueError(f"{len(svarsvagar)} svarsvägar för "
+                         f"{len(arenden)} ärenden")
 
-    for nummer, arende in enumerate(arenden, start=1):
+    for nummer, (arende, svarsvag) in enumerate(zip(arenden, svarsvagar),
+                                                start=1):
         try:
             utfall = kedja.kor(
                 arende, klient=klient, hamta=hamta, hinkar=hinkar,
@@ -390,7 +425,8 @@ def kor_alla(
         # står i `logg/beslut.jsonl` via raden ovan.
         if not utfall.inget_svar:
             korning.granskningsfall.append(
-                kedja.till_granskningsfall(arende, utfall, skarp=skarp))
+                kedja.till_granskningsfall(arende, utfall, skarp=skarp,
+                                           svarsvag=svarsvag))
 
         # TRE GRENAR, EN PER UTFALL I `Kedjeutfall`. Grenen är NY och ersätter
         # ingen: före skiva 49 fanns inget tredje utfall, och ett ärende i
@@ -573,6 +609,7 @@ def _kor(arg) -> int:
 
     korning = Korning()
     arenden: list[Arende] = []
+    svarsvagar: list = []
     for trad in tradar:
         korning.tradar += 1
         arende, skal = arende_ur_trad(trad, domaner)
@@ -580,6 +617,7 @@ def _kor(arg) -> int:
             korning.sallade.append((trad.get("id", ""), skal))
             continue
         arenden.append(arende)
+        svarsvagar.append(svarsvag_ur_trad(trad))
         if arg.antal and len(arenden) >= arg.antal:
             break
 
@@ -624,6 +662,7 @@ def _kor(arg) -> int:
         skarp=skarp,
         korning=korning,
         nu=datetime.now(timezone.utc),
+        svarsvagar=svarsvagar,
     )
 
     print("")
