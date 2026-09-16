@@ -35,7 +35,7 @@ Den här filen importerar inte heller respond. Den kör den.
 
 **INGEN SÄNDNING.** `respond.py` har ingen `--send`, och
 `test_respond_har_INGEN_send_flagga` fäller om en sådan tillkommer. Den här
-filen lägger till ett andra led: kommandoraden byggs av `KOMMANDO` och
+filen lägger till ett andra led: kommandoraden byggs av `kommando` och
 `test_dagliga_kommandot_bar_INGEN_sandflagga` läser den.
 
 **§10 GÄLLER FORTFARANDE.** Första sändningen i en ny miljö är Lars beslut,

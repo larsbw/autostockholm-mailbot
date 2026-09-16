@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.65.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.66.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -6140,6 +6140,63 @@ som en egen kommentarnyckel, så att den som fyller filen läser den.
 
 ---
 
+## LUCKA UTAN SPÄRR: `atagandeordet_provas_utan_sin_polaritet`
+
+**LUCKA 75, ÖPPEN OCH MÄTT. Uppmätt i skiva 59 DEL A.** Ingen kod är byggd för
+att stänga den. Måttet står nedan och det avgör vad posten är värd.
+
+**VAD SOM ÄR ÖPPET.** `krav_pa_atagande_med_kalla` söker ett `ATAGANDEORD` i
+satsen och prövar sedan föremålet. Den läser aldrig ordets POLARITET. Följden är
+att ett NEKANDE fälls lika hårt som en utfästelse: *"det ingår inte i
+grundombyggnaden"* är ett sant och önskat besked, och det faller på samma rad som
+*"dragkrok ingår i bygget"*, som är det spärren finns för.
+
+**FÄLLNINGEN ÄR ETT STOPPTECKEN ENLIGT §9.1**, alltså kostar formen ett helt
+utkast och inte en omskriven mening.
+
+**VAD MÄTNINGEN VISAR.** `scripts/polaritet-matning.py` räknar åtagandesatser per
+polaritet, genom spärrens egna delar: prisposten stryks, `_meningar` delar,
+`ATAGANDEORD` söker och `_NEKAT_EFTER_ATAGANDE` läser svansen.
+
+| korpus | texter | åtagandesatser | nekande | nekande som fälls |
+| --- | --- | --- | --- | --- |
+| de tjugo, `data/granskningsfall.jsonl` | 20 | 12 | 1 | 1 |
+| Mattes a-traktorsvar, `data/par.jsonl` | 45 | 13 | 0 | 0 |
+| Mattes svar, alla kategorier, `data/par.jsonl` | 222 | 28 | 1 | 1 |
+
+**FORMEN ÄR ALLTSÅ ENSTAKA I BÅDA DE KORPUSAR MÄTORDERN GÄLLDE**, och den finns
+en gång i Mattes egen röst utanför a-traktorkategorierna: ett rekondsvar som
+säger att en polering INTE ingår i ett paket. Den texten fälls av samma spärr av
+samma skäl.
+
+**MÄTNINGEN HAR EN KÄND GRÄNS.** En spärrad post sparar `sparrsats` och inget
+`forslag`, alltså mäts just den posten på EN sats och inte på ett helt svar. Ett
+nekande någon annanstans i det svaret hade inte synts.
+
+**`_NEKAT_EFTER_ATAGANDE` LÄSER BARA SVANSEN.** Formen `inte ingår`, med nekandet
+före ordet, räknas av en egen rad i mätskriptet och är noll i alla tre
+korpusarna. **Den raden når bara ett INTILLIGGANDE nekande**, alltså högst ett
+ord emellan: *"Det är inte så att dragkrok ingår"* räknas som jakande. Nolltalet
+betyder därför att ingen intilliggande framförställd negation finns, inte att
+klassen är tom. Raden är en MÄTNING och ingen regel: spärren bär den inte, och
+den friar aldrig en sats.
+
+**VAD SOM SKULLE STÄNGA DEN**, för den skiva som tar det: låt nekandet efter
+åtagandeordet göra satsen till ett besked i stället för en utfästelse.
+Mekanismen finns redan i modulen, `_NEKAT_EFTER_ATAGANDE`, och används i dag åt
+andra hållet, i `_uppraknade_delar`, för att ett nekande i PRISPOSTEN inte ska
+göra dess svans till belagda delar. Priset är att ett påhittat nekande om ett
+fordonsord släpps igenom, alltså är riktningen den osäkra, och beslutet är Lars.
+
+**PROMPTEN OCH SPÄRREN DRAR ÅT VAR SITT HÅLL I JUST DEN HÄR FORMEN.** Regel 13
+beordrar att svaret säger att vi KAN MONTERA en dragkrok när bilen behöver en.
+Regel 16 förbjuder påståendet att den INGÅR. Den fällda satsen lyder båda: den
+säger att vi monterar en, och att den inte ingår. Spärren fäller den ändå,
+eftersom den ser ordet och inte polariteten. Vilken sida som ska ge vika är §10
+och §11, alltså Lars.
+
+---
+
 ## Mall för en spärrpost
 
 Kopiera blocket nedan per spärr. Varje fält fylls i, tomma fält är en ofärdig
@@ -6162,6 +6219,13 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.66.0 — 2026-09-16
+
+**LUCKA 75 REGISTRERAD, `atagandeordet_provas_utan_sin_polaritet`.** Uppmätt i
+skiva 59 DEL A på Lars mätorder, efter att skiva 58:s enda spärrade post föll på
+ett sant nekande. Ingen kod är byggd: posten redovisar måttet över de tre
+korpusarna och lämnar beslutet där §10 lägger det. Ny post ⇒ MINOR.
 
 ### 0.65.0 — 2026-09-16
 

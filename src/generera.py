@@ -1751,6 +1751,14 @@ def krav_pa_atagande_med_kalla(svar: str, forfragan: Forfragan) -> None:
     `for sats in [kvar]` gick hela sviten grön. Fällt av §7-granskningen av
     skiva 47.*
 
+    **POLARITETEN PRÖVAS INTE, och det är en ÖPPEN LUCKA.** Ett NEKANDE fälls
+    lika hårt som en utfästelse: *"det ingår inte i grundombyggnaden"* är ett
+    sant och önskat besked och faller på samma rad som *"dragkrok ingår i
+    bygget"*. Formen är MÄTT i skiva 59 med `scripts/polaritet-matning.py` och
+    står som LUCKA 75 i `docs/sparrar.md`: en gång bland de tjugo, noll gånger i
+    Mattes 45, en gång i hans 222 svar över alla kategorier. Att läsa polariteten
+    är §10 och Lars beslut, eftersom riktningen är den osäkra.
+
     **SATSDELNINGEN KAN FLYTTA ETT FORDONSORD UR SATSEN.** `SATSBROTT` kastar
     sin avskiljare, alltså hamnar `krok` i en egen sats i *"Vi sätter dit en
     krok, så besiktning och montering ingår."* och fordonsordsledet ser den
