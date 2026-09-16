@@ -43,6 +43,9 @@ SPÄRRARNA PÅ DET GENERERADE, var och en med sin negativkontroll:
                                  KOSTNADSFRITT eller TÄCKS av priset är ett
                                  prisbesked, och kräver samma källa som ett
                                  belopp: `config/priser.json`, ordagrant.
+  `drojsmalets-langd`            Ett svar som ber om ursäkt för ett dröjsmål
+                                 får inte säga hur länge det dröjt. Skiva 62,
+                                 LUCKA 77.
 
 **SPÄRRARNA FÄLLER TILL UTKAST, DE RÄTTAR ALDRIG TEXTEN.** §9.1: en fälld text är
 ett stopptecken och inte ett formuleringsproblem. Att skriva om svaret tills
@@ -1859,6 +1862,90 @@ def krav_pa_atagande_med_kalla(svar: str, forfragan: Forfragan) -> None:
         )
 
 
+# ORD SOM GÖR ETT SVAR TILL EN URSÄKT FÖR ETT DRÖJSMÅL. Skiva 62, LUCKA 77.
+#
+# Uppräkningen är inte uttömmande, samma sak som `PRISORD`. Den täcker den andan
+# `EFTERSLAPSRAD` citerar och de omskrivningar `EFTERSLAPSPROBER` bär.
+#
+# **GRINDEN ÄR ETT ORD OCH INGEN URSÄKT.** `det kan dröja` och `vi har väntat på
+# delar` öppnar den också. Priset är en fällning åt det säkra hållet, se
+# `krav_pa_drojsmal_utan_langd`.
+DROJSMALSORD = re.compile(
+    r"\b(?:dröj\w*|ursäkt\w*|förlåt\w*|beklag\w*|sorry|obesvara\w*|legat|"
+    r"liggande|väntat|väntan|sen[at]?\s+svar\w*|sent|först\s+nu|"
+    r"förrän\s+nu|hunnit|tagit\s+oss|tog\s+oss|varit\s+borta)\b",
+    flags=re.IGNORECASE,
+)
+
+# EN TIDSLÄNGD: ett antal och en tidsenhet. Skiva 62, LUCKA 77.
+#
+# **ANTALET ÄR SIFFROR, RÄKNEORD ELLER ETT VAGT MÄNGDORD.** `två`, `fjorton` och
+# `tjugoen` är räkneord ur `RAKNEORD`, ihopskrivna eller inte. `några`, `flera`
+# och `ett par` säger också hur länge, alltså fångas de.
+#
+# **HÖGST ETT ORD EMELLAN, OCH BARA ETT AV DEM NEDAN.** En fri plats fångade
+# Mattes hälsningar, `en fin dag` och `en trevlig helg`, uppmätt i
+# `data/par.jsonl` under bygget.
+#
+# **TRE FORMER UTAN ANTAL FÅNGAS OCKSÅ**, alla fällda fram av §7-granskningen
+# av skiva 62: `i veckor`, en tidpunkt efter `sedan` som `sedan förra veckan`
+# och `sedan den 3 augusti`, och `sedan i` följt av en månad.
+_MANADER = (r"januari|februari|mars|april|maj|juni|juli|augusti|september|"
+            r"oktober|november|december|våras|somras|höstas|vintras")
+TIDSLANGD = re.compile(
+    rf"\b(?:\d+(?:[,.]\d+|½)?|(?:{RAKNEORD})+|ett\s+par|ett\s+antal|"
+    r"ett\s+flertal|några|flera|många)\s+"
+    r"(?:(?:hel|hela|helt|halv|halvt|lång|långa|långt|dryg|drygt|knapp|"
+    r"knappt)\s+)?"
+    r"(?:arbets)?(?:dag|dagar|dagars|dags|dgr|dygn|dygns|vecka|veckor|veckors|"
+    r"veckas|v|månad|månader|månaders|månads|mån|år|års|halvår|timme|timmar|"
+    r"timmes|helg|helger)(?!\w)"
+    rf"|\bi\s+(?:dagar|veckor|månader)\b"
+    rf"|\bsedan\s+(?:förra\s+\w+|den\s+\d+|i\s+(?:{_MANADER}))\b",
+    flags=re.IGNORECASE,
+)
+
+
+def krav_pa_drojsmal_utan_langd(svar: str) -> None:
+    """SPÄRR: ett svar som ber om ursäkt för ett dröjsmål säger aldrig HUR LÄNGE.
+
+    **LARS REGEL I SKIVA 62, LUCKA 77.** Raden säger ATT det dröjt, aldrig hur
+    länge. En tidsangivelse där är ett påstående om vår egen försening, och den
+    saknar källa precis som ett pris gör. Prompten hindrar, regel 20 och
+    `EFTERSLAPSRAD`; spärren fångar.
+
+    **HELA SVARET PRÖVAS OCH INTE SATSEN.** *"Ursäkta dröjsmålet. Det har gått
+    tre veckor."* bär ursäkten och längden i var sin mening. Bär svaret ett
+    `DROJSMALSORD` någonstans faller varje `TIDSLANGD` i det. Ingen tidslängd
+    har någon källa: `config/` bär ingen.
+
+    **UTAN DRÖJSMÅLSORD PRÖVAS INGENTING.** En ledtid utan ursäkt är regel 6 och
+    10, inte den här spärren.
+
+    **SPÄRREN FÄLLER FÖR MYCKET, OCH DET ÄR ETT VAL.** Ett eftersläpssvar som
+    också bär en ledtid, en bokningstid eller *"Bilen är ett år gammal"*
+    fälls. Varje sådan längd saknar källa och är förbjuden av regel 6, 8 eller
+    10, alltså fäller spärren inget som fick gå ut. Utfallet blir ett utkast
+    Lars läser. Bundet av `test_DROJSMALETS_LANGD_faller_OCKSA_en_ledtid`.
+
+    **TAL I ORD FÅNGAS SOM TAL I SIFFROR.** `3` står i `ALLTID_TILLATNA_TAL` och
+    `två veckor` har ingen multiplikand för `TAL_I_ORD`, alltså passerade båda
+    talspärren. Formerna spärren fångar, och de den inte fångar som strikt
+    xfail, står i `tests/test_generera.py::DROJSMAL_SKA_FALLA`.
+    """
+    if not DROJSMALSORD.search(svar):
+        return
+
+    traff = TIDSLANGD.search(svar)
+    if traff:
+        raise Sparrfalld(
+            "drojsmalets-langd",
+            f"svaret ber om ursäkt för ett dröjsmål och säger hur länge: "
+            f"{traff.group(0).lower()!r}",
+            _satsen_med(svar, traff.group(0)),
+        )
+
+
 def krav_pa_ett_svar(svar: str) -> None:
     """SPÄRR: ett tomt svar är inget utkast.
 
@@ -1894,6 +1981,7 @@ def krav_pa_svaret(svar: str, forfragan: Forfragan) -> None:
     krav_pa_barlastflak_som_galler_fordonet(svar, forfragan)
     krav_pa_att_troskeln_inte_ar_forfattningstext(svar)
     krav_pa_atagande_med_kalla(svar, forfragan)
+    krav_pa_drojsmal_utan_langd(svar)
 
 
 # ------------------------------------------------------------------ DEL B
@@ -2075,6 +2163,10 @@ priset beror på bilen, skriv "vi återkommer med prisuppgift".
 underlaget att bilen duger som dragfordon, skriv ut släpvagnsvikten ur \
 underlaget i samma stycke. En dragkrok på en bil som inte duger hjälper inte, \
 och ett erbjudande utan skälet läser kunden som ett villkor.
+20. SKRIV ALDRIG HUR LÄNGE DET DRÖJT. Ber du om ursäkt för att svaret dröjt, \
+skriv att det dröjt och aldrig hur länge: inga dagar, veckor eller månader, \
+varken i siffror eller i ord, och inte "några veckor" eller "ett par dagar". Vi \
+vet inte hur länge mailet legat.
 
 Skriv kort, konkret och vänligt. Svara på det kunden faktiskt frågar."""
 

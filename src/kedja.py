@@ -165,9 +165,10 @@ class Arende:
     regnr: str | None = None
     avsandare_hash: str = ""
     tidsstampel: str = ""
-    # SKIVA 61. Sant när tråden redan bär ett svar från oss. `tidsstampel` är
-    # trådens FÖRSTA kundmail, alltså hade en uppföljning i dag på ett gammalt,
-    # besvarat ärende annars fått eftersläpsraden. Fällt av §7-granskningen.
+    # SKIVA 61. Sant när tråden redan bär ett svar från oss, och då blir det
+    # ingen eftersläpsrad. Sedan skiva 62 är `tidsstampel` trådens SENASTE
+    # kundmail i `scripts/respond.py`, Lars beslut. Flaggan står kvar: ett svar
+    # från oss i tråden stänger fallet oavsett vilket mail som daterar.
     besvarad: bool = False
 
 

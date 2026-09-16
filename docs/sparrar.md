@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.68.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.69.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -120,6 +120,7 @@ verdikt som inte betyder vad det ser ut att betyda.
 | `troskeln-som-forfattningstext` | Att en ofullständig föreskrift går ut som ett besked | `test_troskeln_utan_forfattningsord_slapps_igenom`, `test_forfattningsord_utan_troskeln_slapps_igenom` | Ingen. Nås bara när talet 1 000 har en källa. Se posten. |
 | `pastaende-om-franvaro` | Att boten säger att en uppgift SAKNAS när den bara inte kunnat läsa den | `test_ett_svar_som_INTE_pastar_franvaro_slapps_igenom` | DELVIS med `genererat-fordonsfaktum`, och bara för `draganordning`. `FORDONSTERMER` bär `draganordning` och `dragkrok` men INTE `dragvikt`, alltså finns inget andra lager för dragviktspåståenden. Mätt, se posten. |
 | `barlastflak-galler-fordonet` | Att boten säger att barlastflak ingår för ett fordon som §39 bevisligen inte gäller | `test_barlastformer_som_ska_passera` | Ingen annan spärr. NÄTET UNDER PROMPTEN: `generera._barlastrad` tystar uppräkningen, spärren fångar ordet. Olika former, alltså inte §7.1:s redundans. Se posten. |
+| `drojsmalets-langd` | Att boten skriver hur länge kundens mail legat | `test_DROJSMALETS_LANGD_slapper_igenom` | DELVIS med `genererat-tal-har-kalla`, bara för siffror utanför `ALLTID_TILLATNA_TAL`. Se posten. |
 
 **Tabellen räknar SPÄRRAR, alltså sådant som kod verkställer.** Dokumentet bär
 dessutom poster märkta LUCKA UTAN SPÄRR, som ingen kod implementerar och som
@@ -5277,6 +5278,31 @@ oavsett vad boten skriver. Att ändra posten är §10 och Lars beslut.
 
 ---
 
+## `drojsmalets-langd`
+
+- **Spärr.** `src/generera.py::krav_pa_drojsmal_utan_langd`, anropad sist i
+  `krav_pa_svaret`. Två villkor fattar beslutet: grinden
+  `if not DROJSMALSORD.search(svar):` som släpper igenom ett svar utan ursäkt,
+  och `if traff:` efter `traff = TIDSLANGD.search(svar)` som fäller. Grinden
+  prövar hela svaret, inte satsen.
+- **Vad den skyddar mot.** Ett utkast som säger hur länge kundens mail legat,
+  *"Ursäkta att det dröjt i två veckor"*. Längden saknar källa. Skiva 62,
+  LUCKA 77, där formerna den fångar och inte fångar står.
+- **Negativkontroll.**
+  `tests/test_generera.py::test_DROJSMALETS_LANGD_slapper_igenom`: en ledtid
+  utan ursäkt, en ursäkt utan längd, och hälsningarna `en fin dag` och
+  `en trevlig helg`, som står i Mattes svar. `test_EFTERSLAPSRADEN_passerar_VARJE_sparr`
+  prövar andan och dess omskrivningar genom hela `krav_pa_svaret`.
+- **Redundant med.** `genererat-tal-har-kalla` för en längd i siffror utanför
+  `ALLTID_TILLATNA_TAL`, som `5 veckor`. Ingen för `två veckor`, `3 veckor`
+  eller `några veckor`. Regel 20 och `EFTERSLAPSRAD` är promptlager och ingen
+  spärr.
+- **Fälld i skiva 62, en rad i taget, alla RÖD:** grinden satt till
+  `if False:`, fällvillkoret satt till `if False:`, anropet i `krav_pa_svaret`
+  raderat, och ordplatsen före enheten gjord fri.
+
+---
+
 ## LUCKA UTAN SPÄRR: `gmail-etikett-som-ensam-grund`
 
 > **DET HÄR ÄR INTE EN SPÄRR OCH GÅR INTE ATT FÄLLA ENLIGT §7.1.** Ingen kod
@@ -6239,11 +6265,14 @@ beskedet flyttas till `config/fakta.json`. Flytten är §10.
 
 ## LUCKA UTAN SPÄRR: `drojsmalets_langd_passerar_sparrarna`
 
-**LUCKA 77, ÖPPEN OCH MÄTT. Uppmätt i skiva 61 DEL B.**
+**LUCKA 77, DELVIS STÄNGD i skiva 62.** Uppmätt i skiva 61 DEL B. Lars regel i
+skiva 62: raden säger ATT det dröjt, aldrig HUR LÄNGE. Spärren
+`drojsmalets-langd` och systempromptens regel 20 är byggda, se spärrposten
+ovanför luckposterna. Kvar öppet är de former tabellen i skiva 62 inte fångar.
 
-Eftersläpsraden får inte säga hur länge det dröjt, eftersom modellen inte vet
-det. Förbudet står i prompten och inte i någon spärr. Uppmätt mot
-`krav_pa_svaret`, i läget grönt och i läget oklart:
+*Skiva 61:s mått, före spärren.* Eftersläpsraden får inte säga hur länge det
+dröjt, eftersom modellen inte vet det. Förbudet stod i prompten och inte i
+någon spärr. Uppmätt mot `krav_pa_svaret`, i läget grönt och i läget oklart:
 
 | mening | utfall |
 | --- | --- |
@@ -6254,6 +6283,43 @@ det. Förbudet står i prompten och inte i någon spärr. Uppmätt mot
 Ett räkneord utan `tusen` eller `hundra` fångas inte av `TAL_I_ORD` (lucka 24),
 och `3` står i `ALLTID_TILLATNA_TAL`. I skivans tjugo utkast bär inget utkast
 orden `vecka`, `veckor`, `månad` eller `dagar`.
+
+**VAD SPÄRREN FÅNGAR, mätt i skiva 62.** Tabellen är
+`DROJSMAL_SKA_FALLA` i `tests/test_generera.py`. Ett svar med ett
+dröjsmålsord fälls när det också bär ett antal följt av en tidsenhet:
+
+| antal | exempel |
+| --- | --- |
+| siffror, också med decimal och intervall | `14 dagar`, `1,5 vecka`, `2-3 veckor` |
+| räkneord, också hopskrivna | `en vecka`, `tre veckor`, `fjorton dagar`, `tjugoen dagar`, `ett år`, `sex månader`, `fyra timmar` |
+| vaga mängdord | `några veckor`, `ett par dagar`, `flera veckor` |
+| med ett av de tillåtna orden emellan | `två hela veckor`, `en halv vecka`, `en dryg vecka`, `tre långa veckor` |
+| andra antal | `ett antal veckor`, `ett flertal veckor`, `3½ vecka` |
+| sammansatta, böjda och förkortade enheter | `tre arbetsveckor`, `en veckas tid`, `14 dgr`, `2 mån`, `2 v.` |
+| utan antal | `i veckor`, `sedan förra veckan`, `sedan den 3 augusti`, `sedan i juni` |
+| i en annan mening än ursäkten | *Ursäkta det sena svaret. Det har gått två veckor.* |
+
+Grinden öppnas också av `sorry`, `sent`, `hunnit`, `liggande`, `tagit oss`,
+`tog oss` och `varit borta`, alla fällda fram av §7-granskningen.
+
+**VAD SPÄRREN INTE FÅNGAR**, strikt xfail i samma tabell:
+
+| form | skäl |
+| --- | --- |
+| `hela sommaren` | inget antal |
+| `sedan midsommar` | tidpunkten är ingen månad |
+| `en fjortondagarsperiod` | enheten sitter ihop med annat |
+| `tre hela långa veckor` | två ord emellan |
+| *Vi har haft semester i tre veckor, därav vårt svar nu.* | inget ord ur `DROJSMALSORD` |
+
+**SPÄRREN FÄLLER FÖR MYCKET, och det är ett val.** Grinden läser ett ord och
+inte en ursäkt, och den prövar hela svaret. *"Det kan dröja två veckor"* och ett
+eftersläpssvar med en bokningstid fälls. Ingen längd har en källa, alltså fälls
+inget som fick gå ut. Bundet av `test_DROJSMALETS_LANGD_faller_OCKSA_en_ledtid`.
+
+**MÄTT MOT MATTES SVAR**, `data/par.jsonl`: av 222 svar bär 10 ett
+dröjsmålsord och 1 fälls, på en framtida ledtid och ingen ursäkt. Av hans 45
+a-traktorsvar fälls inget.
 
 ---
 
@@ -6279,6 +6345,11 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.69.0 — 2026-09-16
+
+**`drojsmalets-langd` TILLKOMMER, LUCKA 77 DELVIS STÄNGD**, skiva 62. Formerna
+spärren fångar och inte fångar står i luckposten. Ny spärr ⇒ MINOR.
 
 ### 0.68.0 — 2026-09-16
 

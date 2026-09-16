@@ -165,6 +165,25 @@ def _forsta_kundmeddelandet(trad: dict) -> dict | None:
     return None
 
 
+def _senaste_kundmeddelandet(trad: dict) -> dict | None:
+    """Trådens SENASTE inkommande meddelande, eller None. Det daterar ärendet.
+
+    **LARS BESLUT I SKIVA 62.** Ärendet är vad kunden senast skrev. En tråd som
+    pågått i tre veckor men där kunden skrev i går är inget eftersläp, och har
+    kunden skrivit två gånger utan svar är det andra mailet ärendet.
+
+    **SENAST ENLIGT `internalDate`, INTE ENLIGT PLATS I LISTAN.** Ordningen i
+    trådens meddelandelista är inte prövad här. Ett meddelande utan
+    `internalDate` väljs bara om inget annat bär ett, och ger då tom
+    tidsstämpel, alltså ingen eftersläpsrad.
+    """
+    kund = [m for m in trad.get("messages", []) or []
+            if urval.ar_kundmeddelande(m)]
+    if not kund:
+        return None
+    return max(kund, key=lambda m: int(m.get("internalDate") or 0))
+
+
 def _regnr_i(text: str) -> str | None:
     """Första registreringsnumret i texten, om något.
 
@@ -225,7 +244,9 @@ def arende_ur_trad(trad: dict, domaner: set[str]) -> tuple[Arende | None, str]:
         kanal=kanal.namnge(meddelande),
         regnr=_regnr_i(text),
         avsandare_hash=urval.hasha(urval.kundadress(meddelande)),
-        tidsstampel=urval.tidsstampel(meddelande),
+        # SKIVA 62. Texten är det FÖRSTA kundmeddelandet, dateringen det
+        # SENASTE. Lars beslut: det är vad kunden senast skrev svaret gäller.
+        tidsstampel=urval.tidsstampel(_senaste_kundmeddelandet(trad)),
         # SKIVA 61. Ett svar från oss i tråden stänger av eftersläpsraden.
         # Samma kriterium som paren byggs på, `urval.ar_gmail_svar`.
         besvarad=any(urval.ar_gmail_svar(m)

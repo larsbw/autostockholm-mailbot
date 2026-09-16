@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.81.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §8
+**Version:** 0.82.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -7800,7 +7800,46 @@ fråga om det fortfarande är aktuellt. Modellen skriver den med egna ord.
   tidslängd passerar också, och det är LUCKA 77.
 
 
+## #127 — Skiva 62: ärendet dateras av det senaste kundmailet, och dröjsmålets längd spärras
+
+**Datum:** 2026-09-16 · **Berör:** `scripts/respond.py`, `src/kedja.py`,
+`src/generera.py`
+
+### 1. DATERINGEN, LARS BESLUT PÅ #126:s ÖPPNA FRÅGA
+
+Ärendet dateras av det SENASTE kundmeddelandet i tråden, enligt
+`internalDate`. Skäl: ärendet är vad kunden senast skrev, och en tråd som
+pågått i tre veckor men där kunden skrev i går är inget eftersläp.
+`Arende.besvarad` står kvar och stänger fallet där vi svarat. Ärendets TEXT är
+fortfarande det första kundmeddelandet, samma som maskinbedömningen prövar.
+Om texten också ska följa det senaste mailet är öppet och Lars fråga.
+
+`scripts/kedja-prov.py` berörs inte: de tjugo dateras ur `data/par.jsonl`,
+där tidsstämpeln redan är det kundmail texten kommer ur.
+
+### 2. LUCKA 77: RADEN SÄGER ATT DET DRÖJT, ALDRIG HUR LÄNGE
+
+**Lars regel.** En tidsangivelse i ursäktsraden är ett påstående om vår egen
+försening utan källa, som ett pris. Byggd i två lager, samma form som regel 16
+och `atagande-om-priset`: systempromptens regel 20 hindrar, spärren
+`drojsmalets-langd` fångar. Tal i ord fångas som tal i siffror. Formerna som
+fångas och inte fångas står i luckposten i `docs/sparrar.md`.
+
+- **Grinden prövar hela svaret** och läser ett ord, inte en ursäkt. Spärren
+  fäller därför också en ledtid eller bokningstid i ett svar med ett
+  dröjsmålsord. Det är ett val: ingen längd har en källa.
+- **§7-granskningen** fällde fram former som passerade första lydelsen,
+  en överfällning som inte stod uttryckligen, ett obundet påstående om
+  meddelanden utan `internalDate` och en falsk hänvisning i docstringen.
+  Allt rättat före skepp.
+
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.82.0 — 2026-09-16
+
+**#127 TILLKOMMER.** Skiva 62: dateringen på det senaste kundmailet, och
+spärren `drojsmalets-langd` med regel 20. Ny post ⇒ MINOR.
 
 ### 0.81.0 — 2026-09-16
 

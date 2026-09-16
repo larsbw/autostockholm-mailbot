@@ -2202,6 +2202,10 @@ def test_forfattningsord_utan_troskeln_slapps_igenom():
         # och raden prövade fel spärr. Just den fällan varnar docstringen nedan
         # för, och den slog till vid första körningen.
         ("Rekonden ingår i bygget.", "atagande-om-priset", forfragan()),
+        # SKIVA 62, LUCKA 77. `två` är inget tal för talspärren, alltså kan
+        # ingen annan spärr rapportera raden.
+        ("Ursäkta att det dröjt i två veckor.", "drojsmalets-langd",
+         forfragan()),
     ],
 )
 def test_krav_pa_svaret_anropar_sparrarna_i_tabellen(svar, sparr, fall):
@@ -2792,6 +2796,13 @@ REGLER_I_PROMPTEN = {
         "underlaget i samma stycke. En dragkrok på en bil som inte duger "
         "hjälper inte, och ett erbjudande utan skälet läser kunden som ett "
         "villkor.",
+    # SKIVA 62, LUCKA 77, LARS REGEL: raden säger ATT det dröjt, aldrig HUR
+    # LÄNGE. Prompten hindrar, `drojsmalets-langd` fångar. Samma form som regel
+    # 16 och `atagande-om-priset`.
+    20: "SKRIV ALDRIG HUR LÄNGE DET DRÖJT. Ber du om ursäkt för att svaret "
+        "dröjt, skriv att det dröjt och aldrig hur länge: inga dagar, veckor "
+        "eller månader, varken i siffror eller i ord, och inte \"några "
+        "veckor\" eller \"ett par dagar\". Vi vet inte hur länge mailet legat.",
 }
 
 
@@ -3109,6 +3120,121 @@ def test_EFTERSLAPSRADEN_passerar_VARJE_sparr(rad, lage):
     generera.krav_pa_svaret(rad, forfr)
     generera.krav_pa_svaret(rad + "\n\nVänliga hälsningar\nAuto Stockholm",
                             forfr)
+
+
+# ------------------------------ DRÖJSMÅLETS LÄNGD, SKIVA 62 DEL B, LUCKA 77
+
+
+def _hal(text: str) -> pytest.param:
+    return pytest.param(text, marks=pytest.mark.xfail(
+        strict=True, reason="lucka 77, formen fångas inte"))
+
+
+# FORMERNA, MÄTTA MOT SPÄRREN. En vanlig rad fälls. En `_hal`-rad är en
+# tidsangivelse spärren INTE fångar: strikt xfail, så att raden blir röd den
+# dag formen börjar fångas och tabellen måste skrivas om.
+DROJSMAL_SKA_FALLA = [
+    # lucka 77:s två rader ur skiva 61
+    "Ursäkta att det dröjt i två veckor, nu har vi kapacitet igen.",
+    "Ursäkta att det dröjt i 3 veckor, nu har vi kapacitet igen.",
+    # siffror
+    "Förlåt att vi inte svarat på 14 dagar.",
+    "Ursäkta dröjsmålet, mailet har legat i 1,5 vecka.",
+    "Ursäkta att det dröjt 2-3 veckor.",
+    # räkneord
+    "Ursäkta att det dröjt en vecka.",
+    "Ursäkta att det dröjt tre veckor.",
+    "Ursäkta att vi svarar först nu, efter fjorton dagar.",
+    "Beklagar att det dröjt tjugoen dagar.",
+    "Ursäkta att det dröjt ett år.",
+    "Ber om ursäkt för att det dröjt sex månader.",
+    "Förlåt dröjsmålet på fyra timmar.",
+    # vaga mängdord
+    "Ursäkta att det dröjt några veckor.",
+    "Ursäkta att det dröjt ett par dagar.",
+    "Ursäkta att mailet legat obesvarat i flera veckor.",
+    # ett ord emellan
+    "Ursäkta att det dröjt två hela veckor.",
+    "Ursäkta att det dröjt en halv vecka.",
+    "Ursäkta att det dröjt två och en halv vecka.",
+    "Ursäkta att det dröjt drygt en månad.",
+    "Ursäkta att vi låtit er vänta i tre långa veckor.",
+    # ursäkten och längden i var sin mening
+    "Ursäkta det sena svaret. Det har gått två veckor sedan ni skrev.",
+    "Ursäkta dröjsmålet. Vi har haft fullt upp i tre veckor.",
+    # §7-GRANSKNINGEN AV SKIVA 62: former som passerade den första lydelsen
+    "Ursäkta att det dröjt i en dryg vecka.",
+    "Ursäkta att det dröjt i en knapp månad.",
+    "Ursäkta att det dröjt ett antal veckor.",
+    "Ursäkta att det dröjt ett flertal veckor.",
+    "Ursäkta att det dröjt i veckor.",
+    "Ursäkta att det dröjt i tre arbetsveckor.",
+    "Ursäkta att det dröjt tio arbetsdagar.",
+    "Ursäkta att det dröjt ett par arbetsdagar.",
+    "Ursäkta att det dröjt i en veckas tid.",
+    "Ursäkta att det dröjt i 14 dgr.",
+    "Ursäkta att det dröjt i 2 mån.",
+    "Ursäkta att det dröjt 2 v.",
+    "Ursäkta att det dröjt i 3½ vecka.",
+    "Ursäkta att det dröjt sedan förra veckan.",
+    "Ursäkta att det dröjt sedan förra månaden.",
+    "Ursäkta att det dröjt sedan den 3 augusti.",
+    "Ursäkta att vi inte svarat sedan i juni.",
+    "Tyvärr har det tagit oss tre veckor att svara.",
+    "Sorry att det tog tre veckor.",
+    "Hej! Vi har inte hunnit svara på två veckor.",
+    "Hej! Svaret kommer två veckor för sent.",
+    "Vi har varit borta i tre veckor och svarar nu.",
+    "Tyvärr har ert mail blivit liggande i två veckor.",
+    # FORMER SPÄRREN INTE FÅNGAR
+    _hal("Ursäkta att det dröjt hela sommaren."),
+    _hal("Ursäkta att det dröjt en fjortondagarsperiod."),
+    _hal("Ursäkta att det dröjt tre hela långa veckor."),
+    _hal("Ursäkta att det dröjt sedan midsommar."),
+    _hal("Vi har haft semester i tre veckor, därav vårt svar nu."),
+]
+
+
+@pytest.mark.parametrize("svar", DROJSMAL_SKA_FALLA)
+def test_DROJSMALETS_LANGD_falls(svar):
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_drojsmal_utan_langd(svar)
+
+    assert fel.value.sparr == "drojsmalets-langd"
+
+
+@pytest.mark.parametrize("svar", [
+    # NEGATIVKONTROLL: en ledtid utan ursäkt är inte den här spärrens sak.
+    "Ombyggnaden brukar ta två veckor.",
+    # NEGATIVKONTROLL: ursäkten utan längd, och Mattes hälsningar. En fri
+    # ordplats före enheten fångade dem.
+    "Ursäkta att det dröjt. Ha en fin dag!",
+    "Ursäkta att det dröjt så länge. Trevlig helg och ha en trevlig helg!",
+    "Ursäkta att det dröjt, det har varit fullt upp i veckan.",
+])
+def test_DROJSMALETS_LANGD_slapper_igenom(svar):
+    generera.krav_pa_drojsmal_utan_langd(svar)
+
+
+@pytest.mark.parametrize("svar", [
+    "Ursäkta att det dröjt. Vi kan ta emot bilen om ett par veckor.",
+    "Ursäkta att det dröjt. Besiktningen tar en dag.",
+    "Det kan dröja två veckor innan delarna kommer.",
+])
+def test_DROJSMALETS_LANGD_faller_OCKSA_en_ledtid(svar):
+    """ÖVERFÄLLNINGEN ÄR ETT VAL, fällt fram av §7-granskningen av skiva 62.
+
+    Grinden prövar hela svaret och läser ett ord, inte en ursäkt. En längd
+    saknar alltid källa, alltså fälls inget som fick gå ut."""
+    with pytest.raises(Sparrfalld):
+        generera.krav_pa_drojsmal_utan_langd(svar)
+
+
+def test_EFTERSLAPSRADEN_forbjuder_langden():
+    """Prompten hindrar, spärren fångar. Promptens lager är både regel 20 och
+    underlagsraden, och den senare är bunden ordagrant ovan."""
+    assert "Skriv aldrig hur länge det dröjt." in generera.EFTERSLAPSRAD
+    assert "SKRIV ALDRIG HUR LÄNGE DET DRÖJT." in generera.SYSTEM
 
 
 # --------------------- MAILET SOM ALDRIG BAR ETT NUMMER, SKIVA 46 DEL B

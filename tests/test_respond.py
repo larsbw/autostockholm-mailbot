@@ -364,6 +364,72 @@ def test_tidsstampeln_kommer_ur_internalDate():
     assert arende.tidsstampel.startswith("2025-09-15T")
 
 
+def _internal(alder: timedelta) -> str:
+    """`internalDate` för ett mail `alder` före `NU`, i millisekunder."""
+    return str(int((NU - alder).timestamp() * 1000))
+
+
+@pytest.mark.parametrize("alder, vantat", [
+    (timedelta(days=7, seconds=1), True),
+    (timedelta(days=7), False),
+    (timedelta(days=7, seconds=-1), False),
+    (timedelta(days=1), False),
+])
+def test_arendet_dateras_av_det_SENASTE_kundmailet(alder, vantat):
+    """Skiva 62, Lars beslut. Gränsvärdet mätt åt båda håll på det SENASTE
+    mailet, med ett första mail som ensamt hade gett raden."""
+    forsta = meddelande("Hej, kan ni bygga om min bil?",
+                        internal=_internal(timedelta(days=30)))
+    andra = meddelande("Hej igen, har ni hunnit titta?",
+                       internal=_internal(alder))
+
+    arende, _ = respond.arende_ur_trad(trad(forsta, andra), set())
+
+    assert arende.text.startswith("Hej, kan ni bygga om")
+    assert arende.besvarad is False
+    assert kedja.ar_efterslapande(arende.tidsstampel, NU) is vantat
+
+
+def test_senast_avgors_av_internalDate_och_inte_av_ORDNINGEN():
+    """Ligger det senaste mailet först i listan daterar det ändå."""
+    gammalt = meddelande("Hej, kan ni bygga om min bil?",
+                         internal=_internal(timedelta(days=30)))
+    nytt = meddelande("Hej igen?", internal=_internal(timedelta(days=1)))
+
+    arende, _ = respond.arende_ur_trad(trad(nytt, gammalt), set())
+
+    assert kedja.ar_efterslapande(arende.tidsstampel, NU) is False
+
+
+def test_ett_mail_UTAN_internalDate_daterar_inte():
+    """Står det sist i listan väljs ändå det mail som bär en tid."""
+    daterat = meddelande("Hej, kan ni bygga om min bil?",
+                         internal=_internal(timedelta(days=8)))
+    odaterat = meddelande("Hej igen?", internal="")
+
+    arende, _ = respond.arende_ur_trad(trad(daterat, odaterat), set())
+
+    assert kedja.ar_efterslapande(arende.tidsstampel, NU) is True
+
+
+def test_vart_SVAR_daterar_inte_arendet():
+    """Ett senare svar från oss är inget kundmail och flyttar inte dateringen."""
+    fraga = meddelande("Hej, kan ni bygga om min bil?",
+                       internal=_internal(timedelta(days=8)))
+    svar = meddelande(
+        "Hej, det kan vi.", sent=True, internal=_internal(timedelta(days=1)),
+        huvuden={"From": "info@autostockholm.se",
+                 "To": "kund@exempel.invalid",
+                 "In-Reply-To": "<a@exempel.invalid>",
+                 "References": "<a@exempel.invalid>"})
+
+    from src import urval
+
+    arende, _ = respond.arende_ur_trad(trad(fraga, svar), set())
+
+    assert arende.tidsstampel == urval.tidsstampel(fraga)
+
+
 def test_urval_och_extract_daterar_samma_mail_LIKA():
     """EN definition, inte två.
 
