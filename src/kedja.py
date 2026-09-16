@@ -95,7 +95,9 @@ A_TRAKTORKATEGORIER = (
 # **DE ÄR VÅRA EGNA FASTA STRÄNGAR och bär ingenting ur ett modellsvar.** Det
 # är villkoret för att de får nå `data/granskningsfall.jsonl` och vyn. Jämför
 # `Sparrfalld.skal`, som byggs av text lyft ordagrant ur utkastet och därför
-# varken loggas eller renderas omaskerad.
+# aldrig loggas och renderas genom `maskera.maska_sparrskal`. Den lämnar sedan
+# skiva 57 DEL 0 ETT tal omaskerat, det spärren namnger som skäl, och maskerar
+# allt annat i strängen.
 SKAL_ALDRIG = "hinken aldrig"
 SKAL_OGATAD = "ingen a-traktorkategori"
 
@@ -200,9 +202,11 @@ class Kedjeutfall:
     #
     # **ETT EGET FÄLT OCH INTE `skal`.** `skal` bär `Sparrfalld.skal`, som är
     # byggt av strängar lyfta ordagrant ur modellens svar och därför kan bära
-    # ett telefonnummer eller ett registreringsnummer. Det fältet får varken
-    # loggas eller renderas omaskerat. Den här bär två fasta strängar ur den
-    # här modulen, och det är skillnaden som gör att den får gå till vyn.
+    # ett telefonnummer eller ett registreringsnummer. Det fältet loggas aldrig
+    # och renderas genom `maskera.maska_sparrskal`, som sedan skiva 57 DEL 0
+    # lämnar ETT tal omaskerat: det spärren namnger som skäl. Den här bär två
+    # fasta strängar ur den här modulen, och det är skillnaden som gör att den
+    # får gå till vyn rå.
     inget_svar_skal: str = ""
     skal: str = ""
     # SKIVA 56 DEL 0. Satsen `skal` handlar om, alltså den text spärren prövade.

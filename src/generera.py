@@ -126,16 +126,30 @@ class Sparrfalld(Exception):
     **BÅDE `skal` OCH `sats` BÄR TEXT UR MODELLENS SVAR**, alltså möjlig
     persondata: ett telefonnummer, ett registreringsnummer, ett namn.
 
-    **VAR DE MASKERAS: `vy.rendera_granskning` innan de når sidan, och
-    `scripts/kedja-prov.py` innan de når terminalen.** Det är de två vägar
-    kedjan tar. `kedja.logga_beslut` skriver ingendera.
+    **VAR DE MASKERAS.** `vy.rendera_granskning` maskerar BÅDA innan de når
+    sidan. Av skripten maskerar fyra skälet, och av dem skriver bara
+    `kedja-prov.py` och `lucka30-matning.py` satsen alls; `generera-prov.py`
+    och `generator-matning.py` skriver den aldrig. `kedja.logga_beslut` skriver
+    ingendera. *Här stod "fyra skript" om båda fälten, vilket är falskt för
+    satsen. Fällt av §7-granskningen av skiva 57.*
 
-    **DET ÄR INGEN INVARIANT FÖR HELA REPOT.** `scripts/generera-prov.py` och
-    `scripts/generator-matning.py` skriver `skal` OMASKERAT, den senare också
-    till sin utfil. Båda är mätverktyg som körs för hand, och deras utdata
-    stannar i terminalen eller i den gitignorerade `scratchpad/`. Formen är
-    äldre än den här skivan och är INTE åtgärdad här. Uppmätt av
-    §7-granskningen av skiva 56.
+    **SKÄLET OCH SATSEN MASKERAS INTE LIKA, och det är skiva 57 DEL 0.**
+    Satsen går genom `maskera.maska_fritext`. Skälet går genom
+    `maskera.maska_sparrskal`, som lämnar DET TAL SPÄRREN NAMNGER omaskerat och
+    maskerar allt annat i strängen. Lars beslut: ett skäl som lyder
+    `talet [SIFFROR] kommer varken ur uppslaget eller ur config` säger
+    ingenting.
+
+    **DET GÄLLER ETT TAL PÅ FYRA SIFFROR ELLER MER, alltså varje PRISTAL.**
+    `maskera.SIFFROR` rör inte kortare grupper. *Här stod att det var vad skiva
+    55:s `talet 113` inte gick att spåra av. Falskt i två led: skiva 55 hade
+    ingen maskering alls, och `113` är tre siffror och hade överlevt den. Det
+    som saknades var SATSEN, se noten vid `sats` ovan. Fällt av
+    §7-granskningen av skiva 57.*
+
+    *Här stod att `scripts/generera-prov.py` och `scripts/generator-matning.py`
+    skriver `skal` OMASKERAT. Sant när det skrevs, åtgärdat i skiva 57 DEL A:
+    båda går nu genom `maska_sparrskal`, den senare innan fältet når sin utfil.*
 
     **TOM NÄR DET INTE FINNS NÅGON SATS ATT PEKA PÅ.** `tomt-svar` fäller ett
     svar som inte bär någon text alls, och en uppfunnen sats hade varit sämre

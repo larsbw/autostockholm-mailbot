@@ -168,6 +168,97 @@ def test_regnummer_med_bindestreck_maskeras():
     assert "ABC-123" not in maskera.maska_fritext("bilen ABC-123 står kvar")
 
 
+# --- maskering av ett spärrskäl ----------------------------------------------
+#
+# SKIVA 57 DEL 0, Lars beslut. `maska_sparrskal` lämnar DET TAL SPÄRREN NAMNGER
+# omaskerat och maskerar allt annat. Varje rad nedan bär antingen påståendet att
+# talet överlever eller att något annat inte gör det.
+
+
+def test_skalets_egna_tal_overlever_maskeringen():
+    """Skälet ska säga VAD som fällde. `talet [SIFFROR]` säger ingenting."""
+    ut = maskera.maska_sparrskal(
+        "talet 25000 kommer varken ur uppslaget eller ur config")
+
+    assert ut == "talet 25000 kommer varken ur uppslaget eller ur config"
+
+
+def test_bada_talgrenarnas_lydelser_slapper_igenom_talet():
+    """DE TVÅ AV `krav_pa_tal_med_kalla`:S FYRA SKÄL SOM NAMNGER ETT TAL.
+
+    Avlästa ur `src/generera.py`. Spärren skriver fyra skälformer; de två andra
+    börjar på `svaret` och får inget undantag. Undantaget är ankrat i skälets
+    första ord, alltså är det just de här två lydelserna som avgör om det biter.
+
+    *Rubriken sade "de två former spärren faktiskt skriver", vilket räknade bort
+    två av dem. Fällt av §7-granskningen av skiva 57.*
+    """
+    prissatsens = maskera.maska_sparrskal(
+        "talet 4650 står i en prismening men kommer inte ur config/priser.json")
+    allmanna = maskera.maska_sparrskal(
+        "talet 113 kommer varken ur uppslaget eller ur config")
+
+    assert "talet 4650 står i en prismening" in prissatsens
+    assert "talet 113 kommer varken" in allmanna
+
+
+def test_undantaget_galler_ETT_tal_och_bara_forst_i_skalet():
+    """RESTEN AV SKÄLET MASKERAS SOM FÖRUT, alltså också ett andra tal.
+
+    Indatan är konstruerad: ingen av dagens spärrar skriver två tal i ett skäl.
+    Raden binder att undantaget är EN plats och inte en regel om siffror.
+    """
+    ut = maskera.maska_sparrskal("talet 113 stod bredvid 0708123456 i svaret")
+
+    assert ut.startswith("talet 113")
+    assert "0708123456" not in ut
+    assert "[SIFFROR]" in ut
+
+
+def test_ett_skal_utan_talprefix_maskeras_helt():
+    """NEGATIVKONTROLL. Varje annan spärr skriver ett skäl som börjar på
+    `svaret`, på `modellen` eller på ett fältnamn, och för dem gäller inget
+    undantag alls."""
+    ut = maskera.maska_sparrskal("svaret nämner 0708123456 utan källa")
+
+    assert "0708123456" not in ut
+    assert "[SIFFROR]" in ut
+
+
+def test_talet_mitt_i_ett_skal_far_inget_undantag():
+    """ANKRINGEN ÄR HELA SKYDDET. Utan `^` hade varje sträng som råkar bära
+    ordet `talet` före en siffergrupp fått ett undantag, var som helst i
+    skälet."""
+    ut = maskera.maska_sparrskal("svaret bär talet 0708123456 utan källa")
+
+    assert "0708123456" not in ut
+
+
+def test_ett_tal_som_sitter_ihop_med_sin_enhet_far_inget_undantag():
+    """LOOKAHEADEN `(?= )`. Utan den hade prefixet räckt som undantag.
+
+    Formen är inte hypotetisk i repot: `docs/sparrar.md` lucka 30 beskriver
+    `ca950 kg` och `ca10 dagar` som former en tidigare spärrlydelse producerade.
+    Skulle ett skäl en dag lyda `talet 25000kr ...` ska HELA skälet maskeras,
+    inte bara dess svans.
+
+    Uppmätt av §7-granskningen av skiva 57: raden var obunden.
+    """
+    ut = maskera.maska_sparrskal("talet 25000kr saknar källa")
+
+    assert "25000" not in ut
+    assert "[SIFFROR]" in ut
+
+
+def test_maskeringen_av_resten_finns_kvar():
+    """Prefixet undantas, INTE strängen. Faller den här raden maskeras
+    ingenting efter talet."""
+    ut = maskera.maska_sparrskal("talet 113 skrevs av Andersson på Storgatan")
+
+    assert "Andersson" not in ut
+    assert "Storgatan" not in ut
+
+
 # --- klustring ---------------------------------------------------------------
 
 

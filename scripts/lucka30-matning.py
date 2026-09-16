@@ -42,8 +42,10 @@ den. Åtgärden är Lars beslut i skiva 56 och densamma som skiva 33 och 43 land
 i: beskriv formen, skriv inte ut en sträng som har den. Spärren är orörd och
 `TILLATNA` likaså.*
 
-**§6: INGEN KUNDTEXT SKRIVS UT.** Utdatan är antal, spärrnamn och tal. Skulle en
-sats behöva visas går den genom `maskera.maska_fritext`, samma väg som vyn.
+**§6: INGEN KUNDTEXT SKRIVS UT.** Utdatan är antal, spärrnamn och tal. En sats
+går genom `maskera.maska_fritext` och ett skäl genom `maskera.maska_sparrskal`,
+samma två vägar som vyn. Den senare lämnar det tal spärren namnger omaskerat,
+skiva 57 DEL 0.
 """
 
 from __future__ import annotations
@@ -197,7 +199,7 @@ def de_tjugo() -> None:
 
     for sparr, skal, sats in fallningar:
         print(f"    spärrad av {sparr}")
-        print(f"      skäl: {maskera.maska_fritext(skal)}")
+        print(f"      skäl: {maskera.maska_sparrskal(skal)}")
         if sats:
             print(f"      sats: {maskera.maska_fritext(sats)}")
 
@@ -244,7 +246,7 @@ def mattes() -> None:
         traff = TALET_I_SKALET.search(skal)
         if traff and sparr == "genererat-tal-har-kalla" \
                 and _ar_beteckning(traff.group(1), sats or skal):
-            print(f"    {maskera.maska_fritext(skal)}")
+            print(f"    {maskera.maska_sparrskal(skal)}")
             print(f"      sats: {maskera.maska_fritext(sats)}")
 
 

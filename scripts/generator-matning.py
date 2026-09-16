@@ -25,6 +25,11 @@ någon väg till en brevlåda. `src.generera` prövas mot `vyn-har-ingen-sandvag
 **§6.** Varje text som skrivs till fil eller skärm går genom samma maskering som
 `scripts/generera-prov.py` använder, alltså identifierare plus namnkandidater ur
 kundens mail OCH ur få-exemplen.
+
+**MENINGEN OVAN VAR FALSK FÖR SPÄRRSKÄLET till skiva 57 DEL A.** `skal` gick
+omaskerat både till terminalen och till utfilen. Det går nu genom
+`maskera.maska_sparrskal`, som lämnar det tal spärren namnger omaskerat och
+maskerar resten. Se `spar_per_sparr`.
 """
 
 from __future__ import annotations
@@ -40,7 +45,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import prov_stod as prov  # noqa: E402
-from src import generera, kategorisera  # noqa: E402
+from src import generera, kategorisera, maskera  # noqa: E402
 from src.generera import Forfragan, Sparrfalld  # noqa: E402
 
 ROT = Path(__file__).resolve().parent.parent
@@ -52,6 +57,13 @@ def spar_per_sparr(text: str, forfragan: Forfragan) -> list[dict]:
     `krav_pa_svaret` kastar på den FÖRSTA som fäller, alltså döljer den vilka
     fler som hade fällt. Lucka 28 mäts på `genererat-fordonsfaktum` ensam, och
     den skulle bli osynlig bakom talspärren i varje svar som också bär ett tal.
+
+    **SKÄLET MASKERAS HÄR OCH INTE PÅ DE TVÅ UTSKRIFTSSTÄLLENA, skiva 57 DEL
+    A.** Fältet går både till terminalen och till `utfil` i `scratchpad/`, och
+    det skrevs omaskerat till båda. Maskeras det vid utskriften i stället
+    behöver två rader hållas i takt, och den som glöms är den som skriver en
+    FIL. `maska_sparrskal` lämnar det tal spärren namnger omaskerat, allt annat
+    maskeras.
     """
     utfall = []
     for namn, sparr in (
@@ -61,12 +73,14 @@ def spar_per_sparr(text: str, forfragan: Forfragan) -> list[dict]:
         try:
             sparr(text, forfragan)
         except Sparrfalld as fel:
-            utfall.append({"sparr": namn, "skal": fel.skal})
+            utfall.append({"sparr": namn,
+                           "skal": maskera.maska_sparrskal(fel.skal)})
 
     try:
         generera.krav_pa_att_troskeln_inte_ar_forfattningstext(text)
     except Sparrfalld as fel:
-        utfall.append({"sparr": "troskeln-som-forfattningstext", "skal": fel.skal})
+        utfall.append({"sparr": "troskeln-som-forfattningstext",
+                       "skal": maskera.maska_sparrskal(fel.skal)})
 
     return utfall
 

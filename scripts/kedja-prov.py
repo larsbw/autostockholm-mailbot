@@ -383,7 +383,12 @@ def _kor_och_visa(args) -> int:
             # SKÄLET MASKERAS. Det byggs av strängar lyfta ordagrant ur
             # modellens svar, alltså kan det bära ett telefonnummer eller ett
             # regnr. Fällt av §7-granskningen av skiva 34, varv 1.
-            print(f"skäl: {maskera.maska_fritext(utfall.skal)}")
+            #
+            # **`maska_sparrskal` OCH INTE `maska_fritext`, skiva 57 DEL 0.**
+            # Det tal spärren namnger står omaskerat, allt annat i skälet
+            # maskeras. Samma funktion som vyn, så att terminalen och sidan
+            # säger samma sak om samma post.
+            print(f"skäl: {maskera.maska_sparrskal(utfall.skal)}")
             # SATSEN OCKSÅ, skiva 56 DEL 0. Skälet namnger talet eller ordet,
             # satsen säger var det stod. Maskeras av samma skäl som raden ovan.
             if utfall.sats:

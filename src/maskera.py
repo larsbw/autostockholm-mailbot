@@ -109,6 +109,74 @@ def _maska_namn(text: str) -> str:
     return "".join(ut)
 
 
+# DET FÄLLANDE TALET I ETT SPÄRRSKÄL. Skiva 57 DEL 0, Lars beslut.
+#
+# **MÖNSTRET ÄR ANKRAT I BÖRJAN OCH BÄR PREFIXET ORDAGRANT.** De två grenar i
+# `generera.krav_pa_tal_med_kalla` som NAMNGER ett tal skriver båda sitt skäl
+# som `talet {tal} ...`, och ingen annan skälsträng i repot börjar så: resten
+# börjar på `svaret`, på `modellen` eller på ett fältnamn. Ankringen gör
+# undantaget till en egenskap hos skälets FÖRSTA ORD, i stället för en jakt på
+# siffror inuti en sträng.
+#
+# **TALET ÄR SIFFROR OCH INGET ANNAT.** `generera._tal_i` normaliserar bort
+# blanksteg, punkt och komma innan talet når skälet, alltså kan `\d+` inte
+# spänna över ett mellanliggande ord.
+#
+# **LOOKAHEADEN KRÄVER ETT BLANKSTEG EFTER TALET, och den är inte kosmetik.**
+# Utan den skulle ett framtida skäl av formen `talet 25000kr saknar källa` ge
+# undantag åt `25000` och maskera resten; med den faller mönstret och HELA
+# skälet maskeras. Det är den säkra riktningen, och den binds av
+# `test_ett_tal_som_sitter_ihop_med_sin_enhet_far_inget_undantag`.
+#
+# **ANKRINGEN LIGGER I TVÅ LAGER, och det är registrerat och inte glömt.** `^`
+# här och `.match` i funktionen nedan vaktar samma sak: `re.match` söker bara
+# från position 0. §7.1 säger att redundanta lager fälls TILLSAMMANS, och var
+# för sig ger de GRÖN. Fällda i samma körning ger de RÖD, på
+# `test_talet_mitt_i_ett_skal_far_inget_undantag`.
+#
+# Ingen fångstgrupp: funktionen använder `group(0)` och `end()`. En grupp hade
+# antytt en användning som inte finns.
+SKALETS_TAL = re.compile(r"^talet \d+(?= )")
+
+
+def maska_sparrskal(skal: str) -> str:
+    """Ett spärrskäl maskerat, UTOM det tal spärren själv namnger som skäl.
+
+    **SKIVA 57 DEL 0, LARS BESLUT.** Skiva 56 maskerade hela skälet, och
+    `talet 25000 kommer varken ur uppslaget eller ur config` blev då
+    `talet [SIFFROR] kommer varken...`, alltså ett skäl som inte säger vad som
+    fällde. Lars läser varje spärrad post för att förstå varför den föll.
+
+    **TALET SKRIVS IHOP OCH INTE MED TUSENAVSKILJARE.** `generera._tal_i`
+    normaliserar bort blanksteget innan talet når skälet, alltså lyder skälet
+    `talet 25000` och aldrig `talet 25 000`. *Här stod den senare formen, som
+    koden inte kan producera. Fällt av §7-granskningen av skiva 57.*
+
+    **UNDANTAGET GÄLLER SKÄLET OCH ALDRIG SATSEN.** Satsen går oförändrat genom
+    `maska_fritext`, se `vy._sparrskal`. Skälets tal är ETT tal som spärren
+    pekar ut; satsen är löpande text ur modellens svar.
+
+    **UNDANTAGET GÄLLER ETT TAL OCH INGET ANNAT AV SKÄLET.** Resten av strängen
+    maskeras som förut, alltså också ett andra tal längre in.
+
+    **FALLER MÖNSTRET BLIR DET MER MASKERING, aldrig mindre.** Skrivs någon av
+    de två grenarnas lydelse om så att skälet inte längre börjar med `talet `,
+    slutar undantaget gälla och hela skälet maskeras. Det är den säkra
+    riktningen: en tystnad kostar läsbarhet, inte persondata.
+
+    **ETT KUNDTAL KAN VARA DET TAL SPÄRREN NAMNGER, och det är mätt.**
+    `generera._tillatna_tal` säger uttryckligen att kundens text inte är någon
+    källa, alltså fäller talspärren på ett nummer modellen skrivit av ur mailet,
+    och det numret blir skälets tal. Se `docs/sparrar.md`, lucka 73. Skälet går
+    till skärmen och till den gitignorerade `scratchpad/`, aldrig till `docs/`,
+    till ett commit-meddelande eller till `logg/`.
+    """
+    traff = SKALETS_TAL.match(skal)
+    if not traff:
+        return maska_fritext(skal)
+    return traff.group(0) + maska_fritext(skal[traff.end():])
+
+
 def namnkandidater(text: str) -> set[str]:
     """Ord som troligen är egennamn, i gemen form.
 

@@ -789,8 +789,15 @@ def test_SPARRENS_SKAL_nar_granskningsfallet_och_MASKERAS_i_vyn():
     `forslag` och kundens text redan gör, och `vy.rendera_granskning` maskerar
     dem på vägen till sidan.
 
-    Raden prövar båda leden: att fälten kommer FRAM, och att sidan inte bär dem
-    omaskerade.
+    **DE TVÅ FÄLTEN MASKERAS INTE LIKA SEDAN SKIVA 57 DEL 0.** Satsen går genom
+    `maska_fritext` och sentineltalet i den blir `[SIFFROR]`. Skälet går genom
+    `maska_sparrskal`, som lämnar det tal spärren NAMNGER omaskerat, och på den
+    här vägen är det samma sentineltal. Raden band fram till dess att talet inte
+    fanns någonstans på sidan; den binder nu VAR det får stå och var det inte
+    får stå.
+
+    Leden är tre: att fälten kommer FRAM, att skälet namnger talet, och att
+    satsen ändå är maskerad.
     """
     klient = FejkKlient(
         "fråga om a-traktorkonvertering",
@@ -815,7 +822,11 @@ def test_SPARRENS_SKAL_nar_granskningsfallet_och_MASKERAS_i_vyn():
                                  sparrsats=post.sparrsats)
 
     assert post.sparr in sida
-    assert SENTINELPRIS_IHOP not in sida, "§6: siffergruppen ska vara maskerad"
+    # SKÄLET NAMNGER TALET, skiva 57 DEL 0.
+    assert f"talet {SENTINELPRIS_IHOP}" in sida
+    # SATSEN GÖR DET INTE. Sidan bär talet EN gång, och det är i skälet: en
+    # andra förekomst hade betytt att satsens maskering slutat bita.
+    assert sida.count(SENTINELPRIS_IHOP) == 1, "§6: satsen ska vara maskerad"
     assert "[SIFFROR]" in sida
 
 

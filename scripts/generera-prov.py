@@ -11,6 +11,10 @@ brevlåda.
 genom `src.maskera.maska_fritext` innan de når skärmen, eftersom utdatan är
 avsedd att klistras in i en rapport. Kundtexten läses ur gitignorerade `data/`.
 
+**ETT SPÄRRSKÄL GÅR GENOM `maska_sparrskal`, skiva 57 DEL A.** Raden skrev det
+omaskerat fram till dess, alltså var meningen ovan falsk för just den. Samma
+funktion som vyn: det tal spärren namnger står kvar, allt annat maskeras.
+
 **`maska_fritext` OCH INTE `maska`.** Den senare maskerar adress, regnr och
 siffror men INTE NAMN. Första körningen av det här skriptet använde den och
 skrev tre kundnamn i klartext till skärmen. Skillnaden står i `src/maskera.py`:
@@ -94,7 +98,12 @@ def main() -> int:
             utkast = generera_utkast(klient, forfragan, exempel=exempel)
         except Sparrfalld as fel:
             print(f"SPÄRRAD av {fel.sparr}")
-            print(f"skäl: {fel.skal}")
+            # SKÄLET MASKERAS, skiva 57 DEL A. Raden skrev det OMASKERAT ända
+            # hit, alltså gick ett telefonnummer eller ett regnr modellen skrivit
+            # av ur kundens mail rakt till skärmen i ett skript vars övriga
+            # utdata är maskerad. Samma funktion som vyn och `kedja-prov.py`:
+            # det tal spärren namnger står kvar, allt annat maskeras.
+            print(f"skäl: {maskera.maska_sparrskal(fel.skal)}")
             print("")
             continue
 

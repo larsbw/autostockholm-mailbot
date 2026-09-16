@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.77.0 · **Uppdaterad:** 2026-09-15 · **Implementerar** CLAUDE.md §8
+**Version:** 0.78.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -7486,7 +7486,80 @@ före uppslaget och inget skydd: en snabbare modell äter upp den. Ett omförsö
 429 är en egen skiva.
 
 
+## #123 — Skiva 57: skälets eget tal lämnas omaskerat, och två mätskript får maskeringen
+
+**Datum:** 2026-09-16 · **Berör:** `src/maskera.py`, `src/vy.py`,
+`src/generera.py`, `src/kedja.py`, fyra skript i `scripts/`, `docs/sparrar.md`
+
+Skiva 56 lämnade tre punkter hos Lars. Alla tre är avgjorda här.
+
+### 1. SKÄLETS FÄLLANDE TAL LÄMNAS OMASKERAT. Satsen maskeras oförändrat
+
+**Lars beslut.** Ett fällande tal är inte persondata: det kommer ur botens eget
+svar eller ur config, och `20 000` eller `25 000` identifierar ingen. Skiva 56
+maskerade hela skälet, och en prisfällning lydde då `talet [SIFFROR] kommer
+varken ur uppslaget eller ur config`. Lars läser varje spärrad post för att
+förstå varför den föll, och den strängen säger ingenting.
+
+**Byggt så smalt som Lars order säger.** `maskera.maska_sparrskal` lämnar det
+tal spärren namnger omaskerat och maskerar allt annat i strängen. Undantaget är
+ankrat i skälets FÖRSTA ORD, `talet `, alltså de två grenar i
+`krav_pa_tal_med_kalla` som faktiskt namnger ett tal. Satsen går oförändrat
+genom `maska_fritext`. Sidan säger vad som är undantaget.
+
+**MÄTNINGEN LARS BESTÄLLDE GAV ETT SVAR SOM MOTSÄGER PREMISSEN.** Ett kundtal
+KAN vara det tal spärren namnger: `_tillatna_tal` säger uttryckligen att kundens
+text inte är någon källa, alltså fäller talspärren på ett telefonnummer som
+modellen skrivit av ur mailet, och numret blir skälets tal. Uppmätt mot
+`krav_pa_svaret` med ett svar som återger ett tiosiffrigt mobilnummer: skälet
+blir `talet` följt av samma tio siffror, ordagrant, plus `kommer varken ur
+uppslaget eller ur config`. Numret skrivs här som en beskrivning och inte som en
+sträng, enligt Lars beslut i skiva 56; `persondatakontroll` fällde den första
+lydelsen. Registrerat som LUCKA 73 i `docs/sparrar.md`, öppen och mätt, och kvar
+hos Lars.
+
+### 2. LUCKA 30 STÅR KVAR ÖPPEN
+
+**Lars beslut.** Talet är noll FÖR BOTENS EGNA SVAR, alltså i det mått som
+avgör: noll av de tjugo bär en modellbeteckning alls, och noll fälls på luckan.
+I Mattes skickade svar är luckan kvar som redovisat skäl i 2 av 44 fällningar,
+och promptens regel 17 tog bort förutsättningen på vår sida. Spärren fäller
+fortfarande en beteckning den dag en modell skriver en. Öppen och mätt är rätt
+form. Ingen kod.
+
+### 3. 429 BYGGS INTE
+
+**Lars beslut.** Ett omförsök ökar trafiken mot en sida som redan avvisat oss,
+och marginalen håller i dag. LUCKA 72 står som den är. Ingen kod.
+
+### DEL A: de två mätskripten maskerar nu skälet
+
+`scripts/generera-prov.py` och `scripts/generator-matning.py` skrev
+`Sparrfalld.skal` omaskerat, den senare också till sin utfil i `scratchpad/`.
+Skiva 56 lät dem vara enligt §3. Båda går nu genom `maska_sparrskal`, och i
+`generator-matning.py` sker det där fältet SKAPAS, så att terminalen och filen
+inte kan glida isär. `kedja-prov.py` och `lucka30-matning.py` byter från
+`maska_fritext` till samma funktion, så att skälet ser likadant ut var det än
+läses.
+
+**VAD DEN MASKERINGEN FAKTISKT TAR, mätt över varje spärr och gren i
+`SATS_PER_SPARR`: ett skäl av tio.** För nio är maskeringen IDENTITET, eftersom
+skälen varken bär versala ord eller siffergrupper utom det undantagna talet.
+Det tionde är tröskelspärren, vars `1 000 kg` blir `[SIFFROR]` — och det gjorde
+det redan i skiva 56. Skyddet är alltså ett skydd för framtida lydelser, inte
+för dagens.
+
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.78.0 — 2026-09-16
+
+**#123 TILLKOMMER.** Skiva 57: Lars tre beslut ur skiva 56, skälets tal
+omaskerat i en egen funktion, och skälmaskeringen lagd på de två mätskript som
+saknade den. Mätningen som motsäger beslutets premiss står i posten och som
+LUCKA 73.
+
+Ny post ⇒ MINOR.
 
 ### 0.77.0 — 2026-09-15
 

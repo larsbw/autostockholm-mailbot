@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.63.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.64.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -5937,6 +5937,77 @@ fordon utan uppgifter. Det är samma skäl som `Kallfel` finns för.
 gäller 429 och ingen annan statuskod, med en paus som växer, och ett tak för
 antalet försök. Det kräver Lars beslut, eftersom det ökar trafiken mot en sida
 som redan avvisat oss.
+
+---
+
+## LUCKA UTAN SPÄRR: `kundens-eget-tal-kan-bli-skalets-omaskerade-tal`
+
+**LUCKA 73, ÖPPEN OCH MÄTT.** Uppmätt i skiva 57 DEL 0. **Ingen kod är byggd
+för att stänga den, och den kräver Lars beslut**, eftersom stängningen är samma
+beslut som skiva 57 fattade åt andra hållet.
+
+**VAD SOM ÄR ÖPPET.** `maskera.maska_sparrskal` lämnar det tal spärren namnger i
+sitt skäl omaskerat. Lars skäl var att ett fällande tal kommer ur botens eget
+svar eller ur config. **Ledet håller inte hela vägen.**
+`generera._tillatna_tal` säger uttryckligen att kundens text INTE är någon
+källa, alltså fäller talspärren på ett tal modellen skrivit av ur kundens mail,
+och just det talet blir skälets tal.
+
+**MÄTNINGEN, kört mot `krav_pa_svaret` och inte resonerat fram.** Tre svar, med
+talet skrivet som en BESKRIVNING och inte som en sträng: `persondatakontroll`
+fällde den första lydelsen av tabellen, och åtgärden är Lars beslut i skiva 56,
+detsamma som skiva 33 och 43 landade i.
+
+| Botens svar | Skälet, som det nu renderas |
+| --- | --- |
+| `Hej. Vi ringer dig på <ett tiosiffrigt mobilnummer> i morgon.` | `talet <samma tio siffror> kommer varken ur uppslaget eller ur config` |
+| `Hej. Bilen med nummer <sex siffror> går bra att bygga om.` | `talet <samma sex siffror> kommer varken ur uppslaget eller ur config` |
+| `Hej. Konverteringen kostar 18 000 kr.` | `talet 18000 står i en prismening men kommer inte ur config/priser.json` |
+
+Den tredje raden är den form Lars beslut finns för. De två första är luckan.
+Siffrorna i raderna ett och två återges ORDAGRANT i vyn, alltså exakt som
+modellen skrev dem.
+
+**LUCKAN FINNS OCKSÅ I VERKLIG KORPUS, och det är mätt och inte befarat.**
+`data/par.jsonl`, alltså Mattes faktiskt skickade a-traktorsvar, körda genom
+`krav_pa_svaret`:
+
+| | |
+| --- | --- |
+| texter i korpusen | 45 |
+| fällningar | 44 |
+| skäl där skiva 57 visar ett tal som skiva 56 maskerade | 18 |
+| av dem, tal på fyra siffror | 4 |
+| av dem, tal på fem siffror | 12 |
+| **av dem, tal på tio siffror** | **2** |
+
+De tolv femsiffriga är pristal, alltså precis det Lars beslut finns för. **De
+två tiosiffriga har ett telefonnummers form** och kommer ur en människas
+skickade svar, inte ur en modell. Premissen *"talet kommer ur botens eget svar
+eller ur config"* gäller alltså inte heller för den här korpusen.
+
+**INGET AV DE ARTON NÅR EN SKÄRM I DAG.** `scripts/lucka30-matning.py:249` är
+den enda raden som skriver dem, och den gatas av `_ar_beteckning`. Uppmätt: den
+raden skriver 2 poster, båda med ett ENSIFFRIGT tal. Lossas den grinden är
+deltat 18.
+
+**HUR LÅNGT DEN NÅR.** Skälet går till granskningsvyn, som ligger bakom
+inloggning sedan skiva 53, och till terminalen och `scratchpad/` i fyra skript.
+Det går ALDRIG till `logg/beslut.jsonl`, till `docs/` eller till ett
+commit-meddelande, och `scripts/persondatakontroll.py` står som pre-commit-hook
+om någon klistrar in det. §6:s bokstav gäller det som committas, och där är
+luckan stängd.
+
+**VAD SOM DÄMPAR DEN I VYN.** Samma sida renderar redan kundens HELA mail rått,
+vilket är vyns uttryckliga poäng. Ett kundnummer i skälet står alltså i klartext
+några rader under samma nummer i kundtexten. **Det dämpande ledet gäller INTE de
+fyra skripten**, som maskerar kundtexten men numera släpper igenom skälets tal.
+
+**VAD SOM SKULLE STÄNGA DEN**, för den skiva som tar det: ett undantag som
+gäller tal ur en KÄND mängd i stället för tal i en känd position, alltså
+`config/priser.json` och uppslagets vikter. Priset är att just det tal som
+saknar källa, alltså det enda som är intressant att läsa, blir det enda som
+maskeras. Det är därför frågan är Lars och inte min.
 
 ---
 

@@ -571,12 +571,21 @@ def test_spärrskälet_i_vyn_ar_MASKERAT():
     utan ett fragment ur den, återgivet bredvid en spärr, och Lars beslut i
     skiva 56 var att det maskeras.
 
-    **RADEN FÄLLS AV ATT MASKERINGEN TAS BORT.** Tas `maska_fritext` ur
-    `_sparrskal` går den röd på var och en av de fyra formerna nedan.
+    **UNDANTAGET ÄR DET TAL SPÄRREN NAMNGER, skiva 57 DEL 0**, och det prövas
+    av `test_sparrskalets_egna_tal_star_omaskerat`. Här prövas allt ANNAT:
+    skälets övriga innehåll och hela satsen.
+
+    **SKÄLETS LYDELSE ÄR KONSTRUERAD, och det är ett val.** Ingen av dagens
+    spärrar skriver ett namn eller ett nummer på någon annan plats i skälet än
+    `talet {tal}` först i strängen. Raden vaktar att maskeringen finns kvar för
+    RESTEN av skälet, alltså den dag en spärr får en ny lydelse.
+
+    **RADEN FÄLLS AV ATT MASKERINGEN TAS BORT.** Tas maskeringen ur
+    `_sparrskal` går den röd på var och en av formerna nedan.
     """
     sida = vy.rendera_granskning(
         ett_fall(), "", sparr="genererat-tal-har-kalla",
-        sparrskal="talet 0708123456 kommer varken ur uppslaget eller ur config",
+        sparrskal="svaret nämner Andersson och numret 0708123456 utan källa",
         sparrsats="Hej Andersson, ring oss på 070-812 34 56 om ABC123.",
     )
 
@@ -588,6 +597,42 @@ def test_spärrskälet_i_vyn_ar_MASKERAT():
     assert "[SIFFROR]" in sida
     assert "[REGNR]" in sida
     assert "[NAMN]" in sida
+
+
+def test_sparrskalets_egna_tal_star_omaskerat():
+    """SKIVA 57 DEL 0, Lars beslut. Det fällande talet är inte persondata.
+
+    Skiva 56 maskerade hela skälet, och en prisfällning lydde då
+    `talet [SIFFROR] kommer varken ur uppslaget eller ur config`. Lars läser
+    varje spärrad post för att förstå varför den föll, och den strängen säger
+    ingenting.
+
+    **GRÄNSEN GÅR VID FYRA SIFFROR**, alltså vid varje pristal. *Här stod att
+    `talet 113` i skiva 55 inte gick att spåra av maskeringen. Falskt: skiva 55
+    hade ingen maskering, och `113` är tre siffror och hade överlevt den. Det
+    som saknades då var SATSEN, vilket är vad skiva 56 byggde. Fällt av
+    §7-granskningen av skiva 57.*
+
+    **SATSEN ÄR OFÖRÄNDRAT MASKERAD, och det är hela undantagets bredd.**
+    Samma belopp i satsen blir `[SIFFROR]`, och satsens första ord blir
+    `[NAMN]`. Undantaget gäller ETT tal på EN plats: det spärren själv namnger,
+    först i sitt skäl.
+    """
+    sida = vy.rendera_granskning(
+        ett_fall(), "", sparr="genererat-tal-har-kalla",
+        sparrskal="talet 25000 kommer varken ur uppslaget eller ur config",
+        sparrsats="Konverteringen kostar 25 000 kr och tar två veckor.",
+    )
+
+    assert "talet 25000" in sida
+    # SATSEN, SAMMA BELOPP, MASKERAD. Faller den här raden är undantaget inte
+    # längre smalt: då maskeras skälet och satsen lika.
+    assert "25 000 kr" not in sida
+    assert "[SIFFROR]" in sida
+    assert "[NAMN] kostar" in sida
+    # RADEN SOM SÄGER VAD LÄSAREN SER. Utan den påstår sidan att varje
+    # siffergrupp är maskerad, med det fällande talet utskrivet ovanför.
+    assert "Det tal spärren namnger står som det är" in sida
 
 
 def test_sparrad_post_UTAN_skal_far_ingen_uppfunnen_forklaring():
@@ -746,9 +791,11 @@ def test_varje_strangparameter_till_renderarna_escapas():
     # som inte är en av kedjans två, alltså kan ett fientligt värde inte nå
     # sidan alls. Raden prövas ändå, av samma skäl som `inget_svar`: byts
     # tabellen mot en f-sträng ska den bli röd.
-    # `sparrskal` och `sparrsats` NÅR SIDAN GENOM `maskera.maska_fritext` och
-    # sedan `html.escape`. Maskeringen rör inte `OND`, som är gemen markup utan
-    # siffror, alltså är det escapningen som prövas här och ingenting annat.
+    # `sparrsats` NÅR SIDAN GENOM `maskera.maska_fritext` och `sparrskal` genom
+    # `maskera.maska_sparrskal`, båda följda av `html.escape`. Ingendera
+    # maskeringen rör `OND`, som är gemen markup utan siffror och inte börjar
+    # med ordet `talet`, alltså är det escapningen som prövas här och ingenting
+    # annat.
     # Vad maskeringen gör prövas av `test_spärrskälet_i_vyn_ar_MASKERAT`.
     assert provade == ["forslag", "sparr", "uppslagskalla", "inget_svar",
                        "inget_svar_skal", "sparrskal", "sparrsats"]

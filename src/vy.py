@@ -852,37 +852,42 @@ def rendera_referens(fall: Fall, index: int, antal: int,
 def _sparrskal(skal: str, sats: str) -> str:
     """Spärrens skäl och den fällda satsen, MASKERADE enligt §6. Skiva 56 DEL 0.
 
+    **SKÄLETS EGET TAL STÅR OMASKERAT SEDAN SKIVA 57, och satsens gör det
+    inte.** Lars beslut, se `maskera.maska_sparrskal`, som äger undantagets
+    form. Skälraden nedan är den enda platsen i vyn som använder den
+    maskeringen; satsen går genom `maska_fritext` som förut.
+
     **MASKERINGEN LIGGER HÄR OCH INTE HOS PRODUCENTEN, och det är ett val.**
     `kedja.till_granskningsfall` är EN väg in; `las_granskningsfall` och en
     direkt konstruerad `Granskningsfall` är två till. Renderingen är den enda
     punkt alla tre passerar, alltså är det den punkt som kan bära kravet.
 
-    **`maska_fritext` ÄR SAMMA MASKERING `scripts/kedja-prov.py` REDAN KÖR PÅ
-    SAMMA STRÄNG** när den skriver ut skälet i terminalen, och samma som
-    `src/cluster.py` kör på citat som ska committas.
+    **SATSENS `maska_fritext` ÄR SAMMA MASKERING `src/cluster.py` KÖR PÅ CITAT
+    SOM SKA COMMITTAS**, och samma som `scripts/kedja-prov.py` kör på satsen i
+    terminalen. *Här stod att kedja-prov kör den på SKÄLET också. Sant i skiva
+    56, falskt av skiva 57: skriptet kör `maska_sparrskal` på skälet, samma
+    funktion som raden nedan. Fällt av §7-granskningen av skiva 57.*
 
     *Lars brief sade "samma maskering som vyn redan använder på kundtexten".
     Vyn maskerar INTE kundtexten: `rendera_granskning` escapar `fall.text` och
     renderar den rå, vilket modulens egen §6-not säger är hela poängen med vyn.
     Maskeringen som lånas är alltså provskriptets, inte vyns.*
 
-    **VAD MASKERINGEN KOSTAR, och det är mätt och inte försumbart.**
+    **VAD MASKERINGEN KOSTAR I SATSEN, och det är mätt och inte försumbart.**
 
       `maskera.SIFFROR`      maskerar varje siffergrupp på fyra tecken eller
-                             mer. `talet 70` står kvar, `talet 25 000` blir
-                             `talet [SIFFROR]`.
+                             mer. `25 000` blir `[SIFFROR]`.
       `maskera.VERSALT_ORD`  maskerar varje versalt ord utanför `EJ_NAMN`, och
                              `_maska_namn` har inget positionsundantag. Alltså
                              maskeras också en meningsinledning: satsen
                              *"Konverteringen kostar 25 000 kr."* renderas
                              `[NAMN] kostar [SIFFROR] kr.`
 
-    **FÖR EN PRISFÄLLNING FÖRSVINNER DÄRMED BÅDE BELOPPET OCH SUBJEKTET**, och
-    kvar står spärrens namn, satsens byggnad och dess småord. Det är mindre än
-    ingenting bara om spärrnamnet inte säger något; för de fällningar som
-    faktiskt inträffat säger det vilken regel som brast. *Här stod att satsen
-    "bär sammanhanget", vilket är falskt för just den vanligaste formen. Fällt
-    av §7-granskningen av skiva 56.*
+    **FÖR EN PRISFÄLLNING FÖRSVINNER DÄRMED BÅDE BELOPPET OCH SUBJEKTET UR
+    SATSEN**, och kvar står satsens byggnad och dess småord. Det var hela skälet
+    till skiva 57:s beslut: beloppet står i SKÄLET i stället, som det tal
+    spärren namnger. *Här stod att beloppet därmed är borta ur posten. Sant i
+    skiva 56, falskt av den här skivan.*
 
     Avvägningen är Lars, och §6 är skälet: skäl och sats kan bära ett
     telefonnummer eller ett registreringsnummer som modellen hittat på.
@@ -899,7 +904,7 @@ def _sparrskal(skal: str, sats: str) -> str:
     if skal:
         rader.append(
             f"<p><strong>Skäl:</strong> "
-            f"{html.escape(maskera.maska_fritext(skal))}</p>"
+            f"{html.escape(maskera.maska_sparrskal(skal))}</p>"
         )
     if sats:
         rader.append(
@@ -911,8 +916,12 @@ def _sparrskal(skal: str, sats: str) -> str:
     # förklaring på sidan. En uppräkning i en mall glider dessutom isär från
     # `src/maskera.py` utan att något larmar. Fällt av §7-granskningen av
     # skiva 56.
-    rader.append("<p class='etikett'>Skäl och sats är maskerade enligt §6: "
-                 "namn, adresser, länkar, registreringsnummer och längre "
+    # SKIVA 57: RADEN SÄGER ATT SKÄLETS TAL ÄR UNDANTAGET. Utan det ledet hade
+    # sidan påstått att varje siffergrupp är maskerad, med det fällande talet
+    # utskrivet i klartext en rad ovanför.
+    rader.append("<p class='etikett'>Det tal spärren namnger står som det är. "
+                 "I övrigt är skäl och sats maskerade enligt §6: namn, "
+                 "adresser, länkar, registreringsnummer och längre "
                  "siffergrupper är utbytta mot en platshållare i "
                  "hakparentes.</p>")
     return "".join(rader)
