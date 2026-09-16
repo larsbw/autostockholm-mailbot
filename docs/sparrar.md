@@ -1,6 +1,6 @@
 # Spärrar
 
-**Version:** 0.66.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §7.1
+**Version:** 0.67.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §7.1
 
 > **RADNUMMER FÖRÅLDRAS.** Kontrollera alltid att raden i en post fortfarande
 > bär det villkor posten påstår, innan du fäller den. En granskning körde det
@@ -6142,8 +6142,9 @@ som en egen kommentarnyckel, så att den som fyller filen läser den.
 
 ## LUCKA UTAN SPÄRR: `atagandeordet_provas_utan_sin_polaritet`
 
-**LUCKA 75, ÖPPEN OCH MÄTT. Uppmätt i skiva 59 DEL A.** Ingen kod är byggd för
-att stänga den. Måttet står nedan och det avgör vad posten är värd.
+**LUCKA 75, ÖPPEN OCH MÄTT. Uppmätt i skiva 59 DEL A, lämnad öppen av Lars i
+skiva 60.** Ingen kod är byggd för att stänga den. Måttet står nedan och det
+avgör vad posten är värd. Beslutet och dess villkor står sist i posten.
 
 **VAD SOM ÄR ÖPPET.** `krav_pa_atagande_med_kalla` söker ett `ATAGANDEORD` i
 satsen och prövar sedan föremålet. Den läser aldrig ordets POLARITET. Följden är
@@ -6195,6 +6196,31 @@ säger att vi monterar en, och att den inte ingår. Spärren fäller den ändå,
 eftersom den ser ordet och inte polariteten. Vilken sida som ska ge vika är §10
 och §11, alltså Lars.
 
+**LARS BESLUT I SKIVA 60: LUCKAN STÅR ÖPPEN OCH INGEN SPÄRR RÖRS.** Formen är
+enstaka i varje korpus tabellen bär, varje utkast läses av en människa innan
+något går ut, och det som avgör är priset åt andra hållet: låter man nekandet
+göra satsen till ett besked släpps ett PÅHITTAT nekande om ett fordonsord
+igenom. Riktningen är alltså den osäkra, och en byggd ändring byter en känd och
+sällsynt falsk fällning mot en tyst passering ingen mätning i dag ser.
+Fällningen står kvar som den är, alltså kostar formen ett helt utkast enligt
+§9.1 när den dyker upp.
+
+**LUCKA 75 GATAR `auto`, på samma sätt som LUCKA 67 OCH 68.** Ingen kategori
+flyttas till `auto` i `config/kategorier.yaml` medan luckan står öppen. Skälet
+är att beslutets andra ben är läsaren: flyttas en kategori till `auto` får ett
+fällt utkast ingen människa som skriver svaret i stället, och då är en falsk
+fällning inte längre en mening Lars stryker utan ett svar kunden aldrig ser.
+`auto` står tom i dag, alltså kostar gatingen ingenting just nu. Den skrivs ut
+här därför att den är VILLKORET beslutet vilar på och inte en följd av det:
+faller villkoret måste beslutet tas om.
+
+**REKONDTRÄFFEN ÄR SKÄLET ATT TA UPP LUCKAN IGEN, INTE ETT SKÄL ATT BYGGA NU.**
+Den enda träffen i Mattes egen röst utanför a-traktorkategorierna är ett
+rekondsvar som säger att en polering inte ingår i ett paket. Den texten visar
+att formen finns i kategorier kedjan ännu inte skriver utkast för, alltså ska
+luckan upp igen den dag rekond eller en granne till den får utkast. Den säger
+ingenting om att sändvägen behöver ändras i dag.
+
 ---
 
 ## Mall för en spärrpost
@@ -6219,6 +6245,22 @@ post och inte en spärr som saknar egenskapen.
 ---
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.67.0 — 2026-09-16
+
+**LUCKA 75 LÄMNAS ÖPPEN, Lars beslut i skiva 60.** Se `docs/beslutslogg.md`
+#125. Ingen spärr är rörd och ingen kod är byggd: skälet som avgör är att
+riktningen är den osäkra, eftersom en stängning släpper igenom ett påhittat
+nekande om ett fordonsord.
+
+**LUCKA 75 GATAR `auto`, som 67 och 68.** Villkoret är inskrivet i posten:
+beslutet vilar på att en människa läser varje utkast, och i `auto` finns ingen
+sådan läsare. En falsk fällning vore då ett svar kunden aldrig ser.
+
+**REKONDTRÄFFEN ÄR INSKRIVEN SOM SKÄLET ATT TA UPP LUCKAN IGEN**, inte som ett
+skäl att bygga nu.
+
+Ett vägt beslut och ett gatingsvillkor ⇒ MINOR.
 
 ### 0.66.0 — 2026-09-16
 

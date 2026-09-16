@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.79.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §8
+**Version:** 0.80.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -7706,7 +7706,72 @@ när hela posten står i samma rad. Grenen kan bara göra vakten snävare. Två 
 rader binder den, och båda fällningarna ger RÖD.
 
 
+## #125 — Skiva 60: Lars beslut: LUCKA 75 lämnas öppen, och den gatar `auto`
+
+**Datum:** 2026-09-16 · **Berör:** `docs/sparrar.md`
+
+Skiva 59 mätte på Lars order hur ofta `krav_pa_atagande_med_kalla` fäller ett
+SANT nekande, eftersom den läser åtagandeordet och aldrig dess polaritet.
+Måttet lämnades till §10. Den här posten är svaret. Ingen kod är rörd i skivan.
+
+### 1. LUCKAN STÅR ÖPPEN OCH INGEN SPÄRR ÄNDRAS
+
+**Lars beslut.** `krav_pa_atagande_med_kalla` behåller sin lydelse. Ett nekande
+efter åtagandeordet gör alltså fortfarande inte satsen till ett besked, och
+formen fäller ett helt utkast enligt §9.1 när den dyker upp.
+
+**SKÄLET SOM AVGÖR ÄR RIKTNINGEN.** Mekanismen som skulle stänga luckan finns
+redan i modulen, `_NEKAT_EFTER_ATAGANDE`, och priset för att vända den åt det
+här hållet står i spärrposten: ett PÅHITTAT nekande om ett fordonsord släpps
+igenom. Den ena sidan är en känd och sällsynt falsk fällning som en människa
+ser; den andra är en tyst passering som ingen mätning i dag fångar. Lars väljer
+den kända.
+
+**DE TVÅ ANDRA SKÄLEN BÄR INTE ENSAMMA, och det är därför de står som nummer
+två och tre.** Formen är enstaka i varje korpus skiva 59 mätte: 1 nekande av 12
+åtagandesatser bland de tjugo i `data/granskningsfall.jsonl`, 0 av 13 i Mattes
+45 a-traktorsvar, och 1 av 28 i hans 222 svar över alla kategorier. Och varje
+utkast läses av en människa innan något går ut, alltså är utfallet i dag en
+mening Lars stryker. Bägge är sanna om DAGENS drift och säger ingenting om en
+annan.
+
+### 2. LUCKA 75 GATAR `auto`, SOM LUCKA 67 OCH 68
+
+**Ingen kategori flyttas till `auto` i `config/kategorier.yaml` medan luckan
+står öppen.** Skälet är att beslutets andra ben är läsaren. Flyttas en kategori
+till `auto` får ett fällt utkast ingen människa som skriver svaret i stället,
+och då är en falsk fällning inte längre en mening Lars stryker utan ett svar
+kunden aldrig ser. Det är samma avvägning som ramverksregel 1 gör i stort, och
+den skrivs ut därför att just den här luckan gör en SANN mening till en fällning.
+
+**`auto` STÅR TOM I DAG**, `auto: []`, alltså kostar gatingen ingenting just nu.
+Den är villkoret beslutet vilar på och inte en följd av det: faller villkoret
+ska beslutet tas om innan kategorin flyttas, inte efteråt.
+
+### 3. REKONDTRÄFFEN ÄR SKÄLET ATT TA UPP LUCKAN IGEN, INTE ATT BYGGA NU
+
+Den enda träffen i Mattes egen röst utanför a-traktorkategorierna är ett
+rekondsvar som säger att en polering inte ingår i ett paket. Formen finns alltså
+i kategorier kedjan ännu inte skriver utkast för. Luckan ska upp igen den dag
+rekond eller en granne till den får utkast. Träffen är ingen order att ändra
+sändvägen i dag.
+
+### 4. VAD POSTEN I `docs/sparrar.md` BÄR EFTER SKIVAN
+
+Måttet och "vad som skulle stänga den" står kvar oförändrade. Tillagt är
+beslutet, gatingsvillkoret och rekondträffens roll. Luckan är alltså ÖPPEN, MÄTT
+och BESLUTAD, och inte stängd.
+
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.80.0 — 2026-09-16
+
+**#125 TILLKOMMER.** Skiva 60: Lars lämnar LUCKA 75 öppen, `krav_pa_atagande_med_kalla`
+är orörd, och luckan gatar `auto` på samma sätt som 67 och 68. Rekondträffen är
+inskriven som skälet att ta upp den igen. Ingen kod i skivan.
+
+Ny post ⇒ MINOR.
 
 ### 0.79.0 — 2026-09-16
 
