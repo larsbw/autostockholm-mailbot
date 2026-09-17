@@ -252,9 +252,12 @@ def arende_ur_trad(trad: dict, domaner: set[str]) -> tuple[Arende | None, str]:
     return Arende(
         text=text,
         amne=kanal.amnesrad(meddelande),
-        # KANALEN ÄR KONTEXT, ALDRIG GRUND. `kanal.namnge` ger None när den inte
-        # går att fastställa, aldrig `e-post` som slasktratt, och kedjan lämnar
-        # värdet vidare till klassningen utan att tolka det.
+        # KANALEN ÄR KONTEXT FÖR KLASSNINGEN. `kanal.namnge` ger None när den
+        # inte går att fastställa, aldrig `e-post` som slasktratt. Sedan skiva 73
+        # tolkar kedjan värdet i ett fall: webbformuläret ger en
+        # a-traktorkategori, se `kedja.KANALKATEGORI`.
+        #
+        # *Här stod att kedjan lämnar värdet vidare utan att tolka det.*
         kanal=kanal.namnge(meddelande),
         regnr=_regnr_i(text),
         avsandare_hash=urval.hasha(urval.kundadress(meddelande)),

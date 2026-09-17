@@ -108,7 +108,7 @@ verdikt som inte betyder vad det ser ut att betyda.
 | `fordonsfakta-ur-uppslag` | Att ett utgående mail namnger fordonsfakta som inte kommer ur ett lyckat uppslag | `test_fullstandigt_svar_slapps_igenom`, `test_svar_med_okanda_nycklar_slapps_ocksa_igenom`, `test_mappningsobjekt_som_inte_ar_dict_slapps_igenom` | Ingen annan spärr. Formlager i `_kontrollera` och värdelager i `Uppslag.__post_init__` via `_krav_pa_vikt`. Formlagren är HELT redundanta med varandra, och viktlagren DELAS av två fält. Kända luckor listas i posten. |
 | `fordonsfakta-ur-sida` | Att ett tal eller ett dragkroksbesked läses ur en annan sida än det efterfrågade fordonets, eller ur en etikett som bara inleds likadant | `test_alla_tre_falten_lases_ur_ett_avlast_svar`, `test_avlast_fordon_ger_oklart`, `test_normaliserat_nummer_slar_igenom_till_canonical` | `fordonsfakta-ur-uppslag`, men bara DELVIS: den fångar saknade och otolkbara fält, aldrig ett välformat tal ur fel sida. Fyra lager, lager 3 ensamt om sitt fall. Se posten. |
 | `dragkrokbesked-har-harkomst` | Att ett besked om dragkrok sätts av en modell och flyttar kunden från en fråga till ett prispåslag | `test_bada_tillatna_kallorna_gar_igenom` | Ingen annan spärr. Se posten, särskilt vad den INTE kan hindra. |
-| `kanal-som-kontext-aldrig-grund` | Att kanalen ett mail kom in genom blir ensam grund för dess kategori | `test_kanalen_overstyr_aldrig_modellens_svar`, `test_samma_svar_ger_samma_etikett_med_och_utan_kanal`, `test_kanalen_gor_inte_ett_svar_utanfor_taxonomin_giltigt` | Ingen annan spärr. Vaktar FRÅNVARON av kod och fälls därför genom att skriva dit kopplingen. Se posten. |
+| `kanal-som-kontext-aldrig-grund` | Att kanalen ett mail kom in genom blir ensam grund för dess kategori. HÄVD SMALT i skiva 73 för webbformuläret, i kedjan | `test_klassningen_overstyr_aldrig_modellens_svar`, `test_samma_svar_ger_samma_etikett_med_och_utan_kanal`, `test_kanalen_gor_inte_ett_svar_utanfor_taxonomin_giltigt`, `test_kanalregeln_*` | Ingen annan spärr. Klassningen vaktar FRÅNVARON av kod och fälls genom att skriva dit kopplingen. Kedjans undantag fälls genom att radera villkor. Se posten. |
 | `vyn-har-ingen-sandvag` | Att ett referenssvar lämnar servern som mail | `test_en_ren_modul_slapps_igenom` | Ingen annan spärr. TVÅ LAGER, importlagret och källtextlagret, och de fångar olika fall. Se posten. |
 | `spärrfälld-post-utan-textfalt` | Att §9.1:s förbud mot att skriva om ett fällt mail blir ett klick | `test_osparrad_post_visar_textfalt` | Ingen annan spärr. Skyddar gränssnittet, inte texten. Se posten. |
 | `vyn-skriver-bara-till-data-och-logg` | Att rå kundtext skrivs till en fil som pushas | `test_de_tva_gitignorerade_katalogerna_slapps_igenom` | `persondatakontroll`, men bara delvis: den fäller vid commit, alltså efter skrivningen. Se posten. |
@@ -2034,24 +2034,42 @@ lager 3 fällt är det just den assertionen som fäller
 
 ## `kanal-som-kontext-aldrig-grund`
 
-**BYGGD I SKIVA 17.** Till skillnad från `gmail-etikett-som-ensam-grund`, som
-är en regel utan kod, har den här posten kod och går att fälla.
+**BYGGD I SKIVA 17. HÄVD SMALT I SKIVA 73, Lars beslut**, se
+`docs/beslutslogg.md` #136. Till skillnad från `gmail-etikett-som-ensam-grund`,
+som är en regel utan kod, har den här posten kod och går att fälla.
 
-- **Spärr.** Ingen funktion mappar en kanal till en kategori.
+**UNDANTAGET.** `src/kedja.py::kor` byter en kategori utanför a-traktor mot
+`kedja.KANALKATEGORI` när kanalen är webbformuläret, och bara då. Lars motivering:
+detta är inte en gissning baserad på kanal, det är en strukturell garanti.
+Formuläret ÄR a-traktorformuläret. Markören är mekanisk, ämnesraden
+`offertförfrågan a-traktor`, och uppmätt i skiva 73 bar 44 av 44 och 78 av 78
+träffar notisformen och alla tre formulärfälten, utan en falsk positiv. Pass 2
+lade samtidigt 23 av 39 klassade formulärärenden i backfillens fönster i
+`begära offert`, som grinden tystar.
+
+**UNDANTAGET ÄR ADDITIVT.** En kategori i hinken `aldrig` byts inte, och ingen
+spärr för utgående innehåll rörs. Principen i övrigt kvarstår: ingen annan kanal
+och ingen annan signal väljer kategori, och klassningen själv använder kanalen
+bara som kontext. Biltvättsfrågan nedan blir numera ett a-traktorärende om den
+kommer via formuläret; det är priset Lars valt.
+
+- **Spärr.** Klassningen mappar aldrig en kanal till en kategori.
   `src/kanal.py::namnge` returnerar ett kanalNAMN eller `None`, och
   `src/kategorisera.py::bygg_anvandarmeddelande` lägger namnet i ett avgränsat
   kontextblock i användarmeddelandet. `src/ometikettera.py::ometikettera_en`
   prövar modellens svar mot taxonomin och gör inget annat. Kanalen påverkar
-  alltså vad modellen SER, aldrig vad koden GÖR med svaret.
+  alltså vad modellen SER, aldrig vad klassningen GÖR med svaret. Kedjans
+  kanalregel är det enda undantaget, och den prövas av
+  `tests/test_kedja.py::test_kanalregeln_*`.
 - **Vad den skyddar mot.** Att en bekräftande signal blir ensam grund. Lars
   regel i #27, tillämpad på kanalen i #29. Frestelsen är konkret: 42 av 78
   formulärtrådar klassades som något annat än a-traktor, och en
   kanal-till-kategori-koppling hade rättat statistiken i ett slag. Den hade
   också gjort varje biltvättsfråga som råkat komma via formuläret till ett
   a-traktorärende.
-- **Negativkontroll.** `test_kanalen_overstyr_aldrig_modellens_svar` låter
+- **Negativkontroll.** `test_klassningen_overstyr_aldrig_modellens_svar` låter
   modellen svara `boka biltvätt` medan kanalen är a-traktorformuläret och kräver
-  att svaret står kvar. `test_samma_svar_ger_samma_etikett_med_och_utan_kanal`
+  att klassningens svar står kvar. `test_samma_svar_ger_samma_etikett_med_och_utan_kanal`
   visar att efterbehandlingen är identisk med och utan kanal.
   `test_kanalen_gor_inte_ett_svar_utanfor_taxonomin_giltigt` visar att kanalen
   inte heller räddar ett svar utanför listan.

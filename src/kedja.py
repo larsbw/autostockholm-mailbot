@@ -11,12 +11,13 @@ här filen: den vandrar importgrafen och läser källtexten i varje modul den n�
 
 Ordningen är:
 
-    mail -> klassificering -> GRIND: a-traktor? -> uppslag
+    mail -> klassificering -> kanalregel -> GRIND: a-traktor? -> uppslag
          -> GRIND: redan ombyggd? -> generering -> spärrar -> utkast
 
 **KEDJAN SKRIVER SVAR PÅ A-TRAKTOR OCH PÅ INGENTING ANNAT.** Lars beslut i
 skiva 51 DEL B. En kategori utanför `A_TRAKTORKATEGORIER` blir `INGET SVAR`
-utan att generatorn anropas. Klassningen görs ändå och kategorin loggas, så att
+utan att generatorn anropas. Undantaget sedan skiva 73 är kanalregeln: ett
+ärende via a-traktorformuläret får `KANALKATEGORI`, utom i hinken `aldrig`. Klassningen görs ändå och kategorin loggas, så att
 materialet finns den dag fas 6 tar nästa kategori. Sedan skiva 61 når posten
 inte vyn: anroparna sparar bara poster med ett utkast eller en spärr.
 
@@ -62,7 +63,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
 
-from src import biluppgifter, fordonsuppslag, generera, ometikettera, sokvagar
+from src import (biluppgifter, fordonsuppslag, generera, kanal, ometikettera,
+                 sokvagar)
 from src.fordonsuppslag import UppslagMisslyckades, Uppslag, Utfall
 from src.generera import Forfragan, Sparrfalld
 from src.vy import Fall, Granskningsfall, Svarsvag, krav_pa_skrivbar_sokvag
@@ -83,6 +85,13 @@ A_TRAKTORKATEGORIER = (
     "boka a-traktorkonvertering",
     "fråga om pris a-traktorkonvertering",
 )
+
+# KANALREGELN, skiva 73, Lars beslut. Ett ärende som kom via a-traktorformuläret
+# får den här kategorin när pass 2 gav något utanför `A_TRAKTORKATEGORIER` och
+# utanför hinken `aldrig`. Formuläret är en offertförfrågan, och kategorin bär
+# prisposten i `config/priser.json`, vilket `begära offert` inte gör. Se
+# `docs/beslutslogg.md` #136 och `docs/sparrar.md` `kanal-som-kontext-aldrig-grund`.
+KANALKATEGORI = "fråga om pris a-traktorkonvertering"
 
 # SKÄLEN TILL `INGET SVAR`. Strängarna står här och inte som literaler
 # på användningsstället, eftersom de skrivs på två ställen i `kor`: i
@@ -378,6 +387,23 @@ def kor(
     )
     hink = _hink_for(kategori, hinkar)
     steg.append(Steg("klassificering", kategori, f"hink {hink}"))
+
+    # **KANALREGELN, skiva 73.** Lars beslut: webbformulärets markör är en
+    # strukturell garanti och ingen gissning, eftersom formuläret ÄR
+    # a-traktorformuläret. Uppmätt: 44 av 44 och 78 av 78 formulärnotiser bar
+    # notisformen och alla tre formulärfälten. Pass 2 lade 23 av 39 klassade
+    # formulärärenden i backfillens fönster i `begära offert`, som grinden
+    # nedan tystar.
+    #
+    # **ADDITIV, OCH DEN RÖR INTE `aldrig`.** En kategori i hinken `aldrig`
+    # står kvar och stoppas på raden nedan. Pass 2:s svar ligger kvar i steget
+    # ovan, och bytet får ett eget steg, så att loggen säger båda.
+    if (arende.kanal == kanal.WEBBFORMULAR
+            and kategori not in A_TRAKTORKATEGORIER
+            and hink != "aldrig"):
+        steg.append(Steg("kanalregel", KANALKATEGORI, f"pass 2 sade {kategori}"))
+        kategori = KANALKATEGORI
+        hink = _hink_for(kategori, hinkar)
 
     # **HINKEN `aldrig` GER INGET SVAR, OCH GENERATORN ANROPAS INTE.** Lars
     # beslut i skiva 49 DEL B. Raden står FÖRE uppslagssteget, alltså sparar den

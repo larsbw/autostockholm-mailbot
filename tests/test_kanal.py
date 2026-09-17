@@ -398,16 +398,21 @@ def test_par_text_utan_traff_i_traden_far_ingen_kontext(tmp_path):
     assert "amne" not in poster[0]
 
 
-# --- NEGATIVKONTROLLEN: kanalen är aldrig ensam grund ------------------------
+# --- NEGATIVKONTROLLEN: kanalen är aldrig ensam grund I KLASSNINGEN ----------
+#
+# SKIVA 73, Lars beslut: spärren är hävd smalt. Kedjan byter kategori för
+# webbformuläret, se `tests/test_kedja.py::test_kanalregeln_*`. Klassningen
+# själv är oförändrad, och de tre testerna nedan binder det.
 
 
-def test_kanalen_overstyr_aldrig_modellens_svar():
-    """LARS REGEL. En text som kom via formuläret men handlar om något annat
-    ska fortfarande kunna klassas som det.
+def test_klassningen_overstyr_aldrig_modellens_svar():
+    """LARS REGEL, i klassningen. Kanalen ändrar vad modellen ser, inte vad
+    `ometikettera_en` gör med svaret.
 
     Modellen svarar `boka biltvätt` medan kanalen är a-traktorformuläret.
-    Svaret ska stå kvar orört. Faller det här testet finns det en
-    kanal-till-kategori-koppling i koden, och den är förbjuden.
+    Klassningens svar ska stå kvar orört. Faller det här testet finns en
+    kanal-till-kategori-koppling i klassningen. Den enda som är tillåten, för
+    webbformuläret, ligger i `src/kedja.py::kor`.
     """
     taxonomi = ["boka biltvätt", "boka a-traktorkonvertering", "övrigt"]
     klient = FejkKlient(["boka biltvätt"])

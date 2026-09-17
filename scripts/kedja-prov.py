@@ -324,6 +324,10 @@ def _kor_och_visa(args) -> int:
     for nummer, post in enumerate(poster, start=1):
         regnr = _regnr_i(post["text"])
         par = parkarta.get(post["text"], {})
+        # INGEN KANAL. `ometiketterade.jsonl` bär den inte, alltså gäller inte
+        # kedjans kanalregel här (skiva 73). Ett formulärärende som pass 2
+        # lägger utanför a-traktor blir INGET SVAR i provet men ett utkast i
+        # den dagliga körningen.
         arende = Arende(
             text=post["text"],
             amne=post.get("amne", ""),

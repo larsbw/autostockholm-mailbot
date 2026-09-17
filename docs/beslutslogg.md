@@ -8178,6 +8178,59 @@ Gmail-utkast, och Lars läser och skickar dem i Gmail.
   gränssnitt ska de tas bort där. Det är inte gjort härifrån.
 
 
+## #136 — Skiva 73: webbformuläret ger en a-traktorkategori
+
+**Datum:** 2026-09-17 · **Berör:** `src/kedja.py`, `src/kanal.py`,
+`docs/sparrar.md` · **Ändrar:** #27 och #29 för webbformuläret
+
+### MÄTT FÖRE BESLUTET
+
+Gmail `label:a-traktor`: 103 trådar. Inom backfillens fönster var 20 varken
+besvarade eller hade utkast. Pass 2 klassade 16 av dem som `begära offert`, som
+grinden i `kor` stoppade, och 1 som `övrigt`, som hinken `aldrig` stoppade. 15
+av de 16 kom via formuläret. Av de 34 trådar över hela tiden som varken var
+besvarade eller hade utkast kom 32 via a-traktorformuläret.
+
+Formulärmarkören, ämnesraden `offertförfrågan a-traktor`: 44 av 44 träffar i
+backfillens skörd och 78 av 78 i `data/tradar.jsonl` bar notisformen och alla
+tre formulärfälten. Ingen falsk positiv.
+
+### LARS BESLUT
+
+1. **Spärren `kanal-som-kontext-aldrig-grund` hävs smalt.** Undantaget gäller
+   bara webbformulärets mekaniska markör. Motivering: detta är inte en gissning
+   baserad på kanal, det är en strukturell garanti. Formuläret ÄR
+   a-traktorformuläret. Principen i övrigt kvarstår.
+2. **Tvinga, fråga inte om.** Noll falska positiva och tre samstämmiga signaler
+   väger tyngre än ett extra modellanrop som löser samma problem sämre.
+3. **Hinken `aldrig` gäller fortfarande.** Regeln är additiv och överskriver
+   aldrig en säkerhetsspärr.
+
+### BYGGT
+
+I `kedja.kor`, efter klassningen och före grinden: kommer ärendet via
+webbformuläret och ligger pass 2:s kategori utanför a-traktor och utanför
+`aldrig`, blir kategorin `fråga om pris a-traktorkonvertering`. Den kategorin
+har prisposten; `begära offert` har ingen. Pass 2:s svar står kvar i
+klassningssteget, och bytet loggas som steget `kanalregel`. Klassningen själv,
+`ometikettera_en`, är orörd. Inga spärrar för utgående innehåll är rörda.
+
+### §7
+
+En omgång, ingen defekt i regeln. Rättat: två kommentarer som sade att kedjan
+inte tolkar kanalen, och formuleringarna ovan. Kvar och utskrivet:
+
+- **Loggens `kategori` är den ombytta.** Pass 2:s svar står bara i
+  `steg[0]`. Den som mäter hur klassningen vacklar ska läsa steget. Flyttas
+  `fråga om pris a-traktorkonvertering` någon gång till `auto`, följer
+  formulärärenden som pass 2 lade utanför a-traktor med.
+- **`scripts/kedja-prov.py` sätter ingen kanal**, eftersom materialet saknar
+  den. Provet visar INGET SVAR för formulärärenden som driften skriver utkast
+  för.
+- **Besvarade formulärtrådar går genom uppslag och generering** innan
+  Gmail-steget hoppar över dem. Regeln breddar ett beteende som fanns.
+
+
 ## Appendix — versionshistorik (nyaste överst)
 
 ### 0.85.0 — 2026-09-16

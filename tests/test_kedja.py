@@ -19,6 +19,7 @@ from src import (
     biluppgifter,
     fordonsuppslag,
     generera,
+    kanal,
     kategorisera,
     kedja,
     ometikettera,
@@ -371,6 +372,88 @@ def test_de_TVA_skalen_till_INGET_SVAR_HALLS_ISAR():
     assert ogatad.inget_svar_skal != i_aldrig.inget_svar_skal
     assert ogatad.inget_svar_skal == kedja.SKAL_OGATAD
     assert i_aldrig.inget_svar_skal == kedja.SKAL_ALDRIG
+
+
+# ------------------------------------------- KANALREGELN, SKIVA 73
+
+
+FORMULAR = kanal.WEBBFORMULAR
+
+
+def test_kanalregeln_SLAPPER_ett_formularmail_forbi_grinden():
+    """Lars beslut i skiva 73. Pass 2 säger `boka däckbyte`, kanalen är
+    a-traktorformuläret, och ärendet når uppslaget. Hämtningen kraschar med
+    flit: källfelet är beviset att grinden passerades."""
+    with pytest.raises(Kallfel):
+        kedja.kor(arende(kanal=FORMULAR),
+                  klient=FejkKlient("boka däckbyte", "onådd"),
+                  hamta=hamta_kraschar, hinkar=HINKAR, taxonomi=TAXONOMI,
+                  exempel=[])
+
+
+def test_kanalregeln_BYTER_kategorin_och_loggar_pass_2():
+    klient = FejkKlient("boka däckbyte", "onådd")
+
+    utfall = kedja.kor(arende(kanal=FORMULAR), klient=klient,
+                       hamta=hamta_redan_ombyggd, hinkar=HINKAR,
+                       taxonomi=TAXONOMI, exempel=[], nu=NU)
+
+    assert utfall.kategori == kedja.KANALKATEGORI
+    assert kedja.KANALKATEGORI in kedja.A_TRAKTORKATEGORIER
+    assert utfall.hink == "utkast"
+    assert utfall.steg[:2] == (
+        Steg("klassificering", "boka däckbyte", "hink utkast"),
+        Steg("kanalregel", kedja.KANALKATEGORI, "pass 2 sade boka däckbyte"),
+    )
+
+
+def test_kanalregeln_tar_HINKEN_for_den_nya_kategorin():
+    """Hinken följer kategorin som går vidare, inte pass 2:s. Står den gamla
+    kategorin i `auto` ska det inte följa med till a-traktorkategorin."""
+    hinkar = {"standardhink": "utkast", "auto": ["boka däckbyte"],
+              "aldrig": ["inget kundärende"]}
+
+    utfall = kedja.kor(arende(kanal=FORMULAR),
+                       klient=FejkKlient("boka däckbyte", "onådd"),
+                       hamta=hamta_redan_ombyggd, hinkar=hinkar,
+                       taxonomi=TAXONOMI, exempel=[], nu=NU)
+
+    assert utfall.kategori == kedja.KANALKATEGORI
+    assert utfall.hink == "utkast"
+
+
+@pytest.mark.parametrize("kanalnamn", [None, "e-post", "webbformuläret"])
+def test_kanalregeln_galler_BARA_webbformularet(kanalnamn):
+    utfall = kedja.kor(arende(kanal=kanalnamn),
+                       klient=FejkKlient("boka däckbyte", "onådd"),
+                       hamta=hamta_kraschar, hinkar=HINKAR, taxonomi=TAXONOMI,
+                       exempel=[])
+
+    assert utfall.inget_svar_skal == kedja.SKAL_OGATAD
+    assert utfall.kategori == "boka däckbyte"
+
+
+def test_kanalregeln_ror_ALDRIG_hinken_aldrig():
+    """Lars beslut: regeln är additiv och överskriver aldrig hinken."""
+    utfall = kedja.kor(arende(kanal=FORMULAR),
+                       klient=FejkKlient("inget kundärende", "onådd"),
+                       hamta=hamta_kraschar, hinkar=HINKAR, taxonomi=TAXONOMI,
+                       exempel=[])
+
+    assert utfall.inget_svar_skal == kedja.SKAL_ALDRIG
+    assert utfall.kategori == "inget kundärende"
+    assert [s.namn for s in utfall.steg] == ["klassificering", "generering"]
+
+
+def test_kanalregeln_ror_inte_en_A_TRAKTORKATEGORI():
+    klient = FejkKlient("fråga om a-traktorkonvertering", "onådd")
+
+    utfall = kedja.kor(arende(kanal=FORMULAR), klient=klient,
+                       hamta=hamta_redan_ombyggd, hinkar=HINKAR,
+                       taxonomi=TAXONOMI, exempel=[], nu=NU)
+
+    assert utfall.kategori == "fråga om a-traktorkonvertering"
+    assert "kanalregel" not in [s.namn for s in utfall.steg]
 
 
 def test_en_ogatad_kategori_far_INGEN_uppslagsbedomning():

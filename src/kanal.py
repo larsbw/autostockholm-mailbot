@@ -6,16 +6,24 @@ ingenting i prompten sade var texten kom ifrån. Uppmätt i skiva 17 med
 `scripts/formular-matning.py`: av 78 formulärtrådar klassades 42 som något annat
 än en a-traktorkategori. Se `docs/beslutslogg.md` #29.
 
-**KANALEN ÄR KONTEXT, ALDRIG GRUND.** Lars regel, införd i #27 och tillämpad
-här: en kanalsignal får användas som bekräftande signal och som säker positiv
+**KANALEN ÄR KONTEXT, ALDRIG GRUND, MED ETT UNDANTAG SEDAN SKIVA 73**, se
+nedan. Lars regel, införd i #27 och tillämpad här: en kanalsignal får användas som bekräftande signal och som säker positiv
 träff, aldrig som nödvändigt villkor och aldrig som ensam grund. En text som kom
 via formuläret men uppenbart handlar om något annat ska fortfarande kunna klassas
 som det.
 
 **INGEN FUNKTION HÄR AVGÖR EN KATEGORI.** Modulen namnger en kanal och lämnar
-ämnesraden. Kopplingen kanal → kategori finns inte i kod och ska inte finnas:
-den enda vägen från kanal till etikett går genom modellen, som har kundens text
-framför sig. Se `docs/sparrar.md` under `kanal-som-kontext-aldrig-grund`.
+ämnesraden. Klassningen, `src/ometikettera.py`, använder kanalen bara som
+kontext i prompten.
+
+**ETT SMALT UNDANTAG SEDAN SKIVA 73, Lars beslut.** `src/kedja.py::kor` byter
+en kategori utanför a-traktor, och utanför hinken `aldrig`, mot
+`kedja.KANALKATEGORI` när kanalen är `WEBBFORMULAR`. Markören är ingen gissning
+på kanal: formuläret ÄR a-traktorformuläret. Principen gäller i övrigt. Se
+`docs/sparrar.md` under `kanal-som-kontext-aldrig-grund`.
+
+*Här stod att kopplingen kanal → kategori inte finns i kod och inte ska finnas.
+Sant till och med skiva 72.*
 """
 
 from __future__ import annotations
