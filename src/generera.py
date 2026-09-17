@@ -240,6 +240,12 @@ class Forfragan:
     # inte kunna få det påståendet utskrivet.
     efterslap: bool = False
 
+    # SKIVA 74, Lars beslut. Sant när uppslaget föll men hämtningen ändå lämnade
+    # läsbara fält om bilen. Då har vi slagit upp bilen, och svaret får aldrig
+    # säga att vi inte kunnat det. FÖRVALET ÄR `False`, alltså oförändrat
+    # beteende för en anropare som inte känner fältet.
+    uppslag_gav_data: bool = False
+
 
 # ------------------------------------------------------------------ DEL C
 
@@ -1970,6 +1976,58 @@ def krav_pa_drojsmal_utan_langd(svar: str) -> None:
             )
 
 
+# ETT PÅSTÅENDE OM ATT UPPSLAGET MISSLYCKATS. Skiva 74, Lars beslut.
+#
+# **SMALT MED AVSIKT.** `hitta` och `få fram` räknas bara när de följs av bilen
+# eller uppgifter om den: "vi har inte kunnat hitta en ledig tid" är ingen
+# fällning. Formerna är de två verkliga utkastens och Lars egen.
+#
+# **ORDEN MELLAN LEDEN ÄR TILLÅTNA**, upp till två: "kunde tyvärr inte",
+# "inte heller kunnat". Fällt av §7-granskningen av skiva 74, som också bar
+# formerna `hittade inte bilen` och `sökningen i registret misslyckades`.
+_BILEN = (r"(?:bilen|fordonet|(?:din|er|kundens)\s+bil"
+          r"|(?:\w+\s+)?(?:uppgifter|information)\s+om\s+(?:bilen|fordonet)"
+          r"|registreringsnumret)")
+_MELLAN = r"(?:\w+\s+){0,2}?"
+UPPSLAG_MISSLYCKAT = re.compile(
+    rf"(?:inte|ej)\s+{_MELLAN}(?:har\s+)?(?:kunnat|lyckats|gått\s+att)\s+"
+    rf"{_MELLAN}(?:att\s+)?"
+    rf"(?:slå\s+upp|hitta\s+{_BILEN}|få\s+fram\s+{_BILEN})"
+    rf"|(?:kunde|kan|gick)\s+{_MELLAN}inte\s+{_MELLAN}(?:att\s+)?slå\s+upp"
+    rf"|hittade\s+{_MELLAN}inte\s+{_BILEN}"
+    rf"|(?:uppslag|sökning)\w*\s+{_MELLAN}(?:har\s+)?misslyck"
+    rf"|misslyck\w*\s+(?:med\s+)?(?:att\s+)?slå\s+upp",
+    re.IGNORECASE,
+)
+
+
+def krav_pa_att_uppslaget_inte_sags_misslyckat(svar: str,
+                                               forfragan: Forfragan) -> None:
+    """SPÄRR `uppslag-sags-misslyckat`, skiva 74. Lars beslut.
+
+    **NÄR UPPSLAGET GAV LÄSBAR DATA HAR VI SLAGIT UPP BILEN.** Två verkliga
+    utkast sade *"Vi har inte kunnat slå upp bilen i våra register"* om fordon
+    vars tjänstevikt, draganordning och kaross var avlästa. Det gäller också
+    när uppslaget föll på något annat, `Forfragan.uppslag_gav_data`, och
+    oavsett om bedömningen kunde slutföras.
+
+    Ett uppslag som aldrig lämnade något, eller ett mail utan nummer, prövas
+    inte här: där är raden sann eller styrs av egna lägen.
+    """
+    if forfragan.uppslag is None and not forfragan.uppslag_gav_data:
+        return
+
+    for mening in _meningar(svar):
+        traff = UPPSLAG_MISSLYCKAT.search(mening)
+        if traff:
+            raise Sparrfalld(
+                "uppslag-sags-misslyckat",
+                f"svaret säger att uppslaget misslyckats fast bilen är "
+                f"uppslagen: {traff.group(0).lower()!r}",
+                mening,
+            )
+
+
 def krav_pa_ett_svar(svar: str) -> None:
     """SPÄRR: ett tomt svar är inget utkast.
 
@@ -2006,6 +2064,7 @@ def krav_pa_svaret(svar: str, forfragan: Forfragan) -> None:
     krav_pa_att_troskeln_inte_ar_forfattningstext(svar)
     krav_pa_atagande_med_kalla(svar, forfragan)
     krav_pa_drojsmal_utan_langd(svar)
+    krav_pa_att_uppslaget_inte_sags_misslyckat(svar, forfragan)
 
 
 # ------------------------------------------------------------------ DEL B
@@ -2251,6 +2310,9 @@ def _bedomning(forfragan: Forfragan) -> str:
         )
     if forfragan.uppslag is None and not forfragan.regnr_i_mailet:
         return SAKNAT_REGNR_BEDOMNING
+    # SKIVA 74. Ett fällt uppslag som läste bilen är inget misslyckat uppslag.
+    if forfragan.uppslag is None and forfragan.uppslag_gav_data:
+        return DELVIS_BEDOMNING
     return _utfallstext(forfragan.utfall, forfragan.uppslag)
 
 
@@ -2369,6 +2431,11 @@ def _underlag(forfragan: Forfragan) -> str:
         # bedömningsraden lade till att vi inte kunnat slå upp bilen. Se
         # `_bedomning` och `Forfragan.regnr_i_mailet`.
         rader.append(SAKNAT_REGNR_UNDERLAG)
+    elif forfragan.uppslag is None and forfragan.uppslag_gav_data:
+        # SKIVA 74. Vi har slagit upp bilen och läst uppgifter, men inte så att
+        # de går att bedöma. INGET vore falskt, och modellen skrev då att vi inte
+        # kunnat slå upp bilen.
+        rader.append(DELVIS_UNDERLAG)
     elif forfragan.uppslag is None:
         rader.append(
             "Fordonsuppslag: INGET. Du vet ingenting om kundens bil. Nämn inte "
@@ -2539,6 +2606,23 @@ SAKNAT_REGNR_BEDOMNING = (
     "BE KUNDEN SKICKA DET så tittar vi på bilen. Står det där: läs det ur "
     "mailet och fråga inte efter det."
 )
+
+# ETT FÄLLT UPPSLAG SOM ÄNDÅ LÄSTE BILEN. Skiva 74, Lars beslut.
+#
+# **INGA UPPGIFTER NÄMNS, men uppslaget sägs inte ha misslyckats.** Uppslaget
+# föll på något vi inte kan bedöma, alltså finns inga fält vi får citera. Att
+# vi slog upp bilen är däremot sant, och `uppslag-sags-misslyckat` fäller varje
+# svar som säger motsatsen.
+DELVIS_UNDERLAG = (
+    "Fordonsuppslag: VI HAR SLAGIT UPP BILEN, men uppgifterna räcker inte för en "
+    "bedömning. Nämn inte tjänstevikt, släpvagnsvikt eller draganordning, och "
+    "säg ALDRIG att vi inte kunnat slå upp bilen."
+)
+DELVIS_BEDOMNING = (
+    "vi kan inte avgöra om bilen uppfyller kraven utan mer information. Säg "
+    "ALDRIG att vi inte kunnat slå upp bilen."
+)
+
 
 # EFTERSLÄPSRADEN. Skiva 61 DEL B, Lars beslut och Lars text.
 #
@@ -2876,12 +2960,47 @@ def _utfallstext(utfall: Utfall | None, uppslag: Uppslag | None) -> str:
 
     oklart_utan_besked = "vi kan inte avgöra det på uppgifterna vi har."
 
+    # **DELVIS LYCKAT UPPSLAG, skiva 74, Lars beslut och Lars formulering.**
+    # Allt är läst utom den bromsade släpvagnsvikten. Ett avläst `Nej` på
+    # draganordningen får sägas; att vi inte kunnat slå upp bilen får det inte.
+    oklart_delvis_utan_krok = (
+        "VI HAR SLAGIT UPP BILEN. Säg att vi kan se att bilen saknar "
+        "registrerad draganordning, men att vi inte kan avgöra om den i övrigt "
+        "uppfyller kraven utan mer information. Säg ALDRIG att vi inte kunnat "
+        "slå upp bilen."
+    )
+    oklart_delvis = (
+        "VI HAR SLAGIT UPP BILEN. Säg att vi inte kan avgöra om den uppfyller "
+        "kraven utan mer information. Säg ALDRIG att vi inte kunnat slå upp "
+        "bilen."
+    )
+
     if utfall is Utfall.ROTT and uppslag is not None \
             and fordonsuppslag.ar_redan_ombyggd(uppslag):
         return rott_redan_ombyggd
 
     if utfall is Utfall.OKLART and _bara_dragkroken_saknas(uppslag):
         return oklart_bara_dragkroken
+
+    # **TUNG BIL I DELVIS LÄGE ÄR ETT JA**, fällt av §7-granskningen av skiva
+    # 74. Tjänstevikten uppfyller §42 ensam, och "kan inte avgöra" vore då
+    # falskt. Släpvagnsvikten nämns inte: den är okänd.
+    oklart_tung_utan_krok = (
+        "BILEN DUGER SOM DRAGFORDON. Säg det som ett JA. Registret säger att "
+        "bilen saknar registrerad draganordning. Skriv just det, och i samma "
+        "andetag att vi monterar en. Nämn inte släpvagnsvikten. Be aldrig "
+        "kunden ordna kroken själv, och gör inte dragkroken till ett villkor."
+    )
+
+    if utfall is Utfall.OKLART and uppslag is not None \
+            and uppslag.bromsad_slapvikt_i_annan_form:
+        lamplig = fordonsuppslag.ar_lamplig_som_dragfordon(uppslag)
+        if lamplig is None:
+            return (oklart_delvis_utan_krok if uppslag.draganordning is False
+                    else oklart_delvis)
+        if uppslag.draganordning is False:
+            return oklart_tung_utan_krok
+        return oklart_utan_besked
 
     return {
         Utfall.GRONT: "bilen ser ut att gå att bygga om.",

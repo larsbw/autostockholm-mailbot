@@ -1351,9 +1351,12 @@ def falt_med_status(sida: str) -> dict[str, Falt]:
 class Dragviktslage(str, Enum):
     """Vad vi VET om fordonets bromsade släpvagnsvikt. Skiva 40 DEL A och B.
 
-    **FYRA LÄGEN, OCH BARA `LAST` GER NÅGOT SOM NÅR ETT KUNDMAIL.** De tre
-    övriga skiljer sig åt för HÄRKOMSTRADENS skull, inte för kundens: efter VÄG
-    TRE i skiva 41 ger inget av dem rätt att påstå att en uppgift saknas.
+    **FYRA LÄGEN, OCH BARA `LAST` GER ETT TAL SOM NÅR ETT KUNDMAIL.** Efter VÄG
+    TRE i skiva 41 ger inget av de tre övriga rätt att påstå att en uppgift
+    saknas. Sedan skiva 74 styr `ANNAN_FORM` däremot promptens text: uppslaget
+    lyckas delvis, se `fordonsuppslag.Uppslag.bromsad_slapvikt_i_annan_form`.
+
+    *Här stod att bara `LAST` ger något som når ett kundmail.*
 
     `LAST` är ett tal vi kan bedöma mot §42 punkt 2.
 

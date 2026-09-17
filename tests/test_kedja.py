@@ -1516,6 +1516,114 @@ def test_ANNAN_FORM_ger_INGEN_ratt_att_pasta_franvaro():
     assert _mangden(hamta_dragvikt_i_annan_form) == frozenset()
 
 
+# ------------------------------------ SKIVA 74: delvis lyckat uppslag
+
+
+def hamta_delvis(_regnr: str) -> dict:
+    """Formen `biluppgifter_hamtning` lämnar för ett fordon med bara en annan
+    släpviktsform: statuskartan säger att den bromsade saknas på sidan, och
+    läget är ANNAN_FORM. Talen är påhittade."""
+    return {
+        "tjanstevikt_kg": 1450, "draganordning": False,
+        "fyrhjulsdrift": True, "kaross": "Kombi",
+        biluppgifter.META_FALTSTATUS: {
+            "tjanstevikt_kg": "läst", "slapvagnsvikt_kg": "saknas på sidan",
+            "draganordning": "läst"},
+        biluppgifter.META_DRAGVIKT: biluppgifter.Dragviktslage.ANNAN_FORM.value,
+    }
+
+
+def hamta_last_men_otolkbar(_regnr: str) -> dict:
+    """Tjänstevikt läst, släpvagnsvikten stod på sidan och gick inte att läsa."""
+    return {
+        "tjanstevikt_kg": 1450, "draganordning": False,
+        biluppgifter.META_FALTSTATUS: {
+            "tjanstevikt_kg": "läst", "slapvagnsvikt_kg": "tolkas ej",
+            "draganordning": "läst"},
+        biluppgifter.META_DRAGVIKT: biluppgifter.Dragviktslage.TOLKAS_EJ.value,
+    }
+
+
+def test_DELVIS_uppslaget_LYCKAS_och_ger_OKLART_med_rattigt_nej():
+    """Lars fall: kedjan får ett uppslag, OKLART, och rätten att säga att
+    draganordning saknas. Prompten säger aldrig INGET."""
+    klient = PromptSpion("fråga om a-traktorkonvertering", "Hej.")
+
+    utfall = kedja.kor(arende(), klient=klient, hamta=hamta_delvis,
+                       hinkar=HINKAR, taxonomi=TAXONOMI, exempel=[], nu=NU)
+
+    assert utfall.uppslag is not None
+    assert utfall.uppslag.bromsad_slapvikt_i_annan_form
+    assert utfall.utfall is Utfall.OKLART
+    assert "DELVIS" in utfall.steg[1].detalj
+    prompt = klient.prompter[-1]
+    assert "Fordonsuppslag: INGET" not in prompt
+    assert "saknar registrerad draganordning" in prompt
+    assert _mangden(hamta_delvis) == frozenset({"draganordning"})
+
+
+def test_ett_FALLT_uppslag_som_last_bilen_sags_inte_vara_INGET():
+    """Lars krav: aldrig "kunde inte slå upp" när uppslaget gav läsbar data,
+    oavsett om bedömningen gick att slutföra."""
+    klient = PromptSpion("fråga om a-traktorkonvertering", "Hej.")
+
+    utfall = kedja.kor(arende(), klient=klient,
+                       hamta=hamta_last_men_otolkbar, hinkar=HINKAR,
+                       taxonomi=TAXONOMI, exempel=[], nu=NU)
+
+    assert utfall.uppslag is None
+    assert utfall.steg[1].gav_data
+    assert generera.DELVIS_UNDERLAG in klient.prompter[-1]
+
+
+@pytest.mark.parametrize("svar, vantat", [
+    ({biluppgifter.META_DRAGVIKT: "x", biluppgifter.META_FALTSTATUS: {}},
+     False),
+    ({"kaross": "Kombi"}, True),
+    ({"draganordning": False}, True),
+])
+def test_GAV_DATA_raknar_fordonsfalt_och_inte_metanycklar(svar, vantat):
+    """§7-granskningen av skiva 74."""
+    with pytest.raises(UppslagMisslyckades) as fel:
+        fordonsuppslag.slag_upp("ABC123", hamta=lambda r: dict(svar))
+    assert fel.value.gav_data is vantat
+
+
+def test_HARKOMSTEN_for_DELVIS_sager_inte_att_registret_saknar_slapvikt():
+    detalj = kedja._lyckadetalj(hamta_delvis_uppslag(), Utfall.OKLART)
+
+    assert "DELVIS" in detalj
+    assert "registret bar ingen släpvagnsvikt" not in detalj
+
+
+def hamta_delvis_uppslag():
+    return fordonsuppslag.slag_upp("ABC123", hamta=hamta_delvis)
+
+
+def test_HARKOMSTEN_for_ett_fallt_uppslag_i_ANNAN_FORM_visar_skalet():
+    """§7-granskningen av skiva 74. Läget fäller inte längre, alltså föll
+    uppslaget av något annat, och det är det raden ska säga."""
+    steg = Steg("uppslag", "misslyckades", "svaret saknar tjanstevikt_kg",
+                dragviktslage=biluppgifter.Dragviktslage.ANNAN_FORM.value)
+    utfall = Kedjeutfall(kategori="fråga om a-traktorkonvertering",
+                         hink="utkast", utkast="x", steg=(steg,))
+
+    rad = kedja.uppslagskalla(arende(), utfall, skarp=True)
+
+    assert "svaret saknar tjanstevikt_kg" in rad
+    assert "FORM VI INTE KAN" not in rad
+
+
+def test_ett_fallt_uppslag_UTAN_data_ar_fortfarande_INGET():
+    """Negativkontroll: hämtaren lämnar ingenting."""
+    klient = PromptSpion("fråga om a-traktorkonvertering", "Hej.")
+
+    kedja.kor(arende(), klient=klient, hamta=lambda r: {}, hinkar=HINKAR,
+              taxonomi=TAXONOMI, exempel=[], nu=NU)
+
+    assert "Fordonsuppslag: INGET" in klient.prompter[-1]
+
+
 def test_ett_AVLAST_nej_pa_draganordningen_far_pastas():
     """DEN ANDRA VÄGEN IN I MÄNGDEN, och den går via ett LYCKAT uppslag.
 

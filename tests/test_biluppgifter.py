@@ -1055,7 +1055,6 @@ def test_baslinjen_ger_ett_uppslag():
 @pytest.mark.parametrize(
     ("led", "nytt_namn", "skal"),
     [
-        ("sl", "Släpvikt max", "svaret saknar slapvagnsvikt_kg"),
         ("tj", "Egenvikt", "svaret saknar tjanstevikt_kg"),
     ],
 )
@@ -1065,15 +1064,13 @@ def test_omdopt_etikett_faller_till_utkast(led, nytt_namn, skal):
     Asserar på SKÄLET och inte bara på att något kastades: utan det blir testet
     grönt även när ett annat fält är det som saknas.
 
-    **RADEN FÖR `Draganordning` ÄR FLYTTAD OCH INTE STRUKEN.** Den formen faller
-    inte längre, och det är LUCKA 71. Se
-    `test_kand_lucka_omdopt_draganordning_ser_ut_som_ett_registerfaktum`, som
-    binder både den svagheten och riktningen på felet.
+    **RADERNA FÖR `Draganordning` OCH, SEDAN SKIVA 74, `Släpvagnsvikt` ÄR
+    FLYTTADE OCH INTE STRUKNA.** De faller inte längre. Draganordningen är
+    LUCKA 71. Släpvagnsvikten är Lars beslut i skiva 74: en omdöpt etikett ser
+    ut som det delvis lyckade uppslaget. Båda binds med sin riktning i
+    `test_kand_lucka_omdopt_*`.
 
-    De två som står kvar faller av olika skäl, och båda ska hållas isär från
-    luckan: tjänsteviktens fält är aldrig valfritt, och släpvagnsviktens kräver
-    dessutom att INGEN av sidans fyra släpviktsformer finns, vilket en omdöpning
-    av en av dem inte uppfyller.
+    Tjänsteviktens fält är aldrig valfritt och faller som förut.
     """
     assert utfallet_av(sida_med(etiketter={led: nytt_namn})) == skal
 
@@ -1107,16 +1104,83 @@ def test_kand_lucka_omdopt_draganordning_ser_ut_som_ett_registerfaktum():
     assert fordonsuppslag.utvardera(uppslag) is Utfall.OKLART
 
 
-def test_omdopning_till_ett_prefix_faller_ocksa():
+@pytest.mark.parametrize("tjanstevikt, vantat", [
+    ("1450 kg", Utfall.OKLART),
+    ("2140 kg", Utfall.OKLART),
+])
+def test_kand_lucka_omdopt_slapvagnsvikt_ger_ett_DELVIS_uppslag(tjanstevikt,
+                                                                vantat):
+    """SKIVA 74, Lars beslut, väg 2 ur skiva 71.
+
+    **EN OMDÖPT `Släpvagnsvikt` SER UT SOM DET DELVIS LYCKADE LÄGET**: den
+    bromsade saknas, den obromsade står kvar. Uppslaget lyckas med den bromsade
+    tom. Förut föll det, och kunden fick höra att vi inte kunnat slå upp bilen.
+
+    **RIKTNINGEN.** Den tomma vikten kan inte ge GRÖNT eller RÖTT via §42
+    punkt 2. Med tjänstevikten under tröskeln blir det OKLART. Med den över
+    tröskeln är bilen lämplig på tjänstevikten ensam, och draganordningen Nej
+    gör det till OKLART utan besked.
+    """
+    uppslag = fordonsuppslag.slag_upp(
+        REGNR,
+        hamta=biluppgifter_hamtning(oppna=svarar(sida_med(
+            tjanstevikt=tjanstevikt, etiketter={"sl": "Släpvikt max"}))),
+    )
+
+    assert uppslag.slapvagnsvikt_kg is None
+    assert uppslag.bromsad_slapvikt_i_annan_form
+    assert fordonsuppslag.utvardera(uppslag) is vantat
+
+
+def test_en_sida_med_BARA_OBROMSAD_vikt_ger_ett_DELVIS_uppslag():
+    """SKIVA 74, Lars fall. Sidan bär tjänstevikt, draganordning Nej och
+    obromsad vikt, men ingen bromsad. Förut föll uppslaget och kunden fick
+    höra att vi inte kunnat slå upp bilen."""
+    kropp = sida_med(tjanstevikt="1450 kg", slapvagnsvikt=None,
+                     extra=rad("Släpvagnsvikt obromsad", "695 kg"))
+
+    uppslag = fordonsuppslag.slag_upp(
+        REGNR, hamta=biluppgifter_hamtning(oppna=svarar(kropp)))
+
+    assert uppslag.tjanstevikt_kg == 1450
+    assert uppslag.draganordning is False
+    assert uppslag.slapvagnsvikt_kg is None
+    assert uppslag.dragviktslage == Dragviktslage.ANNAN_FORM.value
+    assert uppslag.bromsad_slapvikt_i_annan_form
+    assert fordonsuppslag.utvardera(uppslag) is Utfall.OKLART
+
+
+def test_en_OTOLKBAR_bromsad_vikt_faller_FORTFARANDE_men_bar_data():
+    """`tolkas ej` är vårt fel och fäller som förut. Undantaget säger att
+    hämtningen ändå läste bilen."""
+    kropp = sida_med(slapvagnsvikt="många kg")
+
+    with pytest.raises(UppslagMisslyckades) as fel:
+        fordonsuppslag.slag_upp(
+            REGNR, hamta=biluppgifter_hamtning(oppna=svarar(kropp)))
+
+    assert fel.value.skal == "svaret saknar slapvagnsvikt_kg"
+    assert fel.value.gav_data
+
+
+def test_omdopning_till_ett_prefix_LASES_INTE_som_den_bromsade():
     """GRÄNSFALLET i fall 1. Den nya etiketten BÖRJAR med den gamla.
 
     `Släpvagnsvikt bromsad` innehåller `Släpvagnsvikt` som prefix. Lager 1
     kräver `</span>` direkt efter etiketten, så träffen uteblir. Vore
     matchningen ett prefix hade den här sidan i stället gett två träffar.
+
+    *Här krävdes att uppslaget föll. Sedan skiva 74 lyckas det delvis, och det
+    som bär är att ingen av sidans vikter läses som den bromsade.*
     """
-    assert utfallet_av(
-        sida_med(etiketter={"sl": "Släpvagnsvikt bromsad"})
-    ) == "svaret saknar slapvagnsvikt_kg"
+    uppslag = fordonsuppslag.slag_upp(
+        REGNR,
+        hamta=biluppgifter_hamtning(oppna=svarar(sida_med(
+            etiketter={"sl": "Släpvagnsvikt bromsad"}))),
+    )
+
+    assert uppslag.slapvagnsvikt_kg is None
+    assert uppslag.bromsad_slapvikt_i_annan_form
 
 
 def test_entitetskodad_etikett_LASES():

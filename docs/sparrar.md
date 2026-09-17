@@ -121,6 +121,7 @@ verdikt som inte betyder vad det ser ut att betyda.
 | `pastaende-om-franvaro` | Att boten säger att en uppgift SAKNAS när den bara inte kunnat läsa den | `test_ett_svar_som_INTE_pastar_franvaro_slapps_igenom` | DELVIS med `genererat-fordonsfaktum`, och bara för `draganordning`. `FORDONSTERMER` bär `draganordning` och `dragkrok` men INTE `dragvikt`, alltså finns inget andra lager för dragviktspåståenden. Mätt, se posten. |
 | `barlastflak-galler-fordonet` | Att boten säger att barlastflak ingår för ett fordon som §39 bevisligen inte gäller | `test_barlastformer_som_ska_passera` | Ingen annan spärr. NÄTET UNDER PROMPTEN: `generera._barlastrad` tystar uppräkningen, spärren fångar ordet. Olika former, alltså inte §7.1:s redundans. Se posten. |
 | `drojsmalets-langd` | Att boten skriver hur länge kundens mail legat | `test_DROJSMALETS_LANGD_slapper_igenom` | DELVIS med `genererat-tal-har-kalla`, bara för siffror utanför `ALLTID_TILLATNA_TAL`. Se posten. |
+| `uppslag-sags-misslyckat` | Att svaret säger att vi inte kunnat slå upp bilen fast uppslaget gav läsbar data | `test_UPPSLAG_SAGS_MISSLYCKAT_slapper_igenom_nar_inget_lastes`, `test_UPPSLAG_SAGS_MISSLYCKAT_faller_inte_det_ofarliga` | Ingen annan spärr. Prompten beställer inte meningen i något av de två lägena. Skiva 74. Se posten. |
 
 **Tabellen räknar SPÄRRAR, alltså sådant som kod verkställer.** Dokumentet bär
 dessutom poster märkta LUCKA UTAN SPÄRR, som ingen kod implementerar och som
@@ -6297,6 +6298,42 @@ uppslaget sedan fälls. Två uppslag fälldes, och ingen av bilarna var ombyggd.
 
 **INGET BYGGT, Lars beslut.** Det är samma osäkerhet som OKLART bygger på: när
 uppslaget fälls vet vi inte att bilen är ombyggd.
+
+*Sedan skiva 74 lyckas uppslaget i läget `ANNAN_FORM`, och där prövas
+`Kaross` av grinden. Luckan gäller kvar för de uppslag som fortfarande fälls.*
+
+---
+
+## `uppslag-sags-misslyckat`
+
+**BYGGD I SKIVA 74, Lars beslut**, se `docs/beslutslogg.md` #137.
+
+- **Spärr.** `generera.krav_pa_att_uppslaget_inte_sags_misslyckat` fäller en
+  mening som säger att vi inte kunnat slå upp bilen, eller att uppslaget
+  misslyckats, när `Forfragan.uppslag` finns eller `uppslag_gav_data` är sant.
+- **Vad den skyddar mot.** Två verkliga utkast sade *"Vi har inte kunnat slå
+  upp bilen i våra register"* om fordon vars tjänstevikt, draganordning och
+  kaross var avlästa. Lars regel: meningen får aldrig genereras när uppslaget
+  gav läsbar data, oavsett om bedömningen kunde slutföras.
+- **Negativkontroll.** Samma meningar släpps igenom när uppslaget varken
+  lyckades eller läste något, och ofarliga meningar som *"vi har inte kunnat
+  hitta en ledig tid"* släpps igenom i alla lägen.
+- **Redundant med.** Ingen annan spärr. Promptens två nya lägen,
+  `DELVIS_UNDERLAG` och de delvisa bedömningstexterna, ber uttryckligen modellen
+  att inte skriva meningen, men det är en order och inget lager.
+- **Luckor.** Mönstret är smalt: `hitta` och `få fram` räknas bara när bilen
+  eller uppgifter följer. En omskrivning som *"registret gav oss inget"* fångas
+  inte.
+
+**`fordonsfakta-ur-uppslag` ÄNDRAS I SAMMA SKIVA.** `_krav_pa_slapvagnsvikt`
+släpper igenom läget `ANNAN_FORM` med den bromsade vikten tom. Andra belägget
+från skiva 55 skyddade mot en omdöpt `Släpvagnsvikt`-etikett, som nu ser ut som
+det delvis lyckade läget. Riktningen är den säkra: en tom vikt ger aldrig
+GRÖNT eller RÖTT via §42 punkt 2. Under 2 000 kg tjänstevikt blir det OKLART;
+över det avgör tjänstevikten och draganordningen som förut. `tolkas ej` fäller
+som förut.
+`test_kand_lucka_omdopt_slapvagnsvikt_ger_ett_DELVIS_uppslag` binder både
+luckan och riktningen.
 
 ---
 

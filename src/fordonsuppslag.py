@@ -132,6 +132,16 @@ META_FALTSTATUS = "_faltstatus"
 META_DRAGVIKT = "_dragviktslage"
 REGISTRET_SAKNAR_DRAGVIKT = "registret saknar uppgiften"
 
+# SKIVA 74, Lars beslut, väg 2 ur skiva 71. Den bromsade släpvagnsvikten saknas
+# men sidan bär en annan släpviktsform. Uppslaget LYCKAS DELVIS i det läget:
+# tjänstevikt, draganordning och övriga fält är lästa, och bara den bromsade
+# vikten är okänd. Samma bindning som konstanten ovan.
+ANNAN_FORM_DRAGVIKT = "uppgiften finns i en form vi inte kan bedöma mot"
+
+# DE DRAGVIKTSLÄGEN SOM LÅTER EN SAKNAD BROMSAD VIKT BLI `None`.
+DELVIS_TILLATNA_DRAGVIKTSLAGEN = frozenset({REGISTRET_SAKNAR_DRAGVIKT,
+                                            ANNAN_FORM_DRAGVIKT})
+
 # KAROSSVÄRDET SOM BETYDER ATT FORDONET REDAN ÄR OMBYGGT. Lars order i skiva 55.
 #
 # **AVLÄST OCH INTE ANTAGET.** Mätt 2026-09-15 över tio sparade fordonssidor:
@@ -179,10 +189,15 @@ class UppslagMisslyckades(Exception):
     """
 
     def __init__(self, skal: str, *,
-                 dragviktslage: str | None = None) -> None:
+                 dragviktslage: str | None = None,
+                 gav_data: bool = False) -> None:
         super().__init__(skal)
         self.skal = skal
         self.dragviktslage = dragviktslage
+        # SKIVA 74. Sant när hämtningen lämnade läsbara fält om bilen trots att
+        # uppslaget fälldes. Då har vi SLAGIT UPP bilen, och svaret får aldrig
+        # säga att vi inte kunnat det. Se `generera.Forfragan.uppslag_gav_data`.
+        self.gav_data = gav_data
 
 
 def _krav_pa_vikt(varde: object, falt: str) -> None:
@@ -245,10 +260,15 @@ class Uppslag:
     # säkert vår läsning och inte registret. Se `_krav_pa_tjanstevikt`.
     tjanstevikt_kg: int
 
-    # **`None` BETYDER ATT REGISTRET INTE BÄR UPPGIFTEN, aldrig att vi inte kunde
-    # läsa den.** Skillnaden vaktas av `_krav_pa_slapvagnsvikt` och
+    # **`None` BETYDER ATT SIDAN INTE BÄR FÄLTET**, enligt hämtningens
+    # statuskarta. Skillnaden vaktas av `_krav_pa_slapvagnsvikt` och
     # `_krav_pa_draganordning`, som kräver belägg ur hämtningen innan ett
     # utelämnat fält blir `None`. Se modulhuvudet.
+    #
+    # *Här stod att `None` aldrig betyder att vi inte kunde läsa fältet. För
+    # draganordningen är det lucka 71, och för släpvagnsvikten i läget
+    # `ANNAN_FORM` gäller det sedan skiva 74 också: en omdöpt etikett ger None.
+    # Ingen av dem ger rätt att påstå frånvaro.*
     slapvagnsvikt_kg: int | None
     draganordning: bool | None
 
@@ -264,6 +284,16 @@ class Uppslag:
     totalvikt_kg: int | None = None
     arsmodell: tuple[int, int] | None = None
     status: str | None = None
+    # SKIVA 74. Hämtningens dragviktsläge, eller `None` när hämtaren inte
+    # lämnade något. `ANNAN_FORM_DRAGVIKT` med `slapvagnsvikt_kg` tom är det
+    # uttryckliga läget "delvis lyckat": allt är läst utom den bromsade vikten.
+    dragviktslage: str | None = None
+
+    @property
+    def bromsad_slapvikt_i_annan_form(self) -> bool:
+        """Delvis lyckat: den bromsade vikten saknas, en annan form finns."""
+        return (self.slapvagnsvikt_kg is None
+                and self.dragviktslage == ANNAN_FORM_DRAGVIKT)
 
     def __post_init__(self) -> None:
         # Lokala namn, så att varje villkor ryms på EN rad. Ett villkor som
@@ -456,7 +486,13 @@ def _krav_pa_tjanstevikt(svar: Mapping, meta: dict) -> None:
 
 
 def _krav_pa_slapvagnsvikt(svar: Mapping, meta: dict) -> None:
-    """SPÄRRLAGER: släpvagnsvikten får utelämnas bara mot TVÅ oberoende belägg.
+    """SPÄRRLAGER: släpvagnsvikten får utelämnas bara mot statuskartan och ett
+    dragviktsläge ur `DELVIS_TILLATNA_DRAGVIKTSLAGEN`.
+
+    *Rubriken sade TVÅ OBEROENDE BELÄGG, och styckena nedan om skiva 55
+    beskriver den ordningen. Sedan skiva 74 släpper andra lagret igenom också
+    `ANNAN_FORM`, alltså fäller det bara en hämtare som inte säger något läge
+    eller säger `tolkas ej`. En omdöpt etikett fälls inte längre här.*
 
     **ETT BELÄGG RÄCKER INTE, OCH DET ÄR SVITEN SOM VISADE DET.** Första
     lydelsen av skiva 55 krävde bara `saknas på sidan`, och då blev
@@ -480,6 +516,18 @@ def _krav_pa_slapvagnsvikt(svar: Mapping, meta: dict) -> None:
     **FALLET DET SLÄPPER IGENOM** är fordonet i Lars körning vars sida saknar
     samtliga fyra släpviktsformer. Läget blir `registret saknar uppgiften`, och
     uppslaget lyckas med `slapvagnsvikt_kg` tom.
+
+    **SEDAN SKIVA 74 SLÄPPER DET OCKSÅ `ANNAN_FORM` IGENOM**, Lars beslut, väg 2
+    ur skiva 71. Två verkliga fordon hade tjänstevikt, draganordning och kaross
+    avlästa, bara obromsad vikt och körkortsrader, och fick svaret att vi inte
+    kunnat slå upp bilen. Det var falskt. Uppslaget lyckas nu delvis, med den
+    bromsade vikten tom och läget kvar i `Uppslag.dragviktslage`.
+
+    **PRISET ÄR ATT EN OMDÖPT `Släpvagnsvikt`-ETIKETT SER LIKADAN UT**, vilket
+    var andra beläggets skäl i skiva 55. Riktningen är den säkra: en tom
+    släpvagnsvikt kan inte ge GRÖNT eller RÖTT via §42 punkt 2, bara OKLART,
+    och `ar_lamplig_som_dragfordon` ger True enbart på tjänstevikten. Ingen rätt
+    att påstå frånvaro följer, se VÄG TRE. `tolkas ej` fäller som förut.
     """
     if _bar_nyckel(svar, "slapvagnsvikt_kg"):
         return
@@ -487,7 +535,7 @@ def _krav_pa_slapvagnsvikt(svar: Mapping, meta: dict) -> None:
     if not _sidan_saknar_faltet(svar, "slapvagnsvikt_kg"):
         raise UppslagMisslyckades("svaret saknar slapvagnsvikt_kg", **meta)
 
-    if svar.get(META_DRAGVIKT) != REGISTRET_SAKNAR_DRAGVIKT:
+    if svar.get(META_DRAGVIKT) not in DELVIS_TILLATNA_DRAGVIKTSLAGEN:
         raise UppslagMisslyckades("svaret saknar slapvagnsvikt_kg", **meta)
 
 
@@ -557,7 +605,10 @@ def _kontrollera(svar: object) -> Uppslag:
     # **HÄMTAS FÖRE NYCKELLAGREN, eftersom det är DE som kastar.** Varje kast
     # nedan ska bära läget, annars kan härkomstraden bara säga att något gick
     # fel och inte vad.
-    meta = {"dragviktslage": svar.get("_dragviktslage")}
+    # SKIVA 74. `gav_data` är sant när hämtningen lämnade minst ett läsbart
+    # fordonsfält, också när ett av lagren nedan fäller uppslaget.
+    meta = {"dragviktslage": svar.get(META_DRAGVIKT),
+            "gav_data": any(_bar_nyckel(svar, n) for n in LASBARA_FALT)}
 
     _krav_pa_tjanstevikt(svar, meta)
     _krav_pa_slapvagnsvikt(svar, meta)
@@ -572,7 +623,13 @@ def _kontrollera(svar: object) -> Uppslag:
         totalvikt_kg=svar.get("totalvikt_kg"),
         arsmodell=svar.get("arsmodell"),
         status=svar.get("status"),
+        dragviktslage=svar.get(META_DRAGVIKT),
     )
+
+
+# FORDONSFÄLTEN SOM RÄKNAS SOM LÄSBAR DATA för `UppslagMisslyckades.gav_data`.
+LASBARA_FALT = ("tjanstevikt_kg", "slapvagnsvikt_kg", "draganordning", "kaross",
+                "fyrhjulsdrift", "totalvikt_kg", "arsmodell", "status")
 
 
 def slag_upp(

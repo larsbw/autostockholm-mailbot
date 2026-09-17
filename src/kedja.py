@@ -204,6 +204,10 @@ class Steg:
     # `docs/beslutslogg.md` #93.
     dragviktslage: str | None = None
 
+    # SKIVA 74. Sant för ett misslyckat uppslag där hämtningen ändå lämnade
+    # läsbara fält. Går till `Forfragan.uppslag_gav_data`, inte till loggen.
+    gav_data: bool = False
+
 
 @dataclass(frozen=True)
 class Kedjeutfall:
@@ -270,7 +274,9 @@ def _uppslagssteg(
 
     **TVÅ SORTERS MISSLYCKANDE, och de leder olika vägar.** Ett fordon utan
     uppgifter ger `uppslag=None` och kedjan fortsätter: generatorn har ett eget
-    läge för det, och svaret säger att vi inte kunnat slå upp bilen. En källa som
+    läge för det. Lämnade hämtningen läsbara fält säger svaret sedan skiva 74
+    att vi slagit upp bilen men inte kan bedöma den, annars att vi inte kunnat
+    slå upp den. En källa som
     KASTAR något annat blir `Kallfel` och stoppar kedjan, eftersom vi då inte vet
     om bilen duger eller inte.
     """
@@ -290,7 +296,8 @@ def _uppslagssteg(
         # Lars beslut i skiva 41, VÄG TRE på lucka 50. Steget bär läget för
         # HÄRKOMSTRADENS skull och för ingenting annat.
         return None, None, Steg("uppslag", "misslyckades", str(fel),
-                                dragviktslage=fel.dragviktslage)
+                                dragviktslage=fel.dragviktslage,
+                                gav_data=fel.gav_data)
     except Exception as fel:  # noqa: BLE001
         raise Kallfel(type(fel).__name__, str(fel)) from fel
 
@@ -329,13 +336,20 @@ def _lyckadetalj(uppslag: Uppslag, utfall: Utfall) -> str:
     är gitignorerad, men en detaljsträng som växer med fordonsdata är en
     persondataväg som ingen bett om. §6.
     """
+    # SKIVA 74. I det delvis lyckade läget bär registret en släpviktsform, bara
+    # inte den bromsade. "Registret bar ingen släpvagnsvikt" vore då fel.
+    delvis = uppslag.bromsad_slapvikt_i_annan_form
     saknade = [ord_ for nyckel, ord_ in _GATANDE_FALT.items()
-               if getattr(uppslag, nyckel) is None]
+               if getattr(uppslag, nyckel) is None
+               and not (delvis and nyckel == "slapvagnsvikt_kg")]
 
-    if not saknade:
-        return utfall.value
-
-    return f"{utfall.value}, registret bar ingen {' och ingen '.join(saknade)}"
+    delar = [utfall.value]
+    if saknade:
+        delar.append(f"registret bar ingen {' och ingen '.join(saknade)}")
+    if delvis:
+        delar.append("DELVIS: sidan bär ingen bromsad släpvagnsvikt men en "
+                     "annan släpviktsform, eller en etikett vi inte känner")
+    return ", ".join(delar)
 
 
 def kor(
@@ -512,6 +526,8 @@ def kor(
         # SKIVA 41. Mängden kommer ur ett AVLÄST VÄRDE och ingenting annat.
         # Hoppades uppslaget över, eller misslyckades det, är den tom.
         franvaro_far_pastas=franvaro_far_pastas,
+        # SKIVA 74. Ett fällt uppslag som ändå läste bilen.
+        uppslag_gav_data=uppslagssteg.gav_data,
         efterslap=(nu is not None and not arende.besvarad
                    and ar_efterslapande(arende.tidsstampel, nu)),
     )
@@ -635,8 +651,13 @@ def uppslagskalla(arende: Arende, utfall: Kedjeutfall, *, skarp: bool) -> str:
         # Lars order i skiva 40. Tre lägen såg likadana ut här, och två av dem
         # är inte fel: att registret inte bär uppgiften är ett faktum om bilen,
         # inte om vår kod.
+        #
+        # **BARA `TOLKAS_EJ` FÄLLER SJÄLV SEDAN SKIVA 74.** Ett fällt uppslag i
+        # läget "registret saknar" eller "annan form" föll av ett annat skäl,
+        # och då är det skälet raden ska visa. Fällt av §7-granskningen av
+        # skiva 74.
         lage = _DRAGVIKTSTEXT.get(steg.dragviktslage)
-        if lage:
+        if lage and steg.dragviktslage == biluppgifter.Dragviktslage.TOLKAS_EJ.value:
             return f"Uppslag mot {kalla}: {lage} Vikter i utkastet saknar källa."
 
         return (

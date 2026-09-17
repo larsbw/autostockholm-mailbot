@@ -8231,6 +8231,54 @@ inte tolkar kanalen, och formuleringarna ovan. Kvar och utskrivet:
   Gmail-steget hoppar över dem. Regeln breddar ett beteende som fanns.
 
 
+## #137 — Skiva 74: ett delvis lyckat uppslag är inget misslyckat uppslag
+
+**Datum:** 2026-09-17 · **Berör:** `src/fordonsuppslag.py`, `src/kedja.py`,
+`src/generera.py`, `docs/sparrar.md` · **Ändrar:** skiva 55:s andra belägg i
+`_krav_pa_slapvagnsvikt`
+
+### LARS BESLUT: VÄG 2 UR SKIVA 71
+
+Ett andra fordon med samma form som i skiva 71: draganordning Nej,
+tjänstevikt under tröskeln, bara obromsad släpvagnsvikt på sidan. Uppslaget
+föll, och utkastet sade att vi inte lyckats slå upp bilen. Det var falskt.
+
+- **Eget läge.** När den bromsade släpvagnsvikten saknas och sidan bär en annan
+  släpviktsform lyckas uppslaget med den bromsade tom, och läget står i
+  `Uppslag.dragviktslage`. `Uppslag.bromsad_slapvikt_i_annan_form` säger det.
+- **Bedömningen.** Under 2 000 kg tjänstevikt ger `ar_lamplig_som_dragfordon`
+  None och `utvardera` OKLART. Över det är bilen lämplig på tjänstevikten, och
+  en avläst draganordning Nej ger ett ja med krok, fällt fram av §7-granskningen.
+  `kraver_barlastflak` beräknas ur fyrhjulsdrift och tjänstevikt. Ett avläst
+  `Draganordning: Nej` får sägas som förut.
+- **Texten.** Generatorn får Lars formulering: vi kan se att draganordning
+  saknas, men kan inte avgöra om bilen i övrigt uppfyller kraven utan mer
+  information.
+- **Förbudet.** Spärren `uppslag-sags-misslyckat` fäller meningen när
+  uppslaget gav läsbar data, också när uppslaget föll av ett annat skäl.
+  `UppslagMisslyckades.gav_data` bär det skälet till prompten, som då säger
+  att vi slagit upp bilen men inte kan bedöma den.
+
+**PRISET.** En omdöpt `Släpvagnsvikt`-etikett ser nu ut som det delvis
+lyckade läget. Riktningen är den säkra, se spärrposten.
+
+### §7
+
+En omgång. Rättat: en tung bil i delvis läge fick "kan inte avgöra", för smalt
+mönster i spärren, härkomstraden visade fel skäl för ett uppslag fällt i ett
+läge som inte längre fäller, falska kommentarer, och lager utan test.
+Kvar: `gav_data` blir falskt när `Uppslag.__post_init__` fäller ett värde,
+vilket parsern i praktiken förhindrar. En sida som hittas men inte ger ett enda
+fält ger fortfarande "vi har inte kunnat slå upp bilen". Motsvarande tunga bil
+i läget "registret saknar" får fortfarande "kan inte avgöra".
+
+### KÖRNINGEN SOM STOPPADES
+
+Körningen över 19 av de 20 obesvarade formulärtrådarna stoppades efter 13
+ärenden, mellan två ärenden. Den hann skapa 8 Gmail-utkast. Ett av dem bär
+felet.
+
+
 ## Appendix — versionshistorik (nyaste överst)
 
 ### 0.85.0 — 2026-09-16

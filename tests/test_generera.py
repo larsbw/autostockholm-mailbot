@@ -2206,6 +2206,10 @@ def test_forfattningsord_utan_troskeln_slapps_igenom():
         # ingen annan spärr rapportera raden.
         ("Ursäkta att det dröjt i två veckor.", "drojsmalets-langd",
          forfragan()),
+        # SKIVA 74. Varken tal, fordonsord eller prisord, alltså kan ingen annan
+        # spärr rapportera raden.
+        ("Tyvärr har vi inte kunnat slå upp den.", "uppslag-sags-misslyckat",
+         forfragan(uppslag_gav_data=True)),
     ],
 )
 def test_krav_pa_svaret_anropar_sparrarna_i_tabellen(svar, sparr, fall):
@@ -4804,3 +4808,173 @@ def test_underlaget_BAR_barlastraden():
     )
 
     assert "BARLASTFLAK:" in text
+
+
+# ---------------------------------------- SKIVA 74: delvis lyckat uppslag
+
+# Ett fordon av den form Lars fann två gånger: tjänstevikt under tröskeln,
+# draganordning Nej, fyrhjulsdrift, och bara en annan släpviktsform än den
+# bromsade. Talen är påhittade.
+DELVIS = Uppslag(tjanstevikt_kg=1450, slapvagnsvikt_kg=None,
+                 draganordning=False, fyrhjulsdrift=True, kaross="Kombi",
+                 dragviktslage=fordonsuppslag.ANNAN_FORM_DRAGVIKT)
+
+
+def test_ANNAN_FORM_ar_samma_strang_som_biluppgifters():
+    from src import biluppgifter
+    assert (fordonsuppslag.ANNAN_FORM_DRAGVIKT
+            == biluppgifter.Dragviktslage.ANNAN_FORM.value)
+
+
+def test_det_DELVIS_lyckade_uppslaget_bedoms_som_OKLART():
+    """Lars krav: lämpligheten okänd, OKLART, barlastflaket beräknat."""
+    assert DELVIS.bromsad_slapvikt_i_annan_form
+    assert fordonsuppslag.ar_lamplig_som_dragfordon(DELVIS) is None
+    assert fordonsuppslag.utvardera(DELVIS) is Utfall.OKLART
+    assert fordonsuppslag.kraver_barlastflak(DELVIS) is False
+
+
+@pytest.mark.parametrize("draganordning, nej_sags", [(False, True),
+                                                     (None, False)])
+def test_bedomningen_for_ett_DELVIS_uppslag(draganordning, nej_sags):
+    """Ett avläst Nej får sägas; en okänd draganordning får det inte."""
+    uppslag = Uppslag(**{**DELVIS.__dict__, "draganordning": draganordning})
+    text = generera._bedomning(forfragan(uppslag=uppslag))
+
+    assert ("saknar registrerad draganordning" in text) is nej_sags
+    assert "inte kan avgöra" in text
+    assert "ALDRIG att vi inte kunnat slå upp" in text
+    assert "vi har inte kunnat slå upp bilen." not in text
+
+
+@pytest.mark.parametrize("draganordning, vantat_text", [
+    (False, "BILEN DUGER SOM DRAGFORDON"),
+    (None, "vi kan inte avgöra det på uppgifterna vi har."),
+])
+def test_en_TUNG_bil_i_DELVIS_lage_far_inte_osakerhet_om_lampligheten(
+        draganordning, vantat_text):
+    """§7-granskningen av skiva 74. Tjänstevikten uppfyller §42 ensam."""
+    tung = Uppslag(**{**DELVIS.__dict__, "tjanstevikt_kg": 2140,
+                      "draganordning": draganordning})
+    text = generera._bedomning(forfragan(uppslag=tung))
+
+    assert vantat_text in text
+    assert "i övrigt uppfyller kraven" not in text
+
+
+def test_ett_LYDIGT_svar_for_en_TUNG_bil_i_DELVIS_lage_passerar():
+    tung = Uppslag(**{**DELVIS.__dict__, "tjanstevikt_kg": 2140})
+    svar = ("Hej!\n\nBilen duger som dragfordon. Registret säger att bilen "
+            "saknar registrerad draganordning, och den monterar vi.\n\n"
+            "Vänliga hälsningar\nAuto Stockholm")
+    generera.krav_pa_svaret(svar, forfragan(
+        uppslag=tung, franvaro_far_pastas=frozenset({"draganordning"})))
+
+
+def test_DELVIS_egenskapen_kraver_att_den_bromsade_SAKNAS():
+    """§7-granskningen av skiva 74. Ett avläst tal är inget delvis läge."""
+    last = Uppslag(**{**DELVIS.__dict__, "slapvagnsvikt_kg": 1200})
+    annat_lage = Uppslag(**{**DELVIS.__dict__, "dragviktslage":
+                            fordonsuppslag.REGISTRET_SAKNAR_DRAGVIKT})
+
+    assert not last.bromsad_slapvikt_i_annan_form
+    assert not annat_lage.bromsad_slapvikt_i_annan_form
+
+
+def test_underlaget_for_ett_DELVIS_uppslag_ar_inte_INGET():
+    text = generera._underlag(forfragan(uppslag=DELVIS))
+
+    assert "Fordonsuppslag: INGET" not in text
+    assert "tjänstevikt 1450 kg" in text
+    assert "draganordning nej" in text
+    assert "säg ALDRIG att uppslaget misslyckats" in text
+
+
+def test_ett_FALLT_uppslag_som_last_bilen_ar_inte_INGET():
+    fall = forfragan(uppslag=None, utfall=None, uppslag_gav_data=True)
+
+    assert generera.DELVIS_UNDERLAG in generera._underlag(fall)
+    assert generera._bedomning(fall) == generera.DELVIS_BEDOMNING
+
+
+def test_ett_fallt_uppslag_UTAN_data_ar_oforandrat():
+    """Negativkontroll: flaggans förval ändrar ingenting."""
+    fall = forfragan(uppslag=None, utfall=None)
+
+    assert "Fordonsuppslag: INGET" in generera._underlag(fall)
+    assert generera._bedomning(fall) == "vi har inte kunnat slå upp bilen."
+
+
+FALSKA_MISSLYCKANDEN = [
+    "Vi har inte kunnat slå upp bilen i våra register, så vi kan inte säga mer.",
+    "Tyvärr har vi inte lyckats slå upp din bil i registret.",
+    "Vi kunde inte slå upp bilen.",
+    "Uppslaget misslyckades tyvärr.",
+    "Vi har inte kunnat hitta bilen i registret.",
+    # §7-granskningen av skiva 74, en rad per gren.
+    "Vi kunde tyvärr inte slå upp bilen.",
+    "Vi har inte kunnat hitta några uppgifter om bilen.",
+    "Vi har inte kunnat få fram några uppgifter om bilen.",
+    "Vi har inte kunnat hitta er bil.",
+    "Vi har inte kunnat hitta information om bilen.",
+    "Vi har inte kunnat hitta registreringsnumret.",
+    "Vi hittade inte bilen i registret.",
+    "Vi har inte heller kunnat slå upp släpvagnsvikten.",
+    "Sökningen i registret misslyckades.",
+    "Vi har ej kunnat slå upp den.",
+    "Det har inte gått att slå upp fordonet.",
+    "Vi kan inte slå upp den just nu.",
+    "Det gick inte att slå upp bilen.",
+    "Uppslaget har misslyckats.",
+    "Vi misslyckades med att slå upp bilen.",
+    "Vi har inte kunnat hitta fordonet.",
+    "Vi har inte kunnat hitta din bil.",
+]
+
+
+@pytest.mark.parametrize("svar", FALSKA_MISSLYCKANDEN)
+@pytest.mark.parametrize("fall", [
+    pytest.param(dict(uppslag=DELVIS), id="delvis uppslag"),
+    pytest.param(dict(uppslag=GRONT_UPPSLAG, utfall=Utfall.GRONT), id="lyckat"),
+    pytest.param(dict(uppslag=None, utfall=None, uppslag_gav_data=True),
+                 id="fällt men läst"),
+])
+def test_UPPSLAG_SAGS_MISSLYCKAT_falls_nar_bilen_ar_uppslagen(svar, fall):
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_att_uppslaget_inte_sags_misslyckat(
+            svar, forfragan(**fall))
+    assert fel.value.sparr == "uppslag-sags-misslyckat"
+
+
+@pytest.mark.parametrize("svar", FALSKA_MISSLYCKANDEN)
+def test_UPPSLAG_SAGS_MISSLYCKAT_slapper_igenom_nar_inget_lastes(svar):
+    """Negativkontroll: utan uppslag och utan data är raden inte fel här."""
+    generera.krav_pa_att_uppslaget_inte_sags_misslyckat(
+        svar, forfragan(uppslag=None, utfall=None))
+
+
+@pytest.mark.parametrize("svar", [
+    "Vi har inte kunnat hitta en ledig tid den veckan.",
+    "Vi har inte kunnat hitta uppgifter om när delen kommer.",
+    "Vi hittade inte någon tid förrän i juni.",
+    "Bokningen misslyckades inte, den ligger kvar.",
+    "Vi kan se att bilen saknar registrerad draganordning, men vi kan inte "
+    "avgöra om den i övrigt uppfyller kraven utan mer information.",
+    "Vi har slagit upp bilen.",
+])
+def test_UPPSLAG_SAGS_MISSLYCKAT_faller_inte_det_ofarliga(svar):
+    generera.krav_pa_att_uppslaget_inte_sags_misslyckat(
+        svar, forfragan(uppslag=DELVIS))
+
+
+def test_ett_LYDIGT_svar_pa_DELVIS_uppslaget_passerar_alla_sparrar():
+    """Lars formulering, skriven som ett svar, ska inte fällas av någon spärr.
+    En prompt som beställer ett stopptecken är en garanterad falsk fällning."""
+    svar = (
+        "Hej!\n\nVi kan se att bilen saknar registrerad draganordning, men vi "
+        "kan inte avgöra om den i övrigt uppfyller kraven utan mer information. "
+        "Hör gärna av er så tittar vi vidare på det.\n\nVänliga hälsningar\n"
+        "Auto Stockholm"
+    )
+    generera.krav_pa_svaret(svar, forfragan(
+        uppslag=DELVIS, franvaro_far_pastas=frozenset({"draganordning"})))
