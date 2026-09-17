@@ -77,6 +77,11 @@ ROT = Path(__file__).resolve().parent.parent
 # den modulen.
 KORNINGSLOGG = sokvagar.KORNINGSLOGG
 
+# TOKENFILERNA RESPOND BEHÖVER, skiva 72. Namnen är `src/auth.py`:s och står
+# här som text, eftersom schemat inte importerar Gmail-vägen.
+# `test_schemats_tokennamn_ar_AUTHS` binder att de inte glider isär.
+TOKENFILER = ("token-las.json", "token-skriv.json")
+
 # NÄR PÅ DYGNET, i UTC. Railways scheman är UTC och det är också den här
 # slingans klocka.
 #
@@ -209,6 +214,12 @@ def slinga(sov=None, nu_funktion=None, varv: int | None = None) -> None:
 
     print(f"[dagligen] schema {TIMME_UTC:02d}:{MINUT_UTC:02d} UTC, "
           f"logg {KORNINGSLOGG}", flush=True)
+    # SKIVA 72. Utan vyn är det här raden som visar att körningen kan läsa och
+    # skriva utkast. Bara om filen finns, aldrig innehållet.
+    for namn in TOKENFILER:
+        fil = sokvagar.HEMLIGHETER / namn
+        print(f"[dagligen] {fil}: {'finns' if fil.is_file() else 'SAKNAS'}",
+              flush=True)
 
     kvar = varv
     while kvar is None or kvar > 0:

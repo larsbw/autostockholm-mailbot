@@ -1,42 +1,24 @@
 #!/bin/sh
-# STARTKOMMANDOT PÅ RAILWAY. Schemat i bakgrunden, vyn i förgrunden.
+# STARTKOMMANDOT PÅ RAILWAY. Bara schemat, i förgrunden.
 #
-# **VARFÖR BÅDA I SAMMA CONTAINER.** Avläst ur docs.railway.com 2026-09-15:
+# **SKIVA 72, LARS BESLUT: VYN ÄR INTE LÄNGRE EN DEL AV FLÖDET.** Den dagliga
+# körningen skapar Gmail-utkast själv, och Lars läser och skickar dem i Gmail.
+# Här startades förut `scripts/serva.py` i förgrunden och exponerades utåt.
+# Den startas inte längre. Koden står kvar för felsökning lokalt:
+# `scripts/serva.py --lokalt` eller `scripts/kor-vy.py`.
 #
-#   "Each service can only have a single volume attached"
-#   Railways cron kör en services STARTKOMMANDO på schema.
-#   "If you see that a previous execution of your Cron service has a status of
-#    Active, the execution is still running and any new executions will not be
-#    run."
+# **SCHEMAT ÄR NU PID 1**, och en känd lucka stängs med det: dör schemat dör
+# containern, och Railway startar om den. Förut levde containern vidare på
+# vyn medan schemat var dött, `docs/beslutslogg.md` #119.
 #
-# Den sista raden är den som avgör: en service vars startkommando är en
-# webbserver avslutas aldrig, alltså är den permanent Active, alltså kör cron
-# ALDRIG. Inte "ibland" och inte "opålitligt" — aldrig.
-#
-# Vyn läser `data/granskningsfall.jsonl` och den dagliga körningen skriver den,
-# alltså måste de dela katalog. Med ett volume per service betyder det samma
-# service, och då kan den servicens cron inte användas. Schemat ligger därför i
-# containern.
-#
-# *Här stod att ett volume inte KAN DELAS mellan två services, som en avläsning.
-# Det står ingenstans i dokumentationen; det som står är att en service bara kan
-# ha ETT volume. Slutsatsen är densamma men premissen var påhittad. Fällt av
-# §7-granskningen av skiva 53.*
-#
-# **VYN KÖR I FÖRGRUNDEN, och det är avsiktligt.** Railway mäter om containern
-# lever på förgrundsprocessen. Dör vyn ska containern dö och startas om. Dör
-# schemat gör den inte det, och DET ÄR EN KÄND LUCKA: se `docs/beslutslogg.md`
-# #119 och DEL C i skivans rapport. En krasch i schemat syns i loggen och
-# ingenstans annars.
+# **VARFÖR INTE RAILWAYS CRON.** Oförändrat skäl, avläst ur docs.railway.com
+# 2026-09-15: Railways cron kör en services STARTKOMMANDO på schema, och
+# volymen, som bär `logg/omdomen.jsonl` och tokenen, sitter på den här
+# servicen. Slingan i `scripts/dagligen.py` sover till nästa körning.
 
 set -eu
 
-echo "[start] $(date -u +%Y-%m-%dT%H:%M:%SZ) startar schema och vy"
+echo "[start] $(date -u +%Y-%m-%dT%H:%M:%SZ) startar schemat, ingen vy"
 
-python scripts/dagligen.py &
-SCHEMA=$!
-echo "[start] schemat kör som pid $SCHEMA"
-
-# `exec` gör vyn till pid 1, så att Railways stoppsignal når den direkt i
-# stället för att fastna i det här skalet.
-exec python scripts/serva.py
+# `exec` gör schemat till pid 1, så att Railways stoppsignal når det direkt.
+exec python scripts/dagligen.py

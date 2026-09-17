@@ -32,6 +32,6 @@ ENV MAILBOT_DATA=/volym/data \
     MAILBOT_LOGG=/volym/logg \
     MAILBOT_HEMLIGHETER=/volym/hemligheter
 
-# Startkommandot: schemat i bakgrunden, vyn i förgrunden. Se `start.sh` för
-# varför de ligger i samma container.
+# Startkommandot: bara schemat, sedan skiva 72. Vyn startas inte. Se
+# `start.sh`.
 CMD ["./start.sh"]

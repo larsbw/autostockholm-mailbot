@@ -688,6 +688,37 @@ def test_en_LYCKAD_korning_loggas_som_lyckad(tmp_path, monkeypatch):
     )["lyckades"] is True
 
 
+def test_schemats_tokennamn_ar_AUTHS():
+    """Skiva 72. Startraden ska tala om rätt filer."""
+    from src import auth
+    assert set(_dagligen().TOKENFILER) == {auth.LASTOKEN.name,
+                                           auth.SKRIVTOKEN.name}
+
+
+def test_schemat_SKRIVER_UT_om_tokenfilerna_finns(tmp_path, monkeypatch,
+                                                  capsys):
+    """Skiva 72. Utan vyn är startraden beviset i Railways logg."""
+    d = _dagligen()
+    monkeypatch.setattr(d.sokvagar, "HEMLIGHETER", tmp_path)
+    (tmp_path / "token-skriv.json").write_text("{}", encoding="utf-8")
+
+    d.slinga(varv=0)
+
+    ut = capsys.readouterr().out
+    assert f"{tmp_path / 'token-skriv.json'}: finns" in ut
+    assert f"{tmp_path / 'token-las.json'}: SAKNAS" in ut
+    assert "{}" not in ut
+
+
+def test_containern_startar_SCHEMAT_och_INGEN_vy():
+    """Skiva 72, Lars beslut: vyn är inte en del av flödet och exponeras inte."""
+    kod = [r for r in (ROT / "start.sh").read_text(encoding="utf-8").splitlines()
+           if r.strip() and not r.lstrip().startswith("#")]
+
+    assert "exec python scripts/dagligen.py" in kod
+    assert not any("serva.py" in r or "kor-vy.py" in r for r in kod)
+
+
 # --------------------------------------------------------- AVBILDEN, §6
 
 

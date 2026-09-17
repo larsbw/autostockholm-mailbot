@@ -8161,6 +8161,23 @@ och Matte trycker skicka.
   UTC, och inget svar var skickat.
 
 
+## #135 — Skiva 72: vyn startas inte längre i drift
+
+**Datum:** 2026-09-17 · **Berör:** `start.sh`, `Dockerfile`,
+`scripts/dagligen.py`
+
+**Lars beslut.** Vyn är inte en del av flödet. Den dagliga körningen skapar
+Gmail-utkast, och Lars läser och skickar dem i Gmail.
+
+- `start.sh` startar bara `scripts/dagligen.py`, som pid 1. `scripts/serva.py`
+  startas inte och exponeras inte. Koden står kvar för lokal felsökning.
+- Schemat som pid 1 stänger #119:s lucka: dör schemat dör containern.
+- Vid start skriver schemat ut om `token-las.json` och `token-skriv.json`
+  finns i hemlighetskatalogen, aldrig innehållet.
+- Har servicen en publik domän eller en HTTP-hälsokontroll i Railways
+  gränssnitt ska de tas bort där. Det är inte gjort härifrån.
+
+
 ## Appendix — versionshistorik (nyaste överst)
 
 ### 0.85.0 — 2026-09-16
