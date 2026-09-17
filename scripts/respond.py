@@ -646,7 +646,7 @@ def _starta_vyn(port: int, fall: list) -> None:
         server.server_close()
 
 
-def _kallan(arg) -> tuple[str, list[dict]]:
+def _kallan(arg, nu: datetime) -> tuple[str, list[dict]]:
     """`(vad källan var, trådarna)`. **BÅDA UR SAMMA UTTRYCK.**
 
     Texten skrivs ut ovanför utkasten, alltså är den ett påstående om var
@@ -668,10 +668,14 @@ def _kallan(arg) -> tuple[str, list[dict]]:
           f"{' '.join(inkorg.LASSCOPES)} och kan inte skicka.")
     print("SPÄRR lager 2: tjänsten släpper bara igenom läsvägarna.")
 
-    tradar, forbrukning = inkorg.dagens_tradar(tjanst, utfil=arg.skord)
+    # `nu` ÄR KÖRNINGENS START och inte tiden efter hämtningen, som varierar
+    # med antalet trådar. Annars möts inte två dagars fönster. Fällt av
+    # §7-granskningen av lucka 84.
+    tradar, forbrukning = inkorg.dagens_tradar(tjanst, utfil=arg.skord, nu=nu)
     print(f"Gmail: {forbrukning.tradar} trådar hämtade, "
           f"{forbrukning.anrop} anrop, {forbrukning.enheter} kvotenheter.")
-    return (f"info@autostockholm.se, dygnet i {inkorg.TIDSZON}, "
+    timmar = int(inkorg.FONSTER.total_seconds() // 3600)
+    return (f"info@autostockholm.se, de {timmar} timmarna före körningen, "
             f"fråga {inkorg.FRAGA!r}"), tradar
 
 
@@ -693,7 +697,10 @@ def _kor(arg) -> int:
     exempel = generera.las_exempel()
     domaner = klassa_maskin.las_domaner(klassa_maskin.DOMANFIL)
 
-    kalltext, tradar = _kallan(arg)
+    # ETT `nu` PER KÖRNING, taget före hämtningen. Samma värde drar
+    # fönstrets gräns och räknar ärendenas ålder.
+    nu = datetime.now(timezone.utc)
+    kalltext, tradar = _kallan(arg, nu)
 
     korning = Korning()
     arenden: list[Arende] = []
@@ -769,7 +776,7 @@ def _kor(arg) -> int:
             exempel=exempel,
             skarp=skarp,
             korning=korning,
-            nu=datetime.now(timezone.utc),
+            nu=nu,
             svarsvagar=svarsvagar,
             skapa_utkast=skapa_utkast,
             stoppa_vid_kallfel=arg.stoppa_vid_kallfel,

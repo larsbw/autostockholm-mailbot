@@ -6340,14 +6340,37 @@ blir röd den dag det ändras.
 
 ## LUCKA UTAN SPÄRR: `dagliga_korningen_ser_bara_dygnets_forsta_timmar`
 
-**LUCKA 84, ÖPPEN. Fälld fram av §7-granskningen av skiva 69. Kräver Lars
+**LUCKA 84, STÄNGD I SKIVA 69, Lars beslut.** Fälld fram av §7-granskningen av
+skiva 69. Se `docs/beslutslogg.md` #133.
+
+`scripts/dagligen.py` kör 05:10 UTC. Gränsen var dygnet som pågick när
+körningen startade, i Europe/Stockholm, och ett kundmail som kom efter
+körningen låg utanför nästa dags dygn. Nu är gränsen de 24 timmarna före
+körningen, `inkorg.fonstrets_granser`.
+
+- **Spärr.** `FONSTER` och avrundningen till hel minut i `fonstrets_granser`,
+  och anropet i `dagens_tradar`.
+- **Negativkontroll.** `tests/test_inkorg.py::test_GARDAGENS_EFTERMIDDAG_ligger_i_morgonens_fonster`,
+  `test_TVA_KORNINGAR_i_rad_moter_varandra_UTAN_GLAPP` och
+  `test_dagens_tradar_ANVANDER_fonstret`. Varje rad fälld för sig: RÖD.
+- **Kvar.** Fönstret följer klockan och inte den senaste lyckade körningen.
+  Ett dygn blir obehandlat om körningen uteblir, eller om den hämtar men dör
+  innan ärendena körts: ett undantag, timeouten efter 45 minuter, eller en
+  saknad skrivtoken för utkasten. En körning som startar en minut senare än
+  dagen före lämnar en minuts glapp.
+
+---
+
+## LUCKA UTAN SPÄRR: `taket_pa_tjugo_tappar_arenden_tyst`
+
+**LUCKA 86, ÖPPEN. Fälld fram av §7-granskningen av lucka 84. Kräver Lars
 beslut.**
 
-`scripts/dagligen.py` kör 05:10 UTC. `respond._kallan` anropar
-`inkorg.dagens_tradar` utan `nu`, alltså är dygnet det som pågår när körningen
-startar, i Europe/Stockholm. Ett kundmail som kommer efter körningen ligger
-utanför nästa dags dygn och behandlas aldrig av den dagliga körningen. Läst ur
-koden, inte mätt i drift.
+`scripts/dagligen.py::ANTAL` är 20, och `respond._kor` slutar ta ärenden vid
+taket. Med 24 timmar bakåt kommer ärenden efter taket aldrig tillbaka.
+Simulerat i skiva 69 över backfillens skörd, 61 körningar: flest ärendetrådar
+i en körning var 20, alltså exakt taket. Trådarna är räknade i sitt läge vid
+hämtningen, inte som de såg ut vid varje simulerad körning.
 
 ---
 

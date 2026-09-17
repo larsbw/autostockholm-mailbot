@@ -194,8 +194,8 @@ def test_mine_kan_kora_hela_vagen_genom_den_kapade_tjansten():
 # ----------------------------------------------------------- DYGNSGRÄNSEN
 
 
-def _nu(ar=2026, manad=9, dag=15, timme=12):
-    return datetime(ar, manad, dag, timme, tzinfo=inkorg.TIDSZON)
+def _nu(ar=2026, manad=9, dag=15, timme=12, minut=0):
+    return datetime(ar, manad, dag, timme, minut, tzinfo=timezone.utc)
 
 
 def _ms(dt: datetime) -> str:
@@ -207,23 +207,30 @@ def _medd(dt: datetime, *, sent=False, etiketter=None) -> dict:
             "labelIds": list(etiketter or (["SENT"] if sent else ["INBOX"]))}
 
 
-def test_dygnet_ar_EUROPE_STOCKHOLMS_och_inte_UTC():
-    """Dygnet Lars menar är hans, inte serverns.
+def test_GARDAGENS_EFTERMIDDAG_ligger_i_morgonens_fonster():
+    """LUCKA 84. Körningen går 05:10 UTC. Ett mail i går 14:00 låg utanför
+    dygnet den körningen såg, och utanför nästa också."""
+    korning = _nu(dag=15, timme=5, minut=10)
+    borjan, slut = inkorg.fonstrets_granser(korning)
 
-    Klockan 01:00 svensk tid den 15:e är 23:00 UTC den 14:e. Ett dygn räknat i
-    UTC hade lagt just det mailet på fel dag, och i skuggläget syns det som ett
-    ärende som aldrig kom in.
-    """
-    borjan, slut = inkorg.dygnets_granser(_nu())
+    assert borjan <= int(_ms(_nu(dag=14, timme=14))) < slut
+    assert borjan <= int(_ms(_nu(dag=14, timme=5, minut=10))) < slut
+    assert not borjan <= int(_ms(_nu(dag=14, timme=5, minut=9))) < slut
 
-    tidigt = datetime(2026, 9, 15, 1, 0, tzinfo=inkorg.TIDSZON)
-    assert borjan <= int(_ms(tidigt)) < slut
-    assert tidigt.astimezone(timezone.utc).day == 14
+
+def test_TVA_KORNINGAR_i_rad_moter_varandra_UTAN_GLAPP():
+    """Slutet avrundas till hel minut: sekunderna körningen startar på spelar
+    ingen roll."""
+    igar = _nu(dag=14, timme=5, minut=10).replace(second=3)
+    idag = _nu(dag=15, timme=5, minut=10).replace(second=41)
+
+    assert inkorg.fonstrets_granser(igar)[1] == \
+        inkorg.fonstrets_granser(idag)[0]
 
 
 def test_slutet_ar_EXKLUSIVT():
     """Nästa dygns första millisekund hör till nästa dygn."""
-    borjan, slut = inkorg.dygnets_granser(_nu())
+    borjan, slut = inkorg.fonstrets_granser(_nu())
 
     assert not inkorg._ar_fran_dagen({"internalDate": str(slut)},
                                      (borjan, slut))
@@ -233,7 +240,7 @@ def test_slutet_ar_EXKLUSIVT():
 
 def test_ett_meddelande_UTAN_internalDate_raknas_inte_som_dagens():
     """Att gissa åt andra hållet hade tagit in varje odaterat mail varje dag."""
-    granser = inkorg.dygnets_granser(_nu())
+    granser = inkorg.fonstrets_granser(_nu())
 
     assert not inkorg._ar_fran_dagen({}, granser)
     assert not inkorg._ar_fran_dagen({"internalDate": ""}, granser)
@@ -246,7 +253,7 @@ def test_en_trad_vars_enda_dagsfarska_meddelande_ar_VART_SVAR_tas_inte_med():
     kundmail är från i förrgår och vars enda färska meddelande är vårt eget svar
     är inget nytt ärende.
     """
-    granser = inkorg.dygnets_granser(_nu())
+    granser = inkorg.fonstrets_granser(_nu())
     igar = _nu(dag=13)
 
     bara_vart_svar = {"id": "t1", "messages": [
@@ -266,7 +273,7 @@ def test_SPAM_och_TRASH_sallas_i_var_kod():
     Etiketterna står i meddelandet, alltså prövas de här i stället för att
     förutsättas.
     """
-    granser = inkorg.dygnets_granser(_nu())
+    granser = inkorg.fonstrets_granser(_nu())
     nu = _nu(timme=9)
 
     skrap = {"id": "t1", "messages": [_medd(nu, etiketter=["SPAM"])]}
@@ -295,7 +302,7 @@ def test_gmailfragan_ar_ett_GROVT_NAT_och_vidare_an_dygnet():
 def test_webbformularets_NOTIS_ar_ett_dagsfarskt_arende():
     """Skiva 69. Notisen bär `SENT` men har passerat inkommande leverans.
     Dygnsfiltret krävde att `SENT` saknades och fällde varje sådan tråd."""
-    granser = inkorg.dygnets_granser(_nu())
+    granser = inkorg.fonstrets_granser(_nu())
     notis = _medd(_nu(timme=9), sent=True)
     notis["payload"] = {"headers": [{"name": "Delivered-To", "value": ""}]}
 
@@ -729,9 +736,28 @@ def test_KAND_LUCKA_ett_svar_bara_i_Bcc_ser_obesvarat_ut():
     assert _besvarad(inkorg.gallra_trad(trad)) is False
 
 
+def test_dagens_tradar_ANVANDER_fonstret(tmp_path):
+    """Lucka 84, prövat genom hämtningen och inte bara genom gränsfunktionen."""
+    i_gar = _kundmail()
+    i_gar["internalDate"] = _ms(_nu(dag=14, timme=14))
+    for_gammal = _kundmail()
+    for_gammal["internalDate"] = _ms(_nu(dag=13, timme=14))
+    tjanst = fejk.FejkGmail(
+        sidor={None: {"threads": [{"id": "ny"}, {"id": "gammal"}]}},
+        tradar={"ny": _trad([i_gar], "ny"),
+                "gammal": _trad([for_gammal], "gammal")},
+    )
+
+    tradar, _ = inkorg.dagens_tradar(
+        inkorg.Lastjanst(tjanst), utfil=tmp_path / "skord.jsonl",
+        nu=_nu(dag=15, timme=5, minut=10))
+
+    assert [t["id"] for t in tradar] == ["ny"]
+
+
 def test_gallringen_andrar_inte_DYGNSGRANSEN():
     """`labelIds` och `internalDate` bär urvalet och måste överleva."""
-    granser = inkorg.dygnets_granser(_nu(dag=15))
+    granser = inkorg.fonstrets_granser(_nu(dag=15))
     dagens = _kundmail()
     dagens["internalDate"] = _ms(_nu(dag=15, timme=9))
     gammalt = _kundmail()
@@ -746,7 +772,7 @@ def test_gallringen_andrar_inte_DYGNSGRANSEN():
 
 
 def test_SPAM_och_TRASH_overlever_gallringen():
-    granser = inkorg.dygnets_granser(_nu(dag=15))
+    granser = inkorg.fonstrets_granser(_nu(dag=15))
     skrap = _kundmail(etiketter=["SPAM"])
     skrap["internalDate"] = _ms(_nu(dag=15, timme=9))
 

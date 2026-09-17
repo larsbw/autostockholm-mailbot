@@ -8043,6 +8043,62 @@ rader utan test. Registrerat utan kod: lucka 84, den dagliga körningens
 dygnsfönster, som kräver Lars beslut, och lucka 85.
 
 
+## #133 — Skiva 69, forts.: den dagliga körningen ser 24 timmar bakåt
+
+**Datum:** 2026-09-17 · **Berör:** `src/inkorg.py`, `scripts/respond.py`, och
+§3 dokumenterar `scripts/persondatakontroll.py` som redan är ändrad i samma
+skivas första commit · **Stänger:** lucka 84
+
+### 1. LARS BESLUT
+
+Lucka 84 byggs innan backfillen körs. Frågan ska täcka hela föregående dygn.
+Skäl, Lars ord: boten missar sin egen huvudkanal på tid, samma klass fel som
+formulärnotiserna var på avsändare.
+
+Byggt som de 24 timmarna före körningen, med slutet avrundat nedåt till hel
+minut. Två körningar 05:10 möts då utan glapp och utan överlapp.
+
+### 2. MÄTT
+
+Simulerat över backfillens skörd, en körning 05:10 UTC per dag i 61 dagar,
+varje fönster kapat vid körningens start:
+
+| | gammalt dygn | 24 timmar |
+| --- | --- | --- |
+| ärendetrådar, unika | 35 | 414 |
+| kundmail i ärendetrådar som aldrig låg i ett fönster, av 519 | 483 | 0 |
+| samma tråd i två körningar i följd | 0 | 15 |
+
+Den sista raden är dubbletterna: kunden skrev i båda fönstren. En sådan tråd
+körs genom kedjan igen. Har den fått ett Gmail-utkast får den inget till,
+`vy.lagg_gmailutkast` vägrar på loggen.
+`test_TVA_DAGLIGA_KORNINGAR_i_samma_trad_ger_ETT_utkast` binder det.
+
+**KUNDENS UPPFÖLJNING BLIR DÄRMED UTAN UTKAST**, också via vyns knapp, och
+posten syns i vyn en gång till. Utkastet svarar på trådens första kundmail,
+alltså hade ett andra utkast svarat på samma text igen. Hos Lars.
+
+Siffrorna ovan kommer ur en simulering där varje körning startar på samma
+sekund, så nollan för 24 timmar är given av konstruktionen. Fönstret dras nu
+från körningens start, före Gmail-hämtningen: §7-granskningen fann att det
+räknades efter hämtningen, vars längd varierar mellan dagarna.
+
+### 4. §7
+
+En omgång. Rättat: fönstrets `nu` tas vid körningens start, två falska
+docstringar, lucka 84:s kvarrad, rubriken ovan. Kvar hos Lars: lucka 86, taket
+på 20 ärenden, och uppföljningen i §2. Kantfall utan kod: undantaget i
+`persondatakontroll.py` godtar koden också när den står bruten över ett
+radslut i en fil som bär kommentaren, samma svaghet som adressposten har.
+
+### 3. PERSONDATAKONTROLLEN
+
+Lars beslut: Ruffs regelkod för en för bred except står i `TILLATNA`, som hela
+noqa-kommentaren, så att koden bara godtas på en rad som bär kommentaren.
+Skälkommentaren beskriver koden i stället för att skriva ut den, Lars beslut
+efter att spärren fällt den första lydelsen.
+
+
 ## Appendix — versionshistorik (nyaste överst)
 
 ### 0.85.0 — 2026-09-16

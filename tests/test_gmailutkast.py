@@ -763,6 +763,22 @@ def test_en_trad_med_ETT_FORSOK_far_inget_andra_i_slingan(katalog):
     assert spion.poster == []
 
 
+def test_TVA_DAGLIGA_KORNINGAR_i_samma_trad_ger_ETT_utkast(katalog):
+    """Lucka 84: en tråd där kunden skrivit två dagar i rad kommer med i två
+    körningar. Den andra får inget nytt utkast, fast kunden skrivit igen.
+    Ärendet är detsamma i båda, eftersom texten är trådens första kundmail."""
+    spion = Spion()
+    arende = respond.Arende(text="Hej ABC12X", regnr="ABC12X")
+    forsta = _slinga(katalog, [arende], SVAR, spion)
+    andra = _slinga(katalog, [arende], SVAR, spion)
+
+    assert forsta.gmail_skapade == 1
+    assert andra.gmail_skapade == 0
+    assert andra.gmail_vagrade == 1
+    assert len(spion.poster) == 1
+    assert _utfall(katalog) == [("t-0", "begärt"), ("t-0", "skapat")]
+
+
 def test_utan_funktion_skapas_INGET_utkast(katalog):
     """`--gmailutkast` är ett val. Förvalet rör inte Gmail."""
     korning = respond.Korning(tradar=1)
@@ -845,6 +861,20 @@ def test_CLI_larmar_och_bygger_tjansten_FORE_slingan():
     fangst = i_kor.split("except BaseException")[1][:200]
     assert "vy . spara_granskningsfall" in fangst
     assert "raise" in fangst
+
+
+def test_CLI_tar_ETT_nu_FORE_hamtningen():
+    """§7-granskningen av lucka 84: fönstret räknades efter hämtningen, vars
+    längd varierar, och då möttes inte två dagars fönster."""
+    kod = vy._kod_utan_prosa((ROT / "scripts" / "respond.py")
+                             .read_text(encoding="utf-8"))
+    i_kor = kod.split("def _kor")[1]
+    i_kallan = kod.split("def _kallan")[1].split("def _kor")[0]
+
+    assert i_kor.index("nu = datetime . now") < i_kor.index("_kallan ( arg , nu )")
+    assert "dagens_tradar ( tjanst , utfil = arg . skord , nu = nu )" in i_kallan
+    assert "nu = nu ," in i_kor
+    assert i_kor.count("datetime . now") == 1
 
 
 def test_CLI_lamnar_funktionen_och_stoppet_VIDARE():

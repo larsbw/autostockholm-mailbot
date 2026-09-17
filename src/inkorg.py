@@ -40,9 +40,11 @@ https://support.google.com/mail/answer/7190 . **Sidan säger varken om `after:`
 vilat på en gissning, vilket §1 förbjuder för just Gmail.
 
 Gmail-frågan är därför bara ett GROVT NÄT som håller kvoten nere, och den exakta
-dagsgränsen dras här, mot `internalDate`, som är millisekunder sedan epok och
-inte tolkningsbar. Dygnet är Europe/Stockholms, eftersom det är det dygn Lars
-menar när han säger dagens mail.
+gränsen dras här, mot `internalDate`, som är millisekunder sedan epok och
+inte tolkningsbar. Sedan skiva 69 är gränsen de 24 timmarna före körningen,
+se `fonstrets_granser`.
+
+*Här stod att dygnet är Europe/Stockholms. Det var lucka 84.*
 
 SPAM OCH PAPPERSKORG SÅLLAS I VÅR KOD av samma skäl:
 `users.threads.list`:s `includeSpamTrash` saknar dokumenterat förval på
@@ -70,8 +72,7 @@ den på FÖRE skrivningen, alltså når det som faller aldrig disken.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta, timezone
 
 from src import auth, extract, klassa_maskin, mine, urval
 
@@ -84,11 +85,11 @@ from src import auth, extract, klassa_maskin, mine, urval
 # precis vad det byggdes för: en fjärde modul som drar in en Gmail-väg faller.
 LASSCOPES = auth.LASSCOPES
 
-# Dygnet som avses när Lars säger "dagens mail".
-TIDSZON = ZoneInfo("Europe/Stockholm")
+# HUR LÅNGT BAKÅT EN KÖRNING SER. Lucka 84, se `fonstrets_granser`.
+FONSTER = timedelta(hours=24)
 
 # GROVT NÄT, inte urvalet. `newer_than:2d` och inte `1d` med avsikt: nätet ska
-# vara vidare än dagsgränsen, så att gränsen dras av `_ar_fran_dagen` och aldrig
+# vara vidare än `FONSTER`, så att gränsen dras av `_ar_fran_dagen` och aldrig
 # av en operator vars inklusivitet och tidszon inte går att läsa ut.
 #
 # **INGET `-in:sent` SEDAN SKIVA 69.** Webbformulärets notis bär `SENT`
@@ -200,26 +201,38 @@ def las_tjanst(*, tillat_webblasare: bool = False) -> Lastjanst:
     return Lastjanst(auth.bygg_tjanst(cred))
 
 
-def dygnets_granser(nu: datetime | None = None) -> tuple[int, int]:
-    """(början, slut) för dygnet i Europe/Stockholm, i millisekunder sedan epok.
+def fonstrets_granser(nu: datetime | None = None) -> tuple[int, int]:
+    """(början, slut) för de 24 timmar som slutar vid `nu`, i millisekunder.
 
-    Samma enhet som `internalDate`, så att jämförelsen inte går via någon
-    strängformatering. Slutet är EXKLUSIVT: dygnets sista millisekund hör till
-    dygnet, nästa dygns första gör det inte.
+    **LUCKA 84, LARS BESLUT I SKIVA 69.** Här stod dygnet i Europe/Stockholm.
+    Körningen går 05:10 UTC, alltså såg den bara dygnets första timmar, och
+    ett mail som kom efter körningen låg utanför nästa dags dygn. Simulerat
+    över backfillens skörd, en körning 05:10 UTC per dag i 61 dagar: 483 av
+    519 kundmail i ärendetrådar hamnade aldrig i något fönster. Med 24 timmar
+    bakåt: 0.
+
+    **SLUTET AVRUNDAS NEDÅT TILL HEL MINUT**, så att två körningar som
+    startar 05:10 med några sekunders skillnad möter varandra utan glapp.
+    `nu` ska vara körningens start. En körning som startar en minut senare än
+    dagen före lämnar en minuts glapp, och en som startar tidigare en minuts
+    överlapp.
+
+    Samma enhet som `internalDate`. Slutet är EXKLUSIVT, så ett mail som kommer
+    i körningens minut tas av nästa körning.
 
     `nu` slås upp vid anropet och inte i signaturen, av samma skäl som
     `src/vy.py::_rot` anger.
     """
-    nu = datetime.now(TIDSZON) if nu is None else nu.astimezone(TIDSZON)
-    borjan = nu.replace(hour=0, minute=0, second=0, microsecond=0)
-    slut = borjan + timedelta(days=1)
+    nu = datetime.now(timezone.utc) if nu is None else nu
+    slut = nu.replace(second=0, microsecond=0)
+    borjan = slut - FONSTER
     return int(borjan.timestamp() * 1000), int(slut.timestamp() * 1000)
 
 
 def _ar_fran_dagen(meddelande: dict, granser: tuple[int, int]) -> bool:
-    """Kom meddelandet in under dygnet?
+    """Kom meddelandet in inom `granser`? Namnet är från dygnsgränsens tid.
 
-    Ett meddelande utan `internalDate` räknas INTE som dagens. Att gissa åt
+    Ett meddelande utan `internalDate` räknas INTE som inkommet i fönstret. Att gissa åt
     andra hållet hade tagit in varje odaterat mail i varje körning.
     """
     ra = meddelande.get("internalDate")
@@ -230,7 +243,10 @@ def _ar_fran_dagen(meddelande: dict, granser: tuple[int, int]) -> bool:
 
 
 def tradar_fran_dagen(tradar, *, granser) -> list[dict]:
-    """Trådarna med minst ett INKOMMANDE meddelande från dygnet.
+    """Trådarna med minst ett INKOMMANDE meddelande inom `granser`.
+
+    Namnet är från den tid gränsen var ett dygn. Sedan skiva 69 är den
+    `fonstrets_granser`.
 
     **KRITERIET LIGGER PÅ ETT INKOMMANDE MEDDELANDE och inte på tråden.** En
     tråd vars enda dagsfärska meddelande är vårt eget svar är inget nytt ärende,
@@ -415,12 +431,16 @@ def dagens_tradar(
     **HÄMTNINGEN ÄR `src/mine.py`:s OCH INTE EN ANDRA VÄG TILL GMAIL.** Den bär
     kvotpacingen, backoffen mot 429 och skrivningen via en `.delvis`-fil, och en
     andra hämtare hade behövt hålla takt med den. `mine.mina` tar frågan och
-    skriver trådarna till `utfil`; vi läser dem tillbaka och sållar på dygnet.
+    skriver trådarna till `utfil`; vi läser dem tillbaka och sållar på
+    `fonstrets_granser(nu)`. `nu` ska vara körningens START, se
+    `scripts/respond.py::_kor`.
 
-    **`uteslut` ANVÄNDS INTE HÄR.** Skuggläget kör en gång per dag över dagens
-    mail, och dubbletter hindras av dagsgränsen och inte av en uteslutningsmängd.
-    Den dagen körningen ska hoppa över redan besvarade trådar är `--uteslut`
-    vägen, och den tar en uteslutningsfil, inte en ändring här.
+    **`uteslut` ANVÄNDS INTE HÄR.** Fönstren för två körningar i följd möts
+    utan överlapp, men en tråd där kunden skrivit i båda kommer med i båda.
+    Ett andra Gmail-utkast i den tråden hindras av `vy.gmailutkast_finns`, inte
+    här.
+
+    *Här stod att dubbletter hindras av dagsgränsen. Falskt sedan lucka 84.*
 
     `utfil` har inget förval. Filen bär rå kundtext och hör hemma under `data/`,
     och en tyst standardsökväg i den här modulen hade varit en §6-risk som
@@ -442,4 +462,4 @@ def dagens_tradar(
     # `extract.las_tradar` OCH INGEN EGEN LÄSARE. Repot hade två identiska
     # jsonl-läsare för trådar; en tredje hade varit en till att hålla i takt.
     alla = list(extract.las_tradar(utfil))
-    return tradar_fran_dagen(alla, granser=dygnets_granser(nu)), forbrukning
+    return tradar_fran_dagen(alla, granser=fonstrets_granser(nu)), forbrukning
