@@ -93,14 +93,25 @@ KORNINGSLOGG = sokvagar.KORNINGSLOGG
 TIMME_UTC = 5
 MINUT_UTC = 10
 
-# Hur många ärenden en daglig körning tar. Samma tal som `respond.ANTAL_FORVAL`,
-# skrivet här därför att kommandoraden är den här filens och inte respond:s.
-ANTAL = 20
-
 # TAK FÖR EN KÖRNING. Utan det kan en hängd körning blockera nästa dygn i all
-# oändlighet. 45 minuter är VALT: en körning om 20 ärenden gör högst 20
-# modellanrop och högst 20 uppslag med en sekunds paus.
+# oändlighet. 45 minuter är VALT.
 TIMEOUT_S = 45 * 60
+
+# SEKUNDER ETT ÄRENDE FÅR TA I TAKET NEDAN. Skiva 70, uppmätt ur
+# `logg/beslut.jsonl` mellan två beslutsrader i följd: med uppslagssteg median
+# 7,2 s och p99 33,4 s över 455 ärenden, utan uppslagssteg p99 34,2 s över 31.
+# Uppslagssteget omfattar också ärenden där regnr saknades och ingen hämtning
+# gjordes. 60 är valt över p99. Gmail-hämtningen och uppstarten ligger utanför
+# budgeten; medeltiden per ärende är långt under den.
+SEKUNDER_PER_ARENDE = 60
+
+# HUR MÅNGA ÄRENDEN EN DAGLIG KÖRNING TAR. **LUCKA 86, SKIVA 70.** Här stod 20,
+# valt. Med 24 timmar bakåt kommer ett ärende över taket aldrig tillbaka, så
+# taket är nu det som ryms i `TIMEOUT_S`, alltså körningens egen gräns.
+# Simulerat över backfillens skörd, 61 körningar: flest ärenden i en körning
+# 20, median 8. Når en körning taket skriver respond ut hur många som föll och
+# returnerar 1.
+ANTAL = TIMEOUT_S // SEKUNDER_PER_ARENDE
 
 
 def kommando(antal: int = ANTAL) -> list[str]:

@@ -120,8 +120,16 @@ def ar_kundmeddelande(meddelande: dict) -> bool:
     Formulärnotisen bär `SENT` men har passerat inkommande leverans, och
     innehåller kundens ärende. Att kräva frånvaro av `SENT` uteslöt hela den
     sortens par (beslutslogg #8).
+
+    **ETT GMAIL-UTKAST ÄR INGET KUNDMAIL**, skiva 70. Det bär bara `DRAFT` och
+    föll förut igenom villkoret nedan, alltså daterade vårt eget utkast
+    ärendet och kunde flagga det som inaktuellt. Fällt av §7-granskningen av
+    skiva 70. Uppmätt: noll utkast i miningens två skördar, ett i backfillens.
     """
-    if "SENT" not in (meddelande.get("labelIds") or []):
+    etiketter = meddelande.get("labelIds") or []
+    if "DRAFT" in etiketter:
+        return False
+    if "SENT" not in etiketter:
         return True
     return bool(huvudnamn(meddelande) & LEVERANSHUVUDEN)
 

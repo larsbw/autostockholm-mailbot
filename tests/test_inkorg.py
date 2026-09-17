@@ -267,6 +267,15 @@ def test_en_trad_vars_enda_dagsfarska_meddelande_ar_VART_SVAR_tas_inte_med():
     assert [t["id"] for t in kvar] == ["t2"]
 
 
+def test_ett_UTKAST_i_fonstret_drar_inte_in_traden():
+    """Skiva 70. Vårt eget Gmail-utkast är inget inkommande meddelande."""
+    granser = inkorg.fonstrets_granser(_nu())
+    trad = {"id": "t1", "messages": [
+        _medd(_nu(dag=13)), _medd(_nu(timme=9), etiketter=["DRAFT"])]}
+
+    assert inkorg.tradar_fran_dagen([trad], granser=granser) == []
+
+
 def test_SPAM_och_TRASH_sallas_i_var_kod():
     """`includeSpamTrash` saknar dokumenterat förval, se modulens inledning.
 

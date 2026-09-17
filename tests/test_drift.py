@@ -602,7 +602,21 @@ def test_dagliga_kommandot_bar_INGEN_sandflagga():
     assert "--inkorg" in rad
     # SKIVA 69, Lars beslut: utkasten skapas av den dagliga körningen.
     assert "--gmailutkast" in rad
-    assert rad.endswith("--antal 20")
+    assert rad.endswith(f"--antal {_dagligen().ANTAL}")
+
+
+def test_TAKET_ar_det_som_ryms_i_timeouten_och_tacker_det_uppmatta():
+    """LUCKA 86, skiva 70. Taket kommer ur körningens egen tidsgräns, och det
+    uppmätta maxet, 20 ärenden i en körning, ryms med marginal.
+
+    Budgeten per ärende får inte sjunka under det uppmätta p99, 34,2 s. Utan
+    den raden gav en budget på en sekund ett tak på 2700 och en grön svit.
+    Fällt av §7-granskningen av skiva 70."""
+    d = _dagligen()
+
+    assert d.ANTAL == d.TIMEOUT_S // d.SEKUNDER_PER_ARENDE
+    assert d.SEKUNDER_PER_ARENDE > 34.2
+    assert d.ANTAL >= 2 * 20
 
 
 def test_schemat_traffar_NASTA_dygn_nar_tiden_passerat():

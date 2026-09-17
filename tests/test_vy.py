@@ -798,9 +798,10 @@ def test_varje_strangparameter_till_renderarna_escapas():
     # annat.
     # Vad maskeringen gör prövas av `test_spärrskälet_i_vyn_ar_MASKERAT`.
     # `gmailknapp` är en flagga av samma slag som `inget_svar`, skiva 68.
+    # `inaktuellt_utkast` bär Gmails id och renderas escapat, skiva 70.
     assert provade == ["forslag", "sparr", "uppslagskalla", "inget_svar",
                        "inget_svar_skal", "sparrskal", "sparrsats",
-                       "gmailknapp"]
+                       "gmailknapp", "inaktuellt_utkast"]
 
 
 def test_felmeddelandet_escapas_innan_det_reflekteras():

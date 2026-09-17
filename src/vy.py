@@ -739,6 +739,45 @@ def spara_gmailutkast(fall: Fall, trad_id: str, utfall: str,
     return post
 
 
+def inaktuellt_gmailutkast(trad_id: str, senaste_kundmail: str,
+                           omdomesfil: Path) -> str:
+    """Gmails id för ett utkast i tråden som skapades FÖRE kundens senaste
+    mail, annars tom sträng. Skiva 70 DEL B.
+
+    Utkastet svarar på trådens första kundmail. Har kunden skrivit igen efter
+    att det skapades vet ingen i Gmail att det är inaktuellt. Inget nytt utkast
+    skapas; vyn säger det i stället.
+
+    `senaste_kundmail` är `urval.tidsstampel`:s ISO-sträng. Tom sträng ger
+    ingen flagga. Bara utfallet `skapat` räknas, eftersom bara det bär ett
+    utkast som säkert finns. Loggen är den här miljöns, se lucka 82.
+    """
+    if not senaste_kundmail or not omdomesfil.exists():
+        return ""
+    kundmail = datetime.fromisoformat(senaste_kundmail)
+    funnet = ""
+    for rad in omdomesfil.read_text(encoding="utf-8").splitlines():
+        try:
+            post = json.loads(rad)
+        except ValueError:
+            continue
+        if not (isinstance(post, dict)
+                and post.get("omdome") == OMDOME_GMAILUTKAST
+                and post.get("trad_id") == trad_id
+                and post.get("utfall") == "skapat"):
+            continue
+        # EN TRASIG RAD FÄLLER INTE KÖRNINGEN. Utan tid går flaggan inte att
+        # avgöra, och raden hoppas över. Fällt av §7-granskningen av skiva 70.
+        try:
+            skapat = datetime.fromisoformat(post["skrivet"])
+            aldre = skapat < kundmail
+        except (KeyError, TypeError, ValueError):
+            continue
+        if aldre:
+            funnet = post.get("gmail_id", "")
+    return funnet
+
+
 class Utkastvagran(Exception):
     """Posten får inget Gmail-utkast. Kastas innan Gmail nås."""
 
@@ -1055,8 +1094,13 @@ def rendera_granskning(
     uppslagskalla: str = "", inget_svar: bool = False,
     inget_svar_skal: str = "", drift: str = "", sparrskal: str = "",
     sparrsats: str = "", gmailknapp: bool = False,
+    inaktuellt_utkast: str = "",
 ) -> str:
     """GRANSKNINGSLÄGE: förslag med fyra omdömen.
+
+    **`inaktuellt_utkast` STÅR UNDER `drift` I ALLA TRE GRENARNA**, skiva 70
+    DEL B. Ett Gmail-utkast som kunden skrivit efter är inaktuellt oavsett vad
+    kedjan kom fram till den här gången.
 
     **`uppslagskalla` ÄR INTE KOSMETIK.** Ett utkast som lyder *"Tjänstevikten är
     980 kg"* ser ut som avläst fordonsdata. Kommer talet ur `kedja-prov.py`:s
@@ -1127,6 +1171,7 @@ def rendera_granskning(
     post eller en post utan svar får knappen, oavsett flaggan. Formuläret bär
     inget textfält: det som läggs i Gmail är förslaget som passerade spärrarna.
     """
+    drift = drift + _inaktuellt(inaktuellt_utkast)
     if inget_svar:
         return (
             SIDHUVUD.format()
@@ -1181,6 +1226,19 @@ def rendera_granskning(
            "<strong>Det skickas inte.</strong></p></form>"
            if gmailknapp else "")
         + SIDFOT
+    )
+
+
+def _inaktuellt(gmail_id: str) -> str:
+    """Flaggan för ett inaktuellt Gmail-utkast, eller tom sträng."""
+    if not gmail_id:
+        return ""
+    return (
+        "<div class='sparr'><p><strong>KUNDEN HAR SKRIVIT IGEN EFTER ATT "
+        "GMAIL-UTKASTET SKAPADES.</strong></p>"
+        f"<p>Utkastet (meddelande-id <code>{html.escape(gmail_id)}</code>) "
+        "svarar inte på det nya mailet. Läs tråden i Gmail innan det skickas. "
+        "Inget nytt utkast skapas.</p></div>"
     )
 
 
@@ -1305,6 +1363,9 @@ class Granskningsfall:
     # SKIVA 68. None när posten inte kommer ur en Gmail-tråd, till exempel ur
     # `scripts/kedja-prov.py`. Då får posten ingen Gmail-knapp.
     svarsvag: Svarsvag | None = None
+    # SKIVA 70 DEL B. Gmails id för ett utkast i tråden som kunden skrivit
+    # efter. Tom när inget sådant finns. Se `inaktuellt_gmailutkast`.
+    inaktuellt_utkast: str = ""
 
 
 def spara_granskningsfall(fall: list[Granskningsfall],
@@ -1349,6 +1410,7 @@ def spara_granskningsfall(fall: list[Granskningsfall],
                 "sparrsats": post.sparrsats,
                 "svarsvag": (dataclasses.asdict(post.svarsvag)
                              if post.svarsvag else None),
+                "inaktuellt_utkast": post.inaktuellt_utkast,
             }, ensure_ascii=False) + "\n")
 
     return mal
@@ -1396,6 +1458,8 @@ def las_granskningsfall(fil: Path | None = None) -> list[Granskningsfall]:
             # En fil skriven före skiva 68 bär ingen svarsväg.
             svarsvag=(Svarsvag(**post["svarsvag"])
                       if post.get("svarsvag") else None),
+            # En fil skriven före skiva 70 bär ingen flagga.
+            inaktuellt_utkast=post.get("inaktuellt_utkast", ""),
         ))
     return fall
 
@@ -1565,7 +1629,9 @@ def bygg_hanterare(
                                    sparrskal=post.sparrskal,
                                    sparrsats=post.sparrsats,
                                    gmailknapp=(skapa_utkast is not None
-                                               and post.svarsvag is not None))
+                                               and post.svarsvag is not None
+                                               and not post.inaktuellt_utkast),
+                                   inaktuellt_utkast=post.inaktuellt_utkast)
                 + f"<p><a href='/granskning/{index + 1}'>nästa</a></p>"
             )
 

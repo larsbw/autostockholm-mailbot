@@ -8099,6 +8099,68 @@ Skälkommentaren beskriver koden i stället för att skriva ut den, Lars beslut
 efter att spärren fällt den första lydelsen.
 
 
+## #134 — Skiva 70: taket räknas ur timeouten, och ett inaktuellt utkast flaggas
+
+**Datum:** 2026-09-17 · **Berör:** `scripts/dagligen.py`,
+`scripts/respond.py`, `src/vy.py` · **Stänger:** lucka 86
+
+### 1. DEL A, LUCKA 86
+
+Lars order: mät hur ofta en körning når taket. Är det sällsynt höjs taket och
+räknas ur den faktiska gränsen. Är det vanligt byggs en fortsättning.
+
+Mätt, simulerat 05:10 UTC över backfillens skörd i 61 körningar: flest ärenden
+20, median 8, en körning nådde 20, ingen gick över. **Sällsynt.** Railways
+körningslogg är inte läst: projektet är inte länkat på den här maskinen.
+
+Gränsen är körningens timeout, 45 minuter. Tid per ärende uppmätt ur
+`logg/beslut.jsonl`: p99 33,4 s med uppslagssteg över 455 ärenden, 34,2 s utan
+över 31. Uppslagssteget omfattar också ärenden utan regnr, som inte hämtades.
+Budgeten är 60 s, och taket blir 45. Ett ärende över taket räknas, skrivs ut,
+står på stderr och därmed i körningsloggen, och ger exitkod 1 för inkorgen.
+
+### 2. DEL B, INAKTUELLT UTKAST
+
+Lars order: ett kundmail nyare än utkastet i samma tråd flaggas i vyn. Inget
+nytt utkast skapas.
+
+`vy.inaktuellt_gmailutkast` jämför trådens senaste kundmail med raden
+`skapat` i `logg/omdomen.jsonl`. §7-granskningen fann att vårt eget utkast,
+som bara bär `DRAFT`, räknades som kundmail och kunde flagga sig självt.
+`urval.ar_kundmeddelande` säger nu nej till det. En trasig loggrad hoppas
+över. En besvarad tråd flaggas inte, eftersom ett
+skickat svar gör den besvarad. En flaggad post når vyn också utan svar, ett
+undantag från Lars beslut i skiva 61, och den får ingen Gmail-knapp.
+
+**Flaggan syns i vyn, inte i Gmail.** Matte ser den bara om hon öppnar vyn.
+Loggen är miljöns egen, så ett utkast skapat på en annan maskin flaggas inte,
+lucka 82. Flaggan står i vyn den dag körningen ser det nya mailet, och byts ut
+av nästa körning.
+
+Mätt i Gmail 2026-09-17 08:20 UTC, med det rättade kriteriet: 11 trådar med
+skapat utkast i den här maskinens logg. I alla 11 ligger utkastet kvar, inget
+svar är skickat och ingen kund har skrivit igen. Ingen flaggas i dag.
+
+### 3. DEL C
+
+Lucka 82 och 83 är registrerade sedan skiva 69, inget byggt. Lucka 85 står
+som granskaren fann den.
+
+### 4. DEL D, DRIFTBILDEN 2026-09-17
+
+Lars bild: boten kör varje morgon, skapar Gmail-utkast för a-traktorärenden,
+och Matte trycker skicka.
+
+- **Boten skickar inget själv.** Bekräftat: `auto: []` och ingen sändväg.
+- **Kör varje morgon.** Inte bekräftat. Railway-kontot Claude Code är inloggat
+  på har tre projekt, och inget av dem har en service för boten. Ingen
+  deploy, ingen `token-skriv.json` och ingen körningslogg är läst.
+- **Skapar utkast.** Bekräftat bara från Lars maskin: post 3 och backfillens
+  tio.
+- **Matte trycker skicka.** Motsägs i dag: alla 11 utkast låg kvar kl 08:20
+  UTC, och inget svar var skickat.
+
+
 ## Appendix — versionshistorik (nyaste överst)
 
 ### 0.85.0 — 2026-09-16

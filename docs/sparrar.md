@@ -6363,14 +6363,22 @@ körningen, `inkorg.fonstrets_granser`.
 
 ## LUCKA UTAN SPÄRR: `taket_pa_tjugo_tappar_arenden_tyst`
 
-**LUCKA 86, ÖPPEN. Fälld fram av §7-granskningen av lucka 84. Kräver Lars
-beslut.**
+**LUCKA 86, STÄNGD I SKIVA 70, Lars beslut.** Fälld fram av §7-granskningen av
+lucka 84. Se `docs/beslutslogg.md` #134.
 
-`scripts/dagligen.py::ANTAL` är 20, och `respond._kor` slutar ta ärenden vid
-taket. Med 24 timmar bakåt kommer ärenden efter taket aldrig tillbaka.
-Simulerat i skiva 69 över backfillens skörd, 61 körningar: flest ärendetrådar
-i en körning var 20, alltså exakt taket. Trådarna är räknade i sitt läge vid
-hämtningen, inte som de såg ut vid varje simulerad körning.
+`scripts/dagligen.py::ANTAL` var 20, och ett ärende över taket kom aldrig
+tillbaka. Simulerat i skiva 70 över backfillens nya skörd, 61 körningar: flest
+ärenden i en körning 20, median 8, en körning av 61 nådde 20 och ingen gick
+över. Trådarna är räknade i sitt läge vid hämtningen. Railways körningslogg
+är inte läst.
+
+- **Spärr.** `ANTAL = TIMEOUT_S // SEKUNDER_PER_ARENDE`, alltså 45. Når en
+  körning taket räknar `respond._kor` det som föll, skriver ut det, och
+  returnerar 1 för inkorgen, så att vyn larmar.
+- **Negativkontroll.** `tests/test_drift.py::test_TAKET_ar_det_som_ryms_i_timeouten_och_tacker_det_uppmatta`
+  och `tests/test_gmailutkast.py::test_TAKET_raknar_det_som_faller_och_tar_resten`.
+  Varje rad fälld för sig: RÖD.
+- **Kvar.** Ett ärende över 45 går fortfarande förlorat, men inte tyst.
 
 ---
 

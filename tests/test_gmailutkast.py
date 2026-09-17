@@ -856,11 +856,171 @@ def test_CLI_larmar_och_bygger_tjansten_FORE_slingan():
                              .read_text(encoding="utf-8"))
     i_kor = kod.split("def _kor")[1]
 
-    assert "return 1 if utkastfel or korning . gmail_misslyckade else 0" in i_kor
+    assert ("return 1 if utkastfel or korning . gmail_misslyckade or tappade "
+            "else 0") in i_kor
+    assert "tappade = over_taket if arg . inkorg else 0" in i_kor
     assert i_kor.index("skriv_tjanst ( )") < i_kor.index("kor_alla (")
     fangst = i_kor.split("except BaseException")[1][:200]
     assert "vy . spara_granskningsfall" in fangst
     assert "raise" in fangst
+
+
+# ------------------------------------ SKIVA 70 DEL B: inaktuellt utkast
+
+SENARE = "2099-01-01T00:00:00+00:00"
+TIDIGARE = "2000-01-01T00:00:00+00:00"
+
+
+def _skapat(katalog, trad_id="t-0", utfall="skapat"):
+    omdomen = katalog / "logg" / "omdomen.jsonl"
+    vy.spara_gmailutkast(ett_fall(), trad_id, utfall, "m-0",
+                         omdomesfil=omdomen)
+    return omdomen
+
+
+@pytest.mark.parametrize("trad_id, kundmail, utfall, vantat", [
+    ("t-0", SENARE, "skapat", "m-0"),
+    ("t-0", TIDIGARE, "skapat", ""),
+    ("t-9", SENARE, "skapat", ""),
+    ("t-0", SENARE, "begärt", ""),
+    ("t-0", "", "skapat", ""),
+])
+def test_inaktuellt_KRAVER_skapat_utkast_i_TRADEN_fore_kundens_mail(
+        katalog, trad_id, kundmail, utfall, vantat):
+    omdomen = _skapat(katalog, utfall=utfall)
+    assert vy.inaktuellt_gmailutkast(trad_id, kundmail, omdomen) == vantat
+
+
+@pytest.mark.parametrize("skrivet", ["", "2099-01-01T00:00:00", None])
+def test_en_TRASIG_loggrad_faller_inte_flaggan(katalog, skrivet):
+    omdomen = katalog / "logg" / "omdomen.jsonl"
+    rad = {"omdome": vy.OMDOME_GMAILUTKAST, "trad_id": "t-0",
+           "utfall": "skapat", "gmail_id": "m-0"}
+    if skrivet is not None:
+        rad["skrivet"] = skrivet
+    omdomen.parent.mkdir(parents=True, exist_ok=True)
+    omdomen.write_text(json.dumps(rad) + "\n", encoding="utf-8")
+
+    assert vy.inaktuellt_gmailutkast("t-0", SENARE, omdomen) == ""
+
+
+def test_VART_UTKAST_i_traden_ar_inget_kundmail():
+    """§7-granskningen av skiva 70: ett utkast bär bara DRAFT och daterade
+    ärendet, alltså kunde det flagga sig självt som inaktuellt."""
+    fraga = meddelande("Hej, kan ni bygga om min bil?",
+                       internal="1757900000000")
+    utkast = meddelande("Hej, det kan vi.", internal="1757990000000",
+                        huvuden={"From": "info@autostockholm.se"})
+    utkast["labelIds"] = ["DRAFT"]
+
+    arende, _ = respond.arende_ur_trad(trad(fraga, utkast), set())
+
+    assert arende.tidsstampel == respond.urval.tidsstampel(fraga)
+
+
+def test_slingan_FLAGGAR_ett_utkast_kunden_skrivit_efter(katalog):
+    _skapat(katalog)
+    spion = Spion()
+    rader = []
+    korning = _slinga(katalog, [respond.Arende(text="Hej ABC12X",
+                                               regnr="ABC12X",
+                                               tidsstampel=SENARE)],
+                      SVAR, spion, rader=rader)
+
+    assert korning.granskningsfall[0].inaktuellt_utkast == "m-0"
+    assert korning.gmail_inaktuella == 1
+    assert spion.poster == []
+    assert any("INAKTUELLT" in r for r in rader)
+
+
+def test_en_flaggad_post_NAR_VYN_aven_utan_svar(katalog):
+    _skapat(katalog)
+    korning = _slinga(katalog, [respond.Arende(text="Hej, däcken",
+                                               tidsstampel=SENARE)],
+                      ("boka däckbyte",), Spion())
+
+    assert [p.inget_svar for p in korning.granskningsfall] == [True]
+    assert korning.granskningsfall[0].inaktuellt_utkast == "m-0"
+
+
+def test_en_oflaggad_post_utan_svar_nar_INTE_vyn(katalog):
+    """Negativkontroll: skiva 61 gäller för allt annat."""
+    korning = _slinga(katalog, [respond.Arende(text="Hej, däcken",
+                                               tidsstampel=SENARE)],
+                      ("boka däckbyte",), Spion())
+    assert korning.granskningsfall == []
+
+
+def test_en_BESVARAD_trad_flaggas_inte(katalog):
+    _skapat(katalog)
+    korning = _slinga(katalog, [respond.Arende(text="Hej ABC12X",
+                                               regnr="ABC12X",
+                                               tidsstampel=SENARE,
+                                               besvarad=True)],
+                      SVAR, Spion())
+    assert korning.granskningsfall[0].inaktuellt_utkast == ""
+
+
+@pytest.mark.parametrize("andrat", [{}, {"sparr": "talspärren"},
+                                    {"inget_svar": True}])
+def test_flaggan_SYNS_i_alla_tre_grenarna(andrat):
+    sida = vy.rendera_granskning(
+        ett_fall(), "Hej!", inaktuellt_utkast="m-0",
+        **{k: v for k, v in andrat.items()})
+    assert "KUNDEN HAR SKRIVIT IGEN" in sida
+    assert "m-0" in sida
+    assert "KUNDEN HAR SKRIVIT IGEN" not in vy.rendera_granskning(
+        ett_fall(), "Hej!", **andrat)
+
+
+def test_en_flaggad_post_far_INGEN_knapp():
+    spion = Spion()
+    fejk = Post(vy.bygg_hanterare(
+        [], granskning=[post(inaktuellt_utkast="m-0")], skapa_utkast=spion),
+        "/granskning/0")
+    fejk.get()
+    assert "KUNDEN HAR SKRIVIT IGEN" in fejk.svar
+    assert "action='/gmailutkast/0'" not in fejk.svar
+
+
+def test_flaggan_OVERLEVER_filen(katalog):
+    fil = katalog / "data" / "granskningsfall.jsonl"
+    vy.spara_granskningsfall([post(inaktuellt_utkast="m-0")], fil)
+    assert vy.las_granskningsfall(fil)[0].inaktuellt_utkast == "m-0"
+
+
+def test_TAKET_raknar_det_som_faller_och_tar_resten(tmp_path, monkeypatch,
+                                                    capsys):
+    """LUCKA 86, skiva 70. Ärenden över `--antal` körs inte, och antalet
+    skrivs ut i stället för att tystna."""
+    # Tre ärenden och, efter taket, ett maskinmail. Maskinmailet är sållat och
+    # inget tappat ärende, och trådräkningen tar inte med de tappade.
+    maskin = trad(meddelande("Veckans erbjudanden", huvuden={
+        "List-Unsubscribe": "<mailto:av@exempel.invalid>"}), trad_id="tm")
+    fil = tmp_path / "tradar.jsonl"
+    fil.write_text("".join(
+        json.dumps(trad(meddelande(f"Hej, fråga nummer {i}"),
+                        trad_id=f"t{i}")) + "\n" for i in range(3))
+        + json.dumps(maskin) + "\n",
+        encoding="utf-8")
+    fick = []
+    monkeypatch.setattr(respond, "kor_alla",
+                        lambda arenden, **kw: fick.extend(arenden))
+    monkeypatch.setattr(respond, "bygg_kalla", lambda paus_s: (None, True))
+    monkeypatch.setattr(respond.kategorisera, "bygg_klient", lambda: None)
+    # Stubbarna skriver ingenting. Sökvägarna ligger under roten bara för att
+    # utskriften räknar dem relativt den.
+    monkeypatch.setattr(respond.vy, "spara_granskningsfall",
+                        lambda fall: respond.ROT / "data" / "stubb.jsonl")
+
+    respond.main(["--tradar", str(fil), "--antal", "1"])
+
+    ut = capsys.readouterr()
+    assert [a.text for a in fick] == ["Hej, fråga nummer 0"]
+    assert "TAKET NÅTT: 2 ärenden" in ut.out
+    assert "trådar lästa            2" in ut.out
+    assert "sållade före kedjan     1" in ut.out
+    assert "TAKET NÅTT" in ut.err
 
 
 def test_CLI_tar_ETT_nu_FORE_hamtningen():

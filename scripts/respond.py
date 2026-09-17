@@ -347,6 +347,8 @@ class Korning:
     gmail_besvarade: int = 0
     gmail_vagrade: int = 0
     gmail_misslyckade: int = 0
+    # SKIVA 70 DEL B.
+    gmail_inaktuella: int = 0
 
     @property
     def arenden(self) -> int:
@@ -456,11 +458,25 @@ def kor_alla(
         # granskningssida, och en post utan utkast har ingenting att granska.
         # Materialet skiva 49 ville bevara, kategori, hink och skäl per ärende,
         # står i `logg/beslut.jsonl` via raden ovan.
+        # SKIVA 70 DEL B. Ett Gmail-utkast i tråden som kunden skrivit efter.
+        # En besvarad tråd flaggas inte: då är utkastet troligen skickat.
+        inaktuellt = ""
+        if svarsvag is not None and not arende.besvarad:
+            inaktuellt = vy.inaktuellt_gmailutkast(
+                svarsvag.trad_id, arende.tidsstampel, omdomesfil)
+
+        # En flaggad post når vyn ÄVEN UTAN SVAR, undantag från Lars beslut i
+        # skiva 61: den bär något att se, nämligen flaggan.
         post = None
-        if not utfall.inget_svar:
+        if not utfall.inget_svar or inaktuellt:
             post = kedja.till_granskningsfall(arende, utfall, skarp=skarp,
                                               svarsvag=svarsvag)
+            post.inaktuellt_utkast = inaktuellt
             korning.granskningsfall.append(post)
+        if inaktuellt:
+            korning.gmail_inaktuella += 1
+            skriv(f"      GMAIL-UTKAST {inaktuellt} INAKTUELLT: kunden har "
+                  "skrivit igen. Flaggat i vyn.")
 
         # TRE GRENAR, EN PER UTFALL I `Kedjeutfall`. Grenen är NY och ersätter
         # ingen: före skiva 49 fanns inget tredje utfall, och ett ärende i
@@ -568,6 +584,7 @@ def summera(korning: Korning, skriv=print) -> None:
     skriv(f"      besvarad tråd, inget  {korning.gmail_besvarade}")
     skriv(f"      vägrade               {korning.gmail_vagrade}")
     skriv(f"      misslyckade           {korning.gmail_misslyckade}")
+    skriv(f"  inaktuella gmail-utkast {korning.gmail_inaktuella}")
 
     skriv("\nKLASSIFICERING")
     for etikett, antal in sorted(korning.per_kategori.items(),
@@ -705,16 +722,24 @@ def _kor(arg) -> int:
     korning = Korning()
     arenden: list[Arende] = []
     svarsvagar: list = []
+    # LUCKA 86, SKIVA 70. Slingan går igenom ALLA trådar också när taket nåtts,
+    # så att det som faller räknas. Ett ärende över taket kommer aldrig
+    # tillbaka, och det får inte ske tyst. Räkningen kostar inga anrop.
+    over_taket = 0
     for trad in tradar:
-        korning.tradar += 1
         arende, skal = arende_ur_trad(trad, domaner)
+        if arende is not None and arg.antal and len(arenden) >= arg.antal:
+            over_taket += 1
+            continue
+        korning.tradar += 1
         if arende is None:
             korning.sallade.append((trad.get("id", ""), skal))
             continue
         arenden.append(arende)
         svarsvagar.append(svarsvag_ur_trad(trad))
-        if arg.antal and len(arenden) >= arg.antal:
-            break
+    if over_taket:
+        print(f"TAKET NÅTT: {over_taket} ärenden över --antal {arg.antal} "
+              "körs inte och kommer inte tillbaka.")
 
     print(f"KÄLLA: {kalltext}")
     print(f"få-exempel: {len(exempel)}   taxonomi: {len(taxonomi)} kategorier"
@@ -800,7 +825,14 @@ def _kor(arg) -> int:
         _starta_vyn(arg.port, korning.granskningsfall)
     else:
         print("Kör med --vy för att läsa dem.")
-    return 1 if utkastfel or korning.gmail_misslyckade else 0
+    # Taket larmar bara för inkorgen: där är ett avskuret ärende förlorat. En
+    # skörd med `--tradar` går att köra om med ett annat `--antal`.
+    tappade = over_taket if arg.inkorg else 0
+    # SIST PÅ STDERR, så att `dagligen.py` skriver orsaken i körningsloggen och
+    # vyns larm inte står utan skäl. Fällt av §7-granskningen av skiva 70.
+    if over_taket:
+        print(f"TAKET NÅTT: {over_taket} ärenden föll", file=sys.stderr)
+    return 1 if utkastfel or korning.gmail_misslyckade or tappade else 0
 
 
 if __name__ == "__main__":
