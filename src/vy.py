@@ -691,14 +691,25 @@ def spara_omdome(
     return post
 
 
+# SKIVA 75. Utfallet som säger att ett utkast är borttaget ur Gmail, bekräftat
+# genom läsvägen av `scripts/utkast-borttaget.py`. Varken vyn eller körningen
+# skriver det; `test_BORTTAGET_skrivs_BARA_av_skriptet` binder det.
+BORTTAGET = "borttaget"
+
+
 def gmailutkast_finns(trad_id: str, omdomesfil: Path = OMDOMEN) -> bool:
     """Har tråden redan fått ett Gmail-utkast ur vyn?
 
     Ett andra tryck hade gett två utkast i samma tråd, och två utkast är två
     mail som kan skickas.
+
+    **TRÅDENS SENASTE RAD AVGÖR, skiva 75.** Är den `borttaget` finns inget
+    utkast kvar, och tråden får ett nytt försök. Varje annan rad spärrar som
+    förut. Loggen är fortfarande append-only.
     """
     if not omdomesfil.exists():
         return False
+    senaste = None
     for rad in omdomesfil.read_text(encoding="utf-8").splitlines():
         try:
             post = json.loads(rad)
@@ -707,8 +718,8 @@ def gmailutkast_finns(trad_id: str, omdomesfil: Path = OMDOMEN) -> bool:
         if (isinstance(post, dict)
                 and post.get("omdome") == OMDOME_GMAILUTKAST
                 and post.get("trad_id") == trad_id):
-            return True
-    return False
+            senaste = post.get("utfall")
+    return senaste is not None and senaste != BORTTAGET
 
 
 def spara_gmailutkast(fall: Fall, trad_id: str, utfall: str,
@@ -763,8 +774,13 @@ def inaktuellt_gmailutkast(trad_id: str, senaste_kundmail: str,
             continue
         if not (isinstance(post, dict)
                 and post.get("omdome") == OMDOME_GMAILUTKAST
-                and post.get("trad_id") == trad_id
-                and post.get("utfall") == "skapat"):
+                and post.get("trad_id") == trad_id):
+            continue
+        # SKIVA 75. Ett borttaget utkast kan inte vara inaktuellt.
+        if post.get("utfall") == BORTTAGET:
+            funnet = ""
+            continue
+        if post.get("utfall") != "skapat":
             continue
         # EN TRASIG RAD FÄLLER INTE KÖRNINGEN. Utan tid går flaggan inte att
         # avgöra, och raden hoppas över. Fällt av §7-granskningen av skiva 70.

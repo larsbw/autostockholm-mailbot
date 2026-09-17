@@ -989,6 +989,127 @@ def test_flaggan_OVERLEVER_filen(katalog):
     assert vy.las_granskningsfall(fil)[0].inaktuellt_utkast == "m-0"
 
 
+# ------------------------------------ SKIVA 75: borttaget utkast
+
+
+def _rad(katalog, utfall, trad_id="t-0", gmail_id="m-0"):
+    omdomen = katalog / "logg" / "omdomen.jsonl"
+    vy.spara_gmailutkast(ett_fall(), trad_id, utfall, gmail_id,
+                         omdomesfil=omdomen)
+    return omdomen
+
+
+@pytest.mark.parametrize("utfall, spärrad", [
+    (["begärt", "skapat"], True),
+    (["begärt", "skapat", "borttaget"], False),
+    (["begärt", "skapat", "borttaget", "begärt"], True),
+    (["begärt", "misslyckades"], True),
+])
+def test_TRADENS_SENASTE_RAD_avgor_sparren(katalog, utfall, spärrad):
+    for u in utfall:
+        omdomen = _rad(katalog, u)
+    assert vy.gmailutkast_finns("t-0", omdomen) is spärrad
+
+
+def test_ett_BORTTAGET_utkast_flaggas_inte_som_inaktuellt(katalog):
+    _rad(katalog, "skapat")
+    omdomen = _rad(katalog, "borttaget")
+    assert vy.inaktuellt_gmailutkast("t-0", SENARE, omdomen) == ""
+
+
+def _borttaget_skript():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "utkast_borttaget", ROT / "scripts" / "utkast-borttaget.py")
+    modul = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modul)
+    return modul
+
+
+def _gmail(meddelanden):
+    from src import inkorg
+    from tests import fejk
+    return inkorg.Lastjanst(fejk.FejkGmail(
+        sidor={None: {}}, tradar={"t-0": {"id": "t-0",
+                                          "messages": meddelanden}}))
+
+
+@pytest.mark.parametrize("meddelanden, vantat", [
+    ([{"id": "k-1", "labelIds": ["INBOX"]}], "markerat borttaget"),
+    ([{"id": "m-0", "labelIds": ["DRAFT"]}], "VÄGRAT: utkastet finns kvar"),
+    ([{"id": "m-9", "labelIds": ["DRAFT"]}], "VÄGRAT: tråden bär ett annat"),
+    # §7-granskningen av skiva 75.
+    ([], "VÄGRAT: Gmail gav inga"),
+    ([{"id": "k-1", "labelIds": ["INBOX"]},
+      {"id": "s-1", "labelIds": ["SENT"]}], "VÄGRAT: tråden bär ett eget"),
+])
+def test_skriptet_MARKERAR_bara_nar_gmail_bekraftar(katalog, meddelanden,
+                                                    vantat):
+    omdomen = _rad(katalog, "skapat")
+    utfall = _borttaget_skript().markera("m-0", _gmail(meddelanden), omdomen)
+
+    assert utfall.startswith(vantat)
+    assert vy.gmailutkast_finns("t-0", omdomen) is (
+        not utfall.startswith("markerat"))
+
+
+def test_skriptet_VAGRAR_ett_okant_id(katalog):
+    omdomen = _rad(katalog, "skapat")
+    utfall = _borttaget_skript().markera("m-okand", _gmail([]), omdomen)
+    assert utfall.startswith("VÄGRAT: inget skapat")
+    assert vy.gmailutkast_finns("t-0", omdomen)
+
+
+def test_skriptet_VAGRAR_ett_BEGART_utan_SKAPAT(katalog):
+    """§7-granskningen av skiva 75. Tomt id matchar `begärt`-raden."""
+    omdomen = _rad(katalog, "begärt", gmail_id="")
+    utfall = _borttaget_skript().markera(
+        "", _gmail([{"id": "k-1", "labelIds": ["INBOX"]}]), omdomen)
+    assert utfall.startswith("VÄGRAT: inget skapat")
+    assert vy.gmailutkast_finns("t-0", omdomen)
+
+
+def test_skriptet_VAGRAR_en_redan_markerad_trad(katalog):
+    _rad(katalog, "skapat")
+    omdomen = _rad(katalog, "borttaget")
+
+    class Rakna:
+        anrop = 0
+
+        def users(self):
+            Rakna.anrop += 1
+            raise AssertionError("Gmail ska inte nås")
+
+    utfall = _borttaget_skript().markera("m-0", Rakna(), omdomen)
+    assert utfall.startswith("VÄGRAT: tråden är redan markerad")
+
+
+def test_BORTTAGET_skrivs_BARA_av_skriptet():
+    """§7-granskningen av skiva 75. Vyn och körningen skriver aldrig raden."""
+    import ast
+
+    def bar_borttaget(nod) -> bool:
+        return any(
+            (isinstance(n, ast.Constant) and n.value == vy.BORTTAGET)
+            or (isinstance(n, ast.Name) and n.id == "BORTTAGET")
+            or (isinstance(n, ast.Attribute) and n.attr == "BORTTAGET")
+            for n in ast.walk(nod))
+
+    anrop = 0
+    for fil in list((ROT / "src").glob("*.py")) + list(
+            (ROT / "scripts").glob("*.py")):
+        for nod in ast.walk(ast.parse(fil.read_text(encoding="utf-8"))):
+            if not isinstance(nod, ast.Call):
+                continue
+            namn = getattr(nod.func, "attr", getattr(nod.func, "id", ""))
+            if namn != "spara_gmailutkast":
+                continue
+            anrop += 1
+            if fil.name != "utkast-borttaget.py":
+                assert not bar_borttaget(nod), f"{fil.name}:{nod.lineno}"
+    assert anrop >= 4, "genomgången hittar inga anrop"
+
+
 def test_TAKET_raknar_det_som_faller_och_tar_resten(tmp_path, monkeypatch,
                                                     capsys):
     """LUCKA 86, skiva 70. Ärenden över `--antal` körs inte, och antalet

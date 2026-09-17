@@ -8279,6 +8279,29 @@ Körningen över 19 av de 20 obesvarade formulärtrådarna stoppades efter 13
 felet.
 
 
+## #138 — Skiva 75: ett borttaget utkast öppnar tråden igen
+
+**Datum:** 2026-09-17 · **Berör:** `src/vy.py`, `scripts/utkast-borttaget.py`
+
+Lars tog bort utkasten med den falska meningen ur Gmail och bad om nya ur väg
+2-koden. Spärren mot ett andra utkast läste bara loggen och höll trådarna
+stängda.
+
+- `logg/omdomen.jsonl` får utfallet `borttaget`. Loggen är fortfarande
+  append-only.
+- `vy.gmailutkast_finns` låter trådens SENASTE rad avgöra: `borttaget` öppnar,
+  allt annat stänger som förut.
+- Raden skrivs bara av `scripts/utkast-borttaget.py`, och bara när läsvägen
+  visar att tråden har meddelanden men varken bär utkastet, något annat
+  utkast eller ett eget utgående meddelande. Det sista villkoret, fällt fram av
+  §7-granskningen, håller en tråd där utkastet skickats eller någon svarat för
+  hand stängd.
+- Ett borttaget utkast flaggas inte som inaktuellt i vyn.
+- Loggen är miljöns egen, lucka 82.
+- Kontrollen vilar på att `threads.get` visar utkast med etiketten `DRAFT`.
+  Det är iakttaget i data, inte uppslaget i Googles dokumentation.
+
+
 ## Appendix — versionshistorik (nyaste överst)
 
 ### 0.85.0 — 2026-09-16

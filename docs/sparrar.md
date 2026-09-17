@@ -6350,7 +6350,12 @@ skicka. Lagren nedan ligger i vår kod.
   - `krav_pa_utkastbar` vägrar spärrade poster, poster utan svar eller
     utkast, och poster med en ofullständig svarsväg.
   - `src/vy.py::lagg_gmailutkast` vägrar samma poster, plus ett andra försök i
-    samma tråd, innan den injicerade funktionen anropas. Sedan skiva 69 går
+    samma tråd, innan den injicerade funktionen anropas. Sedan skiva 75 avgör
+    trådens senaste rad: `borttaget` öppnar tråden igen, och den raden skrivs
+    bara av `scripts/utkast-borttaget.py` när läsvägen visar att tråden har
+    meddelanden men varken bär utkastet, något annat utkast eller ett eget
+    utgående meddelande. `test_BORTTAGET_skrivs_BARA_av_skriptet` binder att
+    inget annat skriver raden. Sedan skiva 69 går
     både knappen och den dagliga körningen genom den.
   - `scripts/respond.py::kor_alla` anropar bara för ett utkast som passerat
     spärrarna, och hoppar över en besvarad tråd.
