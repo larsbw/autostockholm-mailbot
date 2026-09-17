@@ -1,7 +1,11 @@
 """Ett granskat svar som ett UTKAST i Gmail, i kundens tråd. SKICKAR ALDRIG.
 
-Lars §10-beslut i skiva 68. Utkastet skapas när Lars trycker på knappen i vyn,
-aldrig av den dagliga körningen. Matte öppnar Gmail, läser och trycker skicka.
+Lars §10-beslut i skiva 68: utkastet skapas när Lars trycker på knappen i vyn.
+Lars beslut i skiva 69: den dagliga körningen skapar det också, UTAN att någon
+läst texten (`scripts/respond.py --gmailutkast`). Spärrarna är då enda skyddet.
+Matte öppnar Gmail och trycker skicka.
+
+*Här stod "aldrig av den dagliga körningen". Sant till och med skiva 68.*
 
 FYRA LAGER, OCH DET FÖRSTA FINNS INTE
 -------------------------------------
@@ -16,7 +20,8 @@ FYRA LAGER, OCH DET FÖRSTA FINNS INTE
                    `drafts().send` och `messages().send`.
   3  IMPORTLAGRET  `src/vy.py::GMAILBARANDE_MODULER` namnger modulen. Vyns och
                    kedjans graf når den aldrig: vyn får funktionen INJICERAD av
-                   `scripts/serva.py` och importerar ingenting härifrån.
+                   `scripts/serva.py` och importerar ingenting härifrån. Sedan
+                   skiva 69 importerar `scripts/respond.py` den.
   4  KÄLLTEXTEN    `FORBJUDET_MONSTER` fäller också `drafts().send`.
 
 **MED LAGER 1 BORTA ÄR LAGER 2 TILL 4 ALLT SOM STÅR EMELLAN**, och de ligger i
@@ -143,8 +148,8 @@ def bygg_meddelande(post) -> dict:
     `References` och `In-Reply-To` följer RFC 2822, och när `Subject` matchar.
 
     **`References` BÄR BARA KUNDMEDDELANDETS `Message-ID`.** RFC 2822 vill ha
-    förälderns egen `References` först, men skörden gallrar bort det huvudet
-    (`inkorg.HUVUDEN_SOM_LASES`). För ett första kundmail, som saknar
+    förälderns egen `References` först, men skörden gallrar bort det huvudets
+    värde (`inkorg.HUVUDEN_UTAN_VARDE`; före skiva 69 föll hela huvudet). För ett första kundmail, som saknar
     `References`, är formen exakt.
 
     `From` sätts inte. Gmail använder då kontots egen adress, alltså den

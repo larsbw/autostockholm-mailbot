@@ -288,7 +288,21 @@ def test_gmailfragan_ar_ett_GROVT_NAT_och_vidare_an_dygnet():
     """
     assert "newer_than:2d" in inkorg.FRAGA
     assert "after:" not in inkorg.FRAGA
-    assert "-in:sent" in inkorg.FRAGA
+    # SKIVA 69. `-in:sent` höll ute webbformulärets notis, som bär SENT.
+    assert "in:sent" not in inkorg.FRAGA
+
+
+def test_webbformularets_NOTIS_ar_ett_dagsfarskt_arende():
+    """Skiva 69. Notisen bär `SENT` men har passerat inkommande leverans.
+    Dygnsfiltret krävde att `SENT` saknades och fällde varje sådan tråd."""
+    granser = inkorg.dygnets_granser(_nu())
+    notis = _medd(_nu(timme=9), sent=True)
+    notis["payload"] = {"headers": [{"name": "Delivered-To", "value": ""}]}
+
+    kvar = inkorg.tradar_fran_dagen([{"id": "t1", "messages": [notis]}],
+                                    granser=granser)
+
+    assert [t["id"] for t in kvar] == ["t1"]
 
 
 def test_inkorgs_scopelista_ar_AUTHS_och_inte_en_kopia():
@@ -664,6 +678,57 @@ def test_gallringen_andrar_INTE_kedjans_bedomning(bygg):
         _kedjans_utfall(trad, domaner)
 
 
+def _vart_svar(mottagare: str) -> dict:
+    """Ett svar skrivet i Gmail: `SENT`, inga leveranshuvuden, svarshuvuden."""
+    return {
+        "id": "m2", "internalDate": "1757990000000", "labelIds": ["SENT"],
+        "payload": {
+            "mimeType": "text/plain",
+            "headers": [
+                _huvud("From", "info@autostockholm.se"),
+                _huvud(mottagare, "kund@exempel.se"),
+                _huvud("Subject", "Re: Fråga om a-traktor"),
+                _huvud("In-Reply-To", "<abc@exempel.se>"),
+                _huvud("References", "<abc@exempel.se>"),
+            ],
+            "body": {"data": _b64("Hej, det går bra.")},
+        },
+    }
+
+
+def _besvarad(trad: dict) -> bool:
+    """Samma uttryck som `scripts/respond.py::arende_ur_trad`."""
+    return any(urval.ar_gmail_svar(m) for m in trad["messages"])
+
+
+@pytest.mark.parametrize("mottagare", ["To", "Cc"])
+def test_gallringen_BEVARAR_att_traden_ar_besvarad(mottagare):
+    """SKIVA 69 DEL A. Skörden gallrade svarshuvudena och mottagarna, och då
+    var `Arende.besvarad` alltid falskt i inkorgskörningen."""
+    trad = _trad([_kundmail(), _vart_svar(mottagare)])
+
+    assert _besvarad(trad) is True
+    assert _besvarad(inkorg.gallra_trad(trad)) is True
+
+
+def test_mottagarnas_VARDEN_foljer_bara_med_vara_EGNA_meddelanden():
+    """Kundmailets `Cc` kan vara en tredje persons adress och faller."""
+    gallrad = inkorg.gallra_trad(_trad([_kundmail(), _vart_svar("Cc")]))
+    kund, svar = (m["payload"]["headers"] for m in gallrad["messages"])
+
+    assert not any(h["name"] in ("To", "Cc") for h in kund)
+    assert {"name": "Cc", "value": "kund@exempel.se"} in svar
+    assert {"name": "In-Reply-To", "value": ""} in svar
+
+
+def test_KAND_LUCKA_ett_svar_bara_i_Bcc_ser_obesvarat_ut():
+    """`bcc` gallras, Lars beslut i skiva 54. Blir röd den dag det ändras."""
+    trad = _trad([_kundmail(), _vart_svar("Bcc")])
+
+    assert _besvarad(trad) is True
+    assert _besvarad(inkorg.gallra_trad(trad)) is False
+
+
 def test_gallringen_andrar_inte_DYGNSGRANSEN():
     """`labelIds` och `internalDate` bär urvalet och måste överleva."""
     granser = inkorg.dygnets_granser(_nu(dag=15))
@@ -725,6 +790,7 @@ def test_varje_huvud_kedjan_LASER_ETT_VARDE_ur_star_i_HUVUDEN_MED_VARDE():
 
     rot = Path(__file__).resolve().parent.parent
     lasta: dict[str, str] = {}
+    mottagarlasta: dict[str, str] = {}
     olasbara: list[str] = []
 
     def _namn_ur(nod) -> list[str] | None:
@@ -786,13 +852,24 @@ def test_varje_huvud_kedjan_LASER_ETT_VARDE_ur_star_i_HUVUDEN_MED_VARDE():
                     and argument.id in bundna:
                 namn = bundna[argument.id]
 
+            # SKIVA 69. `adresser(m, MOTTAGARHUVUDEN)` i `ar_gmail_svar` LÄSER
+            # värden. Här stod att `inkorg` importerar mängden och tar med den
+            # av sig självt. Det var falskt, och det var så gallringen kunde
+            # tömma `to` och `cc` med sviten grön. Mängden slås nu upp, och
+            # `bcc` är det enda namnet som får gallras, Lars beslut i skiva 54.
+            if isinstance(argument, ast.Name) and argument.id == "MOTTAGARHUVUDEN":
+                for h in urval.MOTTAGARHUVUDEN - {"bcc"}:
+                    mottagarlasta[h] = f"src/{modulnamn}.py"
+                continue
+
             if namn is None:
                 # EN MÄNGD SOM IMPORTERAS är inte en blind fläck: `inkorg`
-                # importerar `LEVERANSHUVUDEN`, `MOTTAGARHUVUDEN` och
-                # `MASKINHUVUDEN` och tar med dem av sig självt. Bara sådana
-                # namn får passera, och de namnges här.
+                # importerar `LEVERANSHUVUDEN` och `MASKINHUVUDEN` och tar med
+                # dem av sig självt. Bara sådana namn får passera, och de
+                # namnges här. `SVARSHUVUDEN` och `MASSUTSKICKSHUVUDEN` läses
+                # på förekomst och aldrig med värde.
                 if isinstance(argument, ast.Name) and argument.id in (
-                        "LEVERANSHUVUDEN", "MOTTAGARHUVUDEN", "MASKINHUVUDEN",
+                        "LEVERANSHUVUDEN", "MASKINHUVUDEN",
                         "MASSUTSKICKSHUVUDEN", "SVARSHUVUDEN", "namn"):
                     continue
                 olasbara.append(
@@ -825,6 +902,14 @@ def test_varje_huvud_kedjan_LASER_ETT_VARDE_ur_star_i_HUVUDEN_MED_VARDE():
         "Lägg namnet i inkorg.HUVUDEN_MED_VARDE."
     )
 
+    assert mottagarlasta, "genomgången ser inte `ar_gmail_svar`:s mottagare"
+    saknade = {h: var for h, var in mottagarlasta.items()
+               if h not in inkorg.MOTTAGARE_MED_VARDE}
+    assert not saknade, (
+        f"mottagare läses med VÄRDE men gallras bort ur skörden: {saknade}. "
+        "Lägg namnet i inkorg.MOTTAGARE_MED_VARDE."
+    )
+
 
 def test_ett_nytt_MASKINHUVUD_foljer_med_till_skorden_av_sig_sjalvt():
     """Mängderna importeras och skrivs inte av.
@@ -840,13 +925,15 @@ def test_ett_nytt_MASKINHUVUD_foljer_med_till_skorden_av_sig_sjalvt():
 def test_gallringen_ar_AV_som_forval_i_mine():
     """Miningens egna skördar rörs inte.
 
-    `src/extract.py` bygger par ur `ar_gmail_svar`, som läser `In-Reply-To`,
-    `References` och mottagarhuvudena. Ingen av dem står i skördens lista, alltså
-    hade en påslagen gallring i `mine.mina` tyst tömt `data/par.jsonl` på par.
+    `src/extract.py` bygger par ur hela trådar. Skördens gallring kastar
+    kundmailens mottagare, `Bcc` och svarshuvudenas värden, alltså hade en
+    påslagen gallring i `mine.mina` tömt miningens skördar på det.
+
+    *Här stod att varken svarshuvudena eller mottagarna står i skördens lista.
+    Skiva 69 DEL A lade tillbaka dem, se `inkorg.MOTTAGARE_MED_VARDE`.*
     """
     import inspect
     from src import mine
 
     assert inspect.signature(mine.mina).parameters["gallra"].default is None
-    assert urval.SVARSHUVUDEN & inkorg.HUVUDEN_SOM_LASES == set()
-    assert urval.MOTTAGARHUVUDEN & inkorg.HUVUDEN_SOM_LASES == set()
+    assert "bcc" not in inkorg.HUVUDEN_SOM_LASES | inkorg.MOTTAGARE_MED_VARDE

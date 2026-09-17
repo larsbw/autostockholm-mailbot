@@ -6294,17 +6294,71 @@ skicka. Lagren nedan ligger i vår kod.
     släpper bara `drafts().create`.
   - `krav_pa_utkastbar` vägrar spärrade poster, poster utan svar eller
     utkast, och poster med en ofullständig svarsväg.
-  - `src/vy.py` vägrar samma poster i `_gmailutkast`, plus ett andra utkast i
-    samma tråd, innan den injicerade funktionen anropas.
+  - `src/vy.py::lagg_gmailutkast` vägrar samma poster, plus ett andra försök i
+    samma tråd, innan den injicerade funktionen anropas. Sedan skiva 69 går
+    både knappen och den dagliga körningen genom den.
+  - `scripts/respond.py::kor_alla` anropar bara för ett utkast som passerat
+    spärrarna, och hoppar över en besvarad tråd.
   - `FORBJUDET_MONSTER` fäller `drafts().send`, och `src.gmailutkast` ligger
-    utanför vyns, kedjans och den dagliga körningens graf.
+    utanför vyns och kedjans graf. Sedan skiva 69 ligger den i
+    `scripts/respond.py`:s.
 - **Vad den skyddar mot.** Att ett spärrat svar blir ett utkast som Matte kan
-  skicka med ett klick, och att utkastvägen skickar själv.
+  skicka med ett klick, och att utkastvägen skickar själv. **SEDAN SKIVA 69 ÄR
+  DET HELA SKYDDET**: ingen läser texten innan den ligger i Gmail.
 - **Negativkontroll.**
-  `tests/test_gmailutkast.py::test_en_GODKAND_post_blir_ett_utkast_och_ett_OMDOME`
-  och `test_drafts_create_GAR_IGENOM`.
-- **Redundant med.** Vyns och modulens vägran vaktar samma poster. Varje led är
-  fällt för sig i skiva 68.
+  `tests/test_gmailutkast.py::test_en_GODKAND_post_blir_ett_utkast_och_ett_OMDOME`,
+  `test_slingan_lagger_ett_PASSERAT_utkast_i_gmail` och
+  `test_drafts_create_GAR_IGENOM`.
+- **Redundant med.** Slingans gren och `lagg_gmailutkast` vaktar båda en
+  spärrad post. Fällda var för sig i skiva 69 är slingans gren GRÖN och
+  funktionens rad RÖD. Fällda tillsammans är
+  `test_ett_SPARRAT_arende_far_ALDRIG_ett_utkast` RÖD.
+
+---
+
+## LUCKA UTAN SPÄRR: `utkast_i_en_trad_som_redan_har_ett_i_annan_miljo`
+
+**LUCKA 82, ÖPPEN. Registrerad i skiva 69.**
+
+`gmailutkast_finns` läser `logg/omdomen.jsonl` i den miljö som kör. Ett utkast
+skapat på Lars maskin syns inte för körningen på Railway, och tvärtom. Skriver
+kunden igen i en sådan tråd kan den få ett andra utkast. Utkastvägen kan inte
+läsa Gmails utkast: `Utkastjanst` släpper bara `drafts().create`.
+
+---
+
+## LUCKA UTAN SPÄRR: `svar_bara_i_bcc_ser_obesvarat_ut`
+
+**LUCKA 83, ÖPPEN. Registrerad i skiva 69.**
+
+Skörden gallrar `Bcc`, Lars beslut i skiva 54. Ett svar som når kunden bara
+via `Bcc` ger `besvarad` falskt, och tråden kan få ett automatiskt utkast.
+`tests/test_inkorg.py::test_KAND_LUCKA_ett_svar_bara_i_Bcc_ser_obesvarat_ut`
+blir röd den dag det ändras.
+
+---
+
+## LUCKA UTAN SPÄRR: `dagliga_korningen_ser_bara_dygnets_forsta_timmar`
+
+**LUCKA 84, ÖPPEN. Fälld fram av §7-granskningen av skiva 69. Kräver Lars
+beslut.**
+
+`scripts/dagligen.py` kör 05:10 UTC. `respond._kallan` anropar
+`inkorg.dagens_tradar` utan `nu`, alltså är dygnet det som pågår när körningen
+startar, i Europe/Stockholm. Ett kundmail som kommer efter körningen ligger
+utanför nästa dags dygn och behandlas aldrig av den dagliga körningen. Läst ur
+koden, inte mätt i drift.
+
+---
+
+## LUCKA UTAN SPÄRR: `svar_via_smtp_ser_ut_som_kundmail`
+
+**LUCKA 85, ÖPPEN. Fälld fram av §7-granskningen av skiva 69.**
+
+`urval.ar_kundmeddelande` godtar ett `SENT`-meddelande med leveranshuvuden.
+Ett svar från brevlådan som skickats via SMTP bär sådana huvuden, räknas då som
+kundmail och ger `besvarad` falskt. Granskarens mätning: inget sådant
+meddelande i `data/tradar.jsonl` eller i backfillens skörd bär svarshuvuden.
 
 ---
 

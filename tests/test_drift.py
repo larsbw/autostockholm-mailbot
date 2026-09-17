@@ -600,6 +600,8 @@ def test_dagliga_kommandot_bar_INGEN_sandflagga():
 
     assert "--send" not in rad
     assert "--inkorg" in rad
+    # SKIVA 69, Lars beslut: utkasten skapas av den dagliga körningen.
+    assert "--gmailutkast" in rad
     assert rad.endswith("--antal 20")
 
 

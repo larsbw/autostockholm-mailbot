@@ -38,6 +38,11 @@ Den här filen importerar inte heller respond. Den kör den.
 filen lägger till ett andra led: kommandoraden byggs av `kommando` och
 `test_dagliga_kommandot_bar_INGEN_sandflagga` läser den.
 
+**UTKAST I GMAIL, SKIVA 69.** Kommandot bär `--gmailutkast`, Lars beslut: varje
+ärende som passerat spärrarna blir ett utkast i kundens tråd utan att någon
+läst det. Det kräver `token-skriv.json` i hemlighetskatalogen. Saknas den
+kör respond utan utkast och returnerar 1.
+
 **§10 GÄLLER FORTFARANDE.** Första sändningen i en ny miljö är Lars beslut,
 oavsett vad som skickats från hans maskin. Den här filen skickar ingenting och
 kan inte börja göra det utan att båda raderna ovan blir röda.
@@ -105,7 +110,7 @@ def kommando(antal: int = ANTAL) -> list[str]:
     inne i `kor` hade bara gått att pröva genom att faktiskt köra den.
     """
     return [sys.executable, str(ROT / "scripts" / "respond.py"),
-            "--inkorg", "--antal", str(antal)]
+            "--inkorg", "--gmailutkast", "--antal", str(antal)]
 
 
 def _logga(post: dict) -> None:

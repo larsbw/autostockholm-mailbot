@@ -107,6 +107,16 @@ TILLATNA = {
     # `test_postnummer_med_ort_falls` använder andra strängar, alltså står båda
     # kanariefåglarna kvar.
     "Surbrunnsgatan 42, 113 48 Stockholm",
+    # RUFFS REGELKOD FÖR EN FÖR BRED EXCEPT, inget registreringsnummer. Koden
+    # har tre bokstäver och tre siffror och beskrivs här i stället för att
+    # skrivas ut, som skiva 33 föreskriver. Lars beslut i skiva 69: spärren
+    # fällde noqa-kommentaren i `scripts/respond.py`. Samma kommentar står orörd
+    # på HEAD i fem filer under `src/`, som inte är bevakad.
+    #
+    # **POSTEN ÄR HELA KOMMENTAREN och inte koden ensam.** `_tillaten` godtar
+    # då koden bara på en rad som bär hela kommentaren, samma snäva form som
+    # adressen ovan. Ett nummer med den formen i en kundtext fälls fortfarande.
+    "# noqa: BLE001",
     # Exempeladresser i regler och mallar.
     "noreply@example.com",
     "kund@exempel.se",

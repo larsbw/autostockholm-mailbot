@@ -1,7 +1,8 @@
 """GMAIL-UTKASTET, skiva 68. Sändväg i §7:s mening.
 
 Lars §10-beslut: gmail.compose, egen token, lager 1 faller, lager 2 till 4
-byggs om. Utkastet skapas av knappen i vyn och aldrig av den dagliga körningen.
+byggs om. Utkastet skapas av knappen i vyn och, sedan skiva 69, av den dagliga
+körningen utan granskning.
 
 **INGET TEST HÄR RÖR NÄTET ELLER EN RIKTIG BREVLÅDA.** Tjänsten är en fejk som
 spelar in anropen, och varje adress är påhittad (§6).
@@ -199,12 +200,19 @@ def test_gmailutkast_ar_NAMNGIVEN():
     assert "src.gmailutkast" in vy.GMAILBARANDE_MODULER
 
 
-@pytest.mark.parametrize("start", ["src.vy", "src.kedja", "scripts.respond",
+@pytest.mark.parametrize("start", ["src.vy", "src.kedja",
                                    "scripts.dagligen", "scripts.kedja-prov"])
-def test_dagliga_korningen_nar_ALDRIG_gmailutkast(start):
-    """INGEN AUTOMATISK SKRIVNING. Vyn, kedjan och den dagliga körningen har
-    inte modulen i sin graf. Vyn får funktionen injicerad."""
+def test_vyn_och_kedjan_nar_ALDRIG_gmailutkast(start):
+    """Vyn och kedjan har inte modulen i sin graf. Vyn får funktionen
+    injicerad. `scripts.respond` stod här till och med skiva 68; Lars beslut i
+    skiva 69 lade utkasten i den dagliga körningen."""
     assert "src.gmailutkast" not in vy.moduler_i_vyn(start)
+
+
+def test_respond_bar_gmailutkast_och_KLARAR_sparren():
+    """Skiva 69. `dagligen` startar respond som process och når den inte."""
+    assert "src.gmailutkast" in vy.moduler_i_vyn("scripts.respond")
+    vy.krav_pa_sandvagsfrihet("scripts.respond", tillatna=vy.UNDANTAGBARA)
 
 
 def test_serva_ar_den_graf_som_bar_gmailutkast():
@@ -637,3 +645,214 @@ def test_slingan_VAGRAR_olika_langd(katalog):
             korning=respond.Korning(), nu=NU,
             loggfil=katalog / "logg" / "beslut.jsonl",
             skriv=lambda *_: None, svarsvagar=[])
+
+
+# ------------------------------------------ SKIVA 69: den dagliga körningen
+
+SPARRAT = "Hej! Ombyggnaden kostar 12345 kronor.\n\nAuto Stockholm"
+
+
+def _slinga(katalog, arenden, svar, spion, *, vagar=None, hamta=hamta_gront,
+            stoppa=False, rader=None):
+    korning = respond.Korning(tradar=len(arenden))
+    respond.kor_alla(
+        arenden, klient=FejkKlient(*svar), hamta=hamta,
+        hinkar=HINKAR, taxonomi=TAXONOMI, exempel=[], skarp=True,
+        korning=korning, nu=NU, loggfil=katalog / "logg" / "beslut.jsonl",
+        skriv=(lambda *_: None) if rader is None else rader.append,
+        svarsvagar=vagar or [vy.Svarsvag(**{**VAG.__dict__,
+                                            "trad_id": f"t-{i}"})
+                             for i in range(len(arenden))],
+        skapa_utkast=spion, omdomesfil=katalog / "logg" / "omdomen.jsonl",
+        stoppa_vid_kallfel=stoppa)
+    return korning
+
+
+def _utfall(katalog):
+    fil = katalog / "logg" / "omdomen.jsonl"
+    if not fil.exists():
+        return []
+    return [(r["trad_id"], r["utfall"]) for r in
+            map(json.loads, fil.read_text(encoding="utf-8").splitlines())]
+
+
+def test_slingan_lagger_ett_PASSERAT_utkast_i_gmail(katalog):
+    spion = Spion()
+    rader = []
+    korning = _slinga(katalog, [respond.Arende(text="Hej ABC12X",
+                                               regnr="ABC12X")],
+                      SVAR, spion, rader=rader)
+
+    assert korning.gmail_skapade == 1
+    assert spion.poster == [korning.granskningsfall[0]]
+    assert _utfall(katalog) == [("t-0", "begärt"), ("t-0", "skapat")]
+    assert any("m-1" in r and "INTE skickat" in r for r in rader)
+
+
+def test_ett_SPARRAT_arende_far_ALDRIG_ett_utkast(katalog):
+    """DEL 0.1: oförändrat. Spionen vägrar ingenting, alltså är det slingan
+    och `lagg_gmailutkast` som håller posten borta."""
+    spion = Spion()
+    korning = _slinga(katalog, [respond.Arende(text="Hej ABC12X",
+                                               regnr="ABC12X")],
+                      (SVAR[0], SPARRAT), spion)
+
+    assert korning.sparrade == 1
+    assert spion.poster == []
+    assert _utfall(katalog) == []
+
+
+@pytest.mark.parametrize("andrat", [
+    {"sparr": "talspärren"},
+    {"inget_svar": True},
+    {"svarsvag": None},
+])
+def test_lagg_gmailutkast_VAGRAR_posten_sjalv(katalog, andrat):
+    """Vägran i funktionen, med `Utkastvagran` och inte med ett krasch som
+    råkar ge samma utfall (§7.1)."""
+    spion = Spion()
+    with pytest.raises(vy.Utkastvagran):
+        vy.lagg_gmailutkast(post(**andrat), spion,
+                            katalog / "logg" / "omdomen.jsonl")
+    assert spion.poster == []
+
+
+def test_ett_BESVARAT_arende_far_inget_utkast(katalog):
+    spion = Spion()
+    korning = _slinga(katalog, [respond.Arende(text="Hej ABC12X",
+                                               regnr="ABC12X",
+                                               besvarad=True)],
+                      SVAR, spion)
+
+    assert korning.utkast == 1
+    assert korning.gmail_besvarade == 1
+    assert spion.poster == []
+    assert _utfall(katalog) == []
+
+
+def test_ett_MISSLYCKAT_utkast_stoppar_inte_slingan(katalog):
+    class Vaxlar(Spion):
+        def __call__(self, p):
+            self.poster.append(p)
+            if len(self.poster) == 1:
+                raise RuntimeError("nere")
+            return "m-2"
+
+    spion = Vaxlar()
+    arenden = [respond.Arende(text="Hej ABC12X", regnr="ABC12X"),
+               respond.Arende(text="Hej DEF34Y", regnr="DEF34Y")]
+    korning = _slinga(katalog, arenden, (*SVAR, *SVAR), spion)
+
+    assert korning.gmail_misslyckade == 1
+    assert korning.gmail_skapade == 1
+    assert _utfall(katalog) == [("t-0", "begärt"), ("t-0", "misslyckades"),
+                                ("t-1", "begärt"), ("t-1", "skapat")]
+
+
+def test_en_trad_med_ETT_FORSOK_far_inget_andra_i_slingan(katalog):
+    """Knappen och slingan delar logg: ett tryck i går hindrar ett utkast i dag."""
+    omdomen = katalog / "logg" / "omdomen.jsonl"
+    vy.spara_gmailutkast(ett_fall(), "t-0", "skapat", "m-0",
+                         omdomesfil=omdomen)
+    spion = Spion()
+    korning = _slinga(katalog, [respond.Arende(text="Hej ABC12X",
+                                               regnr="ABC12X")],
+                      SVAR, spion)
+
+    assert korning.gmail_vagrade == 1
+    assert spion.poster == []
+
+
+def test_utan_funktion_skapas_INGET_utkast(katalog):
+    """`--gmailutkast` är ett val. Förvalet rör inte Gmail."""
+    korning = respond.Korning(tradar=1)
+    respond.kor_alla(
+        [respond.Arende(text="Hej ABC12X", regnr="ABC12X")],
+        klient=FejkKlient(*SVAR), hamta=hamta_gront, hinkar=HINKAR,
+        taxonomi=TAXONOMI, exempel=[], skarp=True, korning=korning, nu=NU,
+        loggfil=katalog / "logg" / "beslut.jsonl", skriv=lambda *_: None,
+        svarsvagar=[VAG], omdomesfil=katalog / "logg" / "omdomen.jsonl")
+
+    assert korning.gmail_skapade == 0
+    assert _utfall(katalog) == []
+
+
+@pytest.mark.parametrize("stoppa, kallfel, utkast", [(True, 1, 0),
+                                                      (False, 2, 0)])
+def test_backfillen_STOPPAR_vid_forsta_kallfelet(katalog, stoppa, kallfel,
+                                                 utkast):
+    def avvisar(_regnr):
+        raise ConnectionError("429")
+
+    spion = Spion()
+    arenden = [respond.Arende(text="Hej ABC12X", regnr="ABC12X"),
+               respond.Arende(text="Hej DEF34Y", regnr="DEF34Y")]
+    korning = _slinga(katalog, arenden, (SVAR[0], SVAR[0]), spion,
+                      hamta=avvisar, stoppa=stoppa)
+
+    assert korning.kallfel == kallfel
+    assert korning.utkast == utkast
+    assert spion.poster == []
+
+
+def test_en_OFULLSTANDIG_svarsvag_vagras_UTAN_logg_och_utan_larm(katalog):
+    """§7-granskningen av skiva 69: ett ämneslöst mail gav `begärt`,
+    `misslyckades` och en röd körning."""
+    spion = Spion()
+    korning = _slinga(katalog, [respond.Arende(text="Hej ABC12X",
+                                               regnr="ABC12X")],
+                      SVAR, spion,
+                      vagar=[vy.Svarsvag(**{**VAG.__dict__, "amne": ""})])
+
+    assert korning.gmail_vagrade == 1
+    assert korning.gmail_misslyckade == 0
+    assert spion.poster == []
+    assert _utfall(katalog) == []
+
+
+def test_ett_SKAPAT_utkast_vars_loggrad_faller_redovisas_inte_som_oskapat(
+        katalog, monkeypatch):
+    """§7-granskningen av skiva 69. Utkastet finns; felet ska säga det."""
+    riktig = vy.spara_gmailutkast
+
+    def faller_pa_skapat(fall, trad_id, utfall, *a, **k):
+        if utfall == "skapat":
+            raise OSError("disken full")
+        return riktig(fall, trad_id, utfall, *a, **k)
+    monkeypatch.setattr(vy, "spara_gmailutkast", faller_pa_skapat)
+
+    omdomen = katalog / "logg" / "omdomen.jsonl"
+    with pytest.raises(vy.Skrivfel, match="m-1 ligger i Gmail"):
+        vy.lagg_gmailutkast(post(), Spion(), omdomen)
+
+    fejk = Post(vy.bygg_hanterare(
+        [], granskning=[post(svarsvag=vy.Svarsvag(
+            **{**VAG.__dict__, "trad_id": "t-annan"}))],
+        skapa_utkast=Spion(), omdomesfil=omdomen), "/gmailutkast/0")
+    fejk.post()
+    assert "ligger i Gmail" in fejk.svar
+    assert "skapades inte" not in fejk.svar
+
+
+def test_CLI_larmar_och_bygger_tjansten_FORE_slingan():
+    """§7-granskningen av skiva 69: raderna fälldes inte av något test."""
+    kod = vy._kod_utan_prosa((ROT / "scripts" / "respond.py")
+                             .read_text(encoding="utf-8"))
+    i_kor = kod.split("def _kor")[1]
+
+    assert "return 1 if utkastfel or korning . gmail_misslyckade else 0" in i_kor
+    assert i_kor.index("skriv_tjanst ( )") < i_kor.index("kor_alla (")
+    fangst = i_kor.split("except BaseException")[1][:200]
+    assert "vy . spara_granskningsfall" in fangst
+    assert "raise" in fangst
+
+
+def test_CLI_lamnar_funktionen_och_stoppet_VIDARE():
+    """Utan raderna i `_kor` hade flaggorna varit tysta."""
+    kod = vy._kod_utan_prosa((ROT / "scripts" / "respond.py")
+                             .read_text(encoding="utf-8"))
+    i_kor = kod.split("def _kor")[1]
+
+    assert "skapa_utkast = skapa_utkast" in i_kor
+    assert "stoppa_vid_kallfel = arg . stoppa_vid_kallfel" in i_kor
+    assert "bygg_kalla ( arg . paus_s )" in i_kor

@@ -1,10 +1,13 @@
 """Dagens inkommande mail ur info@autostockholm.se. LÄSER, SKICKAR ALDRIG.
 
-**DEN HÄR MODULEN ÄR DEN ENDA I SKUGGLÄGETS VÄG SOM RÖR EN BREVLÅDA**, och den
-är utpekad med namn i `src/vy.py::GMAILBARANDE_MODULER`. En onamngiven modul som
-börjar importera `googleapiclient` fäller `krav_pa_sandvagsfrihet` tills Lars
-skriver in den där. `src/gmailutkast.py` skriver till brevlådan och ligger
-utanför skugglägets väg.
+**DEN HÄR MODULEN LÄSER BREVLÅDAN I SKUGGLÄGETS VÄG**, och den är utpekad med
+namn i `src/vy.py::GMAILBARANDE_MODULER`. En onamngiven modul som börjar
+importera `googleapiclient` fäller `krav_pa_sandvagsfrihet` tills Lars skriver
+in den där. `src/gmailutkast.py` SKRIVER till brevlådan och ligger sedan skiva
+69 också i skugglägets väg, med `respond.py --gmailutkast`.
+
+*Här stod att den här modulen är den enda i vägen som rör en brevlåda, och att
+`src/gmailutkast.py` ligger utanför den. Sant till och med skiva 68.*
 
 FYRA LAGER, OCH BARA DET FÖRSTA ÄR GOOGLES
 ------------------------------------------
@@ -88,11 +91,12 @@ TIDSZON = ZoneInfo("Europe/Stockholm")
 # vara vidare än dagsgränsen, så att gränsen dras av `_ar_fran_dagen` och aldrig
 # av en operator vars inklusivitet och tidszon inte går att läsa ut.
 #
-# `-in:sent` håller våra egna svar ute. Gmails `q` matchar MEDDELANDEN, och
-# `threads.list` ger varje tråd med minst ett matchande meddelande, alltså kan
-# en tråd med både kundmail och svar komma med. Det är avsiktligt: det är
-# kundmailet vi vill ha, och `arende_ur_trad` väljer det.
-FRAGA = "-in:sent newer_than:2d"
+# **INGET `-in:sent` SEDAN SKIVA 69.** Webbformulärets notis bär `SENT`
+# (beslutslogg #8), alltså höll operatorn ute varje formulärärende. Uppmätt över
+# 2026-07-16 till 2026-09-16: 33 av 432 ärenden, och 11 av de 13 obesvarade
+# a-traktorärendena. Vilka meddelanden som är kundens avgör
+# `tradar_fran_dagen` med `urval.ar_kundmeddelande`.
+FRAGA = "newer_than:2d"
 
 # Ett tak på hur många trådar nätet får ge. Skydd mot att en felskriven fråga
 # drar hem hela brevlådan; talet är VALT och inte mätt.
@@ -232,6 +236,11 @@ def tradar_fran_dagen(tradar, *, granser) -> list[dict]:
     tråd vars enda dagsfärska meddelande är vårt eget svar är inget nytt ärende,
     och skulle annars besvaras en gång till varje dag vi svarar i den.
 
+    **INKOMMANDE ÄR `urval.ar_kundmeddelande`, SKIVA 69.** Här stod att `SENT`
+    saknas, och det fällde webbformulärets notis, som bär `SENT` men har
+    passerat inkommande leverans. Samma kriterium som `arende_ur_trad` väljer
+    kundmailet med.
+
     Etiketterna `SPAM` och `TRASH` fäller tråden. `includeSpamTrash` saknar
     dokumenterat förval, se modulens inledning, alltså prövas det här i stället
     för att förutsättas.
@@ -242,7 +251,7 @@ def tradar_fran_dagen(tradar, *, granser) -> list[dict]:
         if any(set(m.get("labelIds") or []) & {"SPAM", "TRASH"}
                for m in meddelanden):
             continue
-        if any(_ar_fran_dagen(m, granser) and "SENT" not in (m.get("labelIds") or [])
+        if any(_ar_fran_dagen(m, granser) and urval.ar_kundmeddelande(m)
                for m in meddelanden):
             ut.append(trad)
     return ut
@@ -280,6 +289,19 @@ def tradar_fran_dagen(tradar, *, granser) -> list[dict]:
 HUVUDEN_MED_VARDE = frozenset({"from", "reply-to", "subject", "precedence",
                                "message-id"})
 
+# SKIVA 69 DEL A. `urval.ar_gmail_svar` kräver en mottagare utöver brevlådan,
+# och utan värdena var `Arende.besvarad` alltid falskt i inkorgskörningen.
+# Uppmätt mot `data/tradar.jsonl`: 0 besvarade trådar efter gallringen, 139
+# före, 139 med `to` och `cc` tillbaka.
+#
+# **BARA PÅ VÅRA EGNA MEDDELANDEN**, alltså där `urval.ar_kundmeddelande` säger
+# nej. Det är de enda `ar_gmail_svar` prövar. På ett kundmail kan `Cc` vara en
+# tredje persons adress, och där faller huvudena som förut.
+#
+# **`bcc` STÅR INTE HÄR**, Lars beslut i skiva 54. Ett svar som når kunden
+# bara via `Bcc` ger därför en besvarad tråd som ser obesvarad ut.
+MOTTAGARE_MED_VARDE = frozenset({"to", "cc"})
+
 # HUVUDEN VARS ENBARA FÖREKOMST KEDJAN PRÖVAR. Värdet läses aldrig, alltså
 # skrivs det inte. Namnet blir kvar med ett tomt värde, eftersom det är namnet
 # prövningen ställer frågan om.
@@ -292,27 +314,34 @@ HUVUDEN_MED_VARDE = frozenset({"from", "reply-to", "subject", "precedence",
 #
 # **MÄNGDERNA IMPORTERAS OCH SKRIVS INTE AV.** Ett nytt namn i
 # `klassa_maskin.MASKINHUVUDEN` följer med hit av sig självt.
+#
+# **`urval.SVARSHUVUDEN` TILLKOM I SKIVA 69 DEL A.** `ar_gmail_svar` prövar
+# `In-Reply-To` och `References` på förekomst. Värdet är ett Message-ID och
+# läses inte.
 HUVUDEN_UTAN_VARDE = frozenset(
-    urval.LEVERANSHUVUDEN | klassa_maskin.MASKINHUVUDEN
+    urval.LEVERANSHUVUDEN | klassa_maskin.MASKINHUVUDEN | urval.SVARSHUVUDEN
 ) - HUVUDEN_MED_VARDE
 
 HUVUDEN_SOM_LASES = HUVUDEN_MED_VARDE | HUVUDEN_UTAN_VARDE
 
 
-def _gallra_huvuden(nyttolast: dict) -> list[dict]:
+def _gallra_huvuden(nyttolast: dict, *, med_mottagare: bool) -> list[dict]:
     """Huvudena kedjan läser, i den ordning de kom.
 
     Ordningen bevaras därför att `urval.huvudvarde` tar FÖRSTA träffen och
     huvudnamn inte är unika (beslutslogg #6). En omsortering hade kunnat byta
     vilken `Received` eller vilken `From` som gäller.
+
+    `med_mottagare` släpper igenom `MOTTAGARE_MED_VARDE` med värde.
     """
+    med_varde = HUVUDEN_MED_VARDE | (MOTTAGARE_MED_VARDE if med_mottagare
+                                     else frozenset())
     ut = []
     for huvud in nyttolast.get("headers") or []:
         namn = (huvud.get("name") or "")
-        if namn.lower() not in HUVUDEN_SOM_LASES:
+        if namn.lower() not in HUVUDEN_SOM_LASES | med_varde:
             continue
-        varde = huvud.get("value", "") if namn.lower() in HUVUDEN_MED_VARDE \
-            else ""
+        varde = huvud.get("value", "") if namn.lower() in med_varde else ""
         ut.append({"name": namn, "value": varde})
     return ut
 
@@ -340,7 +369,9 @@ def gallra_meddelande(meddelande: dict) -> dict:
     """
     nyttolast = meddelande.get("payload") or {}
     gallrad: dict = {"mimeType": nyttolast.get("mimeType") or "",
-                     "headers": _gallra_huvuden(nyttolast)}
+                     "headers": _gallra_huvuden(
+                         nyttolast,
+                         med_mottagare=not urval.ar_kundmeddelande(meddelande))}
 
     text = urval.textdel(meddelande)
     if text is not None:

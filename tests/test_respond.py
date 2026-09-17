@@ -732,7 +732,7 @@ def test_kallan_och_flaggan_kommer_ur_SAMMA_uttryck():
     kod = vy._kod_utan_prosa(RESPOND.read_text(encoding="utf-8"))
     i_kor = kod.split("def _kor")[1]
 
-    assert "hamta , skarp = bygg_kalla ( )" in i_kor
+    assert "hamta , skarp = bygg_kalla ( arg . paus_s )" in i_kor
     assert "skarp = True" not in i_kor
 
 

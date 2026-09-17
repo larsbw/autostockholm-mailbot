@@ -739,6 +739,59 @@ def spara_gmailutkast(fall: Fall, trad_id: str, utfall: str,
     return post
 
 
+class Utkastvagran(Exception):
+    """Posten får inget Gmail-utkast. Kastas innan Gmail nås."""
+
+
+def lagg_gmailutkast(post: "Granskningsfall", skapa_utkast,
+                     omdomesfil: Path) -> str:
+    """Ett Gmail-utkast för posten, med vägranden och logg. Returnerar Gmails id.
+
+    **EN VÄG FÖR KNAPPEN OCH FÖR DEN DAGLIGA KÖRNINGEN**, skiva 69. Knappens
+    protokoll låg i `_gmailutkast`; två kopior av det hade kunnat ge två utkast
+    i samma tråd den dag de gick isär.
+
+    Kastar `Utkastvagran` för en spärrad, svarslös eller trådlös post och för en
+    tråd som redan har ett försök. Kastar `Skrivfel` om loggen inte går att
+    skriva, också det innan Gmail nås. Allt `skapa_utkast` kastar går vidare,
+    efter att försöket loggats som misslyckat: tråden är då spärrad för nya
+    försök, se `gmailutkast_finns`. Går raden `skapat` inte att skriva kastas
+    `Skrivfel` med utkastets id, eftersom utkastet då finns.
+    """
+    if post.inget_svar:
+        raise Utkastvagran("posten har inget svar")
+    if post.sparr:
+        raise Utkastvagran(f"posten är spärrad av {post.sparr}")
+    if post.svarsvag is None:
+        raise Utkastvagran("posten bär ingen Gmail-tråd")
+    trad_id = post.svarsvag.trad_id
+    if gmailutkast_finns(trad_id, omdomesfil):
+        raise Utkastvagran("tråden har redan ett utkast ur vyn, eller ett "
+                           "försök som misslyckades. Se efter i Gmail under "
+                           "Utkast.")
+
+    # RADEN FÖRE UTKASTET. Den spärrar tråden också om anropet skapar ett
+    # utkast och sedan kastar. Fällt av §7-granskningen av skiva 68.
+    spara_gmailutkast(post.fall, trad_id, "begärt", omdomesfil=omdomesfil)
+    try:
+        gmail_id = skapa_utkast(post)
+    except Exception:
+        spara_gmailutkast(post.fall, trad_id, "misslyckades",
+                          omdomesfil=omdomesfil)
+        raise
+    # UTKASTET FINNS HÄR. Ett fel i loggraden får inte redovisas som ett utkast
+    # som inte skapades. Tråden är redan spärrad av `begärt`. Fällt av
+    # §7-granskningen av skiva 69.
+    try:
+        spara_gmailutkast(post.fall, trad_id, "skapat", gmail_id,
+                          omdomesfil=omdomesfil)
+    except OSError as fel:
+        raise Skrivfel(f"utkastet {gmail_id} ligger i Gmail, men raden "
+                       f"`skapat` kunde inte skrivas ({type(fel).__name__})"
+                       ) from fel
+    return gmail_id
+
+
 # ---------------------------------------------------------------- rendering
 
 SIDHUVUD = """<!doctype html>
@@ -1649,11 +1702,11 @@ def bygg_hanterare(
         def _gmailutkast(self) -> None:
             """Lägger förslaget som ett utkast i kundens Gmail-tråd. DEL C.
 
-            **SAMMA VÄGRANDEN SOM `_omdome`, och de prövas här innan den
-            injicerade funktionen anropas.** En spärrad post, en post utan svar
-            och en post utan svarsväg når aldrig Gmail.
+            **SAMMA VÄGRANDEN SOM `_omdome`, och `lagg_gmailutkast` prövar dem
+            innan den injicerade funktionen anropas.** En spärrad post, en post
+            utan svar och en post utan svarsväg når aldrig Gmail.
             `gmailutkast.krav_pa_utkastbar` prövar samma sak en gång till i
-            modulen som skriver.
+            modulen som skriver. Den dagliga körningen går samma väg.
 
             **ETT FÖRSÖK PER TRÅD.** Ett andra tryck vägras, också efter ett
             misslyckat försök, se `gmailutkast_finns`.
@@ -1683,35 +1736,13 @@ def bygg_hanterare(
                 vagra("utkastet saknar en entydig post och skapas inte")
                 return
 
-            post = granskning[index]
-            if post.inget_svar:
-                vagra("posten har inget svar")
-                return
-            if post.sparr:
-                vagra(f"posten är spärrad av {post.sparr}")
-                return
-            if post.svarsvag is None:
-                vagra("posten bär ingen Gmail-tråd")
-                return
-            if gmailutkast_finns(post.svarsvag.trad_id, omdomesfil):
-                vagra("tråden har redan ett utkast ur vyn, eller ett försök "
-                      "som misslyckades. Se efter i Gmail under Utkast.")
-                return
-
-            # RADEN FÖRE UTKASTET. Den spärrar tråden också om anropet skapar
-            # ett utkast och sedan kastar. Fällt av §7-granskningen av skiva 68.
-            trad_id = post.svarsvag.trad_id
             try:
-                spara_gmailutkast(post.fall, trad_id, "begärt",
-                                  omdomesfil=omdomesfil)
-            except Skrivfel as fel:
+                gmail_id = lagg_gmailutkast(granskning[index], skapa_utkast,
+                                            omdomesfil)
+            except (Utkastvagran, Skrivfel) as fel:
                 vagra(str(fel))
                 return
-            try:
-                gmail_id = skapa_utkast(post)
             except Exception as fel:  # noqa: BLE001
-                spara_gmailutkast(post.fall, trad_id, "misslyckades",
-                                  omdomesfil=omdomesfil)
                 # Typen och Googles text. Texten bär ingen kundtext: vi
                 # skickar den, Google citerar den inte i ett fel.
                 vagra(f"utkastet skapades inte ({type(fel).__name__}): {fel}. "
@@ -1719,8 +1750,6 @@ def bygg_hanterare(
                       "Gmail under Utkast.")
                 return
 
-            spara_gmailutkast(post.fall, trad_id, "skapat", gmail_id,
-                              omdomesfil=omdomesfil)
             nasta = min(index + 1, len(granskning) - 1)
             self._svara(
                 SIDHUVUD.format()

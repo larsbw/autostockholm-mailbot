@@ -39,18 +39,29 @@ i skiva 48 var FYRA LAGER i stället, och bara det första är Googles:
                    inte kan brytas av en rad i vår kod.
   2  TJÄNSTEN      `src/inkorg.py::Lastjanst`. Bara läsvägarna går igenom.
   3  IMPORTLAGRET  `vy.GMAILBARANDE_MODULER`, namngivna moduler. En onamngiven
-                   som drar in `googleapiclient` fäller spärren. Den skrivande
-                   `src.gmailutkast` står i listan men inte i den här filens
-                   graf, och `test_dagliga_korningen_nar_ALDRIG_gmailutkast`
-                   binder det.
+                   som drar in `googleapiclient` fäller spärren. Sedan skiva
+                   69 står den skrivande `src.gmailutkast` i den här filens
+                   graf, se nedan.
   4  KÄLLTEXTEN    `FORBJUDET_MONSTER` över hela grafen, OFÖRÄNDRAT.
 
 Lager 3 och 4 körs av `vy.krav_pa_sandvagsfrihet("scripts.respond", tillatna=...)`
 först i `_kor`, alltså före varje läsning, varje modellanrop och varje uppslag.
 Lager 1 och 2 prövas när tjänsten byggs.
 
-**MED `--tradar` GÄLLER FORTFARANDE DEN STARKA FORMEN**: ingen tjänst byggs,
-ingen credential läses, och ingen rad i den vägen rör en brevlåda.
+**MED `--tradar` OCH UTAN `--gmailutkast` GÄLLER DEN STARKA FORMEN**: ingen
+tjänst byggs, ingen credential läses, och ingen rad i den vägen rör en brevlåda.
+
+GMAIL-UTKAST UTAN GRANSKNING, SKIVA 69
+--------------------------------------
+
+Lars beslut, `docs/beslutslogg.md` #132. Med `--gmailutkast` blir varje ärende
+som passerat samtliga spärrar ett utkast i kundens Gmail-tråd, i samma stund
+som det skrivs. Ingen läser texten före. **SPÄRRARNA ÄR DÅ ENDA SKYDDET**, och
+Matte kan trycka skicka på en text ingen läst. Lars vet det.
+
+Ett spärrat ärende får aldrig ett utkast, och inte heller ett ärende i en tråd
+vi redan svarat i: utkastet svarar på trådens första kundmail. Credentialen i
+`token-skriv.json` kan skicka, se `src/gmailutkast.py`.
 
 §6. Körningen SKRIVER ALDRIG UT KUNDTEXT ELLER UTKAST. Den skriver räknare,
 kategorinamn och spärrnamn. Texten läses i vyn, som är byggd för det och som
@@ -73,8 +84,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import yaml  # noqa: E402
 
-from src import (biluppgifter, extract, generera, inkorg,  # noqa: E402
-                 kanal, kategorisera, kedja, klassa_maskin, maskera,
+from src import (biluppgifter, extract, generera, gmailutkast,  # noqa: E402
+                 inkorg, kanal, kategorisera, kedja, klassa_maskin, maskera,
                  sokvagar, urval, vy)
 from src.kedja import Arende, Kallfel  # noqa: E402
 
@@ -331,6 +342,11 @@ class Korning:
     per_hink: Counter = field(default_factory=Counter)
     per_sparr: Counter = field(default_factory=Counter)
     granskningsfall: list = field(default_factory=list)
+    # SKIVA 69. Vad `--gmailutkast` gjorde med utkasten ovan.
+    gmail_skapade: int = 0
+    gmail_besvarade: int = 0
+    gmail_vagrade: int = 0
+    gmail_misslyckade: int = 0
 
     @property
     def arenden(self) -> int:
@@ -366,6 +382,9 @@ def kor_alla(
     loggfil: Path | None = None,
     skriv=print,
     svarsvagar: list | None = None,
+    skapa_utkast=None,
+    omdomesfil: Path | None = None,
+    stoppa_vid_kallfel: bool = False,
 ) -> Korning:
     """Kedjan för varje ärende. Loggar EN rad per ärende, oavsett utfall.
 
@@ -393,8 +412,18 @@ def kor_alla(
 
     `svarsvagar` står i samma ordning som `arenden`, en per ärende. Skiva 68.
     Olika längd kastar: en förskjutning hade lagt ett utkast i fel kunds tråd.
+
+    `skapa_utkast` är `gmailutkast.utkastskapare` eller None. Skiva 69: med en
+    funktion blir varje utkast som passerat spärrarna ett Gmail-utkast, genom
+    `vy.lagg_gmailutkast`, samma väg som vyns knapp. Ett besvarat ärende hoppas
+    över. `omdomesfil` slås upp vid anropet, av samma skäl som `loggfil`.
+
+    `stoppa_vid_kallfel` avbryter slingan vid första källfelet. Backfillen,
+    skiva 69: ett 429 från biluppgifter.se försöks aldrig om (Lars beslut i
+    skiva 57), och nästa uppslag direkt efter ett avvisat är samma trafik igen.
     """
     loggfil = kedja.BESLUTSLOGG if loggfil is None else loggfil
+    omdomesfil = vy.OMDOMEN if omdomesfil is None else omdomesfil
     if svarsvagar is None:
         svarsvagar = [None] * len(arenden)
     if len(svarsvagar) != len(arenden):
@@ -414,6 +443,10 @@ def kor_alla(
             # `fel.sort` OCH ALDRIG `str(fel)`: meddelandet byggs av hämtningen
             # och bär ett registreringsnummer när requests kastar. Se `Kallfel`.
             skriv(f"{nummer:>4}  KÄLLFEL {fel.sort}, kedjan stoppad")
+            if stoppa_vid_kallfel:
+                skriv(f"      SLINGAN STOPPAD, {len(arenden) - nummer} "
+                      "ärenden körs inte")
+                break
             continue
 
         kedja.logga_beslut(arende, utfall, loggfil=loggfil)
@@ -423,10 +456,11 @@ def kor_alla(
         # granskningssida, och en post utan utkast har ingenting att granska.
         # Materialet skiva 49 ville bevara, kategori, hink och skäl per ärende,
         # står i `logg/beslut.jsonl` via raden ovan.
+        post = None
         if not utfall.inget_svar:
-            korning.granskningsfall.append(
-                kedja.till_granskningsfall(arende, utfall, skarp=skarp,
-                                           svarsvag=svarsvag))
+            post = kedja.till_granskningsfall(arende, utfall, skarp=skarp,
+                                              svarsvag=svarsvag)
+            korning.granskningsfall.append(post)
 
         # TRE GRENAR, EN PER UTFALL I `Kedjeutfall`. Grenen är NY och ersätter
         # ingen: före skiva 49 fanns inget tredje utfall, och ett ärende i
@@ -447,12 +481,55 @@ def kor_alla(
         elif utfall.blev_utkast:
             korning.utkast += 1
             skriv(f"{nummer:>4}  UTKAST   {utfall.kategori}  [{utfall.hink}]")
+            if skapa_utkast is not None:
+                _gmailutkast(post, arende, skapa_utkast, omdomesfil,
+                             korning, skriv)
         else:
             korning.per_sparr[utfall.sparr] += 1
             skriv(f"{nummer:>4}  SPÄRRAD  {utfall.kategori}  "
                   f"[{utfall.hink}]  {utfall.sparr}")
 
     return korning
+
+
+def _gmailutkast(post, arende: Arende, skapa_utkast, omdomesfil: Path,
+                 korning: Korning, skriv) -> None:
+    """Ett utkast i Gmail för en post som passerat spärrarna. Skiva 69.
+
+    **FÅNGAR ALLT**: ett misslyckat utkast ska kosta det ärendet och inte
+    resten av körningen. Utfallet räknas, och `_kor` returnerar 1 om något
+    misslyckades, så att vyns körningsrad larmar.
+
+    §6: raden bär Gmails meddelande-id och typnamnet på ett fel, aldrig
+    felets text, som kan citera tillbaka en adress.
+    """
+    if arende.besvarad:
+        korning.gmail_besvarade += 1
+        skriv("      GMAIL hoppas över: tråden är besvarad")
+        return
+    # MODULENS VÄGRAN FÖRE LOGGRADEN. Utan den gav en svarsväg utan ämne ett
+    # `begärt` och ett `misslyckades`, alltså ett larm för något som inte är
+    # ett driftfel. Fällt av §7-granskningen av skiva 69.
+    try:
+        gmailutkast.krav_pa_utkastbar(post)
+        gmail_id = vy.lagg_gmailutkast(post, skapa_utkast, omdomesfil)
+    except (gmailutkast.EjUtkastbar, vy.Utkastvagran):
+        korning.gmail_vagrade += 1
+        skriv("      GMAIL vägrat: tråden har redan ett försök, eller posten "
+              "saknar en fullständig svarsväg")
+        return
+    except vy.Skrivfel as fel:
+        # Texten är vår egen: sökväg, Gmails id och ett typnamn. Den säger om
+        # utkastet hann skapas.
+        korning.gmail_misslyckade += 1
+        skriv(f"      GMAIL LOGGFEL: {fel}")
+        return
+    except Exception as fel:  # noqa: BLE001
+        korning.gmail_misslyckade += 1
+        skriv(f"      GMAIL MISSLYCKADES {type(fel).__name__}")
+        return
+    korning.gmail_skapade += 1
+    skriv(f"      GMAIL-UTKAST skapat, meddelande-id {gmail_id}, INTE skickat")
 
 
 def summera(korning: Korning, skriv=print) -> None:
@@ -487,6 +564,10 @@ def summera(korning: Korning, skriv=print) -> None:
     skriv(f"  spärrade                {korning.sparrade}")
     for sparr, antal in sorted(korning.per_sparr.items()):
         skriv(f"      {sparr:<30} {antal}")
+    skriv(f"  gmail-utkast skapade    {korning.gmail_skapade}")
+    skriv(f"      besvarad tråd, inget  {korning.gmail_besvarade}")
+    skriv(f"      vägrade               {korning.gmail_vagrade}")
+    skriv(f"      misslyckade           {korning.gmail_misslyckade}")
 
     skriv("\nKLASSIFICERING")
     for etikett, antal in sorted(korning.per_kategori.items(),
@@ -517,6 +598,13 @@ def main(argv: list[str] | None = None) -> int:
                       help=f"ta högst så många ärenden, förval {ANTAL_FORVAL}. "
                            "0 betyder alla, och kostar ett modellanrop plus ett "
                            "uppslag per ärende.")
+    tolk.add_argument("--gmailutkast", action="store_true",
+                      help="lägg varje utkast som passerat spärrarna i kundens "
+                           "Gmail-tråd. Kräver token-skriv.json. Skickar inte.")
+    tolk.add_argument("--paus-s", type=float, default=PAUS_S,
+                      help=f"sekunder före varje uppslag, förval {PAUS_S}")
+    tolk.add_argument("--stoppa-vid-kallfel", action="store_true",
+                      help="avbryt vid första källfelet, till exempel ett 429")
     tolk.add_argument("--vy", action="store_true",
                       help="starta vyn efteråt")
     tolk.add_argument("--port", type=int, default=8765)
@@ -627,7 +715,7 @@ def _kor(arg) -> int:
     # KOSTNADEN SKRIVS UT FÖRE och inte efter. Talen är avlästa ur urvalet som
     # just gjordes, inte uppskattade.
     print(f"KOSTNAD: {len(arenden)} modellanrop och högst {len(arenden)} "
-          f"uppslag mot biluppgifter.se, {PAUS_S} s mellan anropen.")
+          f"uppslag mot biluppgifter.se, {arg.paus_s} s före varje uppslag.")
     print("UPPSLAGET ÄR SKARPT. INGEN SÄNDNING.\n")
 
     if not arenden:
@@ -651,19 +739,47 @@ def _kor(arg) -> int:
         print("inga ärenden att köra.")
         return 0
 
-    hamta, skarp = bygg_kalla()
-    kor_alla(
-        arenden,
-        klient=kategorisera.bygg_klient(),
-        hamta=hamta,
-        hinkar=hinkar,
-        taxonomi=taxonomi,
-        exempel=exempel,
-        skarp=skarp,
-        korning=korning,
-        nu=datetime.now(timezone.utc),
-        svarsvagar=svarsvagar,
-    )
+    # SKIVA 69. TJÄNSTEN BYGGS FÖRE FÖRSTA MODELLANROPET. En saknad eller fel
+    # token ska fällas här och inte som ett misslyckat försök per ärende, som
+    # hade spärrat varje tråd för nya försök. Körningen går vidare utan utkast,
+    # så att vyn ändå får dagens poster, och returnerar 1 så att den larmar.
+    skapa_utkast, utkastfel = None, False
+    if arg.gmailutkast:
+        try:
+            skapa_utkast = gmailutkast.utkastskapare(
+                tjanst=gmailutkast.skriv_tjanst())
+        except Exception as fel:  # noqa: BLE001
+            utkastfel = True
+            print(f"FEL: Gmail-utkasten är avstängda i den här körningen "
+                  f"({type(fel).__name__}). Kör python -m src.auth --skriv.")
+        else:
+            print("SPÄRR lager 1 FALLER: credentialen bär "
+                  f"{' '.join(gmailutkast.auth.SKRIVSCOPES)} och KAN skicka.")
+            print("SPÄRR lager 2: skrivtjänsten släpper bara drafts().create.")
+            print("GMAIL-UTKAST SKAPAS UTAN GRANSKNING. INGET SKICKAS.\n")
+
+    hamta, skarp = bygg_kalla(arg.paus_s)
+    try:
+        kor_alla(
+            arenden,
+            klient=kategorisera.bygg_klient(),
+            hamta=hamta,
+            hinkar=hinkar,
+            taxonomi=taxonomi,
+            exempel=exempel,
+            skarp=skarp,
+            korning=korning,
+            nu=datetime.now(timezone.utc),
+            svarsvagar=svarsvagar,
+            skapa_utkast=skapa_utkast,
+            stoppa_vid_kallfel=arg.stoppa_vid_kallfel,
+        )
+    except BaseException:
+        # SKIVA 69. Utkasten före felet ligger redan i Gmail, och vyn ska visa
+        # dem. Fällt av §7-granskningen av skiva 69.
+        if korning.granskningsfall:
+            vy.spara_granskningsfall(korning.granskningsfall)
+        raise
 
     print("")
     summera(korning)
@@ -677,7 +793,7 @@ def _kor(arg) -> int:
         _starta_vyn(arg.port, korning.granskningsfall)
     else:
         print("Kör med --vy för att läsa dem.")
-    return 0
+    return 1 if utkastfel or korning.gmail_misslyckade else 0
 
 
 if __name__ == "__main__":

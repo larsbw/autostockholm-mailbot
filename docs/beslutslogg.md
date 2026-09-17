@@ -7976,6 +7976,73 @@ och inget fält på `kedja.Arende`. Poster ur `scripts/kedja-prov.py` saknar
 den och får ingen knapp.
 
 
+## #132 — Skiva 69: utkasten skapas automatiskt, besvarad mäts, formulären når fram
+
+**Datum:** 2026-09-17 · **Berör:** `src/inkorg.py`, `src/vy.py`,
+`scripts/respond.py`, `scripts/dagligen.py`, `src/gmailutkast.py` ·
+**Ändrar:** #131 för den dagliga körningen
+
+### 1. LARS BESLUT: UTKAST UTAN GRANSKNING
+
+Den dagliga körningen skapar ett Gmail-utkast för varje ärende som passerat
+samtliga spärrar. Vyn blir en läsvy, inte en grind.
+
+**LARS VET ATT SPÄRRARNA DÄRMED ÄR ENDA SKYDDET, OCH ATT MATTE KAN TRYCKA
+SKICKA PÅ EN TEXT INGEN LÄST.**
+
+Ett spärrat ärende får aldrig ett utkast. Oförändrat.
+
+Byggt som `respond.py --gmailutkast`, som `dagligen.py` skickar med. Knappen och
+körningen går genom `vy.lagg_gmailutkast` och delar logg, alltså ett försök
+per tråd oavsett väg. Knappen står kvar för poster som körningen hoppade över.
+
+Lars beslut i samma skiva: **en besvarad tråd får inget automatiskt utkast.**
+Utkastet svarar på trådens första kundmail.
+
+Skrivtjänsten byggs före första modellanropet. Saknas `token-skriv.json` körs
+resten utan utkast och respond returnerar 1, så att vyn larmar. Ett misslyckat
+utkast kostar det ärendet och ger också 1.
+
+### 2. DEL A: BESVARAD VAR ALLTID FALSKT
+
+`urval.ar_gmail_svar` kräver `In-Reply-To`, `References` OCH en mottagare
+utöver brevlådan. Skörden gallrade alla tre. Mätt mot `data/tradar.jsonl`: 139
+besvarade trådar ogallrat, 0 gallrat, 0 med bara svarshuvudena tillbaka.
+
+**Lars beslut:** `To` och `Cc` med värde. Byggt smalare: värdena följer bara
+med på våra egna meddelanden, eftersom kundmailets `Cc` kan vara en tredje
+person. Svarshuvudena följer med utan värde. Efter ändringen: 139 av 139, ingen
+tråd bedöms olika. `Bcc` gallras som förut, lucka 83.
+
+Testet som skulle fånga detta godkände `MOTTAGARHUVUDEN` som en mängd skörden
+importerar. Det gör den inte. Testet slår nu upp mängden.
+
+### 3. FORMULÄRNOTISERNA NÅDDE ALDRIG DEN DAGLIGA KÖRNINGEN
+
+Notisen bär `SENT`. `inkorg.FRAGA` hade `-in:sent`, och `tradar_fran_dagen`
+krävde ett meddelande utan `SENT`. Mätt över 2026-07-16 till 2026-09-16: 33 av
+432 ärenden. **Lars beslut: rättas nu.** Frågan är `newer_than:2d`, och
+dygnsfiltret prövar `urval.ar_kundmeddelande`.
+
+### 4. BACKFILLEN
+
+Mätt före körning, Lars såg talet. 1114 trådar i Gmail, 387 obesvarade ärenden,
+13 a-traktor efter pass 2, 12 av dem med regnr, 11 av dem formulärnotiser.
+
+**Takten, Lars beslut:** bara de 13 trådarna, en omgång, 60 s före varje
+uppslag (`--paus-s 60`), och stopp vid första källfelet
+(`--stoppa-vid-kallfel`). Ett 429 försöks inte om (#123 punkt 3). Klara trådar
+står i `omdomen.jsonl` och hoppas över vid nästa körning.
+
+### 5. §7
+
+En omgång. Rättat: en ofullständig svarsväg gav `misslyckades` och ett larm,
+ett skapat utkast vars loggrad föll redovisades som oskapat, en krasch i
+slingan lämnade Gmail-utkast som vyn inte visade, en falsk docstring, och två
+rader utan test. Registrerat utan kod: lucka 84, den dagliga körningens
+dygnsfönster, som kräver Lars beslut, och lucka 85.
+
+
 ## Appendix — versionshistorik (nyaste överst)
 
 ### 0.85.0 — 2026-09-16

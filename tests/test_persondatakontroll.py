@@ -35,6 +35,13 @@ def test_registreringsnummer_falls():
         assert "registreringsnummer" in sorter(f"bilen {regnr} står"), regnr
 
 
+def test_lintkoden_BLE001_godtas_BARA_i_sin_noqa_kommentar():
+    """Skiva 69. Undantaget är kommentaren, inte strängen."""
+    assert "registreringsnummer" not in sorter(
+        "    except Exception as fel:  # noqa: BLE001")
+    assert "registreringsnummer" in sorter("bilen BLE001 står")
+
+
 def test_postnummer_med_ort_falls():
     assert "postnummer" in sorter("adressen är 192 52 Sollentuna")
     assert "postnummer" in sorter("adressen är 19252 SOLLENTUNA")
