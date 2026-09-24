@@ -2232,7 +2232,9 @@ behöver titta närmare på bilen är inget skäl att utelämna priset. Kunden v
 veta vad en ombyggnad kostar oavsett vad registret säger om just den bilen.
 16. SKRIV ALDRIG ATT EN DRAGKROK INGÅR. Inte att den ingår i priset, i bygget \
 eller i grundombyggnaden, och inte att den följer med eller är inkluderad. \
-Regel 13 står oförändrad och säger vad du DÄREMOT skriver när bilen behöver en.
+Skriv aldrig heller att den INTE gör någon av de sakerna: ett nekande är lika \
+fel som ett jakande. Regel 13 står oförändrad och säger vad du DÄREMOT skriver \
+när bilen behöver en.
 17. SKRIV ALDRIG BILENS MODELLBETECKNING. Inte V70, inte E60, inte A3, inte \
 X3M. Skriv "bilen", "din bil" eller "er bil". Fabrikatet får du skriva. \
 Beteckningen bär nästan alltid en siffra, och en siffra i ett utgående mail \
@@ -2950,12 +2952,16 @@ def _utfallstext(utfall: Utfall | None, uppslag: Uppslag | None) -> str:
     # är sant, men kunden läser det som att bilen saknar en. Läget nås bara
     # med ett avläst `Nej`, se `_bara_dragkroken_saknas`.
     oklart_bara_dragkroken = (
-        "BILEN DUGER SOM DRAGFORDON. Säg det som ett JA: släpvagnsvikten i "
-        "registret räcker, och skriv ut talet ur underlaget ovan som skälet. "
-        "Registret säger att bilen saknar registrerad draganordning. Skriv "
-        "just det, och i samma andetag att vi monterar en. Skriv inte att "
-        "registret inte visar en dragkrok. Be aldrig kunden ordna kroken "
-        "själv, och gör inte dragkroken till ett villkor."
+        "BILEN DUGER SOM DRAGFORDON. Säg det som ett JA: poängen är att "
+        "släpvagnsvikten i registret räcker, och skriv ut talet ur underlaget "
+        "ovan som skälet. Registret säger att bilen saknar registrerad "
+        "draganordning. Skriv just det, och i samma andetag att vi monterar "
+        "en. Skriv inte att registret inte visar en dragkrok. Be aldrig "
+        "kunden ordna kroken själv, och gör inte dragkroken till ett "
+        "villkor. Säg också att dragkroken TILLKOMMER utöver baspriset och "
+        "offereras separat. Skriv aldrig att den ingår, följer med eller är "
+        "inkluderad, och skriv aldrig heller att den INTE gör någon av de "
+        "sakerna: ett nekande är lika fel som ett jakande."
     )
 
     oklart_utan_besked = "vi kan inte avgöra det på uppgifterna vi har."

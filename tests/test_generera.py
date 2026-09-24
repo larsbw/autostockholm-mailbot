@@ -653,8 +653,17 @@ PRISER_SOM_LARS_BESLUTAT = {
     # rättar sajten separat. Pluspaketets pris står utanför grundombyggnaden
     # och därmed utanför posten; beloppet skrivs inte här, eftersom ett pris
     # som boten får nämna hör hemma i `config/priser.json` och ingen annanstans.
+    #
+    # **HÖJT TILL 23 000-27 000 KR PÅ LARS §10-BESLUT.** Baspriset bär nu ordet
+    # "baspris" och en rad om att tillägg kan tillkomma, i stället för att den
+    # skillnaden bara stod i systempromptens regler. Dragkroken namns INTE här:
+    # samma skäl som ovan, `dragkrok` är ett FORDONSORD och en prisrad som
+    # nämner den föll tidigare på `genererat-fordonsfaktum` i varje gren där
+    # `uppslag is None`. Dragkrokens pris bärs i stället av systempromptens
+    # regel 16.
     "a_traktorkonvertering":
-        "från 20 000 till 25 000 kr inklusive moms för grundombyggnaden, och "
+        "baspris från 23 000 till 27 000 kr inklusive moms för "
+        "grundombyggnaden, tillägg utöver baspriset kan tillkomma, och "
         "grundombyggnaden omfattar hastighetsbegränsning, barlastflak, "
         "förstängning, belysning, LGF-skylt, dokumentation och besiktning",
     "rekond":
@@ -2740,10 +2749,22 @@ REGLER_I_PROMPTEN = {
     # Hänvisningen står i regeln så att en framtida omskrivning ser att de två
     # är avsedda att stå bredvid varandra, och den är skriven som en HÄNVISNING
     # och inte som en uppmaning att nämna dragkroken.
+    #
+    # **NEKANDET STÄNGT PÅ LARS §10-BESLUT, PRISHÖJNINGEN.** Regeln förbjöd
+    # bara det JAKANDE påståendet. `atagande-om-priset` fäller `ingår` oavsett
+    # polaritet, LUCKA 75 i `docs/sparrar.md`, alltså hade ett nekande som
+    # "dragkroken ingår inte" fallit lika hårt som ett jakande utan att prompten
+    # sagt det. Formen som FAKTISKT ska bäras, att dragkroken TILLKOMMER utöver
+    # baspriset och offereras separat, står i stället i
+    # `generera._utfallstext`:s `oklart_bara_dragkroken`, den enda gren där
+    # uppslaget redan garanterar en avläst `draganordning`. Regeln här förblir
+    # ett RENT FÖRBUD, av samma skäl som förut: den beordrar ingenting en
+    # spärr kan fälla.
     16: "SKRIV ALDRIG ATT EN DRAGKROK INGÅR. Inte att den ingår i priset, i "
         "bygget eller i grundombyggnaden, och inte att den följer med eller är "
-        "inkluderad. Regel 13 står oförändrad och säger vad du DÄREMOT skriver "
-        "när bilen behöver en.",
+        "inkluderad. Skriv aldrig heller att den INTE gör någon av de "
+        "sakerna: ett nekande är lika fel som ett jakande. Regel 13 står "
+        "oförändrad och säger vad du DÄREMOT skriver när bilen behöver en.",
     # SKIVA 55 DEL B PUNKT 1. **REGELN KOMMER UR EN MÄTNING och inte ur en
     # invändning mot språket.** Av Lars åtta spärrade ärenden mättes två orsaker,
     # och den här är den ena: boten skriver kundens egen modellbeteckning, och
@@ -4700,6 +4721,14 @@ def test_bedomningen_blir_ett_JA_nar_bara_dragkroken_saknas():
     # SKIVA 63 DEL B, Lars formulering för ett avläst Nej.
     assert "saknar registrerad draganordning" in text
     assert "Det enda registret inte visar" not in text
+    # PRISHÖJNINGEN, LARS §10-BESLUT. Grenen ska uttryckligen be om priset på
+    # dragkroken för sig. Instruktionen FÅR nämna ordet "ingår", eftersom den
+    # är just förbudet mot att MODELLEN skriver det; det är
+    # `test_prisklausulen_om_dragkroken_passerar_sparrarna` som binder att en
+    # svarstext utan "ingår" faktiskt passerar spärrarna, se LUCKA 75 i
+    # `docs/sparrar.md`.
+    assert "TILLKOMMER" in text
+    assert "baspriset" in text
 
 
 def test_NEJ_formuleringen_passerar_spärrarna():
@@ -4713,6 +4742,30 @@ def test_NEJ_formuleringen_passerar_spärrarna():
     generera.krav_pa_svaret(
         "Bilen duger som dragfordon, släpvagnsvikten är 1600 kg. Bilen saknar "
         "registrerad draganordning, så vi monterar en.", forfr)
+
+
+def test_prisklausulen_om_dragkroken_passerar_sparrarna():
+    """PRISHÖJNINGEN, LARS §10-BESLUT. Den nya meningen om dragkrokens pris
+    ska inte falla på någon spärr i det läge `oklart_bara_dragkroken` finns
+    för: släpvagnsvikten avläst och tillräcklig, draganordning avläst `Nej`.
+
+    **SKÄLET ATT PRÖVA DEN FÖR SIG.** Skiva 47 mätte att en tidigare lydelse,
+    *"Dragkrok ingår inte och offereras separat"*, INTE gick att lyda: den
+    föll på `atagande-om-priset` eftersom `dragkrok` är ett `FORDONSORD` och
+    `ingår` ett `ATAGANDEORD`, oavsett nekande, se LUCKA 75 i
+    `docs/sparrar.md`. Den nya formen skriver "TILLKOMMER" i stället för
+    "ingår", och den här raden är vakuitetskontrollen som mätningen saknade.
+    """
+    forfr = Forfragan(
+        text="x", kategori="fråga om a-traktorkonvertering",
+        utfall=Utfall.OKLART, uppslag=XJZ_LIK,
+        franvaro_far_pastas=frozenset({"draganordning"}),
+    )
+
+    generera.krav_pa_svaret(
+        "Bilen duger som dragfordon, släpvagnsvikten är 1600 kg. Bilen saknar "
+        "registrerad draganordning, så vi monterar en. Dragkroken tillkommer "
+        "utöver baspriset och offereras separat.", forfr)
 
 
 def test_bedomningen_ber_INTE_om_siffran_nar_slapvagnsvikten_saknas():
