@@ -57,6 +57,20 @@ ROT = Path(__file__).resolve().parent.parent
 OMETIKETTERADE = ROT / "data" / "ometiketterade.jsonl"
 HINKFIL = ROT / "config" / "kategorier.yaml"
 
+
+def _relativt(sokvag: Path) -> str:
+    """Sökvägen relativt repot när den ligger där, annars i sin helhet.
+
+    `vy.GRANSKNINGSFALL` och `kedja.BESLUTSLOGG` kommer ur `src/sokvagar.py`,
+    som låter `MAILBOT_DATA` och `MAILBOT_LOGG` peka var som helst utanför
+    repot. `relative_to` kastar `ValueError` då. Samma fix som
+    `scripts/respond.py::_relativt`, samma bugg.
+    """
+    try:
+        return str(sokvag.relative_to(ROT))
+    except ValueError:
+        return str(sokvag)
+
 # Paus mellan två skarpa uppslag mot biluppgifter.se. Talet är valt och inte
 # mätt: det finns ingen publicerad gräns att läsa, och en sekund är långsammare
 # än en människa som klistrar in nummer i sökrutan.
@@ -269,7 +283,7 @@ def _bara_vyn(args) -> int:
     """Startar vyn på det som redan är sparat. Inga API-anrop, ingen nättrafik."""
     fall = vy.las_granskningsfall()
     if not fall:
-        print(f"inga sparade fall i {vy.GRANSKNINGSFALL.relative_to(ROT)}.")
+        print(f"inga sparade fall i {_relativt(vy.GRANSKNINGSFALL)}.")
         print("Kör med --kor först.")
         return 1
 
@@ -410,13 +424,13 @@ def _kor_och_visa(args) -> int:
     print("SUMMERING")
     for nyckel in sorted(raknare):
         print(f"  {nyckel:<10} {raknare[nyckel]}")
-    print(f"\nLoggat till {kedja.BESLUTSLOGG.relative_to(ROT)}")
+    print(f"\nLoggat till {_relativt(kedja.BESLUTSLOGG)}")
 
     # VÄGENS SLUTPUNKT, OCH DEN SKRIVS TILL DISK. Utan sparandet gav varje
     # omstart av vyn andra utkast, och ett referenssvar skrivet mot ett utkast
     # som aldrig kommer tillbaka är inte kopplat till något.
     sparad = vy.spara_granskningsfall(granskningsfall)
-    print(f"{len(granskningsfall)} fall sparade i {sparad.relative_to(ROT)}")
+    print(f"{len(granskningsfall)} fall sparade i {_relativt(sparad)}")
 
     if args.vy:
         # INGEN VARNING ÖVER HELA VYN LÄNGRE. Härkomsten står PER POST i

@@ -92,6 +92,24 @@ from src.kedja import Arende, Kallfel  # noqa: E402
 ROT = Path(__file__).resolve().parent.parent
 HINKFIL = ROT / "config" / "kategorier.yaml"
 
+
+def _relativt(sokvag: Path) -> str:
+    """Sökvägen relativt repot när den ligger där, annars i sin helhet.
+
+    `relative_to` KASTAR för en sökväg utanför repot, och det är inte
+    hypotetiskt: `SKORD`, `vy.GRANSKNINGSFALL` och `kedja.BESLUTSLOGG` kommer
+    ur `src/sokvagar.py`, som låter `MAILBOT_DATA` och `MAILBOT_LOGG` peka
+    var som helst UTANFÖR repot (`sokvagar._krav_pa_lage` prövar bara läget
+    när de pekar IN i det). Ett sånt förval fällde `--skord`s hjälptext med
+    `ValueError` redan när tolken byggdes, före varje parsning. Samma mönster
+    som `scripts/kategoristatus.py::namnge`.
+    """
+    try:
+        return str(sokvag.relative_to(ROT))
+    except ValueError:
+        return str(sokvag)
+
+
 # Paus mellan två skarpa uppslag mot biluppgifter.se. Talet är VALT och inte
 # mätt: det finns ingen publicerad gräns att läsa. `scripts/kedja-prov.py` bär
 # samma val av samma skäl, och de två är inte kopplade: byter Lars takt måste
@@ -612,7 +630,7 @@ def main(argv: list[str] | None = None) -> int:
                            "eller brevlåda.")
     tolk.add_argument("--skord", type=Path, default=SKORD,
                       help=f"fil hämtningen skriver trådarna till, förval "
-                           f"{SKORD.relative_to(ROT)}. Skrivs över varje "
+                           f"{_relativt(SKORD)}. Skrivs över varje "
                            "körning, bär kundtext, alltså under data/.")
     tolk.add_argument("--antal", type=int, default=ANTAL_FORVAL,
                       help=f"ta högst så många ärenden, förval {ANTAL_FORVAL}. "
@@ -646,7 +664,7 @@ def _bara_vyn(arg) -> int:
     """Vyn på det som redan är sparat. Inga API-anrop, ingen nättrafik."""
     fall = vy.las_granskningsfall()
     if not fall:
-        print(f"inga sparade fall i {vy.GRANSKNINGSFALL.relative_to(ROT)}.")
+        print(f"inga sparade fall i {_relativt(vy.GRANSKNINGSFALL)}.")
         return 1
 
     print(f"{len(fall)} sparade fall, inga nya anrop.")
@@ -818,11 +836,11 @@ def _kor(arg) -> int:
 
     print("")
     summera(korning)
-    print(f"\nLoggat till {kedja.BESLUTSLOGG.relative_to(ROT)}")
+    print(f"\nLoggat till {_relativt(kedja.BESLUTSLOGG)}")
 
     sparad = vy.spara_granskningsfall(korning.granskningsfall)
     print(f"{len(korning.granskningsfall)} fall sparade i "
-          f"{sparad.relative_to(ROT)}")
+          f"{_relativt(sparad)}")
 
     if arg.vy:
         _starta_vyn(arg.port, korning.granskningsfall)

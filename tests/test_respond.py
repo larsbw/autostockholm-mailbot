@@ -671,6 +671,51 @@ def test_CLI_satter_KORNINGENS_tidpunkt_och_inget_annat():
     assert "nu = datetime . now ( timezone . utc )" in i_kor
 
 
+def test_argparse_kraschar_inte_nar_SKORD_ligger_utanfor_repot(
+        tmp_path, monkeypatch):
+    """ROT-buggen. `--skord`s hjälptext räknade `SKORD.relative_to(ROT)` rakt
+    av, ett uttryck som körs redan när tolken byggs, INNAN `--help` ens tolkas.
+
+    `SKORD` kommer ur `sokvagar.DATA`, och `src/sokvagar.py::_krav_pa_lage`
+    tillåter uttryckligen att `MAILBOT_DATA` pekar var som helst UTANFÖR
+    repot: den prövningen gäller bara läget när variabeln pekar IN i det.
+    Satt så, vilket är precis formen en Railway-volym har, kastade
+    `relative_to` ett `ValueError` för varje anrop av `main`, `--help`
+    inräknat.
+
+    Modulen laddas om HÄR, efter att `MAILBOT_DATA` satts och `sokvagar`
+    laddats om, så att den nya kopians `SKORD` faktiskt binds mot en sökväg
+    utanför repot. Den redan laddade `respond` överst i filen har sin `SKORD`
+    bunden mot det RIKTIGA repot och skulle inte visa bristen.
+    """
+    utanfor_repot = tmp_path / "utanfor-repot"
+    utanfor_repot.mkdir()
+    monkeypatch.setenv("MAILBOT_DATA", str(utanfor_repot))
+
+    from src import sokvagar
+    import importlib
+    importlib.reload(sokvagar)
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "respond_rotbugg_under_test", RESPOND)
+        modul_utanfor_repot = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = modul_utanfor_repot
+        spec.loader.exec_module(modul_utanfor_repot)
+
+        assert not modul_utanfor_repot.SKORD.is_relative_to(ROT), (
+            "testet mäter inte det ROT-buggen gäller: SKORD hamnade ändå "
+            "inuti repot."
+        )
+
+        with pytest.raises(SystemExit) as avslut:
+            modul_utanfor_repot.main(["--help"])
+        assert avslut.value.code == 0
+    finally:
+        sys.modules.pop("respond_rotbugg_under_test", None)
+        monkeypatch.delenv("MAILBOT_DATA", raising=False)
+        importlib.reload(sokvagar)
+
+
 def test_VARJE_arende_lamnar_exakt_en_loggrad(loggfil):
     """Skugglägets underlag räknas ur loggen, alltså ska raderna vara lika
     många som ärendena, oavsett hur de gick."""
