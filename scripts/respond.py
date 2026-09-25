@@ -51,6 +51,11 @@ Lager 1 och 2 prövas när tjänsten byggs.
 **MED `--tradar` OCH UTAN `--gmailutkast` GÄLLER DEN STARKA FORMEN**: ingen
 tjänst byggs, ingen credential läses, och ingen rad i den vägen rör en brevlåda.
 
+**UTOM MED `--regnr-historik`, UPPDRAG 2026-09-25 DEL 2.** Flaggan bygger en
+läsvägstjänst åt regnrfiltret (DEL 1) också med `--tradar`, för en
+engångskörning över en period `--inkorg` inte täcker. Fortfarande bara
+läsvägen: `inkorg.las_tjanst`, samma lager 1 och 2 som `--inkorg` självt.
+
 GMAIL-UTKAST UTAN GRANSKNING, SKIVA 69
 --------------------------------------
 
@@ -726,6 +731,12 @@ def main(argv: list[str] | None = None) -> int:
     tolk.add_argument("--gmailutkast", action="store_true",
                       help="lägg varje utkast som passerat spärrarna i kundens "
                            "Gmail-tråd. Kräver token-skriv.json. Skickar inte.")
+    tolk.add_argument("--regnr-historik", action="store_true",
+                      help="aktivera regnrfiltrets Gmail-sökning (DEL 1) även "
+                           "med --tradar. Kräver token-las.json. Läser, "
+                           "skickar inte. Alltid på med --inkorg. Utan "
+                           "flaggan gäller DEN STARKA FORMEN oförändrat: "
+                           "--tradar utan --gmailutkast rör ingen brevlåda.")
     tolk.add_argument("--paus-s", type=float, default=PAUS_S,
                       help=f"sekunder före varje uppslag, förval {PAUS_S}")
     tolk.add_argument("--stoppa-vid-kallfel", action="store_true",
@@ -814,6 +825,26 @@ def _kallan(
              f"fråga {inkorg.FRAGA!r}"), tradar, tjanst)
 
 
+def _regnr_historik_tjanst(
+    arg, befintlig: inkorg.Lastjanst | None,
+) -> inkorg.Lastjanst | None:
+    """Vilken tjänst regnrfiltret ska söka med, eller `None` för avstängt.
+
+    UPPDRAG 2026-09-25 DEL 2: engångskörningen över backfillens period
+    använder `--tradar`, som `_kallan` aldrig bygger en tjänst för. Utan
+    `--regnr-historik` gäller "DEN STARKA FORMEN" ändå, oförändrat: ingen ny
+    väg till Gmail öppnas bara för att flaggan FINNS.
+
+    `befintlig` (från `_kallan`, satt av `--inkorg`) återanvänds i stället
+    för en andra tjänst: samma credential, samma auktorisering, en gång.
+    """
+    if befintlig is not None:
+        return befintlig
+    if arg.regnr_historik:
+        return inkorg.las_tjanst()
+    return None
+
+
 def _kor(arg) -> int:
     if arg.tradar is not None and not arg.tradar.exists():
         print(f"saknas: {arg.tradar}")
@@ -836,6 +867,10 @@ def _kor(arg) -> int:
     # fönstrets gräns och räknar ärendenas ålder.
     nu = datetime.now(timezone.utc)
     kalltext, tradar, regnr_historik_tjanst = _kallan(arg, nu)
+    regnr_historik_tjanst = _regnr_historik_tjanst(arg, regnr_historik_tjanst)
+    if arg.regnr_historik and not arg.inkorg:
+        print("SPÄRR lager 1 (regnrfilter): credentialen bär "
+              f"{' '.join(inkorg.LASSCOPES)} och kan inte skicka.")
 
     korning = Korning()
     arenden: list[Arende] = []

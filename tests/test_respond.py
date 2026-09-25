@@ -834,6 +834,39 @@ def test_summeringen_skriver_ingen_kundtext():
     assert "ABC12X" not in ut
 
 
+class _FejkArg:
+    def __init__(self, *, regnr_historik: bool):
+        self.regnr_historik = regnr_historik
+
+
+def test_regnr_historik_tjanst_ateranvander_befintlig():
+    """`--inkorg` har redan byggt en. Ingen andra auktorisering."""
+    befintlig = object()
+    assert respond._regnr_historik_tjanst(
+        _FejkArg(regnr_historik=False), befintlig) is befintlig
+    assert respond._regnr_historik_tjanst(
+        _FejkArg(regnr_historik=True), befintlig) is befintlig
+
+
+def test_regnr_historik_tjanst_av_utan_flaggan(monkeypatch):
+    """DEN STARKA FORMEN: `--tradar` utan `--regnr-historik` bygger ingen
+    tjänst och rör ingen credential."""
+    def kraschar(**_):
+        raise AssertionError("ingen tjänst ska byggas utan flaggan")
+    monkeypatch.setattr(inkorg, "las_tjanst", kraschar)
+
+    assert respond._regnr_historik_tjanst(
+        _FejkArg(regnr_historik=False), None) is None
+
+
+def test_regnr_historik_tjanst_byggs_MED_flaggan(monkeypatch):
+    sentinel = object()
+    monkeypatch.setattr(inkorg, "las_tjanst", lambda: sentinel)
+
+    assert respond._regnr_historik_tjanst(
+        _FejkArg(regnr_historik=True), None) is sentinel
+
+
 # ------------------------------------------------- REGNRFILTRET, DEL 1
 
 
