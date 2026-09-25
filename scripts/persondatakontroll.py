@@ -120,6 +120,23 @@ TILLATNA = {
     # Exempeladresser i regler och mallar.
     "noreply@example.com",
     "kund@exempel.se",
+    # EN SÄKERHETSKOPIAS FILNAMN PÅ PRODUKTIONSVOLYMEN, skiva 81. Namnet är
+    # källfilen plus en UTC-tidsstämpel, `YYYYMMDD-HHMM`, och den formen råkar
+    # ha exakt personnummer-mönstrets form (sex siffror, ett skiljetecken,
+    # fyra siffror). Det är en filsökväg, inte en persons identitetsnummer.
+    #
+    # **UNDANTAGET RÖR ORSAKEN och skriver inte om texten**, av samma skäl
+    # skriptets eget stoppmeddelande föreskriver: `docs/beslutslogg.md` #139
+    # namnger filen så att den går att hitta på volymen igen.
+    #
+    # **HELA FILNAMNET OCH INTE BARA TIDSSTÄMPELN**, samma snäva form som
+    # postadressen ovan: `_tillaten` godtar tidsstämpeln bara när hela
+    # `par.jsonl.bak-20260925-1100` står i samma rad. En kunds personnummer
+    # med råkat SAMMA tolv siffror, utan filnamnet omkring, fälls fortfarande.
+    #
+    # **UNDANTAGET TYSTAR INTE VAKTENS EGET BEVIS.** `test_personnummer_falls`
+    # använder en annan sträng, alltså står kanariefågeln kvar.
+    "par.jsonl.bak-20260925-1100",
 }
 
 # **INGET REGISTRERINGSNUMMER STÅR I TILLATNA, och det är ett medvetet val.**

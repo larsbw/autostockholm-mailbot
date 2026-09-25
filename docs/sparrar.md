@@ -2756,6 +2756,13 @@ Mot `tests/test_generera.py`, som bar 129 test vid mätningen.
   Verkställs av `krav_pa_svaret`, som anropas av `generera_utkast` innan texten
   returneras.
 
+  **SEDAN SKIVA 81 KAN `generera_utkast` FRÅGA MODELLEN IGEN** när
+  `krav_pa_svaret` faller, upp till `MAX_GENERERINGSFORSOK = 3` gånger, med
+  den fällda satsen och skälet som kontext i nästa försöks prompt. Varje
+  försök prövas ändå mot EXAKT samma spärr, oförändrad: taket sänker ingen
+  tröskel, det ger bara fler CHANSER att träffa rätt. Se `src/generera.py`s
+  huvud och `docs/beslutslogg.md` #139.
+
   *Här stod "TVÅ villkor", och raden namngav bara det första och det sista.
   Skiva 32 lade till `if traff_i_ord:` utan att röra det här fältet, alltså hade
   en granskare som följde posten fällt två av tre lager och fått ett falskt
@@ -6021,10 +6028,14 @@ tal som värde. Uppmätt mot `krav_pa_tal_med_kalla` i
 `test_ett_IFYLLT_konfigvarde_ger_FORTFARANDE_sitt_tal`, som binder både leden:
 meningen med talet passerar, en mening med ett annat tal faller.
 
-**VARFÖR DEN INTE GÄLLER I DAG.** Filens tre värden är en mening, ett
-telefonnummer och en adress. Inget av dem är ett bart tal, alltså kan inget av
-dem uppfylla villkoret på annat sätt än genom att stå helt i satsen. Luckan
-öppnar först den dag Lars fyller en post med enbart ett tal.
+**VARFÖR DEN INTE GÄLLER I DAG.** Filens fyra värden (sedan skiva 81) är två
+meningar, ett telefonnummer och en adress. Inget av dem är ett bart tal,
+alltså kan inget av dem uppfylla villkoret på annat sätt än genom att stå helt
+i satsen. Luckan öppnar först den dag Lars fyller en post med enbart ett tal.
+
+*Här stod "filens TRE värden", innan skiva 81 lade till `dragviktskrav`.
+Antalet är en beskrivning av dagens fil och inte en gräns koden håller: nästa
+post prövas på samma sätt oavsett hur många som redan finns.*
 
 **VAD SOM GATAR DEN.** `test_faktafilen_i_repot_bar_EXAKT_det_Lars_BESLUTAT`
 binder varje post vars nyckel INTE börjar med `_`, ordagrant. En ny post av den

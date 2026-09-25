@@ -78,6 +78,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 from collections import Counter
@@ -89,9 +90,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import yaml  # noqa: E402
 
-from src import (biluppgifter, extract, generera, gmailutkast,  # noqa: E402
-                 inkorg, kanal, kategorisera, kedja, klassa_maskin, maskera,
-                 mine, regnrhistorik, sokvagar, urval, vy)
+from src import (biluppgifter, extract, fordonsuppslag, generera,  # noqa: E402
+                 gmailutkast, inkorg, kanal, kategorisera, kedja,
+                 klassa_maskin, maskera, mine, regnrhistorik, sokvagar,
+                 urval, vy)
 from src.kedja import Arende, Kallfel  # noqa: E402
 
 ROT = Path(__file__).resolve().parent.parent
@@ -245,6 +247,34 @@ def _regnr_i(text: str) -> str | None:
     return traff.group(0) if traff else None
 
 
+# SKIVA 81, Lars beslut. Formulärets EGEN etikett, samma begränsning som
+# `_regnr_i`: bara webbformulärets brödtext bär den, andra kanaler ger
+# `None`. `(?m)` gör `$` till radslutet, alltså kan fältet stå mitt i mailet.
+NAMN_FALT = re.compile(r"^namn:\s*(.+)$", flags=re.IGNORECASE | re.MULTILINE)
+
+
+def _namn_i(text: str) -> str | None:
+    """Kundens namn ur webbformulärets `Namn:`-fält, för larmutkastets
+    brödtext. `None` när fältet inte finns: `_larmutkast` skriver då ett
+    fast "okänt namn" i stället för att gissa."""
+    traff = NAMN_FALT.search(text)
+    return traff.group(1).strip() if traff else None
+
+
+def _tradsokvag(svarsvag: vy.Svarsvag) -> str:
+    """En sökväg till kundens tråd i Gmail, för larmutkastets brödtext.
+    Skiva 81.
+
+    **`rfc822msgid:` ÄR EN DOKUMENTERAD GMAIL-SÖKOPERATOR**, avläst
+    2026-09-25 och inte gissad (§1): den hittar ETT meddelande på dess
+    `Message-ID`-huvud, oavsett tråd eller mapp, när huvudet skrivs UTAN de
+    omslutande `<` `>`-tecknen.
+    """
+    utan_hakar = svarsvag.meddelande_id.strip("<>")
+    return (f'Sök i Gmail: rfc822msgid:{utan_hakar}  '
+            f'(tråd-id {svarsvag.trad_id})')
+
+
 def arende_ur_trad(trad: dict, domaner: set[str]) -> tuple[Arende | None, str]:
     """`(Arende, "")` för en tråd som ska besvaras, annars `(None, skäl)`.
 
@@ -378,6 +408,11 @@ class Korning:
     # UPPDRAG 2026-09-25 DEL 1. Äldre utkast regnrfiltret tog bort, för att en
     # nyare förfrågan om samma bil ersatte dem.
     regnrfilter_borttagna: int = 0
+    # SKIVA 81, Lars beslut. Larmutkast till `gmailutkast.LARMADRESS` för ett
+    # ärende spärrat på ALLA genereringsförsök, se `_larmutkast`.
+    larm_skapade: int = 0
+    larm_hoppade_over: int = 0
+    larm_misslyckade: int = 0
 
     @property
     def arenden(self) -> int:
@@ -419,6 +454,7 @@ def kor_alla(
     regnr_historik_tjanst: inkorg.Lastjanst | None = None,
     ta_bort_utkast_tjanst: gmailutkast.Utkastjanst | None = None,
     regnr_forbrukning: mine.Forbrukning | None = None,
+    skapa_larm=None,
 ) -> Korning:
     """Kedjan för varje ärende. Loggar EN rad per ärende, oavsett utfall.
 
@@ -455,6 +491,12 @@ def kor_alla(
     `stoppa_vid_kallfel` avbryter slingan vid första källfelet. Backfillen,
     skiva 69: ett 429 från biluppgifter.se försöks aldrig om (Lars beslut i
     skiva 57), och nästa uppslag direkt efter ett avvisat är samma trafik igen.
+
+    `skapa_larm` är `gmailutkast.larmutkastskapare()` eller `None`. Skiva 81,
+    Lars beslut: ett ärende som `kedja.kor` spärrar (alltså redan spärrat på
+    ALLA `generera.MAX_GENERERINGSFORSOK` försök, se den modulen) får då ett
+    eget, fristående Gmail-utkast till `gmailutkast.LARMADRESS`, se
+    `_larmutkast`. `None` ger samma tystnad som innan skiva 81.
     """
     loggfil = kedja.BESLUTSLOGG if loggfil is None else loggfil
     omdomesfil = vy.OMDOMEN if omdomesfil is None else omdomesfil
@@ -564,8 +606,56 @@ def kor_alla(
             korning.per_sparr[utfall.sparr] += 1
             skriv(f"{nummer:>4}  SPÄRRAD  {utfall.kategori}  "
                   f"[{utfall.hink}]  {utfall.sparr}")
+            if skapa_larm is not None:
+                _larmutkast(arende, svarsvag, utfall, skapa_larm, korning,
+                           skriv)
 
     return korning
+
+
+def _larmutkast(arende: Arende, svarsvag: vy.Svarsvag | None, utfall,
+                skapa_larm, korning: Korning, skriv) -> None:
+    """Ett larmutkast för ett ärende spärrat på ALLA genereringsförsök.
+    Skiva 81, Lars beslut.
+
+    **HOPPAR ÖVER EN BESVARAD TRÅD**, samma villkor `_gmailutkast` prövar för
+    den lyckade vägen: har Matte redan svarat för hand finns inget att larma
+    om.
+
+    **HOPPAR ÖVER UTAN EN SVARSVÄG.** Utan `svarsvag` finns varken kundens
+    adress eller en tråd att peka på, och ett larm utan dem hjälper ingen.
+
+    **FÅNGAR ALLT ÖVRIGT**, samma skäl som `_gmailutkast`: ett misslyckat
+    larm ska kosta det ärendet och inte resten av körningen. §6: bara ett
+    Gmails meddelande-id och ett typnamn skrivs ut, aldrig felets text.
+    """
+    if arende.besvarad:
+        korning.larm_hoppade_over += 1
+        skriv("      LARM hoppas över: tråden är besvarad")
+        return
+    if svarsvag is None:
+        korning.larm_hoppade_over += 1
+        skriv("      LARM hoppas över: ärendet saknar en svarsväg")
+        return
+
+    forsok = list(utfall.tidigare_forsok) + [(utfall.skal, utfall.sats)]
+    try:
+        resultat = skapa_larm(
+            regnr=fordonsuppslag.normalisera_regnr(arende.regnr) or "okänt",
+            kundnamn=_namn_i(arende.text) or "okänt namn",
+            kundepost=svarsvag.mottagare,
+            datum=arende.tidsstampel,
+            sparr=utfall.sparr,
+            forsok=forsok,
+            tradsokvag=_tradsokvag(svarsvag),
+        )
+    except Exception as fel:  # noqa: BLE001
+        korning.larm_misslyckade += 1
+        skriv(f"      LARM MISSLYCKADES {type(fel).__name__}")
+        return
+    korning.larm_skapade += 1
+    skriv(f"      LARM-UTKAST skapat till {gmailutkast.LARMADRESS}, "
+          f"meddelande-id {resultat.meddelande_id}, INTE skickat")
 
 
 def _gmailutkast(post, arende: Arende, skapa_utkast, omdomesfil: Path,
@@ -698,6 +788,9 @@ def summera(korning: Korning, skriv=print) -> None:
     skriv(f"      misslyckade           {korning.gmail_misslyckade}")
     skriv(f"  inaktuella gmail-utkast {korning.gmail_inaktuella}")
     skriv(f"  regnrfilter borttagna   {korning.regnrfilter_borttagna}")
+    skriv(f"  larmutkast skapade      {korning.larm_skapade}")
+    skriv(f"      hoppade över          {korning.larm_hoppade_over}")
+    skriv(f"      misslyckade           {korning.larm_misslyckade}")
 
     skriv("\nKLASSIFICERING")
     for etikett, antal in sorted(korning.per_kategori.items(),
@@ -929,6 +1022,10 @@ def _kor(arg) -> int:
     # hade spärrat varje tråd för nya försök. Körningen går vidare utan utkast,
     # så att vyn ändå får dagens poster, och returnerar 1 så att den larmar.
     skapa_utkast, utkastfel = None, False
+    # SKIVA 81. Samma `Utkastjanst` som skapar och tar bort kundutkast bygger
+    # också larmutkastet: en enda skrivcredential, ett enda lager 1/2, se
+    # `_larmutkast`. `None` av samma skäl som `skapa_utkast`.
+    skapa_larm = None
     # UPPDRAG 2026-09-25 DEL 1. Samma `Utkastjanst` som skapar utkasten
     # används för att ta bort ett äldre, en gång auktoriserad och inte två.
     # `None` när `--gmailutkast` inte är satt: ingen skrivtjänst byggs alls
@@ -938,6 +1035,8 @@ def _kor(arg) -> int:
         try:
             ta_bort_utkast_tjanst = gmailutkast.skriv_tjanst()
             skapa_utkast = gmailutkast.utkastskapare(
+                tjanst=ta_bort_utkast_tjanst)
+            skapa_larm = gmailutkast.larmutkastskapare(
                 tjanst=ta_bort_utkast_tjanst)
         except Exception as fel:  # noqa: BLE001
             utkastfel = True
@@ -972,6 +1071,7 @@ def _kor(arg) -> int:
             regnr_historik_tjanst=regnr_historik_tjanst,
             ta_bort_utkast_tjanst=ta_bort_utkast_tjanst,
             regnr_forbrukning=regnr_forbrukning,
+            skapa_larm=skapa_larm,
         )
     except BaseException:
         # SKIVA 69. Utkasten före felet ligger redan i Gmail, och vyn ska visa
@@ -1003,7 +1103,8 @@ def _kor(arg) -> int:
     # vyns larm inte står utan skäl. Fällt av §7-granskningen av skiva 70.
     if over_taket:
         print(f"TAKET NÅTT: {over_taket} ärenden föll", file=sys.stderr)
-    return 1 if utkastfel or korning.gmail_misslyckade or tappade else 0
+    return (1 if utkastfel or korning.gmail_misslyckade
+                 or korning.larm_misslyckade or tappade else 0)
 
 
 if __name__ == "__main__":

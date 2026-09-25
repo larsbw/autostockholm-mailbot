@@ -56,21 +56,31 @@ GRONT_SVAR = {
 class FejkKlient:
     """Returnerar förbestämda svar i tur och ordning. Rör aldrig nätet.
 
-    Kedjan gör TVÅ anrop, ett för klassificering och ett för generering, och
-    fejken måste därför kunna ge olika svar. En fejk som gav samma text på båda
-    hade gjort varje test till en slump.
+    Kedjan gör TVÅ anrop utan omförsök, ett för klassificering och ett för
+    generering, och fejken måste därför kunna ge olika svar. En fejk som gav
+    samma text på båda hade gjort varje test till en slump.
+
+    **TAR SLUT LISTAN, UPPREPAS DEN SISTA TEXTEN.** Skiva 81: ett spärrat
+    genereringssvar kan nu prövas om, upp till `generera.MAX_GENERERINGSFORSOK`
+    gånger. Ett test byggt före omförsöket ger typiskt EN text för det svaret,
+    och den texten ÄR modellens (påhittade) beteende, alltså ska den svara
+    likadant igen om den frågas en gång till. `IndexError` hade tvingat varje
+    sådant test att lägga till fler kopior av samma text för att räkna rätt på
+    ett tal §7.2 förbjuder att räkna.
     """
 
     def __init__(self, *texter: str):
         self._texter = list(texter)
+        self._sista = None
         self.anrop = 0
 
         class Messages:
             def create(inre, **_):  # noqa: N805
                 self.anrop += 1
-                text = self._texter.pop(0)
+                if self._texter:
+                    self._sista = self._texter.pop(0)
                 return type("Svar", (), {"content": [
-                    type("Block", (), {"type": "text", "text": text})()
+                    type("Block", (), {"type": "text", "text": self._sista})()
                 ], "usage": None})()
 
         self.messages = Messages()
@@ -634,6 +644,35 @@ def test_ett_spärrfällt_svar_ger_INGET_utkast():
     assert not utfall.blev_utkast
     assert utfall.sparr == "genererat-tal-har-kalla"
     assert utfall.steg[-1] == Steg("spärrar", "fälld", "genererat-tal-har-kalla")
+
+
+def test_ett_spärrfällt_svar_bar_TIDIGARE_forsok():
+    """Skiva 81. Ett ärende spärrat på ALLA genereringsförsök ska bära VARJE
+    försöks (skäl, sats) i `tidigare_forsok`, inte bara det sista.
+    `scripts/respond.py::_larmutkast` läser fältet för larmutkastets
+    brödtext.
+
+    **`FejkKlient` GER SAMMA TEXT VARJE GÅNG DEN TAR SLUT**, alltså är alla
+    `MAX_GENERERINGSFORSOK` försök identiska här. Testet bryr sig bara om att
+    LÄNGDEN och INNEHÅLLET i `tidigare_forsok` stämmer, inte om att texterna
+    råkar vara lika: `test_generera.py::test_TAKET_PA_GENERERINGSFORSOK...`
+    äger den prövningen på generatornivå.
+    """
+    klient = FejkKlient(
+        "fråga om a-traktorkonvertering",
+        f"Hej, det kostar {SENTINELPRIS_IHOP} kr.",
+    )
+
+    utfall = kedja.kor(
+        arende(), klient=klient, hamta=hamta_gront, hinkar=HINKAR,
+        taxonomi=TAXONOMI, exempel=[],
+    )
+
+    assert utfall.sparr == "genererat-tal-har-kalla"
+    assert len(utfall.tidigare_forsok) == generera.MAX_GENERERINGSFORSOK - 1
+    for skal, sats in utfall.tidigare_forsok:
+        assert skal == utfall.skal
+        assert sats == utfall.sats
 
 
 def test_hinken_ALDRIG_ger_INGET_SVAR_och_inget_modellanrop():

@@ -47,6 +47,10 @@ from src import auth
 
 ANVANDARE = "me"
 
+# SKIVA 81, Lars beslut. Mottagaren för LARMUTKASTET, alltid, en
+# modulkonstant och aldrig ett argument: se `bygg_larmmeddelande`.
+LARMADRESS = "info@autostockholm.se"
+
 # `drafts().create` och `drafts().delete`. UPPDRAG 2026-09-25 DEL 1:
 # `delete` tillkom för regnrfiltret, som tar bort ett obesickat utkast i en
 # äldre tråd när en nyare förfrågan om samma bil ersätter det. Fortfarande
@@ -172,6 +176,55 @@ def bygg_meddelande(post) -> dict:
     return {"message": {"raw": raa, "threadId": vag.trad_id}}
 
 
+def bygg_larmmeddelande(*, regnr: str, kundnamn: str, kundepost: str,
+                        datum: str, sparr: str,
+                        forsok: list[tuple[str, str]],
+                        tradsokvag: str) -> dict:
+    """Ett LARMUTKAST när ett ärende spärrats på ALLA genereringsförsök.
+    Skiva 81, Lars beslut.
+
+    **MOTTAGAREN ÄR `LARMADRESS`, ALLTID.** Det är en modulkonstant, inte ett
+    argument: funktionen tar bara TEXTSTRÄNGAR och en lista av (skäl, sats)
+    som brödtext, aldrig ett `Fall`, en `Svarsvag`, en `Arende` eller något
+    annat som BÄR en adress eller ett tråd-id. Den kan alltså inte råka rikta
+    utkastet mot kunden, eftersom inget kundriktat värde ens kan nå in i
+    anropet. `tests/test_gmailutkast.py` binder att `to`-huvudet blir
+    `LARMADRESS` oavsett vad `kundepost`, `kundnamn` eller `tradsokvag` bär.
+
+    **INGEN `threadId`, till skillnad från `bygg_meddelande`.** Meddelandet är
+    fristående med flit: `skapa_larmutkast` skapar ett NYTT Gmail-meddelande
+    och kan därför aldrig landa i kundens tråd, eftersom ingen tråd begärs.
+
+    `forsok` är en lista `(skal, sats)`, ett par per genereringsförsök, äldst
+    först — se `kedja.Kedjeutfall.tidigare_forsok` och `.skal`/`.sats`.
+
+    `sparr` är spärrens NAMN (`Kedjeutfall.sparr`, t.ex.
+    `genererat-tal-har-kalla`), samma sträng `docs/sparrar.md` katalogiserar
+    posten under. §7-granskningsfynd: utan den kunde brödtexten bara peka på
+    skälet och satsen, inte på VILKEN spärr det var, fast varje annan yta i
+    systemet (terminalen, `logg/beslut.jsonl`) redan namnger den.
+    """
+    brev = EmailMessage()
+    brev["To"] = LARMADRESS
+    brev["Subject"] = f"MANUELLT SVAR KRÄVS: {regnr}"
+    forsoksrader = "\n\n".join(
+        f'Försök {i}:\n  Skäl: {skal}\n  Mening: "{sats}"'
+        for i, (skal, sats) in enumerate(forsok, start=1)
+    )
+    kropp = (
+        f"Kund: {kundnamn} <{kundepost}>\n"
+        f"Datum: {datum}\n"
+        f"Registreringsnummer: {regnr}\n"
+        f"Spärr: {sparr}\n\n"
+        f"Spärrat på samtliga {len(forsok)} försök:\n\n"
+        f"{forsoksrader}\n\n"
+        f"Kundens tråd: {tradsokvag}\n"
+    )
+    brev.set_content(kropp)
+    raa = base64.urlsafe_b64encode(brev.as_bytes()).decode("ascii")
+    return {"message": {"raw": raa}}
+
+
 @dataclass(frozen=True)
 class UtkastResultat:
     """Vad `skapa_utkast` returnerar. UPPDRAG 2026-09-25 DEL 1.
@@ -210,6 +263,25 @@ def skapa_utkast(tjanst: Utkastjanst, post) -> UtkastResultat:
     return UtkastResultat(meddelande_id=meddelande["id"], utkast_id=svar["id"])
 
 
+def skapa_larmutkast(tjanst: Utkastjanst, **kwargs) -> UtkastResultat:
+    """Skapar larmutkastet. Skiva 81. Samma tjänst och samma lager som
+    `skapa_utkast`: `TILLATNA_ANROP` skiljer inte på de två, för `drafts()`
+    bryr sig aldrig om VILKET meddelande som skapas.
+
+    **INGEN TRÅDKONTROLL**, till skillnad från `skapa_utkast`. Det finns ingen
+    begärd tråd att jämföra svaret mot: `bygg_larmmeddelande` sätter aldrig
+    `threadId`, med flit.
+
+    `kwargs` går rakt till `bygg_larmmeddelande`, oförändrade.
+    """
+    svar = tjanst.users().drafts().create(
+        userId=ANVANDARE, body=bygg_larmmeddelande(**kwargs)
+    ).execute()
+    meddelande = svar.get("message") or {}
+    return UtkastResultat(meddelande_id=meddelande.get("id", ""),
+                          utkast_id=svar["id"])
+
+
 def ta_bort_utkast(tjanst: Utkastjanst, utkast_id: str) -> None:
     """Tar bort ETT obesickat utkast. UPPDRAG 2026-09-25 DEL 1.
 
@@ -241,3 +313,19 @@ def utkastskapare(*, tjanst: Utkastjanst | None = None):
         return skapa_utkast(cache[0], post)
 
     return skapa
+
+
+def larmutkastskapare(*, tjanst: Utkastjanst | None = None):
+    """Motsvarigheten till `utkastskapare`, för larmutkastet. Skiva 81.
+
+    Samma cache-mönster: en tjänst byggs vid FÖRSTA larmet, inte vid
+    uppstarten, av samma skäl `utkastskapare`s docstring ger.
+    """
+    cache: list[Utkastjanst] = [] if tjanst is None else [tjanst]
+
+    def larma(**kwargs) -> UtkastResultat:
+        if not cache:
+            cache.append(skriv_tjanst())
+        return skapa_larmutkast(cache[0], **kwargs)
+
+    return larma

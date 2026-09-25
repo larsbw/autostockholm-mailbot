@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.85.0 · **Uppdaterad:** 2026-09-16 · **Implementerar** CLAUDE.md §8
+**Version:** 0.86.0 · **Uppdaterad:** 2026-09-25 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -8302,7 +8302,96 @@ stängda.
   Det är iakttaget i data, inte uppslaget i Googles dokumentation.
 
 
+## #139 — Skiva 81: omförsök efter en fälld spärr, ett larmutkast, och en
+källa för dragviktskravet
+
+**Datum:** 2026-09-25 · **Berör:** `src/generera.py`, `src/kedja.py`,
+`src/gmailutkast.py`, `scripts/respond.py`, `config/fakta.json`,
+`data/par.jsonl`, `tests/test_generera.py`
+
+Utredningen av två a-traktorsvar spärrade av `genererat-tal-har-kalla` i
+engångskörningen 2026-09-25 (se scratchpad, ej i repot §6) visade att
+ingetdera var en konfigurationslucka: det ena var spärren som fällde ett
+prisord utan tal, det andra var Lucka 30 (kundens eget tal, här en ålder).
+Utredningen fann däremot att två av de sex då levande få-exemplen i
+`data/par.jsonl` bar prisuppgifter `config/priser.json` inte täckte, varav en
+(28 000 kr med dragkrok buntad i totalen) direkt motsade skiva 77:s
+omprissättning dagen innan.
+
+### 1. Omförsök efter en fälld spärr, med tak. Lars beslut
+
+`generera.generera_utkast` frågar modellen igen när `krav_pa_svaret` faller,
+upp till `MAX_GENERERINGSFORSOK = 3` försök totalt (det första plus två
+omförsök). Nästa försöks prompt får den fällda satsen och skälet som
+rättelsekontext (`_rattelserad`), och instrueras att skriva ett HELT NYTT
+svar, aldrig en omskrivning av det gamla.
+
+**SKILLNADEN MOT §9.1 ÄR ATT INGEN TRÖSKEL SÄNKS OCH INGEN TEXT REDIGERAS.**
+Varje försök, inklusive omförsöken, prövas mot EXAKT samma spärrar i samma
+ordning som det första. §9.1 förbjuder att en FÄLLD TEXT skrivs om tills den
+slinker igenom; det här är ett helt nytt genereringsförsök som fortfarande
+måste hålla samma mått. Faller det sista försöket kastas `Sparrfalld` precis
+som förut, med tidigare försöks (skäl, sats) i det nya fältet
+`Sparrfalld.tidigare` / `Kedjeutfall.tidigare_forsok`.
+
+### 2. Ett larmutkast när alla försök spärras. Lars beslut
+
+Ett ärende som spärras på samtliga `MAX_GENERERINGSFORSOK` försök gick förut
+tyst: inget Gmail-utkast, synligt bara för den som öppnar granskningsvyn.
+`scripts/respond.py::_larmutkast` skapar nu, när `--gmailutkast` är satt, ett
+FRISTÅENDE Gmail-utkast till `gmailutkast.LARMADRESS`
+(`info@autostockholm.se`), ämne `MANUELLT SVAR KRÄVS: <regnr>`, med kundens
+namn, e-post, datum, samtliga försöks spärrskäl och en sökväg till kundens
+tråd i brödtexten.
+
+**DEN STRUKTURELLA GARANTIN:** `gmailutkast.bygg_larmmeddelande` tar bara
+textsträngar som argument, aldrig ett `Fall`, en `Svarsvag` eller en `Arende`,
+och sätter aldrig `threadId`. Den kan därför inte råka rikta utkastet mot
+kunden eller kundens tråd, oavsett indata. `tests/test_gmailutkast.py` binder
+det med en negativkontroll.
+
+### 3. `config/fakta.json` får en källa för dragviktskravet. Lars §10-beslut
+
+Ett kvarvarande få-exempel (`data/par.jsonl`) lär generatorn att en A-traktor
+kräver minst 1000 kg i bromsad släpvagnsvikt, men inget i `config/` hade det
+talet som källa: varje svar som återgav det spärrades. Ny post
+`dragviktskrav` i `config/fakta.json`, Lars §10-beslut,
+`tests/test_generera.py::test_faktafilen_i_repot_bar_EXAKT_det_Lars_BESLUTAT`
+uppdaterad i samma skiva.
+
+### 4. Två föråldrade prisexempel borttagna ur `data/par.jsonl`. Lars beslut
+
+Efter säkerhetskopia (`par.jsonl.bak-20260925-1100` på volymen) togs de två
+par bort vars `utgaende_text` nämnde 28 000 kr (dragkrok buntad i totalen,
+motsäger skiva 77) respektive 4 800 kr (en mellanväggsprisuppgift utanför
+a-traktorkategorins egen prispost). 198 par kvar, ned från 200.
+
+### §7-granskningen, ett varv
+
+Fann att `_kor`s slutliga returrad räknade `korning.gmail_misslyckade` men
+inte den nya `korning.larm_misslyckade`, alltså hade ett Gmail-fel på SJÄLVA
+larmutkastet gett exitkod 0: precis det scenario del 2 finns för att synliggöra
+hade tvärtom blivit osynligt två gånger om. Rättat, `tests/test_gmailutkast.py`
+uppdaterad. Fann också att den enda test som gick genom `_larmutkast`s
+riktiga anrop använde en mockad `**kwargs`-funktion som aldrig hade fällt en
+framtida namnändring i `gmailutkast.bygg_larmmeddelande`s parametrar; ett nytt
+test kör nu genom den RIKTIGA funktionen. Och att den strukturella garantin
+(mottagaren kan aldrig bli kundens) var obevisad mot header-injektion; nya
+negativkontroller visar att varken `regnr` eller `kundnamn` kan sätta ett
+extra e-posthuvud. `bygg_larmmeddelande` fick dessutom ett fjärde, litet fynd
+åtgärdat proaktivt: spärrens NAMN (`genererat-tal-har-kalla` etc.) stod inte i
+brödtexten, bara skälet och satsen. Lagt till.
+
+Ny post ⇒ MINOR.
+
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.86.0 — 2026-09-25
+
+**#139 TILLKOMMER.** Skiva 81: omförsök efter en fälld spärr (tak tre),
+larmutkast till `info@autostockholm.se` när alla försök spärras, och en källa
+för dragviktskravet i `config/fakta.json`. Ny post ⇒ MINOR.
 
 ### 0.85.0 — 2026-09-16
 

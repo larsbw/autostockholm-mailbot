@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from src import auth, gmailutkast, vy
+from src import auth, generera, gmailutkast, vy
 from tests.test_respond import SVAR, meddelande, respond, trad
 from tests.test_kedja import NU, FejkKlient, HINKAR, TAXONOMI, hamta_gront
 from tests.test_vy import FejkHanterare, ett_fall, peka_om_katalogerna
@@ -724,6 +724,203 @@ def test_ett_SPARRAT_arende_far_ALDRIG_ett_utkast(katalog):
     assert _utfall(katalog) == []
 
 
+# ------------------------------------------ SKIVA 81: larmutkastet i slingan
+
+WEBBFORMULARTEXT = (
+    "Namn: Kim Andersson\nE-post: kim@exempel.invalid\n"
+    "Telefon: 0701234567\nRegistreringsnummer: ABC12X\n"
+    "Meddelande: Går det att bygga om min bil?"
+)
+
+
+class LarmSpion:
+    """Spelar in anrop mot `skapa_larm`. Skiljt från `Spion` (kundutkast),
+    eftersom de har olika signaturer: `skapa_larm` tar bara textargument."""
+
+    def __init__(self, fel=None):
+        self.anrop = []
+        self._fel = fel
+
+    def __call__(self, **kwargs):
+        self.anrop.append(kwargs)
+        if self._fel:
+            raise self._fel
+        return gmailutkast.UtkastResultat(meddelande_id="larm-1",
+                                          utkast_id="larm-utkast-1")
+
+
+def _slinga_med_larm(katalog, arenden, svar, *, skapa_larm, vagar=None):
+    korning = respond.Korning(tradar=len(arenden))
+    respond.kor_alla(
+        arenden, klient=FejkKlient(*svar), hamta=hamta_gront,
+        hinkar=HINKAR, taxonomi=TAXONOMI, exempel=[], skarp=True,
+        korning=korning, nu=NU, loggfil=katalog / "logg" / "beslut.jsonl",
+        skriv=lambda *_: None,
+        svarsvagar=vagar or [VAG for _ in arenden],
+        skapa_utkast=None, omdomesfil=katalog / "logg" / "omdomen.jsonl",
+        skapa_larm=skapa_larm)
+    return korning
+
+
+def test_ALLA_FORSOK_SPARRAT_ger_ETT_LARMUTKAST(katalog):
+    """Skiva 81, Lars beslut. Ett ärende spärrat på ALLA genereringsförsök
+    ska ge exakt ETT larmutkast, med namn ur formuläret, kundens riktiga
+    adress ur svarsvägen, datumet, VARJE försöks skäl och en sökväg till
+    tråden."""
+    larm = LarmSpion()
+    korning = _slinga_med_larm(
+        katalog, [respond.Arende(text=WEBBFORMULARTEXT, regnr="ABC12X",
+                                 tidsstampel="2026-09-25T10:00:00+00:00")],
+        (SVAR[0], SPARRAT), skapa_larm=larm)
+
+    assert korning.sparrade == 1
+    assert korning.larm_skapade == 1
+    assert len(larm.anrop) == 1
+    kwargs = larm.anrop[0]
+    assert kwargs["regnr"] == "ABC12X"
+    assert kwargs["kundnamn"] == "Kim Andersson"
+    assert kwargs["kundepost"] == VAG.mottagare
+    assert kwargs["datum"] == "2026-09-25T10:00:00+00:00"
+    assert len(kwargs["forsok"]) == generera.MAX_GENERERINGSFORSOK
+    for skal, sats in kwargs["forsok"]:
+        assert "SENTINELPRIS" not in skal  # sanity: äkta text, inte ett stub
+        assert skal and sats
+    assert "rfc822msgid:" in kwargs["tradsokvag"]
+    assert VAG.trad_id in kwargs["tradsokvag"]
+
+
+def test_ALLA_FORSOK_SPARRAT_genom_den_RIKTIGA_gmailutkast_funktionen(katalog):
+    """§7-granskningsfynd: `LarmSpion` ovan tar `**kwargs` och accepterar VAD
+    SOM HELST, alltså hade den aldrig fällt en framtida namnändring i
+    `_larmutkast`s anrop mot `gmailutkast.bygg_larmmeddelande`s riktiga
+    parametrar. Den här körningen går genom den RIKTIGA
+    `gmailutkast.larmutkastskapare` och en fejkad Gmail-tjänst, alltså fäller
+    den ett sådant glapp med ett `TypeError` i stället för att tyst passera.
+    """
+    ra = FejkRa(tradsvar=lambda kw: "ny-fristaende-trad")
+    larm = gmailutkast.larmutkastskapare(tjanst=gmailutkast.Utkastjanst(ra))
+
+    korning = _slinga_med_larm(
+        katalog, [respond.Arende(text=WEBBFORMULARTEXT, regnr="ABC12X",
+                                 tidsstampel="2026-09-25T10:00:00+00:00")],
+        (SVAR[0], SPARRAT), skapa_larm=larm)
+
+    assert korning.larm_skapade == 1
+    assert korning.larm_misslyckade == 0
+    assert [namn for namn, _ in ra.logg] == ["create"]
+    brev = _avkodat(ra.logg[0][1]["body"])
+    assert brev["To"] == gmailutkast.LARMADRESS
+    assert brev["Subject"].startswith("MANUELLT SVAR KRÄVS: ABC12X")
+    assert "Kim Andersson" in brev.get_content()
+
+
+@pytest.mark.parametrize("falt, farligt", [
+    ("kundnamn", "Kim\r\nBcc: attacker@ond.example"),
+    ("kundnamn", "Kim\nX-Injicerad: ja"),
+    # REGNR ÄR NORMALISERAT INNAN DET NÅR HIT (`fordonsuppslag.
+    # normalisera_regnr` stryger blanksteg, `\r`/`\n` inräknat), men den
+    # garantin ligger hos ANROPAREN. Funktionen ska vara säker även om den
+    # kallas direkt med ett oskyddat regnr, eftersom `Subject` interpolerar
+    # det rakt av.
+    ("regnr", "ABC123\r\nBcc: attacker@ond.example"),
+])
+def test_ETT_FARLIGT_FALT_KAN_INTE_ANDRA_MOTTAGAREN(falt, farligt):
+    """§7.1-fynd: `Subject` är det enda riktiga e-posthuvud som interpolerar
+    en anropares text (`regnr`). `kundnamn` går bara i brödtexten via
+    `EmailMessage.set_content`, som aldrig kan bli ett huvud, men prövas ändå
+    här som negativkontroll: samma indata, samma garanti oavsett fält.
+    Antingen bygger meddelandet ändå med `To` orört, eller så vägrar
+    `EmailMessage` värdet rakt av (Pythons egen policy förbjuder rad-brytande
+    tecken i ett huvudvärde) — ingendera utfall kan sätta en annan mottagare
+    eller ett extra huvud.
+    """
+    kwargs = {
+        "regnr": "ABC123", "kundnamn": "Kim",
+        "kundepost": "kim@exempel.invalid", "datum": "2026-09-25",
+        "sparr": "genererat-tal-har-kalla",
+        "forsok": [("skäl", "sats")], "tradsokvag": "t-1",
+    }
+    kwargs[falt] = farligt
+
+    try:
+        kropp = gmailutkast.bygg_larmmeddelande(**kwargs)
+    except ValueError:
+        return  # EmailMessage vägrade värdet. Säkert: inget meddelande byggs.
+    brev = _avkodat(kropp)
+    assert brev["To"] == gmailutkast.LARMADRESS
+    assert brev.get_all("Bcc") is None
+    assert brev.get_all("X-Injicerad") is None
+
+
+def test_LARM_HOPPAR_OVER_en_BESVARAD_trad(katalog):
+    larm = LarmSpion()
+    korning = _slinga_med_larm(
+        katalog, [respond.Arende(text=WEBBFORMULARTEXT, regnr="ABC12X",
+                                 besvarad=True)],
+        (SVAR[0], SPARRAT), skapa_larm=larm)
+
+    assert korning.sparrade == 1
+    assert korning.larm_skapade == 0
+    assert korning.larm_hoppade_over == 1
+    assert larm.anrop == []
+
+
+def test_LARM_HOPPAR_OVER_UTAN_svarsvag(katalog):
+    larm = LarmSpion()
+    korning = _slinga_med_larm(
+        katalog, [respond.Arende(text=WEBBFORMULARTEXT, regnr="ABC12X")],
+        (SVAR[0], SPARRAT), skapa_larm=larm, vagar=[None])
+
+    assert korning.sparrade == 1
+    assert korning.larm_skapade == 0
+    assert korning.larm_hoppade_over == 1
+    assert larm.anrop == []
+
+
+def test_ETT_MISSLYCKAT_LARM_STOPPAR_INTE_slingan(katalog):
+    larm = LarmSpion(fel=RuntimeError("gmail nere"))
+    korning = _slinga_med_larm(
+        katalog, [respond.Arende(text=WEBBFORMULARTEXT, regnr="ABC12X")],
+        (SVAR[0], SPARRAT), skapa_larm=larm)
+
+    assert korning.sparrade == 1
+    assert korning.larm_misslyckade == 1
+    assert korning.larm_skapade == 0
+
+
+def test_UTAN_skapa_larm_SKAPAS_INGET_LARM(katalog):
+    """Bakåtkompatibelt: `skapa_larm=None` (förvalet) ger samma tystnad som
+    innan skiva 81."""
+    korning = _slinga_med_larm(
+        katalog, [respond.Arende(text=WEBBFORMULARTEXT, regnr="ABC12X")],
+        (SVAR[0], SPARRAT), skapa_larm=None)
+
+    assert korning.sparrade == 1
+    assert korning.larm_skapade == 0
+    assert korning.larm_hoppade_over == 0
+    assert korning.larm_misslyckade == 0
+
+
+# ------------------------------------------ SKIVA 81: hjälparna
+
+def test_namn_i_lasger_webbformularets_falt():
+    assert respond._namn_i(WEBBFORMULARTEXT) == "Kim Andersson"
+
+
+def test_namn_i_ger_None_utan_faltet():
+    assert respond._namn_i("Hej, kan ni bygga om min bil?") is None
+
+
+def test_tradsokvag_strippar_hakparenteserna_ur_message_id():
+    vag = vy.Svarsvag(trad_id="t-9", meddelande_id="<a@b.invalid>",
+                      mottagare="kund@exempel.invalid", amne="Fråga")
+    sokvag = respond._tradsokvag(vag)
+
+    assert "rfc822msgid:a@b.invalid" in sokvag
+    assert "<" not in sokvag and ">" not in sokvag.split("rfc822msgid:")[1].split()[0]
+    assert "t-9" in sokvag
+
+
 @pytest.mark.parametrize("andrat", [
     {"sparr": "talspärren"},
     {"inget_svar": True},
@@ -879,8 +1076,8 @@ def test_CLI_larmar_och_bygger_tjansten_FORE_slingan():
                              .read_text(encoding="utf-8"))
     i_kor = kod.split("def _kor")[1]
 
-    assert ("return 1 if utkastfel or korning . gmail_misslyckade or tappade "
-            "else 0") in i_kor
+    assert ("return ( 1 if utkastfel or korning . gmail_misslyckade \n"
+            " or korning . larm_misslyckade or tappade else 0 )") in i_kor
     assert "tappade = over_taket if arg . inkorg else 0" in i_kor
     assert i_kor.index("skriv_tjanst ( )") < i_kor.index("kor_alla (")
     fangst = i_kor.split("except BaseException")[1][:200]
@@ -1213,6 +1410,95 @@ def test_CLI_tar_ETT_nu_FORE_hamtningen():
     assert "dagens_tradar ( tjanst , utfil = arg . skord , nu = nu )" in i_kallan
     assert "nu = nu ," in i_kor
     assert i_kor.count("datetime . now") == 1
+
+
+# ------------------------------------------ SKIVA 81: larmutkastet
+
+
+def test_larmmeddelandet_gar_ALLTID_till_LARMADRESS():
+    """DEN STRUKTURELLA GARANTIN Lars bad om. Varje textargument sätts till
+    något som SER UT som ett försök att styra mottagaren, och `To`-huvudet
+    ska ändå bli exakt `LARMADRESS`, alltid."""
+    kropp = gmailutkast.bygg_larmmeddelande(
+        regnr="ABC123",
+        kundnamn="Attack <attack@ond.example>",
+        kundepost="kund@ond.example",
+        datum="2026-09-25",
+        sparr="genererat-tal-har-kalla",
+        forsok=[("skäl", "sats")],
+        tradsokvag="rfc822msgid:x@y",
+    )
+    brev = _avkodat(kropp)
+
+    assert brev["To"] == gmailutkast.LARMADRESS == "info@autostockholm.se"
+
+
+def test_larmmeddelandet_har_INGEN_threadId():
+    """Skillnaden mot `bygg_meddelande`: inget `threadId` sätts alls, alltså
+    kan `skapa_larmutkast` aldrig landa i kundens (eller någon annan) tråd."""
+    kropp = gmailutkast.bygg_larmmeddelande(
+        regnr="ABC123", kundnamn="Kim", kundepost="kim@exempel.invalid",
+        datum="2026-09-25", sparr="genererat-tal-har-kalla",
+        forsok=[("skäl", "sats")], tradsokvag="t-1")
+
+    assert "threadId" not in kropp["message"]
+
+
+def test_larmamnet_borjar_med_MANUELLT_SVAR_KRAVS_och_bar_regnr():
+    kropp = gmailutkast.bygg_larmmeddelande(
+        regnr="XPU944", kundnamn="Kim", kundepost="kim@exempel.invalid",
+        datum="2026-09-25", sparr="genererat-tal-har-kalla",
+        forsok=[("skäl", "sats")], tradsokvag="t-1")
+    brev = _avkodat(kropp)
+
+    assert brev["Subject"].startswith("MANUELLT SVAR KRÄVS")
+    assert "XPU944" in brev["Subject"]
+
+
+def test_larmkroppen_bar_allt_LARS_BAD_OM():
+    """Namn, e-post, datum, VARJE försöks skäl och en sökväg till tråden."""
+    kropp = gmailutkast.bygg_larmmeddelande(
+        regnr="XPU944", kundnamn="Kim Andersson",
+        kundepost="kim@exempel.invalid", datum="2026-09-23T18:34:15+00:00",
+        sparr="genererat-tal-har-kalla",
+        forsok=[("skäl ett", "sats ett"), ("skäl två", "sats två")],
+        tradsokvag="Sök i Gmail: rfc822msgid:abc@x  (tråd-id t-9)")
+    kropp_text = _avkodat(kropp).get_content()
+
+    assert "Kim Andersson" in kropp_text
+    assert "kim@exempel.invalid" in kropp_text
+    assert "2026-09-23T18:34:15+00:00" in kropp_text
+    assert "genererat-tal-har-kalla" in kropp_text
+    assert "skäl ett" in kropp_text and "sats ett" in kropp_text
+    assert "skäl två" in kropp_text and "sats två" in kropp_text
+    assert "rfc822msgid:abc@x" in kropp_text
+    assert "XPU944" in kropp_text
+
+
+def test_skapa_larmutkast_anvander_BARA_drafts_create():
+    ra = FejkRa(tradsvar=lambda kw: "ny-fristaende-trad")
+    resultat = gmailutkast.skapa_larmutkast(
+        gmailutkast.Utkastjanst(ra), regnr="ABC123", kundnamn="Kim",
+        kundepost="kim@exempel.invalid", datum="2026-09-25",
+        sparr="genererat-tal-har-kalla",
+        forsok=[("skäl", "sats")], tradsokvag="t-1")
+
+    assert [namn for namn, _ in ra.logg] == ["create"]
+    assert resultat.meddelande_id == "m-1"
+    assert resultat.utkast_id == "r-1"
+
+
+def test_larmutkastskapare_ger_en_ANROPBAR_funktion():
+    ra = FejkRa(tradsvar=lambda kw: "ny-fristaende-trad")
+    larma = gmailutkast.larmutkastskapare(tjanst=gmailutkast.Utkastjanst(ra))
+
+    resultat = larma(regnr="ABC123", kundnamn="Kim",
+                     kundepost="kim@exempel.invalid", datum="2026-09-25",
+                     sparr="genererat-tal-har-kalla",
+                     forsok=[("skäl", "sats")], tradsokvag="t-1")
+
+    assert resultat.meddelande_id == "m-1"
+    assert [namn for namn, _ in ra.logg] == ["create"]
 
 
 def test_CLI_lamnar_funktionen_och_stoppet_VIDARE():

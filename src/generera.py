@@ -48,9 +48,16 @@ SPÄRRARNA PÅ DET GENERERADE, var och en med sin negativkontroll:
                                  LUCKA 77.
 
 **SPÄRRARNA FÄLLER TILL UTKAST, DE RÄTTAR ALDRIG TEXTEN.** §9.1: en fälld text är
-ett stopptecken och inte ett formuleringsproblem. Att skriva om svaret tills
-spärren släpper igenom det är uttryckligen förbjudet, och därför finns det ingen
-kod här som gör det.
+ett stopptecken och inte ett formuleringsproblem. Ingen kod här skriver om ett
+FÄLLT svar för att pressa just den texten förbi en spärr.
+
+**SEDAN SKIVA 81, LARS BESLUT: `generera_utkast` FÅR FRÅGA MODELLEN IGEN.** Upp
+till `MAX_GENERERINGSFORSOK` gånger, med den fällda satsen och skälet som
+kontext i nästa försöks prompt. Skillnaden mot det §9.1 förbjuder: ingen tröskel
+sänks och ingen text REDIGERAS. Varje försök är ett HELT NYTT svar från
+modellen, och varje försök prövas mot EXAKT samma spärrar, i samma ordning, som
+det första. Ett svar som fortfarande faller sedan taket är nått kastar
+`Sparrfalld`, precis som förut. Se `generera_utkast` och `_rattelserad`.
 
 RÖSTEN KOMMER UR `data/par.jsonl`, som få-exempel och inte som mallar att fylla
 i. §11. Hur många par som faktiskt går att använda är MÄTT, se
@@ -96,6 +103,12 @@ MAX_TECKEN_EXEMPEL = 900
 # Hur många få-exempel prompten bär. Fler än så äter kontexten utan att rösten
 # blir tydligare, och underlaget är ändå bara 14 dugliga a-traktorpar.
 ANTAL_EXEMPEL = 6
+
+# SKIVA 81, Lars beslut. Totalt antal genereringsförsök `generera_utkast` gör
+# för ETT ärende: det första plus TVÅ omförsök. Ett omförsök sker bara när
+# `krav_pa_svaret` faller, och varje försök prövas mot exakt samma spärrar.
+# Se modulens huvud för skillnaden mot §9.1.
+MAX_GENERERINGSFORSOK = 3
 
 
 class Sparrfalld(Exception):
@@ -157,12 +170,21 @@ class Sparrfalld(Exception):
     **TOM NÄR DET INTE FINNS NÅGON SATS ATT PEKA PÅ.** `tomt-svar` fäller ett
     svar som inte bär någon text alls, och en uppfunnen sats hade varit sämre
     än ingen.
+
+    **`tidigare` ÄR SKIVA 81, Lars beslut.** Bär (skäl, sats) för VARJE
+    TIDIGARE försök i samma `generera_utkast`-anrop, äldst först, när ett
+    omförsök i sin tur föll. Tomt för den vanliga vägen: ett förstaförsök som
+    aldrig föll bär ingen historik. `kedja.Kedjeutfall.tidigare_forsok` bär
+    samma par vidare, för `scripts/respond.py`s larmutkast — se
+    `src/gmailutkast.py::bygg_larmmeddelande`.
     """
 
-    def __init__(self, sparr: str, skal: str, sats: str = ""):
+    def __init__(self, sparr: str, skal: str, sats: str = "", *,
+                 tidigare: tuple[tuple[str, str], ...] = ()):
         self.sparr = sparr
         self.skal = skal
         self.sats = sats
+        self.tidigare = tidigare
         super().__init__(f"{sparr}: {skal}")
 
 
@@ -1023,8 +1045,14 @@ def _tal_utan_ordagrann_kalla(sats: str, kallor: list[str]) -> set[str]:
     **ETT VÄRDE SOM SPÄNNER ÖVER EN SATSGRÄNS KAN ALDRIG BLI EN KÄLLA.** `sats`
     kommer ur `_meningar`. Bär ett faktavärde en punkt eller ett `, men `, så står
     det aldrig helt i en sats, och dess tal faller överallt. Utfallet blir
-    `utkast`, alltså den säkra riktningen, och inget av filens tre värden har en
-    sådan avskiljare.
+    `utkast`, alltså den säkra riktningen.
+
+    *Här stod "inget av filens TRE värden har en sådan avskiljare". Skiva 81
+    lade till en fjärde post, `dragviktskrav`, och påståendet gällde bara
+    antalet vid den tiden. Ingen av dagens FYRA värden bär en sådan
+    avskiljare, men prövningen är per värde och inte mot ett räknat tal: nästa
+    post som läggs till prövas på samma sätt, oavsett hur många som redan
+    finns.*
     """
     kvar = sats
     for varde in kallor:
@@ -2256,11 +2284,17 @@ vet inte hur länge mailet legat.
 Skriv kort, konkret och vänligt. Svara på det kunden faktiskt frågar."""
 
 
-def bygg_prompt(forfragan: Forfragan, exempel: list[dict]) -> str:
+def bygg_prompt(forfragan: Forfragan, exempel: list[dict], *,
+                tidigare_fel: Sparrfalld | None = None) -> str:
     """Användarmeddelandet: få-exempel, underlag, och kundens mail.
 
     Exemplen märks som EXEMPEL och kundens mail som det som ska besvaras, så att
     modellen inte svarar på ett exempel i stället.
+
+    **`tidigare_fel` ÄR SKIVA 81, Lars beslut.** Satt bara på ett OMFÖRSÖK
+    efter en fälld spärr, se `generera_utkast` och `_rattelserad`. `None` är
+    både förvalet och den vanliga vägen: varje anrop byggt innan omförsöket
+    fanns skickar aldrig något annat.
     """
     delar = []
 
@@ -2276,12 +2310,35 @@ def bygg_prompt(forfragan: Forfragan, exempel: list[dict]) -> str:
             )
 
     delar.append(_underlag(forfragan))
+    if tidigare_fel is not None:
+        delar.append(_rattelserad(tidigare_fel))
     delar.append(
         "MAILET SOM SKA BESVARAS:\n"
         f"{forfragan.text.strip()}\n\n"
         "Skriv vårt svar. Bara svarets text, ingen hälsningsfras om avsändare."
     )
     return "\n".join(delar)
+
+
+def _rattelserad(fel: Sparrfalld) -> str:
+    """Rättelsekontext för ETT omförsök efter en fälld spärr. Skiva 81.
+
+    **BARA SATSEN OCH SKÄLET, ALDRIG HELA DET FÄLLDA SVARET.** Modellen ser
+    precis det en granskare ser i vyn: vilken mening som föll och vad spärren
+    sa om den. Den fällda texten i övrigt lämnas aldrig ut hit: nästa försök
+    ska skriva ett HELT NYTT svar, inte redigera det gamla, se §9.1 och
+    modulens huvud.
+    """
+    return (
+        "FÖREGÅENDE FÖRSÖK SPÄRRADES OCH NÅDDE ALDRIG KUNDEN. Skriv ett HELT "
+        "NYTT svar, inte en omskrivning av det gamla.\n"
+        f'Den fällda meningen: "{fel.sats}"\n'
+        f"Skälet: {fel.skal}\n"
+        "Nämn aldrig ett pris utan att ange ett tal ur underlaget ovan, och "
+        "återge aldrig ett tal ur kundens eget mail som om det vore ett "
+        "fordonsfaktum, ett pris eller en tidsangivelse. Kundens eget tal är "
+        "ingen källa.\n"
+    )
 
 
 def _bedomning(forfragan: Forfragan) -> str:
@@ -3054,14 +3111,47 @@ def generera_utkast(klient, forfragan: Forfragan, modell: str = MODELL,
     **KASTAR `Sparrfalld` I STÄLLET FÖR ATT RETURNERA EN FÄLLD TEXT.** Anroparen
     får då ett utkast eller ett skäl, aldrig något däremellan, och kan inte råka
     använda en text som inte höll.
+
+    **OMFÖRSÖK, SKIVA 81, Lars beslut.** Faller `krav_pa_svaret` frågas
+    modellen igen, upp till `MAX_GENERERINGSFORSOK` gånger totalt, med den
+    fällda satsen och skälet som kontext i nästa försöks prompt (se
+    `_rattelserad`). VARJE försök är ett HELT NYTT svar, prövat mot EXAKT
+    samma spärrar i samma ordning som det första — ingen tröskel sänks, ingen
+    text redigeras, se modulens huvud om skillnaden mot §9.1.
+
+    **FALLER VARJE FÖRSÖK KASTAS DEN SISTA `Sparrfalld`**, med de tidigare
+    försökens (skäl, sats) i sitt `tidigare`-fält, äldst först. Det är
+    `Kedjeutfall.tidigare_forsok`s källa, se `src/kedja.py`.
+
+    `exempel` läses EN gång här, inte per försök: samma få-exempel ska stå i
+    varje försöks prompt inom samma ärende, och `las_exempel()` är en
+    diskläsning som inte behöver upprepas.
     """
-    text = generera_ratext(klient, forfragan, modell, exempel)
-    krav_pa_svaret(text, forfragan)
-    return text
+    exempel = las_exempel() if exempel is None else exempel
+
+    tidigare: list[tuple[str, str]] = []
+    fel: Sparrfalld | None = None
+    for _ in range(MAX_GENERERINGSFORSOK):
+        text = generera_ratext(klient, forfragan, modell, exempel,
+                               tidigare_fel=fel)
+        try:
+            krav_pa_svaret(text, forfragan)
+            return text
+        except Sparrfalld as nytt_fel:
+            fel = nytt_fel
+            tidigare.append((nytt_fel.skal, nytt_fel.sats))
+
+    # HIT NÅS BARA SEDAN VARJE FÖRSÖK FALLIT, alltså är `fel` alltid satt:
+    # slingan ovan returnerar annars innan den tar slut. Den sista
+    # fällningens EGNA (skal, sats) ligger redan i `fel`; `tidigare` här är
+    # då för LÅNG med ett, och det sista paret är samma som `fel` bär, så det
+    # utelämnas för att inte dubblera det.
+    raise Sparrfalld(fel.sparr, fel.skal, fel.sats, tidigare=tuple(tidigare[:-1]))
 
 
 def generera_ratext(klient, forfragan: Forfragan, modell: str = MODELL,
-                    exempel: list[dict] | None = None) -> str:
+                    exempel: list[dict] | None = None, *,
+                    tidigare_fel: Sparrfalld | None = None) -> str:
     """Modellens text FÖRE spärrarna. Enbart för MÄTNING.
 
     **DEN HÄR VÄGEN FÅR ALDRIG NÅ ETT UTKAST SOM VISAS ELLER SKICKAS.** Den
@@ -3072,6 +3162,12 @@ def generera_ratext(klient, forfragan: Forfragan, modell: str = MODELL,
 
     Kravet i skiva 32 DEL D är att lucka 28:s frekvens mäts INNAN `FORDONSORD`
     ändras, och utan råtexten går den mätningen inte att göra.
+
+    `tidigare_fel` ÄR SKIVA 81: ett omförsök efter en fälld spärr skickar sin
+    föregångares `Sparrfalld` vidare till `bygg_prompt`, som lägger till en
+    rättelserad. `None` är förvalet, oförändrat för varje anropare som fanns
+    innan omförsöket byggdes: mätskripten (`scripts/generator-matning.py`
+    m.fl.) känner inte till parametern.
     """
     exempel = las_exempel() if exempel is None else exempel
 
@@ -3079,7 +3175,9 @@ def generera_ratext(klient, forfragan: Forfragan, modell: str = MODELL,
         model=modell,
         max_tokens=MAX_TOKENS,
         system=SYSTEM,
-        messages=[{"role": "user", "content": bygg_prompt(forfragan, exempel)}],
+        messages=[{"role": "user",
+                   "content": bygg_prompt(forfragan, exempel,
+                                          tidigare_fel=tidigare_fel)}],
     )
 
     return "".join(b.text for b in svar.content if b.type == "text").strip()

@@ -522,10 +522,18 @@ def test_ett_IFYLLT_telefonvarde_nar_prompten_ORDAGRANT(tmp_path):
 # **VÄRDET SKRIVS I DEN FORM ETT MAIL SKA BÄRA DET**, och det är väg B:s krav:
 # siffergrupperna är en källa bara i den sats där HELA strängen står tecken för
 # tecken. En omskriven adress matchar inte och fälls.
+#
+# **`dragviktskrav` TILLKOM PÅ LARS §10-BESLUT I SKIVA 81.** Skälet: ett
+# få-exempel i `data/par.jsonl` lärde generatorn tala om ett dragviktskrav på
+# 1000 kg utan att något i `config/` hade det talet som källa, alltså
+# spärrades varje svar som återgav det. Posten ger talet en källa i stället
+# för att bero på ett få-exempel som kan bytas ut när som helst.
 FAKTA_SOM_LARS_BESLUTAT = {
     "adress": "Surbrunnsgatan 42, 113 48 Stockholm",
     "bokningar": "vi tar emot bokningar löpande och kommer överens om tid "
                  "med kunden",
+    "dragviktskrav": "en A-traktor måste enligt lag klara minst 1 000 kg i "
+                     "bromsad släpvagnsvikt",
     "telefon": "076-860 38 15",
 }
 
@@ -560,6 +568,8 @@ def test_faktafilen_i_repot_bar_EXAKT_det_Lars_BESLUTAT():
     # delsträngskontroll hade varit grön av fel skäl.
     rader = [r.strip() for r in generera._faktarader().splitlines()]
     assert f"telefon: {FAKTA_SOM_LARS_BESLUTAT['telefon']}" in rader
+    assert (f"dragviktskrav: {FAKTA_SOM_LARS_BESLUTAT['dragviktskrav']}"
+            in rader)
 
 
 # --- SKIVA 41 DEL A: config/priser.json --------------------------------------
@@ -4147,13 +4157,36 @@ def test_ett_fallt_svar_returneras_ALDRIG():
         )
 
 
-def test_generatorn_skriver_aldrig_om_ett_fallt_svar():
-    """§9.1: en fälld text är ett STOPPTECKEN, inte ett formuleringsproblem.
+class SekvensKlient:
+    """En klient som ger en NY text per anrop, i tur och ordning. Skiva 81.
 
-    Det finns ingen kod i modulen som gör om ett svar och prövar igen. Testet
-    binder det genom att räkna anropen: ett fällt svar ska ge ETT anrop och ett
-    kast, aldrig ett andra försök med en mildare text.
+    Till skillnad från `FejkKlient` (samma text varje gång) behövs den här för
+    att pröva OMFÖRSÖKET: den fällda texten på försök 1 och en ren text på
+    försök 2 är inte samma sträng. Kastar `IndexError` om fler anrop görs än
+    texter finns, så att ett test som förväntar sig FÖR MÅNGA försök går rött
+    i stället för att tyst upprepa den sista texten.
     """
+
+    def __init__(self, *texter: str):
+        self._texter = list(texter)
+        self.anrop = 0
+        self.messages = self
+
+    def create(self, **_kwargs):
+        self.anrop += 1
+        text = self._texter.pop(0)
+        blocket = type("Block", (), {"type": "text", "text": text})()
+        return type("Svar", (), {"content": [blocket]})()
+
+
+def test_generatorn_skriver_ALDRIG_om_ETT_fallt_svar_TILL_SAMMA_TEXT():
+    """§9.1 GÄLLER FORTFARANDE: ingen kod här redigerar en fälld text och
+    prövar den igen. Skillnaden sedan skiva 81 är att modellen får skriva ett
+    HELT NYTT svar upp till taket, se `test_ETT_OMFORSOK_som_LYCKAS...` och
+    `test_TAKET_pa_GENERERINGSFORSOK...` nedan. Den här texten är IDENTISK på
+    varje anrop, alltså kan ingen skillnad mellan försöken bero på ett rättat
+    ord: det är samma sträng som spärras tre gånger i rad, aldrig en
+    redigering av den."""
     anrop = []
 
     class Raknande(FejkKlient):
@@ -4166,7 +4199,87 @@ def test_generatorn_skriver_aldrig_om_ett_fallt_svar():
             Raknande(f"Det kostar {SENTINELPRIS} kr."), forfragan(), exempel=[]
         )
 
-    assert len(anrop) == 1
+    assert len(anrop) == generera.MAX_GENERERINGSFORSOK
+
+
+def test_ETT_OMFORSOK_som_LYCKAS_ger_DEN_RENA_TEXTEN():
+    """Skiva 81, Lars beslut. Försök 1 spärras, försök 2 är rent: modellen är
+    inte deterministisk, och `generera_utkast` ska returnera den text som
+    faktiskt höll, inte kasta för att en TIDIGARE text föll."""
+    ren_text = "Hej, det går bra att titta på bilen. Hör av dig så bokar vi."
+    klient = SekvensKlient(f"Det kostar {SENTINELPRIS} kr.", ren_text)
+
+    ut = generera.generera_utkast(klient, forfragan(), exempel=[])
+
+    assert ut == ren_text
+    assert klient.anrop == 2
+
+
+def test_TAKET_PA_GENERERINGSFORSOK_HALLER_och_SISTA_FELET_KASTAS():
+    """Faller VARJE försök ska taket stoppa slingan, inte fortsätta i evighet.
+    `SekvensKlient` kastar `IndexError` om ett fjärde anrop görs, alltså går
+    testet rött om taket inte höll. §7.1: sänk `MAX_GENERERINGSFORSOK` till 4
+    och se den här raden bli meningslös eftersom fejken då har text kvar,
+    eller höj `SekvensKlient`s lista med en fjärde SENTINELPRIS-text och se
+    `IndexError` om taket i stället TAS BORT.
+    """
+    klient = SekvensKlient(*([f"Det kostar {SENTINELPRIS} kr."] *
+                             generera.MAX_GENERERINGSFORSOK))
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.generera_utkast(klient, forfragan(), exempel=[])
+
+    assert klient.anrop == generera.MAX_GENERERINGSFORSOK
+    assert fel.value.sparr == "genererat-tal-har-kalla"
+    # DE TVÅ TIDIGARE FÖRSÖKENS (skäl, sats) ligger i `tidigare`, äldst först.
+    # Det tredje och sista försökets egna (skäl, sats) ligger i `skal`/`sats`
+    # och INTE i `tidigare`, se `Sparrfalld`s docstring.
+    assert len(fel.value.tidigare) == generera.MAX_GENERERINGSFORSOK - 1
+    for skal, sats in fel.value.tidigare:
+        assert skal == fel.value.skal
+        assert sats == fel.value.sats
+
+
+def test_RATTELSERADEN_STAR_I_PROMPTEN_pa_ett_OMFORSOK():
+    """Nästa försöks prompt ska namnge DEN FÄLLDA SATSEN och SKÄLET, så att
+    modellen har något konkret att undvika. `None` (inget tidigare fel) ska
+    inte lägga till raden alls: det är den vanliga vägen, och den ska vara
+    OFÖRÄNDRAD."""
+    utan = generera.bygg_prompt(forfragan(), exempel=[])
+    assert "FÖREGÅENDE FÖRSÖK" not in utan
+
+    fel = Sparrfalld("genererat-tal-har-kalla",
+                     f"talet {SENTINELPRIS} kommer varken ur uppslaget eller "
+                     "ur config", f"Det kostar {SENTINELPRIS} kr.")
+    med = generera.bygg_prompt(forfragan(), exempel=[], tidigare_fel=fel)
+
+    assert "FÖREGÅENDE FÖRSÖK" in med
+    assert f"Det kostar {SENTINELPRIS} kr." in med
+    assert f"talet {SENTINELPRIS} kommer varken ur uppslaget" in med
+    # RÄTTELSEN KOMMER EFTER UNDERLAGET, för att stå så nära den faktiska
+    # uppgiften ("MAILET SOM SKA BESVARAS") som möjligt.
+    assert med.index("FÖREGÅENDE FÖRSÖK") < med.index("MAILET SOM SKA BESVARAS")
+
+
+def test_RATTELSERADEN_NAR_MODELLEN_pa_ETT_RIKTIGT_OMFORSOK():
+    """Änden till ände: `generera_utkast`s ANDRA anrop ska faktiskt bära
+    rättelseraden, inte bara att `bygg_prompt` KAN bygga en."""
+    prompter = []
+
+    class Spelar_in(SekvensKlient):
+        def create(self, **kwargs):
+            prompter.append(kwargs["messages"][0]["content"])
+            return super().create(**kwargs)
+
+    ren_text = "Hej, det går bra. Hör av dig så bokar vi in en tid."
+    klient = Spelar_in(f"Det kostar {SENTINELPRIS} kr.", ren_text)
+
+    generera.generera_utkast(klient, forfragan(), exempel=[])
+
+    assert len(prompter) == 2
+    assert "FÖREGÅENDE FÖRSÖK" not in prompter[0]
+    assert "FÖREGÅENDE FÖRSÖK" in prompter[1]
+    assert f"Det kostar {SENTINELPRIS} kr." in prompter[1]
 
 
 # --- SKIVA 40 DEL B: påståenden om frånvaro ----------------------------------

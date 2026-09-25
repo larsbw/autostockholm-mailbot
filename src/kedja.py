@@ -270,6 +270,13 @@ class Kedjeutfall:
     # svaret, se `generera.Sparrfalld`. Bär samma sorts text som `skal` och
     # lyder under samma villkor: maskeras innan den når en skärm, loggas aldrig.
     sats: str = ""
+    # SKIVA 81, Lars beslut. (skäl, sats) för VARJE TIDIGARE omförsök i samma
+    # `generera.generera_utkast`-anrop, äldst först — `skal`/`sats` ovan bär
+    # det SISTA försökets. Tom när `sparr` är tom (aldrig spärrat) och tom när
+    # spärren föll redan på första försöket. Källan är `Sparrfalld.tidigare`.
+    # Används av `scripts/respond.py` för larmutkastets brödtext, aldrig
+    # loggat och aldrig renderat i vyn: samma persondataklass som `sats`.
+    tidigare_forsok: tuple[tuple[str, str], ...] = ()
     steg: tuple[Steg, ...] = field(default_factory=tuple)
 
     @property
@@ -632,7 +639,8 @@ def kor(
         steg.append(Steg("spärrar", "fälld", fel.sparr))
         return Kedjeutfall(
             kategori=kategori, hink=hink, uppslag=uppslag, utfall=utfall,
-            sparr=fel.sparr, skal=fel.skal, sats=fel.sats, steg=tuple(steg),
+            sparr=fel.sparr, skal=fel.skal, sats=fel.sats,
+            tidigare_forsok=fel.tidigare, steg=tuple(steg),
         )
 
     # INGEN RÄKNING HÄR. Strängen `alla tre` stod här och skrevs in i
