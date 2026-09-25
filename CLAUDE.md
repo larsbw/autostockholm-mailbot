@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 1.0.0 · **Uppdaterad:** 2026-09-14
+**Version:** 1.1.0 · **Uppdaterad:** 2026-09-25
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje
 sessionsstart.
@@ -185,6 +185,17 @@ HEAD-SHA. Kontrollera att filen skrevs innan du säger att den gjorde det.
 Efter varje `messages.send`: läs tillbaka message-ID:t och återge det. Går det
 inte att bekräfta, säg det.
 
+### 12.1 Beslutsfil vid väntan på besked
+
+Innan ett pass stannar och väntar på besked från Lars: skriv en fil i
+`scratchpad/`, namnet `Mailbot-CC-BESLUT-ÅÅÅÅMMDD-HHMM.md`, tidsstämpel ur
+`date -u`. Filen ska innehålla vad som är gjort hittills, exakt vilka beslut
+som behövs, och vad du föreslår. Lars kör flera CC-fönster samtidigt och ser
+bara via filerna om hans input behövs.
+
+Varje pass avslutas dessutom alltid med rapportfilen enligt ovan. Ingen fil,
+inget klart.
+
 ---
 
 **Reglerna fungerar om:** noll mail till fel mottagare, noll påhittade priser
@@ -194,6 +205,14 @@ i git-historiken, och en bot som faktiskt svarar på mail.
 ---
 
 ## Appendix
+
+### 1.1.0 — 2026-09-25
+
+§12 fick en underrubrik, 12.1: en beslutsfil (`Mailbot-CC-BESLUT-*.md`) skrivs
+till `scratchpad/` innan ett pass stannar och väntar på Lars, utöver
+rapportfilen som redan avslutar varje pass. Lars kör flera CC-fönster
+parallellt och behöver kunna se via filerna, utan att öppna varje fönster,
+om ett pass väntar på honom.
 
 ### 1.0.0 — 2026-09-14
 
