@@ -11,7 +11,7 @@ from __future__ import annotations
 import base64
 import json
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -619,19 +619,24 @@ def test_TAKET_ar_det_som_ryms_i_timeouten_och_tacker_det_uppmatta():
     assert d.ANTAL >= 2 * 20
 
 
-def test_schemat_traffar_NASTA_dygn_nar_tiden_passerat():
-    """Grundfallet i `nasta_korning`: aldrig en tidpunkt som redan varit."""
+def test_schemat_traffar_NASTA_timme_nar_minuten_passerat():
+    """Grundfallet i `nasta_korning`: aldrig en tidpunkt som redan varit.
+
+    Uppdrag 2026-09-25 DEL 1: en gång i timmen i stället för en gång per
+    dygn. Testets namn och tal är bytta av samma skäl; mekaniken, "träffa
+    strikt EFTER `nu`", är oförändrad.
+    """
     d = _dagligen()
 
-    efter = datetime(2026, 9, 15, 12, 0, tzinfo=timezone.utc)
-    assert d.nasta_korning(efter) == datetime(2026, 9, 16, 5, 10, tzinfo=timezone.utc)
+    efter = datetime(2026, 9, 15, 12, 20, tzinfo=timezone.utc)
+    assert d.nasta_korning(efter) == datetime(2026, 9, 15, 13, 10, tzinfo=timezone.utc)
 
-    fore = datetime(2026, 9, 15, 3, 0, tzinfo=timezone.utc)
-    assert d.nasta_korning(fore) == datetime(2026, 9, 15, 5, 10, tzinfo=timezone.utc)
+    fore = datetime(2026, 9, 15, 12, 3, tzinfo=timezone.utc)
+    assert d.nasta_korning(fore) == datetime(2026, 9, 15, 12, 10, tzinfo=timezone.utc)
 
 
 def test_en_MISSLYCKAD_korning_DODAR_INTE_slingan(tmp_path, monkeypatch):
-    """SPÄRR: ett misslyckande ska kosta ETT dygn, inte alla följande.
+    """SPÄRR: ett misslyckande ska kosta EN timme, inte alla följande.
 
     **UTAN DEN HÄR RADEN STÅR BOTEN STILL tills någon märker det.** En körning
     som kastar hade dödat slingan, och containern lever vidare eftersom vyn är
@@ -686,6 +691,151 @@ def test_en_LYCKAD_korning_loggas_som_lyckad(tmp_path, monkeypatch):
     assert json.loads(
         (tmp_path / "korningar.jsonl").read_text(encoding="utf-8")
     )["lyckades"] is True
+
+
+# ------------------------------------- DRIFTLARMET, UPPDRAG 2026-09-25 DEL 2
+
+
+class _HuvudUtfall:
+    def __init__(self, returncode=1, stderr="processen kraschade"):
+        self.returncode = returncode
+        self.stdout = ""
+        self.stderr = stderr
+
+
+class _LarmSpion:
+    """Spelar in varje subprocess-anrop `kor` gör. `larm_returkod` styr vad
+    ETT eventuellt larmanrop svarar; huvudkommandot svarar alltid `_huvud`.
+    """
+
+    def __init__(self, huvud, larm_returkod=0):
+        self.anrop: list[list[str]] = []
+        self._huvud = huvud
+        self._larm_returkod = larm_returkod
+
+    def __call__(self, cmd, **_kwargs):
+        self.anrop.append(cmd)
+        if "driftlarm.py" in cmd[1]:
+            return _HuvudUtfall(returncode=self._larm_returkod, stderr="")
+        return self._huvud
+
+
+def test_larmkommandot_bar_ratt_flaggor_och_INGEN_sandflagga():
+    """SPÄRR, samma form som `test_dagliga_kommandot_bar_INGEN_sandflagga`."""
+    d = _dagligen()
+    rad = d.larmkommando("2026-09-25T12:00:00+00:00", 1, "en felrad")
+
+    assert rad[1].endswith("driftlarm.py")
+    assert "--tid" in rad and "2026-09-25T12:00:00+00:00" in rad
+    assert "--exitkod" in rad and "1" in rad
+    assert "--fel" in rad and "en felrad" in rad
+    assert "--send" not in " ".join(rad)
+
+
+def test_driftlarmloggens_sokvag_ar_SOKVAGARS_och_inte_den_har_filens():
+    """Samma bindning som `test_schemats_tokennamn_ar_AUTHS` prövar för
+    tokenfilerna: sökvägen kommer ur `src/sokvagar.py`."""
+    from src import sokvagar
+    assert _dagligen().DRIFTLARMLOGG == sokvagar.DRIFTLARMLOGG
+
+
+def test_ett_larm_SKICKAS_vid_en_misslyckad_korning(tmp_path, monkeypatch):
+    """En körning som avslutas med fel eller en exitkod skild från noll ger
+    ETT driftlarm, och `DRIFTLARMLOGG` får en rad om det lyckades."""
+    d = _dagligen()
+    monkeypatch.setattr(d, "KORNINGSLOGG", tmp_path / "korningar.jsonl")
+    larmlogg = tmp_path / "drift-larm.jsonl"
+    monkeypatch.setattr(d, "DRIFTLARMLOGG", larmlogg)
+    spion = _LarmSpion(_HuvudUtfall())
+
+    kod = d.kor(kor_process=spion)
+
+    assert kod == 1
+    assert len(spion.anrop) == 2, "huvudkommandot OCH larmkommandot"
+    rad = json.loads(larmlogg.read_text(encoding="utf-8"))
+    assert "tid" in rad
+    assert "processen kraschade" not in json.dumps(rad), (
+        "§6: DRIFTLARMLOGG bär bara en tidsstämpel")
+
+
+def test_INGET_larm_vid_en_LYCKAD_korning(tmp_path, monkeypatch):
+    """NEGATIVKONTROLL: utan den vore "larma alltid" grönt på raden ovan."""
+    d = _dagligen()
+    monkeypatch.setattr(d, "KORNINGSLOGG", tmp_path / "korningar.jsonl")
+    larmlogg = tmp_path / "drift-larm.jsonl"
+    monkeypatch.setattr(d, "DRIFTLARMLOGG", larmlogg)
+    spion = _LarmSpion(_HuvudUtfall(returncode=0, stderr=""))
+
+    d.kor(kor_process=spion)
+
+    assert len(spion.anrop) == 1, "bara huvudkommandot, inget larm"
+    assert not larmlogg.exists()
+
+
+def test_INGET_ANDRA_larm_inom_SEX_TIMMAR(tmp_path, monkeypatch):
+    """Taket, Lars beslut: högst ett larm var sjätte timme."""
+    d = _dagligen()
+    monkeypatch.setattr(d, "KORNINGSLOGG", tmp_path / "korningar.jsonl")
+    larmlogg = tmp_path / "drift-larm.jsonl"
+    monkeypatch.setattr(d, "DRIFTLARMLOGG", larmlogg)
+    nyss = datetime.now(timezone.utc) - timedelta(hours=1)
+    larmlogg.write_text(
+        json.dumps({"tid": nyss.isoformat()}) + "\n", encoding="utf-8")
+    spion = _LarmSpion(_HuvudUtfall())
+
+    d.kor(kor_process=spion)
+
+    assert len(spion.anrop) == 1, "bara huvudkommandot: taket höll"
+
+
+def test_larm_TILLATET_igen_EFTER_sex_timmar(tmp_path, monkeypatch):
+    """NEGATIVKONTROLL till raden ovan: taket får inte gälla för alltid."""
+    d = _dagligen()
+    monkeypatch.setattr(d, "KORNINGSLOGG", tmp_path / "korningar.jsonl")
+    larmlogg = tmp_path / "drift-larm.jsonl"
+    monkeypatch.setattr(d, "DRIFTLARMLOGG", larmlogg)
+    for_gammalt = datetime.now(timezone.utc) - timedelta(hours=7)
+    larmlogg.write_text(
+        json.dumps({"tid": for_gammalt.isoformat()}) + "\n", encoding="utf-8")
+    spion = _LarmSpion(_HuvudUtfall())
+
+    d.kor(kor_process=spion)
+
+    assert len(spion.anrop) == 2
+
+
+def test_ETT_MISSLYCKAT_larm_skriver_INGEN_rad_och_far_forsoka_igen(
+        tmp_path, monkeypatch):
+    """Ett larm som själv faller (saknad token, nätverksfel) ska inte låsa
+    taket: nästa misslyckade körning ska få försöka på nytt."""
+    d = _dagligen()
+    monkeypatch.setattr(d, "KORNINGSLOGG", tmp_path / "korningar.jsonl")
+    larmlogg = tmp_path / "drift-larm.jsonl"
+    monkeypatch.setattr(d, "DRIFTLARMLOGG", larmlogg)
+    spion = _LarmSpion(_HuvudUtfall(), larm_returkod=1)
+
+    d.kor(kor_process=spion)
+
+    assert len(spion.anrop) == 2, "larmet försöktes, men föll"
+    assert not larmlogg.exists()
+
+
+def test_ETT_KRASCHAT_larm_stoppar_INTE_slingan(tmp_path, monkeypatch):
+    """SPÄRR: precis som `kor` självt fångar allt från huvudkommandot,
+    fångar `_larma_vid_fel` allt från larmkommandot. Ett larm som inte ens
+    går att STARTA (som `kor_process` som kastar) får inte döda slingan."""
+    d = _dagligen()
+    monkeypatch.setattr(d, "KORNINGSLOGG", tmp_path / "korningar.jsonl")
+    larmlogg = tmp_path / "drift-larm.jsonl"
+    monkeypatch.setattr(d, "DRIFTLARMLOGG", larmlogg)
+
+    def kraschar(*_a, **_k):
+        raise OSError("varken huvud- eller larmkommandot går att starta")
+
+    kod = d.kor(kor_process=kraschar)
+
+    assert kod == 1
+    assert not larmlogg.exists()
 
 
 def test_schemats_tokennamn_ar_AUTHS():

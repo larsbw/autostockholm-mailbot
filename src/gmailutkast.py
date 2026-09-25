@@ -225,6 +225,37 @@ def bygg_larmmeddelande(*, regnr: str, kundnamn: str, kundepost: str,
     return {"message": {"raw": raa}}
 
 
+def bygg_driftlarmmeddelande(*, tid: str, exitkod: int, fel: str) -> dict:
+    """Ett DRIFTLARM när en körning av `scripts/dagligen.py` misslyckats.
+    Uppdrag 2026-09-25 DEL 2, Lars beslut.
+
+    **SAMMA MÖNSTER SOM `bygg_larmmeddelande`**, se den funktionens docstring:
+    bara textsträngar in, `LARMADRESS` en modulkonstant, ingen `threadId`.
+    Skillnaden är vad larmet gäller: `bygg_larmmeddelande` är ETT ärende
+    spärrat på alla försök, den här är EN KÖRNING som avslutats med fel.
+
+    **ÄMNET BÖRJAR MED "MAILBOT FEL" OCH BÄR TID OCH EXITKOD ALLTID**, `fel`
+    bara när den finns. `fel` är `scripts/dagligen.py::kor`s egen sanerade
+    sista rad (§6: aldrig ett helt spår, aldrig kundtext) och kan vara tom,
+    till exempel när respond.py returnerar en icke-nollkod utan att skriva
+    till stderr. Exitkoden finns alltid och räcker då som eget innehåll.
+    """
+    brev = EmailMessage()
+    brev["To"] = LARMADRESS
+    brev["Subject"] = (f"MAILBOT FEL {tid} (exitkod {exitkod}): {fel}" if fel
+                       else f"MAILBOT FEL {tid} (exitkod {exitkod})")
+    kropp = (
+        f"Tid: {tid}\n"
+        f"Exitkod: {exitkod}\n"
+        f"Fel: {fel or '(inget felmeddelande på stderr)'}\n\n"
+        "Det här är ett driftlarm för scripts/dagligen.py:s körning, inte ett "
+        "kundärende. Se Railways egen logg för ett fullständigt spår.\n"
+    )
+    brev.set_content(kropp)
+    raa = base64.urlsafe_b64encode(brev.as_bytes()).decode("ascii")
+    return {"message": {"raw": raa}}
+
+
 @dataclass(frozen=True)
 class UtkastResultat:
     """Vad `skapa_utkast` returnerar. UPPDRAG 2026-09-25 DEL 1.
@@ -282,6 +313,24 @@ def skapa_larmutkast(tjanst: Utkastjanst, **kwargs) -> UtkastResultat:
                           utkast_id=svar["id"])
 
 
+def skapa_driftlarmutkast(tjanst: Utkastjanst, **kwargs) -> UtkastResultat:
+    """Skapar driftlarmet. Uppdrag 2026-09-25 DEL 2. Samma tjänst och samma
+    lager som `skapa_utkast` och `skapa_larmutkast`, se `skapa_larmutkast`s
+    docstring: `drafts()` bryr sig aldrig om VILKET meddelande som skapas.
+
+    **INGEN TRÅDKONTROLL**, av samma skäl som `skapa_larmutkast`:
+    `bygg_driftlarmmeddelande` sätter aldrig `threadId`.
+
+    `kwargs` går rakt till `bygg_driftlarmmeddelande`, oförändrade.
+    """
+    svar = tjanst.users().drafts().create(
+        userId=ANVANDARE, body=bygg_driftlarmmeddelande(**kwargs)
+    ).execute()
+    meddelande = svar.get("message") or {}
+    return UtkastResultat(meddelande_id=meddelande.get("id", ""),
+                          utkast_id=svar["id"])
+
+
 def ta_bort_utkast(tjanst: Utkastjanst, utkast_id: str) -> None:
     """Tar bort ETT obesickat utkast. UPPDRAG 2026-09-25 DEL 1.
 
@@ -327,5 +376,19 @@ def larmutkastskapare(*, tjanst: Utkastjanst | None = None):
         if not cache:
             cache.append(skriv_tjanst())
         return skapa_larmutkast(cache[0], **kwargs)
+
+    return larma
+
+
+def driftlarmskapare(*, tjanst: Utkastjanst | None = None):
+    """Motsvarigheten till `larmutkastskapare`, för driftlarmet. Uppdrag
+    2026-09-25 DEL 2. Samma cache-mönster: en tjänst byggs vid FÖRSTA larmet.
+    """
+    cache: list[Utkastjanst] = [] if tjanst is None else [tjanst]
+
+    def larma(**kwargs) -> UtkastResultat:
+        if not cache:
+            cache.append(skriv_tjanst())
+        return skapa_driftlarmutkast(cache[0], **kwargs)
 
     return larma

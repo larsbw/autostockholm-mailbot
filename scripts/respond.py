@@ -907,15 +907,35 @@ def _kallan(
           f"{' '.join(inkorg.LASSCOPES)} och kan inte skicka.")
     print("SPÄRR lager 2: tjänsten släpper bara igenom läsvägarna.")
 
+    # UPPDRAG 2026-09-25 DEL 1. Fönstret börjar vid SENASTE LYCKADE KÖRNINGEN,
+    # inte vid ett fast dygn: `scripts/dagligen.py` kör en gång i timmen, och
+    # ett fast dygnsfönster hade läst om samma trådar 24 gånger om dagen.
+    # `vy.senaste_lyckade` läser samma `logg/korningar.jsonl` som
+    # `scripts/dagligen.py` skriver, se den modulens `_logga`. `fonsterstart`
+    # sätter golvet till `inkorg.MAX_FONSTER` när ingen lyckad körning är
+    # loggad eller den senaste ligger längre bak än så.
+    borjan = inkorg.fonsterstart(nu, vy.senaste_lyckade())
+
+    # UPPDRAG 2026-09-25 DEL 1, §7-granskningsfynd. Gmail-frågans grovt nät
+    # räknas ut för DEN HÄR körningens fönster i stället för att alltid vara
+    # `inkorg.FRAGA`s värsta fall: `mine.mina` skickar aldrig `uteslut` här
+    # (se `inkorg.dagens_tradar`s docstring), alltså hämtas HELA INNEHÅLLET i
+    # varje tråd nätet snappar upp, på nytt, varje körning. Ett konstant
+    # `newer_than:8d` hade kostat den kvoten 24 gånger om dagen för en normal
+    # timmes fönster. Se `inkorg.gmailfraga`s docstring.
+    fraga = inkorg.gmailfraga(borjan, nu)
+
     # `nu` ÄR KÖRNINGENS START och inte tiden efter hämtningen, som varierar
-    # med antalet trådar. Annars möts inte två dagars fönster. Fällt av
+    # med antalet trådar. Annars möts inte två körningars fönster. Fällt av
     # §7-granskningen av lucka 84.
-    tradar, forbrukning = inkorg.dagens_tradar(tjanst, utfil=arg.skord, nu=nu)
+    tradar, forbrukning = inkorg.dagens_tradar(tjanst, utfil=arg.skord, nu=nu,
+                                               borjan=borjan, fraga=fraga)
     print(f"Gmail: {forbrukning.tradar} trådar hämtade, "
           f"{forbrukning.anrop} anrop, {forbrukning.enheter} kvotenheter.")
-    timmar = int(inkorg.FONSTER.total_seconds() // 3600)
-    return ((f"info@autostockholm.se, de {timmar} timmarna före körningen, "
-             f"fråga {inkorg.FRAGA!r}"), tradar, tjanst)
+    timmar = round((nu - borjan).total_seconds() / 3600, 1)
+    return ((f"info@autostockholm.se, sedan {borjan.isoformat()} "
+             f"({timmar} timmar före körningen), fråga {fraga!r}"),
+            tradar, tjanst)
 
 
 def _regnr_historik_tjanst(

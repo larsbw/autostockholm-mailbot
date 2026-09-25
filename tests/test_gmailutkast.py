@@ -1407,7 +1407,7 @@ def test_CLI_tar_ETT_nu_FORE_hamtningen():
     i_kallan = kod.split("def _kallan")[1].split("def _kor")[0]
 
     assert i_kor.index("nu = datetime . now") < i_kor.index("_kallan ( arg , nu )")
-    assert "dagens_tradar ( tjanst , utfil = arg . skord , nu = nu )" in i_kallan
+    assert "dagens_tradar ( tjanst , utfil = arg . skord , nu = nu" in i_kallan
     assert "nu = nu ," in i_kor
     assert i_kor.count("datetime . now") == 1
 
@@ -1499,6 +1499,98 @@ def test_larmutkastskapare_ger_en_ANROPBAR_funktion():
 
     assert resultat.meddelande_id == "m-1"
     assert [namn for namn, _ in ra.logg] == ["create"]
+
+
+# --------------------------- DRIFTLARMET, UPPDRAG 2026-09-25 DEL 2
+
+
+def test_driftlarmmeddelandet_gar_ALLTID_till_LARMADRESS():
+    """Samma strukturella garanti som `bygg_larmmeddelande`s: bara
+    textsträngar in, `LARMADRESS` en modulkonstant."""
+    kropp = gmailutkast.bygg_driftlarmmeddelande(
+        tid="2026-09-25T12:00:00+00:00", exitkod=1,
+        fel="Attack <attack@ond.example>")
+    brev = _avkodat(kropp)
+
+    assert brev["To"] == gmailutkast.LARMADRESS == "info@autostockholm.se"
+
+
+def test_driftlarmmeddelandet_har_INGEN_threadId():
+    kropp = gmailutkast.bygg_driftlarmmeddelande(
+        tid="2026-09-25T12:00:00+00:00", exitkod=1, fel="boom")
+
+    assert "threadId" not in kropp["message"]
+
+
+def test_driftlarmamnet_borjar_med_MAILBOT_FEL_och_bar_tid_och_fel():
+    kropp = gmailutkast.bygg_driftlarmmeddelande(
+        tid="2026-09-25T12:00:00+00:00", exitkod=1,
+        fel="processen kraschade")
+    brev = _avkodat(kropp)
+
+    assert brev["Subject"].startswith("MAILBOT FEL")
+    assert "2026-09-25T12:00:00+00:00" in brev["Subject"]
+    assert "processen kraschade" in brev["Subject"]
+
+
+def test_driftlarmamnet_bar_EXITKODEN_aven_UTAN_ett_felmeddelande():
+    """`fel` kan vara tom (ingen stderr alls). Exitkoden räcker då som eget
+    innehåll i stället för en tom kolon-svans."""
+    kropp = gmailutkast.bygg_driftlarmmeddelande(
+        tid="2026-09-25T12:00:00+00:00", exitkod=124, fel="")
+    brev = _avkodat(kropp)
+
+    assert brev["Subject"].startswith("MAILBOT FEL")
+    assert "124" in brev["Subject"]
+    assert not brev["Subject"].rstrip().endswith(":")
+
+
+def test_driftlarmkroppen_bar_tid_exitkod_och_fel():
+    kropp = gmailutkast.bygg_driftlarmmeddelande(
+        tid="2026-09-25T12:00:00+00:00", exitkod=1,
+        fel="processen kraschade")
+    text = _avkodat(kropp).get_content()
+
+    assert "2026-09-25T12:00:00+00:00" in text
+    assert "1" in text
+    assert "processen kraschade" in text
+
+
+def test_skapa_driftlarmutkast_anvander_BARA_drafts_create():
+    ra = FejkRa(tradsvar=lambda kw: "ny-fristaende-trad")
+    resultat = gmailutkast.skapa_driftlarmutkast(
+        gmailutkast.Utkastjanst(ra), tid="2026-09-25T12:00:00+00:00",
+        exitkod=1, fel="boom")
+
+    assert [namn for namn, _ in ra.logg] == ["create"]
+    assert resultat.meddelande_id == "m-1"
+    assert resultat.utkast_id == "r-1"
+
+
+def test_driftlarmskapare_ger_en_ANROPBAR_funktion():
+    ra = FejkRa(tradsvar=lambda kw: "ny-fristaende-trad")
+    larma = gmailutkast.driftlarmskapare(tjanst=gmailutkast.Utkastjanst(ra))
+
+    resultat = larma(tid="2026-09-25T12:00:00+00:00", exitkod=1, fel="boom")
+
+    assert resultat.meddelande_id == "m-1"
+    assert [namn for namn, _ in ra.logg] == ["create"]
+
+
+def test_driftlarm_ar_NAMNGIVET_och_KLARAR_sandvagssparren():
+    """`scripts/driftlarm.py` når `src.gmailutkast` precis som `respond.py`
+    och `serva.py` gör, och klarar samma spärr."""
+    assert "src.gmailutkast" in vy.moduler_i_vyn("scripts.driftlarm")
+    vy.krav_pa_sandvagsfrihet("scripts.driftlarm", tillatna=vy.UNDANTAGBARA)
+
+
+def test_dagligen_nar_FORTFARANDE_ALDRIG_driftlarm_eller_gmailutkast():
+    """NEGATIVKONTROLL: `scripts/driftlarm.py` är en EGEN process, startad av
+    `scripts/dagligen.py` som subprocess. Importgrafen ska förbli tom."""
+    graf = vy.moduler_i_vyn("scripts.dagligen")
+
+    assert "src.gmailutkast" not in graf
+    assert "scripts.driftlarm" not in graf
 
 
 def test_CLI_lamnar_funktionen_och_stoppet_VIDARE():

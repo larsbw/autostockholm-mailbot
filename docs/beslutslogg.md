@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.86.0 · **Uppdaterad:** 2026-09-25 · **Implementerar** CLAUDE.md §8
+**Version:** 0.87.0 · **Uppdaterad:** 2026-09-25 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -8384,8 +8384,112 @@ brödtexten, bara skälet och satsen. Lagt till.
 
 Ny post ⇒ MINOR.
 
+## #140 — Uppdrag 2026-09-25 DEL 1 och 2: en gång i timmen, fönstret sedan
+senaste lyckade körningen, och ett driftlarm
+
+**Datum:** 2026-09-25 · **Berör:** `scripts/dagligen.py`, `scripts/respond.py`,
+`src/inkorg.py`, `src/gmailutkast.py`, `src/sokvagar.py`,
+`scripts/driftlarm.py` (ny fil)
+
+Sista byggpasset för mailboten, Lars uppdrag i chatten samma dag. Fyra delar.
+
+### 1. En gång i timmen i stället för 05:10 UTC. Lars beslut
+
+`scripts/dagligen.py::nasta_korning` träffar `MINUT_UTC` (:10, oförändrat
+tal, ny motivering: inte hel timme, då tredjeparterna har mest trafik) i
+VARJE timme i stället för en gång per dygn. `TIMME_UTC` struket.
+
+### 2. Fönstret sedan senaste lyckade körningen, tak sju dygn. Lars beslut
+
+`src/inkorg.py::fonsterstart(nu, senaste_lyckad)` ersätter det fasta
+24-timmarsfönstret från skiva 69: `senaste_lyckad` kommer ur
+`vy.senaste_lyckade()`, som redan läste `logg/korningar.jsonl` för vyns egen
+körningsrad. Ett fast dygn hade läst om samma trådar 24 gånger om dagen.
+`MAX_FONSTER = 7 dygn` är golvet när ingen lyckad körning är loggad eller den
+ligger längre bak än så, Lars beslut: en trasig slinga som lagas efter en
+månad ska inte läsa en månad bakåt i en enda körning.
+
+**GMAIL-FRÅGANS GROVA NÄT RÄKNAS UT PER KÖRNING**, `inkorg.gmailfraga`, i
+stället för att vara en konstant vidgad till `MAX_FONSTER`. §7-granskningsfynd
+innan skepp: `mine.mina` skickar aldrig `uteslut` i den här vägen, alltså
+hämtas HELA INNEHÅLLET i varje tråd nätet snappar upp, på nytt, varje
+körning. Ett konstant `newer_than:8d` hade kostat den kvoten 24 gånger om
+dagen för en normal timmes fönster. `gmailfraga` ger en normal timme
+`newer_than:2d`, samma tal skiva 69 redan mätte kvoten mot; bara en körning
+som faktiskt läser långt bakåt (efter ett driftstopp) betalar det bredare
+nätet.
+
+**ÖVERLAPPSMARGINAL PÅ FEM SEKUNDER, andra §7-granskningsfyndet.** En
+oberoende granskning spårade att `senaste_lyckad` (`scripts/dagligen.py`s
+egen klocka, läst FÖRE subprocessen startas) och samma körnings `slut`
+(`respond.py`s egen klocka, läst EFTER subprocessens uppstart) är två olika
+mätningar, och utan marginal kunde nästa körnings `borjan` hamna EFTER
+föregåendes `slut` med exakt schemats vaknjitter — ett glapp inget fönster
+täcker. `inkorg.SAKERHETSMARGINAL = 5 s` dras från `senaste_lyckad`, aldrig
+tvärtom: marginalen kan bara ge en kort överlappning, aldrig ett glapp, och
+en överlappning är ofarlig eftersom samma tråd i två körningar ändå bara ger
+ETT utkast (`vy.gmailutkast_finns`, regnrfiltret). Talet är VALT och inte
+mätt, flera gånger schemats förväntade vaknjitter.
+
+### 3. Ett driftlarm när en körning misslyckas. Lars beslut
+
+`scripts/dagligen.py::kor` startar, vid en exitkod skild från noll, en NY
+subprocess `scripts/driftlarm.py` (byggd på samma mönster som `respond.py`:
+egen `krav_pa_sandvagsfrihet`, egen `token-skriv.json`-väg), som skapar ett
+Gmail-utkast till `info@autostockholm.se` via nya
+`gmailutkast.bygg_driftlarmmeddelande` / `skapa_driftlarmutkast` /
+`driftlarmskapare`. Ämnet börjar `MAILBOT FEL <tid> (exitkod <N>)` och bär
+`dagligen.kor`s egen §6-sanerade sista stderr-rad när den finns.
+
+**`scripts/dagligen.py` IMPORTERAR FORTFARANDE ALDRIG `src.gmailutkast`.**
+Det är Lars beslut i skiva 69 och står oförändrat:
+`test_vyn_och_kedjan_nar_ALDRIG_gmailutkast[scripts.dagligen]` bevakar det,
+och en oberoende §7-granskning spårade den verkliga importgrafen (inte bara
+kommentarerna) och bekräftade att den håller.
+
+Taket är högst ett larm var sjätte timme, `logg/drift-larm.jsonl`
+(`src/sokvagar.py::DRIFTLARMLOGG`), skriven bara av `dagligen.py` och bara vid
+ett LYCKAT larm: ett larm som själv faller skriver ingen rad, så att nästa
+misslyckade körning får försöka igen.
+
+**ÖPPEN PUNKT TILL LARS, §7-granskningsfynd.** `dagligen.kor`s sanerade
+sista stderr-rad kunde, i det redan kända undantagsfallet en okänd
+biblioteksbugg (se raden vid `sista = fel.splitlines()[-1] ...`), bära ett
+filnamn ur `data/`. Före den här delen nådde den strängen bara den
+gitignorerade `logg/korningar.jsonl` och Railways egen logg, båda bara Lars.
+Nu går den, via `--fel` till `driftlarm.py`, också in i ETT UTKAST i
+verkstadens riktiga brevlåda, som Matte också öppnar. Risken är densamma,
+kanalen är bredare. Skeppat som specificerat (ämnet ska "innehålla ...
+felmeddelande"), inte tystat i väntan på svar. Lars avgör om det behöver
+mer skydd.
+
+### 4. Backfillen om, `--regnr-historik --gmailutkast --antal 0`
+
+Engångskörning över backfillens skörd på produktionsvolymen, för de två
+fordon skiva 81:s omförsök gällde. Utfallet, med registreringsnummer, står i
+scratchpad-rapporten och inte här (§6).
+
+### §7-granskningen, ett varv, oberoende granskare
+
+Falsifierade `_larm_tillatet`s tröskeljämförelse och `fonsterstart`s
+`MAX_FONSTER`-golv var för sig med `scripts/sparr-prova.sh`-motsvarande
+metod: båda gav röd svit, återställt. Fann glappet i punkt 2 (rättat) och
+den öppna punkten i punkt 3 (redovisad ovan, inte rättad utan Lars beslut).
+Kontrollerade att `gmailfraga` aldrig kan ge ett nät SMALARE än fönstret det
+tjänar (håller: `math.ceil` uppåt, fast marginal, golv på en dag) och att
+inga kvarvarande "24 timmar"/"05:10 UTC"-påståenden i de berörda filerna
+utger sig för att fortfarande gälla.
+
+Ny post ⇒ MINOR.
+
 
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.87.0 — 2026-09-25
+
+**#140 TILLKOMMER.** Uppdrag 2026-09-25 DEL 1 och 2: en gång i timmen,
+fönstret sedan senaste lyckade körningen med ett driftlarm vid fel. Ny post
+⇒ MINOR.
 
 ### 0.86.0 — 2026-09-25
 

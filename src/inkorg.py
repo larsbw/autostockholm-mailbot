@@ -41,10 +41,16 @@ vilat på en gissning, vilket §1 förbjuder för just Gmail.
 
 Gmail-frågan är därför bara ett GROVT NÄT som håller kvoten nere, och den exakta
 gränsen dras här, mot `internalDate`, som är millisekunder sedan epok och
-inte tolkningsbar. Sedan skiva 69 är gränsen de 24 timmarna före körningen,
-se `fonstrets_granser`.
+inte tolkningsbar. Sedan uppdraget 2026-09-25 DEL 1 är gränsen sedan SENASTE
+LYCKADE KÖRNINGEN, med ett tak på sju dygn, se `fonsterstart` och
+`fonstrets_granser`.
 
-*Här stod att dygnet är Europe/Stockholms. Det var lucka 84.*
+*Här stod att gränsen sedan skiva 69 är de 24 timmarna före körningen. Sant
+till och med uppdraget 2026-09-25 DEL 1, som lade om `scripts/dagligen.py`
+från en körning per dygn till en per timme: ett fast dygnsfönster hade då
+läst om samma trådar 24 gånger om dagen.*
+
+*Här stod innan dess att dygnet är Europe/Stockholms. Det var lucka 84.*
 
 SPAM OCH PAPPERSKORG SÅLLAS I VÅR KOD av samma skäl:
 `users.threads.list`:s `includeSpamTrash` saknar dokumenterat förval på
@@ -72,6 +78,7 @@ den på FÖRE skrivningen, alltså når det som faller aldrig disken.
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timedelta, timezone
 
 from src import auth, extract, klassa_maskin, mine, urval
@@ -85,19 +92,74 @@ from src import auth, extract, klassa_maskin, mine, urval
 # precis vad det byggdes för: en fjärde modul som drar in en Gmail-väg faller.
 LASSCOPES = auth.LASSCOPES
 
-# HUR LÅNGT BAKÅT EN KÖRNING SER. Lucka 84, se `fonstrets_granser`.
+# HUR LÅNGT BAKÅT EN KÖRNING SER SOM FÖRVAL, när ingen senaste lyckade körning
+# finns att räkna från. Se `fonstrets_granser` och `fonsterstart`.
+#
+# **INTE LÄNGRE DEN ENDA GRÄNSEN, sedan uppdraget 2026-09-25 DEL 1.** Skiva 69
+# drog fönstret som de 24 timmarna före körningen, byggt för ett schema en
+# gång per dygn. Med `scripts/dagligen.py` om till en gång i timmen (samma
+# uppdrag) hade ett fast dygn gjort varje körning till en 24-faldig omläsning
+# av samma trådar. Fönstret dras nu i stället från `vy.senaste_lyckade`, se
+# `fonsterstart`, och `FONSTER` är kvar bara som `fonstrets_granser`s eget
+# förval när ingen `borjan` anges (testerna av fönstrets mekanik, och en
+# `--tradar`-körning utan `--regnr-historik` som ändå vill ett värde).
 FONSTER = timedelta(hours=24)
 
-# GROVT NÄT, inte urvalet. `newer_than:2d` och inte `1d` med avsikt: nätet ska
-# vara vidare än `FONSTER`, så att gränsen dras av `_ar_fran_dagen` och aldrig
-# av en operator vars inklusivitet och tidszon inte går att läsa ut.
+# TAK BAKÅT, uppdraget 2026-09-25 DEL 1, Lars beslut: en körning ska aldrig
+# läsa längre bak än en vecka, hur länge slingan än stått still. Utan ett tak
+# hade en `logg/korningar.jsonl` utan någon lyckad rad, eller en rad flera
+# månader gammal, gett ett fönster som drar hem hela brevlådans historik.
+MAX_FONSTER = timedelta(days=7)
+
+# ÖVERLAPPSMARGINALEN `fonsterstart` DRAR FRÅN `senaste_lyckad`,
+# §7-granskningsfynd. Se den funktionens docstring för VARFÖR: två olika
+# klockor (`scripts/dagligen.py`s, före subprocessen, och `respond.py`s
+# egen, efter) ska annars mötas exakt, och gör det bara så länge inget
+# stör dem emellan. Talet är VALT och inte mätt: några sekunder är gott om
+# marginal mot schemats egna vaknjitter (`time.sleep` returnerar aldrig
+# tidigt) och för litet för att mätbart öka vad en körning ser, eftersom en
+# överlappande tråd ändå bara ger ETT utkast.
+SAKERHETSMARGINAL = timedelta(seconds=5)
+
+# GROVT NÄT, inte urvalet. Nätet ska vara vidare än fönstret det tjänar, så
+# att gränsen dras av `_ar_fran_dagen` och aldrig av en operator vars
+# inklusivitet och tidszon inte går att läsa ut.
+#
+# **DEN HÄR KONSTANTEN ÄR VÄRSTA FALLET, INTE VAD VARJE KÖRNING FRÅGAR EFTER.**
+# `newer_than:8d`, vidare än `MAX_FONSTER` (sju dygn). `dagens_tradar`s eget
+# förval, alltså vad en anropare får UTAN att räkna ut något själv: en
+# `--tradar`-skörd, ett test, eller en `--inkorg`-körning vars fönster faktiskt
+# är sju dygn (ny miljö, eller en slinga som stått still länge).
+#
+# **`scripts/respond.py::_kallan` ANVÄNDER I STÄLLET `gmailfraga(borjan, nu)`
+# FÖR VARJE VANLIG KÖRNING.** Skälet är kvoten: `mine.mina` skickar ALDRIG
+# `uteslut` här (se `dagens_tradar`s docstring), alltså listar och HÄMTAR HELA
+# INNEHÅLLET i varje tråd nätet snappar upp, på nytt, VARJE körning. Med
+# `scripts/dagligen.py` en gång i timmen hade en konstant `newer_than:8d`
+# gjort det 24 gånger om dagen för samma åtta dagars trådar, en kvotkostnad
+# som inte står i proportion till det enstaka nya mail en normal timme faktiskt
+# ger. `gmailfraga` krymper nätet till fönstrets egen storlek plus en dags
+# marginal: en normal timme ger `newer_than:2d`, samma tal skiva 69 redan körde
+# och mätte kvoten mot, och bara en körning som faktiskt behöver läsa långt
+# bakåt (efter ett driftstopp) betalar det bredare nätet.
+#
+# *Här stod `newer_than:2d`, vidare än det tidigare fasta dygnsfönstret men
+# smalare än `MAX_FONSTER`. Uppdraget 2026-09-25 DEL 1 vidgade fönstret till
+# sju dygn, alltså måste KONSTANTENS värsta fall vidgas med det; samma
+# uppdrag lade `gmailfraga` för att den vidgningen inte skulle betalas 24
+# gånger om dagen i det vanliga fallet.*
 #
 # **INGET `-in:sent` SEDAN SKIVA 69.** Webbformulärets notis bär `SENT`
 # (beslutslogg #8), alltså höll operatorn ute varje formulärärende. Uppmätt över
 # 2026-07-16 till 2026-09-16: 33 av 432 ärenden, och 11 av de 13 obesvarade
 # a-traktorärendena. Vilka meddelanden som är kundens avgör
 # `tradar_fran_dagen` med `urval.ar_kundmeddelande`.
-FRAGA = "newer_than:2d"
+FRAGA = "newer_than:8d"
+
+# MARGINALEN `gmailfraga` LÄGGER OVANPÅ DET UTRÄKNADE FÖNSTRET, i hela dygn.
+# Samma marginal skiva 69 valde mellan sitt 24-timmarsfönster och
+# `newer_than:2d`: en dags marginal ovanpå ett dygns fönster.
+GMAILFRAGA_MARGINAL_DAGAR = 1
 
 # Ett tak på hur många trådar nätet får ge. Skydd mot att en felskriven fråga
 # drar hem hela brevlådan; talet är VALT och inte mätt.
@@ -201,21 +263,97 @@ def las_tjanst(*, tillat_webblasare: bool = False) -> Lastjanst:
     return Lastjanst(auth.bygg_tjanst(cred))
 
 
-def fonstrets_granser(nu: datetime | None = None) -> tuple[int, int]:
-    """(början, slut) för de 24 timmar som slutar vid `nu`, i millisekunder.
+def fonsterstart(nu: datetime, senaste_lyckad: datetime | None) -> datetime:
+    """Var fönstret ska börja: sedan `senaste_lyckad`, tak `MAX_FONSTER`.
+
+    Uppdraget 2026-09-25 DEL 1, Lars beslut: med `scripts/dagligen.py` om till
+    en gång i timmen läser en körning sedan den SENASTE LYCKADE körningen,
+    inte ett fast dygn. `senaste_lyckad` kommer ur `vy.senaste_lyckade`, som
+    läser `logg/korningar.jsonl` — samma fil `scripts/dagligen.py` skriver.
+
+    **GOLVET VINNER NÄR `senaste_lyckad` SAKNAS ELLER LIGGER FÖR LÅNGT BAK.**
+    Ingen loggad lyckad körning (ny miljö, eller en logg som bara bär
+    misslyckanden) och en körning som stått still i mer än en vecka behandlas
+    lika: fönstret dras vid `MAX_FONSTER`, aldrig längre. Utan taket hade en
+    trasig slinga som lagats efter en månad läst en månad bakåt i en enda
+    körning.
+
+    Ett `senaste_lyckad` EFTER `nu` (klockor som glider, eller ett anrop med
+    fel argumentordning) ger också golvet: `min` med `nu` hade behövts för att
+    hindra ett negativt fönster, och att i stället falla tillbaka på golvet är
+    samma säkra riktning som "ingen körning loggad".
+
+    **`SAKERHETSMARGINAL` DRAS FRÅN `senaste_lyckad`, §7-granskningsfynd.**
+    `senaste_lyckad` är `scripts/dagligen.py::kor`s EGEN klocka, läst FÖRE
+    `respond.py`-subprocessen ens startas. Den körningens egen `slut`
+    (`fonstrets_granser`) läses däremot INUTI subprocessen, EFTER dess
+    uppstart. De två klockorna är alltså olika mätningar, och utan marginal
+    kunde nästa körnings `borjan` (den första, opåverkade mätningen) hamna
+    EFTER föregåendes `slut` (den andra, senare mätningen) med precis
+    schemats egna vaknjitter, ett glapp inget fönster täcker. Marginalen kan
+    bara ge en KORT ÖVERLAPPNING, aldrig ett glapp, och en överlappning är
+    ofarlig: samma tråd i två körningar ger ändå bara ETT utkast,
+    `vy.gmailutkast_finns`. Dras EFTER golvjämförelsen, inte före: annars
+    hade marginalen kunnat knuffa en `senaste_lyckad` som redan låg exakt på
+    golvet under det, och golvet är taket, inte ett mål att pruta på.
+    """
+    golv = nu - MAX_FONSTER
+    if senaste_lyckad is None or senaste_lyckad < golv or senaste_lyckad > nu:
+        return golv
+    kandidat = senaste_lyckad - SAKERHETSMARGINAL
+    return kandidat if kandidat > golv else golv
+
+
+def gmailfraga(borjan: datetime, nu: datetime) -> str:
+    """Gmail-frågans grovt nät, rätt stort för DEN HÄR körningens fönster.
+    Uppdraget 2026-09-25 DEL 1. Se `FRAGA`s docstring för VARFÖR: `FRAGA`
+    ensam, konstant `newer_than:8d`, hade kostat samma kvot 24 gånger om
+    dagen för en normal timmes fönster.
+
+    **AVRUNDAT UPPÅT TILL HELA DYGN, PLUS `GMAILFRAGA_MARGINAL_DAGAR`.**
+    `newer_than:` tar bara hela dygn (Gmails egen syntax, ingen timupplösning),
+    och avrundning NEDÅT hade kunnat göra nätet SMALARE än fönstret för ett
+    fönster som inte går jämnt upp i dygn, till exempel tre och en halv
+    timme. Marginalen ovanpå är densamma skiva 69 lade mellan sitt
+    24-timmarsfönster och `newer_than:2d`.
+
+    **ALDRIG SMALARE ÄN EN DAG**, `newer_than:1d`: ett fönster kortare än ett
+    dygn (den vanliga timkörningen) ska ändå ha samma marginal som skiva 69
+    mätte, inte ett ännu smalare nät ingen mätning täcker.
+
+    Ett `borjan` EFTER `nu` (bara möjligt vid ett felaktigt anrop, se
+    `fonsterstart`) ger noll sekunder och alltså `newer_than:1d`, aldrig ett
+    negativt tal.
+    """
+    sekunder = max((nu - borjan).total_seconds(), 0.0)
+    hela_dagar = math.ceil(sekunder / (24 * 60 * 60))
+    dagar = max(hela_dagar, 1) + GMAILFRAGA_MARGINAL_DAGAR
+    return f"newer_than:{dagar}d"
+
+
+def fonstrets_granser(
+    nu: datetime | None = None, *, borjan: datetime | None = None,
+) -> tuple[int, int]:
+    """(början, slut) för fönstret som slutar vid `nu`, i millisekunder.
+
+    **`borjan` ÄR FÖRVALET `FONSTER` FÖRE `nu` OM DEN UTELÄMNAS.** Det förvalet
+    är kvar för att fönstrets mekanik, avrundningen och gränsernas
+    inklusivitet, ska gå att pröva utan en logg att räkna `borjan` ur.
+    `scripts/respond.py::_kallan` skickar alltid ett uträknat `borjan`, ur
+    `fonsterstart`.
 
     **LUCKA 84, LARS BESLUT I SKIVA 69.** Här stod dygnet i Europe/Stockholm.
-    Körningen går 05:10 UTC, alltså såg den bara dygnets första timmar, och
+    Körningen gick 05:10 UTC, alltså såg den bara dygnets första timmar, och
     ett mail som kom efter körningen låg utanför nästa dags dygn. Simulerat
     över backfillens skörd, en körning 05:10 UTC per dag i 61 dagar: 483 av
     519 kundmail i ärendetrådar hamnade aldrig i något fönster. Med 24 timmar
     bakåt: 0.
 
-    **SLUTET AVRUNDAS NEDÅT TILL HEL MINUT**, så att två körningar som
-    startar 05:10 med några sekunders skillnad möter varandra utan glapp.
+    **SLUTET AVRUNDAS NEDÅT TILL HEL MINUT**, så att två körningar i följd
+    möter varandra utan glapp när den ena `borjan` är den andras `slut`.
     `nu` ska vara körningens start. En körning som startar en minut senare än
-    dagen före lämnar en minuts glapp, och en som startar tidigare en minuts
-    överlapp.
+    föregående `slut` lämnar en minuts glapp, och en som startar tidigare en
+    minuts överlapp.
 
     Samma enhet som `internalDate`. Slutet är EXKLUSIVT, så ett mail som kommer
     i körningens minut tas av nästa körning.
@@ -225,8 +363,8 @@ def fonstrets_granser(nu: datetime | None = None) -> tuple[int, int]:
     """
     nu = datetime.now(timezone.utc) if nu is None else nu
     slut = nu.replace(second=0, microsecond=0)
-    borjan = slut - FONSTER
-    return int(borjan.timestamp() * 1000), int(slut.timestamp() * 1000)
+    start = (slut - FONSTER) if borjan is None else borjan
+    return int(start.timestamp() * 1000), int(slut.timestamp() * 1000)
 
 
 def _ar_fran_dagen(meddelande: dict, granser: tuple[int, int]) -> bool:
@@ -423,6 +561,7 @@ def dagens_tradar(
     *,
     utfil,
     nu: datetime | None = None,
+    borjan: datetime | None = None,
     fraga: str = FRAGA,
     max_tradar: int = MAX_TRADAR,
 ) -> tuple[list[dict], mine.Forbrukning]:
@@ -432,8 +571,13 @@ def dagens_tradar(
     kvotpacingen, backoffen mot 429 och skrivningen via en `.delvis`-fil, och en
     andra hämtare hade behövt hålla takt med den. `mine.mina` tar frågan och
     skriver trådarna till `utfil`; vi läser dem tillbaka och sållar på
-    `fonstrets_granser(nu)`. `nu` ska vara körningens START, se
+    `fonstrets_granser(nu, borjan=borjan)`. `nu` ska vara körningens START, se
     `scripts/respond.py::_kor`.
+
+    `borjan` kommer ur `fonsterstart(nu, vy.senaste_lyckade())`, uträknad av
+    anroparen: den här modulen känner inte till `logg/korningar.jsonl`, som är
+    `scripts/dagligen.py`:s och `src/vy.py`:s fil. Utelämnas `borjan` gäller
+    `fonstrets_granser`s eget förval, `FONSTER`.
 
     **`uteslut` ANVÄNDS INTE HÄR.** Fönstren för två körningar i följd möts
     utan överlapp, men en tråd där kunden skrivit i båda kommer med i båda.
@@ -462,4 +606,5 @@ def dagens_tradar(
     # `extract.las_tradar` OCH INGEN EGEN LÄSARE. Repot hade två identiska
     # jsonl-läsare för trådar; en tredje hade varit en till att hålla i takt.
     alla = list(extract.las_tradar(utfil))
-    return tradar_fran_dagen(alla, granser=fonstrets_granser(nu)), forbrukning
+    granser = fonstrets_granser(nu, borjan=borjan)
+    return tradar_fran_dagen(alla, granser=granser), forbrukning

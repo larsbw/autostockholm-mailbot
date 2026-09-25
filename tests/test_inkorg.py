@@ -10,7 +10,7 @@ importlagret och källtextlagret, prövas i `tests/test_respond.py`.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -228,6 +228,122 @@ def test_TVA_KORNINGAR_i_rad_moter_varandra_UTAN_GLAPP():
         inkorg.fonstrets_granser(idag)[0]
 
 
+def test_borjan_ar_SENASTE_LYCKADE_KORNINGEN_nar_den_ryms_inom_taket():
+    """Uppdrag 2026-09-25 DEL 1, grundfallet: fönstret börjar vid den
+    senaste lyckade körningen, inte vid ett fast dygn.
+
+    **MINUS `SAKERHETSMARGINAL`, §7-granskningsfynd.** Se `fonsterstart`s
+    docstring för varför: `senaste_lyckad` och körningens egen `slut` kommer
+    ur två olika klockor, och en liten, avsiktlig överlappning är säkrare än
+    ett glapp."""
+    nu = _nu(timme=12)
+    senaste = _nu(timme=9)
+
+    assert inkorg.fonsterstart(nu, senaste) == senaste - inkorg.SAKERHETSMARGINAL
+
+
+def test_fonsterstart_MARGINALEN_kan_bara_GE_OVERLAPPNING_aldrig_glapp():
+    """Marginalen ska alltid dra `borjan` BAKÅT (mot mer överlapp), aldrig
+    framåt (mot ett glapp)."""
+    nu = _nu(timme=12)
+    senaste = _nu(timme=9)
+
+    assert inkorg.fonsterstart(nu, senaste) < senaste
+    assert inkorg.SAKERHETSMARGINAL > timedelta(0)
+
+
+def test_fonsterstart_MARGINALEN_pressar_INTE_igenom_golvet():
+    """En `senaste_lyckad` precis på golvet ska inte knuffas UNDER det av
+    marginalen: golvet är taket, inte ett mål att pruta på."""
+    nu = _nu(dag=20)
+    pa_golvet = nu - inkorg.MAX_FONSTER
+
+    assert inkorg.fonsterstart(nu, pa_golvet) == nu - inkorg.MAX_FONSTER
+
+
+def test_borjan_KAPAS_vid_MAX_FONSTER_nar_ingen_lyckad_korning_finns():
+    """Ingen loggad lyckad körning: golvet gäller, aldrig hela historiken."""
+    nu = _nu(dag=20)
+
+    assert inkorg.fonsterstart(nu, None) == nu - inkorg.MAX_FONSTER
+
+
+def test_borjan_KAPAS_vid_MAX_FONSTER_nar_senaste_ligger_for_langt_bak():
+    """En slinga som stått still i mer än en vecka läser ändå bara en vecka
+    bakåt, inte hela stilleståndet."""
+    nu = _nu(dag=20)
+    for_gammal = nu - inkorg.MAX_FONSTER - timedelta(days=3)
+
+    assert inkorg.fonsterstart(nu, for_gammal) == nu - inkorg.MAX_FONSTER
+
+
+def test_borjan_ar_GOLVET_nar_senaste_lyckade_ar_EFTER_nu():
+    """NEGATIVKONTROLL mot en gissning uppåt: en tidsstämpel efter `nu` ska
+    aldrig ge ett negativt fönster."""
+    nu = _nu(dag=20)
+    i_framtiden = nu + timedelta(hours=1)
+
+    assert inkorg.fonsterstart(nu, i_framtiden) == nu - inkorg.MAX_FONSTER
+
+
+def test_fonstrets_granser_ANVANDER_EXPLICIT_borjan_nar_den_ges():
+    """`fonstrets_granser`s eget förval (`FONSTER`) rörs inte: en given
+    `borjan` vinner, samma slut som annars."""
+    nu = _nu(timme=12)
+    borjan = _nu(timme=3)
+
+    resultat = inkorg.fonstrets_granser(nu, borjan=borjan)
+
+    assert resultat == (int(_ms(borjan)), int(_ms(nu.replace(second=0))))
+
+
+def test_fonstrets_granser_FORVALET_star_kvar_UTAN_borjan():
+    """NEGATIVKONTROLL: utan `borjan` gäller fortfarande `FONSTER` före `nu`,
+    exakt som innan uppdraget 2026-09-25 DEL 1."""
+    nu = _nu(timme=12)
+
+    assert inkorg.fonstrets_granser(nu) == inkorg.fonstrets_granser(nu, borjan=nu - inkorg.FONSTER)
+
+
+# ---------------------------- gmailfraga, UPPDRAG 2026-09-25 DEL 1
+
+
+def test_gmailfraga_EN_NORMAL_TIMME_ger_SAMMA_tal_som_skiva_69_matte():
+    """Det vanliga fallet: en timmes fönster ska inte kosta mer kvot än
+    dygnskörningens `newer_than:2d` gjorde."""
+    nu = _nu(timme=12)
+    borjan = _nu(timme=11)
+
+    assert inkorg.gmailfraga(borjan, nu) == "newer_than:2d"
+
+
+def test_gmailfraga_AVRUNDAR_UPPAT_till_hela_dygn():
+    """25 timmar ska INTE avrundas ned till ett dygn: nedåt hade kunnat göra
+    nätet smalare än fönstret."""
+    nu = _nu(dag=16, timme=13)
+    borjan = _nu(dag=15, timme=12)
+
+    assert inkorg.gmailfraga(borjan, nu) == "newer_than:3d"
+
+
+def test_gmailfraga_EFTER_ETT_DRIFTSTOPP_foljer_MAX_FONSTER():
+    """En körning som läser hela `MAX_FONSTER` bakåt ska få ett nät som
+    faktiskt täcker det, inte det vanliga fallets smala nät."""
+    nu = _nu(dag=20)
+    borjan = nu - inkorg.MAX_FONSTER
+
+    assert inkorg.gmailfraga(borjan, nu) == "newer_than:8d"
+
+
+def test_gmailfraga_ar_ALDRIG_SMALARE_AN_EN_DAG_plus_marginal():
+    """Ett fönster på noll (eller negativt, se `fonsterstart`s golv) ska
+    ändå bära samma marginal som skiva 69 mätte, inte ett smalare nät."""
+    nu = _nu(timme=12)
+
+    assert inkorg.gmailfraga(nu, nu) == "newer_than:2d"
+    assert inkorg.gmailfraga(nu + timedelta(hours=1), nu) == "newer_than:2d"
+
+
 def test_slutet_ar_EXKLUSIVT():
     """Nästa dygns första millisekund hör till nästa dygn."""
     borjan, slut = inkorg.fonstrets_granser(_nu())
@@ -295,14 +411,19 @@ def test_SPAM_och_TRASH_sallas_i_var_kod():
     assert [t["id"] for t in kvar] == ["t3"]
 
 
-def test_gmailfragan_ar_ett_GROVT_NAT_och_vidare_an_dygnet():
-    """Frågan får inte vara det som drar dagsgränsen.
+def test_gmailfragan_ar_ett_GROVT_NAT_och_vidare_an_MAX_FONSTER():
+    """Frågan får inte vara det som drar den exakta gränsen.
 
     `after:`s inklusivitet och tidszon går inte att läsa ut ur Googles
-    dokumentation, se modulens inledning. Nätet är därför `newer_than:2d`, och
-    gränsen dras mot `internalDate`.
+    dokumentation, se modulens inledning. Nätet är därför `newer_than:8d`,
+    vidare än `MAX_FONSTER` (sju dygn), och gränsen dras mot `internalDate`.
+
+    Uppdrag 2026-09-25 DEL 1: här stod `newer_than:2d`, vidare än det
+    tidigare fasta 24-timmarsfönstret. Fönstret kan nu sträcka sig upp till
+    `MAX_FONSTER`, alltså måste nätet vidgas med det.
     """
-    assert "newer_than:2d" in inkorg.FRAGA
+    assert "newer_than:8d" in inkorg.FRAGA
+    assert inkorg.MAX_FONSTER < timedelta(days=8)
     assert "after:" not in inkorg.FRAGA
     # SKIVA 69. `-in:sent` höll ute webbformulärets notis, som bär SENT.
     assert "in:sent" not in inkorg.FRAGA
@@ -762,6 +883,26 @@ def test_dagens_tradar_ANVANDER_fonstret(tmp_path):
         nu=_nu(dag=15, timme=5, minut=10))
 
     assert [t["id"] for t in tradar] == ["ny"]
+
+
+def test_dagens_tradar_ANVANDER_ett_GIVET_borjan(tmp_path):
+    """Uppdrag 2026-09-25 DEL 1: `borjan` går igenom till `fonstrets_granser`,
+    och styr urvalet precis som `FONSTER` gjorde innan."""
+    for_gammal_men_INOM_borjan = _kundmail()
+    for_gammal_men_INOM_borjan["internalDate"] = _ms(_nu(dag=10, timme=14))
+    utanfor = _kundmail()
+    utanfor["internalDate"] = _ms(_nu(dag=9, timme=14))
+    tjanst = fejk.FejkGmail(
+        sidor={None: {"threads": [{"id": "inom"}, {"id": "utanfor"}]}},
+        tradar={"inom": _trad([for_gammal_men_INOM_borjan], "inom"),
+                "utanfor": _trad([utanfor], "utanfor")},
+    )
+
+    tradar, _ = inkorg.dagens_tradar(
+        inkorg.Lastjanst(tjanst), utfil=tmp_path / "skord.jsonl",
+        nu=_nu(dag=15, timme=5, minut=10), borjan=_nu(dag=10, timme=0))
+
+    assert [t["id"] for t in tradar] == ["inom"]
 
 
 def test_gallringen_andrar_inte_DYGNSGRANSEN():

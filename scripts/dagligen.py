@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
-"""DEN DAGLIGA KÖRNINGEN. Startar `respond.py --inkorg` en gång per dygn.
+"""SLINGAN. Startar `respond.py --inkorg` en gång i timmen.
 
     .venv/bin/python scripts/dagligen.py --nu        kör en gång, direkt
-    .venv/bin/python scripts/dagligen.py             slinga, kör 05:10 UTC
+    .venv/bin/python scripts/dagligen.py             slinga, kör var timme
+
+**FILEN HETER FORTFARANDE `dagligen.py`.** Namnet är från skiva 69, då
+schemat var en körning per dygn. Uppdraget 2026-09-25 DEL 1, Lars beslut, gick
+till en gång i timmen: boten ska inte vänta till nästa morgon på ett mail som
+kom klockan nio. Ett filnamnsbyte hade rört varje import och varje
+sökvägsreferens (`src/sokvagar.py::KORNINGSLOGG`, `start.sh`,
+`docs/beslutslogg.md`) för en ren namnfråga, och är inte del av det uppdraget.
 
 **VARFÖR EN EGEN SLINGA OCH INTE RAILWAYS CRON.** Avläst ur docs.railway.com
 2026-09-15:
@@ -46,6 +53,35 @@ kör respond utan utkast och returnerar 1.
 **§10 GÄLLER FORTFARANDE.** Första sändningen i en ny miljö är Lars beslut,
 oavsett vad som skickats från hans maskin. Den här filen skickar ingenting och
 kan inte börja göra det utan att båda raderna ovan blir röda.
+
+DRIFTLARMET, UPPDRAG 2026-09-25 DEL 2
+--------------------------------------
+
+Lars beslut: en körning som avslutas med fel eller en exitkod skild från noll
+ska ge ETT Gmail-utkast till info@autostockholm.se, så att ett fel inte ligger
+tyst i Railways logg till nästa gång någon råkar leta.
+
+**SAMMA ISOLERING SOM RESPOND, EN EGEN PROCESS.** Den här filen importerar
+fortfarande bara stdlib och `src.sokvagar`, precis som innan uppdraget:
+`test_vyn_och_kedjan_nar_ALDRIG_gmailutkast[scripts.dagligen]` binder att
+`src.gmailutkast` aldrig får stå i den här filens importgraf, Lars beslut i
+skiva 69 (se `tests/test_gmailutkast.py`). Draftfunktionen ligger i stället i
+`scripts/driftlarm.py`, en fristående process byggd på samma mönster som
+`respond.py`: `krav_pa_sandvagsfrihet("scripts.driftlarm", ...)` körs där,
+inte här, och den processen har sin egen `token-skriv.json`-väg genom
+`src/gmailutkast.py::skriv_tjanst`.
+
+**TAKET ÄR HÖGST ETT LARM VAR SJÄTTE TIMME**, `LARMFONSTER_S`, så att en
+kvarstående störning inte fyller inkorgen med ett utkast varje timme.
+`logg/drift-larm.jsonl` bär bara en tidsstämpel per skickat larm och skrivs
+ENDAST av den här filen, aldrig av `scripts/driftlarm.py`, se
+`src/sokvagar.py::DRIFTLARMLOGG`.
+
+**ETT MISSLYCKAT LARM STOPPAR INGET.** `_larma_vid_fel` fångar allt av samma
+skäl som `kor` gör: ett trasigt larm (saknad `token-skriv.json`, ett nätverksfel)
+ska kosta det larmet, inte slingan, och skriver ingen rad i
+`logg/drift-larm.jsonl` när det misslyckas, så att nästa misslyckade körning
+får försöka igen.
 """
 
 from __future__ import annotations
@@ -77,28 +113,34 @@ ROT = Path(__file__).resolve().parent.parent
 # den modulen.
 KORNINGSLOGG = sokvagar.KORNINGSLOGG
 
+# DRIFTLARMETS EGEN LOGG, uppdrag 2026-09-25 DEL 2. Bär bara en tidsstämpel
+# per skickat larm, se `src/sokvagar.py::DRIFTLARMLOGG` för varför den är en
+# egen fil och inte en rad i `KORNINGSLOGG`. Sökvägen är `src/sokvagar.py`:s
+# av samma skäl som `KORNINGSLOGG` ovan.
+DRIFTLARMLOGG = sokvagar.DRIFTLARMLOGG
+
 # TOKENFILERNA RESPOND BEHÖVER, skiva 72. Namnen är `src/auth.py`:s och står
 # här som text, eftersom schemat inte importerar Gmail-vägen.
 # `test_schemats_tokennamn_ar_AUTHS` binder att de inte glider isär.
 TOKENFILER = ("token-las.json", "token-skriv.json")
 
-# NÄR PÅ DYGNET, i UTC. Railways scheman är UTC och det är också den här
-# slingans klocka.
+# MINUTEN VARJE TIMME SCHEMAT TRÄFFAR, i UTC. Railways scheman är UTC och det
+# är också den här slingans klocka.
 #
-# **05:10 UTC ÄR VALT OCH INTE MÄTT, och skälet är när Lars läser.** Det är
-# 07:10 svensk sommartid och 06:10 vintertid, alltså ligger utkasten i vyn när
-# verkstaden öppnar. Kvarten över är medveten: hel timme är när allt annat i
-# världen kör, och Anthropics API och biluppgifter.se är båda tredjeparter.
+# **:10 ÄR VALT OCH INTE MÄTT.** Inte hel timme, med avsikt: hel timme är när
+# allt annat i världen kör, och Anthropics API och biluppgifter.se är båda
+# tredjeparter. Talet är kvar sedan skiva 69, då det också var motiverat av när
+# Lars läser utkasten; det skälet föll med den dagliga klockslagningen, men
+# valet av minut var aldrig knutet till den.
 #
-# **SOMMARTIDEN FLYTTAR KÖRNINGEN EN TIMME, och det är ett medvetet val.** Ett
-# UTC-schema betyder att den svenska klockslaget rör sig med tidsomställningen.
-# Alternativet vore en tidszonsberoende slinga, och en timmes glidning två
-# gånger om året är inte värd den komplexiteten för ett utkast Lars läser när
-# han kommer till jobbet.
-TIMME_UTC = 5
+# *Här stod också `TIMME_UTC = 5`, och stycket ovan motiverade klockslaget
+# 05:10 med när Lars kommer till jobbet. Uppdraget 2026-09-25 DEL 1 gick från
+# en körning per dygn till en per timme, Lars beslut: ett mail ska inte
+# behöva vänta till nästa morgon. `nasta_korning` träffar nu `MINUT_UTC` i
+# varje timme i stället för en gång per dygn.*
 MINUT_UTC = 10
 
-# TAK FÖR EN KÖRNING. Utan det kan en hängd körning blockera nästa dygn i all
+# TAK FÖR EN KÖRNING. Utan det kan en hängd körning blockera nästa timme i all
 # oändlighet. 45 minuter är VALT.
 TIMEOUT_S = 45 * 60
 
@@ -110,13 +152,30 @@ TIMEOUT_S = 45 * 60
 # budgeten; medeltiden per ärende är långt under den.
 SEKUNDER_PER_ARENDE = 60
 
-# HUR MÅNGA ÄRENDEN EN DAGLIG KÖRNING TAR. **LUCKA 86, SKIVA 70.** Här stod 20,
-# valt. Med 24 timmar bakåt kommer ett ärende över taket aldrig tillbaka, så
-# taket är nu det som ryms i `TIMEOUT_S`, alltså körningens egen gräns.
-# Simulerat över backfillens skörd, 61 körningar: flest ärenden i en körning
-# 20, median 8. Når en körning taket skriver respond ut hur många som föll och
+# HUR MÅNGA ÄRENDEN EN KÖRNING TAR. **LUCKA 86, SKIVA 70.** Här stod 20, valt.
+# Taket är det som ryms i `TIMEOUT_S`, alltså körningens egen gräns. Simulerat
+# över backfillens skörd, 61 dagskörningar: flest ärenden i en körning 20,
+# median 8. Når en körning taket skriver respond ut hur många som föll och
 # returnerar 1.
+#
+# *Här stod att ett ärende över taket ALDRIG kommer tillbaka, sant när
+# fönstret var ett fast dygn räknat från körningens egen start. Uppdraget
+# 2026-09-25 DEL 1 gjorde fönstret till "sedan senaste LYCKADE körningen": en
+# körning som returnerar 1 för att taket nåddes räknas inte som lyckad
+# (`respond.py::_kor`s sista rad), alltså börjar nästa körnings fönster om
+# vid samma punkt och tar upp det som föll igen. Ett ärende kan alltså
+# komma tillbaka, i en körning som redan är sen. Det ändrar inte var taket
+# ska ligga, bara vad som händer det som faller över det.*
 ANTAL = TIMEOUT_S // SEKUNDER_PER_ARENDE
+
+# DRIFTLARMETS TAK. Uppdrag 2026-09-25 DEL 2, Lars beslut: högst ett larm var
+# sjätte timme, så att en kvarstående störning inte skickar ett utkast varje
+# timme och fyller inkorgen. Talet är VALT och inte mätt.
+LARMFONSTER_S = 6 * 60 * 60
+
+# TAK FÖR DRIFTLARMETS EGEN PROCESS. Ett `drafts().create`-anrop, inte en
+# ärendekedja: 30 s är gott om marginal och VALT, inte mätt.
+LARM_TIMEOUT_S = 30
 
 
 def kommando(antal: int = ANTAL) -> list[str]:
@@ -129,6 +188,16 @@ def kommando(antal: int = ANTAL) -> list[str]:
             "--inkorg", "--gmailutkast", "--antal", str(antal)]
 
 
+def larmkommando(tid: str, exitkod: int, fel: str) -> list[str]:
+    """Kommandoraden för driftlarmet. Uppdrag 2026-09-25 DEL 2.
+
+    **EGEN FUNKTION AV SAMMA SKÄL SOM `kommando`**: så att kommandoraden går
+    att läsa ur ett test utan att faktiskt starta processen.
+    """
+    return [sys.executable, str(ROT / "scripts" / "driftlarm.py"),
+            "--tid", tid, "--exitkod", str(exitkod), "--fel", fel]
+
+
 def _logga(post: dict) -> None:
     """Skriver en rad till körningsloggen. Aldrig kundtext (§6)."""
     KORNINGSLOGG.parent.mkdir(parents=True, exist_ok=True)
@@ -136,12 +205,85 @@ def _logga(post: dict) -> None:
         fh.write(json.dumps(post, ensure_ascii=False) + "\n")
 
 
+def _senaste_larm(fil: Path) -> datetime | None:
+    """Tidsstämpeln för senast SKICKADE driftlarmet, eller None.
+
+    Samma toleranta läsning som `vy.senaste_lyckade`: en trasig rad hoppas
+    över i stället för att fälla läsningen, av samma skäl den funktionens
+    docstring ger.
+    """
+    if not fil.exists():
+        return None
+    senaste = None
+    for rad in fil.read_text(encoding="utf-8").splitlines():
+        if not rad.strip():
+            continue
+        try:
+            tid = datetime.fromisoformat(json.loads(rad)["tid"])
+        except (ValueError, KeyError, TypeError):
+            continue
+        if tid.tzinfo is None:
+            tid = tid.replace(tzinfo=timezone.utc)
+        if senaste is None or tid > senaste:
+            senaste = tid
+    return senaste
+
+
+def _larm_tillatet(nu: datetime, fil: Path) -> bool:
+    """Sant om `LARMFONSTER_S` gått sedan senaste SKICKADE larmet."""
+    senaste = _senaste_larm(fil)
+    return senaste is None or (nu - senaste).total_seconds() >= LARMFONSTER_S
+
+
+def _larma_vid_fel(nu: datetime, kod: int, fel: str, kor_process=None) -> None:
+    """Skapar ett driftlarm om taket i `LARMFONSTER_S` tillåter det.
+
+    `nu` är körningens EGEN starttid (`startad` i `kor`), både som larmets
+    tidsstämpel och som jämförelsepunkt mot `logg/drift-larm.jsonl`: samma
+    värde som redan loggas i `logg/korningar.jsonl` för samma körning.
+
+    **FÅNGAR ALLT**, samma villkor som `kor` självt: ett trasigt larm ska
+    kosta det larmet, inte slingan. Misslyckas det skrivs ingen rad i
+    `DRIFTLARMLOGG`, så att nästa misslyckade körning får försöka igen.
+    """
+    kor_process = subprocess.run if kor_process is None else kor_process
+    if not _larm_tillatet(nu, DRIFTLARMLOGG):
+        print("[dagligen] driftlarm hoppas över: mindre än "
+              f"{LARMFONSTER_S // 3600} timmar sedan senaste", flush=True)
+        return
+
+    try:
+        utfall = kor_process(
+            larmkommando(nu.isoformat(), kod, fel),
+            cwd=str(ROT),
+            capture_output=True,
+            text=True,
+            timeout=LARM_TIMEOUT_S,
+        )
+        lyckades = utfall.returncode == 0
+    except Exception as e:  # noqa: BLE001
+        print(f"[dagligen] driftlarm MISSLYCKADES {type(e).__name__}",
+              flush=True)
+        return
+
+    if not lyckades:
+        print(f"[dagligen] driftlarm MISSLYCKADES, exitkod "
+              f"{utfall.returncode}", flush=True)
+        return
+
+    DRIFTLARMLOGG.parent.mkdir(parents=True, exist_ok=True)
+    with DRIFTLARMLOGG.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps({"tid": nu.isoformat()}, ensure_ascii=False)
+                 + "\n")
+    print("[dagligen] driftlarm skickat", flush=True)
+
+
 def kor(antal: int = ANTAL, kor_process=None) -> int:
     """Kör en gång. Returnerar exitkoden.
 
     **FÅNGAR ALLT OCH KASTAR ALDRIG VIDARE, och det är slingans villkor.** En
     körning som kastar hade dödat slingan, och då står boten still tills någon
-    märker det. Ett misslyckande ska kosta ETT dygn, inte alla följande.
+    märker det. Ett misslyckande ska kosta EN timme, inte alla följande.
 
     **UTDATA GÅR TILL STDOUT OCH RÄKNAS I LOGGEN, men skrivs inte dit.**
     `respond.py` skriver räknare och kategorinamn, aldrig kundtext, men den
@@ -151,7 +293,8 @@ def kor(antal: int = ANTAL, kor_process=None) -> int:
     """
     kor_process = subprocess.run if kor_process is None else kor_process
     start = time.time()
-    startad = datetime.now(timezone.utc).isoformat()
+    startad_dt = datetime.now(timezone.utc)
+    startad = startad_dt.isoformat()
 
     try:
         utfall = kor_process(
@@ -191,14 +334,26 @@ def kor(antal: int = ANTAL, kor_process=None) -> int:
         "lyckades": kod == 0,
     })
     print(f"[dagligen] exitkod {kod} efter {sekunder} s", flush=True)
+
+    # UPPDRAG 2026-09-25 DEL 2. Efter loggningen, aldrig i stället för den:
+    # körningsloggen är beviset för slingans egen hälsa oavsett om larmet
+    # går fram. `nu` är körningens EGEN starttid, se `_larma_vid_fel`.
+    if kod != 0:
+        _larma_vid_fel(startad_dt, kod, sista, kor_process=kor_process)
+
     return kod
 
 
 def nasta_korning(nu: datetime) -> datetime:
-    """Nästa tidpunkt schemat träffar, strikt efter `nu`."""
-    mal = nu.replace(hour=TIMME_UTC, minute=MINUT_UTC, second=0, microsecond=0)
+    """Nästa tidpunkt schemat träffar, strikt efter `nu`.
+
+    En gång i timmen, `MINUT_UTC` minuter in i varje timme. Uppdrag 2026-09-25
+    DEL 1: här stod en gång per dygn, med `mal += timedelta(days=1)`; steget
+    är nu en timme.
+    """
+    mal = nu.replace(minute=MINUT_UTC, second=0, microsecond=0)
     if mal <= nu:
-        mal += timedelta(days=1)
+        mal += timedelta(hours=1)
     return mal
 
 
@@ -212,7 +367,7 @@ def slinga(sov=None, nu_funktion=None, varv: int | None = None) -> None:
     nu_funktion = (lambda: datetime.now(timezone.utc)) if nu_funktion is None \
         else nu_funktion
 
-    print(f"[dagligen] schema {TIMME_UTC:02d}:{MINUT_UTC:02d} UTC, "
+    print(f"[dagligen] schema varje timme :{MINUT_UTC:02d} UTC, "
           f"logg {KORNINGSLOGG}", flush=True)
     # SKIVA 72. Utan vyn är det här raden som visar att körningen kan läsa och
     # skriva utkast. Bara om filen finns, aldrig innehållet.

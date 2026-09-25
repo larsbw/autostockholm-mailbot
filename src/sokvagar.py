@@ -156,6 +156,20 @@ HEMLIGHETER = _ur_miljon("MAILBOT_HEMLIGHETER", ROT)
 KORNINGSLOGG = LOGG / "korningar.jsonl"
 
 
+# DRIFTLARMETS EGEN LOGG. Uppdrag 2026-09-25 DEL 2, Lars beslut.
+#
+# **EN EGEN FIL OCH INTE EN RAD I `KORNINGSLOGG`**, av samma skäl som filen
+# ovan har sin egen kommentar: `scripts/dagligen.py` LÄSER den här före den
+# ens startar `scripts/driftlarm.py`, för att avgöra om sex timmar gått sedan
+# senaste larmet, och `scripts/driftlarm.py` SKRIVER den aldrig själv (§6-läget
+# är enklare när skrivaren är en enda process). En delad fil med
+# `KORNINGSLOGG` hade blandat ihop två frågor, "lyckades körningen" och "har
+# ett larm redan gått", i samma rader.
+#
+# §6: raden bär bara en tidsstämpel, aldrig kundtext eller drifttext.
+DRIFTLARMLOGG = LOGG / "drift-larm.jsonl"
+
+
 def kataloger() -> dict[str, Path]:
     """De tre katalogerna, för utskrift vid uppstart.
 

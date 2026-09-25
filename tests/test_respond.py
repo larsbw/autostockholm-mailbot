@@ -15,8 +15,9 @@ import importlib.util
 import json
 import re
 import sys
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -865,6 +866,81 @@ def test_regnr_historik_tjanst_byggs_MED_flaggan(monkeypatch):
 
     assert respond._regnr_historik_tjanst(
         _FejkArg(regnr_historik=True), None) is sentinel
+
+
+# --------------------------------------------- UPPDRAG 2026-09-25 DEL 1
+
+
+def test_kallan_INKORG_raknar_borjan_ur_SENASTE_LYCKADE_korningen(
+        monkeypatch, tmp_path):
+    """`_kallan` skickar `fonsterstart(nu, vy.senaste_lyckade())` vidare till
+    `inkorg.dagens_tradar`, inte ett fast dygn.
+
+    Bara `inkorg.dagens_tradar` fejkas: `_kallan` ska räkna ut `borjan` SJÄLV
+    och skicka det vidare, inte förlita sig på att `dagens_tradar` gör det."""
+    monkeypatch.setattr(inkorg, "las_tjanst", lambda: object())
+    senaste = datetime(2026, 9, 25, 9, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(vy, "senaste_lyckade", lambda: senaste)
+
+    fangat = {}
+
+    def fejk_dagens_tradar(tjanst, *, utfil, nu, borjan, **_kw):
+        fangat["borjan"] = borjan
+        return [], respond.mine.Forbrukning()
+
+    monkeypatch.setattr(inkorg, "dagens_tradar", fejk_dagens_tradar)
+
+    nu = datetime(2026, 9, 25, 12, 0, tzinfo=timezone.utc)
+    respond._kallan(SimpleNamespace(inkorg=True, skord=tmp_path / "s.jsonl"),
+                    nu)
+
+    assert fangat["borjan"] == senaste - inkorg.SAKERHETSMARGINAL
+
+
+def test_kallan_INKORG_kapar_borjan_vid_MAX_FONSTER_utan_lyckad_korning(
+        monkeypatch, tmp_path):
+    """NEGATIVKONTROLL: ingen loggad lyckad körning ska ge golvet, inte ett
+    `None` som `fonstrets_granser` tolkar som "hela historiken"."""
+    monkeypatch.setattr(inkorg, "las_tjanst", lambda: object())
+    monkeypatch.setattr(vy, "senaste_lyckade", lambda: None)
+
+    fangat = {}
+
+    def fejk_dagens_tradar(tjanst, *, utfil, nu, borjan, **_kw):
+        fangat["borjan"] = borjan
+        return [], respond.mine.Forbrukning()
+
+    monkeypatch.setattr(inkorg, "dagens_tradar", fejk_dagens_tradar)
+
+    nu = datetime(2026, 9, 25, 12, 0, tzinfo=timezone.utc)
+    respond._kallan(SimpleNamespace(inkorg=True, skord=tmp_path / "s.jsonl"),
+                    nu)
+
+    assert fangat["borjan"] == nu - inkorg.MAX_FONSTER
+
+
+def test_kallan_INKORG_skickar_ett_RATT_STORT_gmailfraga(monkeypatch, tmp_path):
+    """§7-granskningsfynd: en konstant `newer_than:8d` hade kostat samma
+    kvot 24 gånger om dagen för en normal timmes fönster. `_kallan` ska
+    räkna ut nätet ur `inkorg.gmailfraga(borjan, nu)`, inte `inkorg.FRAGA`."""
+    monkeypatch.setattr(inkorg, "las_tjanst", lambda: object())
+    senaste = datetime(2026, 9, 25, 11, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(vy, "senaste_lyckade", lambda: senaste)
+
+    fangat = {}
+
+    def fejk_dagens_tradar(tjanst, *, utfil, nu, borjan, fraga, **_kw):
+        fangat["fraga"] = fraga
+        return [], respond.mine.Forbrukning()
+
+    monkeypatch.setattr(inkorg, "dagens_tradar", fejk_dagens_tradar)
+
+    nu = datetime(2026, 9, 25, 12, 0, tzinfo=timezone.utc)
+    respond._kallan(SimpleNamespace(inkorg=True, skord=tmp_path / "s.jsonl"),
+                    nu)
+
+    assert fangat["fraga"] == "newer_than:2d"
+    assert fangat["fraga"] != inkorg.FRAGA
 
 
 # ------------------------------------------------- REGNRFILTRET, DEL 1
