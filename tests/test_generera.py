@@ -528,13 +528,32 @@ def test_ett_IFYLLT_telefonvarde_nar_prompten_ORDAGRANT(tmp_path):
 # 1000 kg utan att något i `config/` hade det talet som källa, alltså
 # spärrades varje svar som återgav det. Posten ger talet en källa i stället
 # för att bero på ett få-exempel som kan bytas ut när som helst.
+#
+# **`dragkrokskrav` OCH `viktfordelningskrav` TILLKOM PÅ LARS §10-BESLUT I
+# SKIVA 83.** Två till av de allmänna föreskrifterna om A-traktorombyggnad,
+# samma sort som `dragviktskrav`: inget fordonsspecifikt uppslagsvärde.
+# Släpvagnsviktkravet (1000 kg bromsad) stod redan i `dragviktskrav` och
+# skrevs inte in en andra gång.
+#
+# **`dragkrokskrav` BÄR ORDET "dragkrok", ETT `FORDONSTERM`.** Ett svar som
+# återger den utan ett lyckat uppslag med `draganordning` avläst fälls av
+# `genererat-fordonsfaktum`, samma avvägning Lars redan godtog för
+# `dragviktskrav`s "släpvagnsvikt". `viktfordelningskrav` bär "vikt" som
+# ordfragment men aldrig det bundna ordet "vikten", "väger", "krok", "tung"
+# eller "tyngd", alltså träffar ingen `FORDONSTERM` den posten. Regel 21 i
+# `generera.SYSTEM` är skälet: fakta får förklara viktningen men aldrig bli
+# skälet till ett nej.
 FAKTA_SOM_LARS_BESLUTAT = {
     "adress": "Surbrunnsgatan 42, 113 48 Stockholm",
     "bokningar": "vi tar emot bokningar löpande och kommer överens om tid "
                  "med kunden",
+    "dragkrokskrav": "en A-traktor måste ha dragkrok",
     "dragviktskrav": "en A-traktor måste enligt lag klara minst 1 000 kg i "
                      "bromsad släpvagnsvikt",
     "telefon": "076-860 38 15",
+    "viktfordelningskrav": "vid ombyggnad till A-traktor ska minst 60 "
+                           "procent av bilens vikt vila på den drivande "
+                           "axeln, 60/40 i fördelning",
 }
 
 
@@ -570,6 +589,10 @@ def test_faktafilen_i_repot_bar_EXAKT_det_Lars_BESLUTAT():
     assert f"telefon: {FAKTA_SOM_LARS_BESLUTAT['telefon']}" in rader
     assert (f"dragviktskrav: {FAKTA_SOM_LARS_BESLUTAT['dragviktskrav']}"
             in rader)
+    assert (f"dragkrokskrav: {FAKTA_SOM_LARS_BESLUTAT['dragkrokskrav']}"
+            in rader)
+    assert (f"viktfordelningskrav: "
+            f"{FAKTA_SOM_LARS_BESLUTAT['viktfordelningskrav']}" in rader)
 
 
 # --- SKIVA 41 DEL A: config/priser.json --------------------------------------
@@ -2838,6 +2861,20 @@ REGLER_I_PROMPTEN = {
         "dröjt, skriv att det dröjt och aldrig hur länge: inga dagar, veckor "
         "eller månader, varken i siffror eller i ord, och inte \"några "
         "veckor\" eller \"ett par dagar\". Vi vet inte hur länge mailet legat.",
+    # SKIVA 83, LARS ORDER. `config/fakta.json` fick `viktfordelningskrav`
+    # (60/40 i fördelning mellan axlarna, en av de allmänna föreskrifterna om
+    # A-traktorombyggnad, samma sort som `dragviktskrav`). Lars ord: fakta får
+    # förklara varför vi väger bilen, aldrig bli skälet till ett nej.
+    #
+    # **INGEN SPÄRR BÄR DEN.** `FORDONSTERMER` känner inte "axel" eller
+    # "60/40", alltså skulle ett svar som gjorde talet till ett fordonsfaktum
+    # om en specifik bil inte fällas av `genererat-fordonsfaktum`. Regeln är
+    # det enda skyddet, samma avvägning som regel 19: en spärr som krävde en
+    # motivering modellen inte har hade gett Lars inget utkast alls.
+    21: "NÄMNER DU 60/40-KRAVET PÅ VIKTFÖRDELNING, FÖRKLARA BARA VARFÖR VI "
+        "VÄGER BILEN. Använd det ALDRIG som skäl till att en ombyggnad inte "
+        "går. Vi har ingen uppgift om en specifik bils viktfördelning, och "
+        "ett sådant skäl vore påhittat.",
 }
 
 

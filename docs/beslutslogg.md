@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.87.0 · **Uppdaterad:** 2026-09-25 · **Implementerar** CLAUDE.md §8
+**Version:** 0.88.0 · **Uppdaterad:** 2026-09-25 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -8483,7 +8483,69 @@ utger sig för att fortfarande gälla.
 Ny post ⇒ MINOR.
 
 
+## #141 — Skiva 83: dragkrokskrav och viktfordelningskrav i config/fakta.json
+
+**Datum:** 2026-09-25 · **Berör:** `config/fakta.json`, `src/generera.py`,
+`tests/test_generera.py`, `docs/sparrar.md`
+
+Lars uppdrag i chatten samma dag: skriv in hans regler för ombyggnad till
+A-traktor i `config/fakta.json`, med hans egna ord. Släpvagnsvikt bromsad
+minst 1000 kg (redan `dragviktskrav` sedan skiva 81, ingen duplicering),
+dragkrok, och 60/40 i viktfördelning på drivande axel.
+
+### Två nya poster, §10-beslut
+
+`dragkrokskrav`: "en A-traktor måste ha dragkrok". `viktfordelningskrav`:
+"vid ombyggnad till A-traktor ska minst 60 procent av bilens vikt vila på
+den drivande axeln, 60/40 i fördelning". Samma sort fakta som
+`dragviktskrav`: allmänna föreskrifter om A-traktorombyggnad, inte
+fordonsspecifika uppslagsvärden.
+
+### Regel 21 i systempromten, Lars villkor
+
+Lars villkor, ordagrant: generatorn får använda 60/40 för att förklara
+varför viktning behövs, men får aldrig använda det som skäl att säga att en
+bil inte kan byggas om. Ingen spärr kan bära det villkoret: `FORDONSTERMER`
+känner inte "axel" eller "60/40", alltså skulle ett svar som gjorde talet
+till ett fordonsfaktum om en specifik bil aldrig fällas av
+`genererat-fordonsfaktum`. Samma avvägning som regel 19 (dragkrokens skäl):
+en spärr som krävde en motivering modellen inte har hade gett Lars inget
+utkast alls i stället för ett felaktigt. Regeln bunden av
+`test_varje_regel_star_ORDAGRANT`, ny rad i `REGLER_I_PROMPTEN[21]`.
+
+### `dragkrokskrav` kolliderar med `genererat-fordonsfaktum`, avsiktligt
+
+`dragkrokskrav`s värde bär ordet "dragkrok", en `FORDONSTERM`. Verifierat:
+ett svar som återger frasen utan ett lyckat uppslag med `draganordning`
+avläst fälls av `krav_pa_fordonsfakta_ur_uppslag` (kört mot funktionen
+direkt, `uppslag=None`, spärren föll som väntat). Samma avvägning Lars redan
+godtog för `dragviktskrav`s "släpvagnsvikt" i skiva 81: en allmän fråga om
+A-traktorkrav utan registreringsnummer som nämner kravet blir ett spärrat
+förslag utan text i vyn i stället för ett auto-draft. `viktfordelningskrav`s
+värde bär "vikt" som ordfragment men aldrig "vikten", "väger", "krok",
+"tung" eller "tyngd", alltså träffar ingen `FORDONSTERM` den posten.
+Verifierat likaså: värdet ordagrant passerar spärren med `uppslag=None`.
+
+### Test och skepp
+
+`FAKTA_SOM_LARS_BESLUTAT` och `REGLER_I_PROMPTEN` i `tests/test_generera.py`
+uppdaterade med de nya posterna. `docs/sparrar.md`, LUCKA 74: den föråldrade
+noten "filens fyra värden (sedan skiva 81)" rättad till sex, med samma
+inline-rättelseform som redan står där för skiva 81:s ändring.
+
+Inget som gatar en spärr eller ett uppslag är byggt om utöver den nya
+regeln i systempromten, som är sändvägstext. §7-granskning i en omgång.
+
+Ny post ⇒ MINOR.
+
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.88.0 — 2026-09-25
+
+**#141 TILLKOMMER.** Skiva 83: `dragkrokskrav` och `viktfordelningskrav` i
+`config/fakta.json`, och regel 21 i systempromten som begränsar hur
+`viktfordelningskrav` får användas. Ny post ⇒ MINOR.
 
 ### 0.87.0 — 2026-09-25
 

@@ -6028,14 +6028,16 @@ tal som värde. Uppmätt mot `krav_pa_tal_med_kalla` i
 `test_ett_IFYLLT_konfigvarde_ger_FORTFARANDE_sitt_tal`, som binder både leden:
 meningen med talet passerar, en mening med ett annat tal faller.
 
-**VARFÖR DEN INTE GÄLLER I DAG.** Filens fyra värden (sedan skiva 81) är två
+**VARFÖR DEN INTE GÄLLER I DAG.** Filens sex värden (sedan skiva 83) är fyra
 meningar, ett telefonnummer och en adress. Inget av dem är ett bart tal,
 alltså kan inget av dem uppfylla villkoret på annat sätt än genom att stå helt
 i satsen. Luckan öppnar först den dag Lars fyller en post med enbart ett tal.
 
-*Här stod "filens TRE värden", innan skiva 81 lade till `dragviktskrav`.
-Antalet är en beskrivning av dagens fil och inte en gräns koden håller: nästa
-post prövas på samma sätt oavsett hur många som redan finns.*
+*Här stod "filens TRE värden", innan skiva 81 lade till `dragviktskrav`, och
+sedan "filens fyra värden", innan skiva 83 lade till `dragkrokskrav` och
+`viktfordelningskrav`. Antalet är en beskrivning av dagens fil och inte en
+gräns koden håller: nästa post prövas på samma sätt oavsett hur många som
+redan finns.*
 
 **VAD SOM GATAR DEN.** `test_faktafilen_i_repot_bar_EXAKT_det_Lars_BESLUTAT`
 binder varje post vars nyckel INTE börjar med `_`, ordagrant. En ny post av den

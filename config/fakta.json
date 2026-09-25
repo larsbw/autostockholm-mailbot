@@ -3,8 +3,11 @@
   "_tomt_varde_betyder": "Ett tomt värde utelämnas ur prompten. Modellen får då inte veta talet, och kan därför inte skriva det. Det är avsiktligt och inte ett fel: hellre ett svar utan nummer än ett påhittat nummer.",
   "_ett_varde_med_siffror_ar_en_kalla_bara_ORDAGRANT": "Lars beslut i skiva 58, VÄG B. Siffergrupperna i ett värde här går INTE in i den globala mängden tillåtna tal. De är en källa bara i den sats där HELA värdet står tecken för tecken. Skriv därför värdet i den form ett mail ska bära det: en omskriven form matchar inte och fälls. Ett värde som spänner över en punkt eller ett ', men ' kan aldrig stå helt i en sats, alltså faller dess tal överallt.",
   "_dragviktskravet": "Lars beslut i skiva 81, 2026-09-25. En allmän föreskrift om A-traktorers minsta bromsade släpvagnsvikt, inte ett fordonsspecifikt uppslagsvärde. Tillkom sedan ett få-exempel i data/par.jsonl visade sig lära generatorn tala 1000 (kg dragvikt) utan att något i config hade det som källa: talet spärrades av genererat-tal-har-kalla så snart exemplet valdes in i en prompt.",
+  "_dragkrokskravet_och_viktfordelningskravet": "Lars beslut i skiva 83, 2026-09-25. Två till av de allmänna föreskrifterna om A-traktorombyggnad, samma sort som dragviktskrav: inte fordonsspecifika uppslagsvärden. Släpvagnsviktkravet (1000 kg bromsad) står redan i dragviktskrav och skrivs inte in två gånger. Generatorn får nämna viktfordelningskrav för att förklara varför vi väger bilen, aldrig som skäl att en specifik bil inte går att bygga om: SYSTEM-promptens regel 21 säger det, se src/generera.py.",
   "adress": "Surbrunnsgatan 42, 113 48 Stockholm",
   "bokningar": "vi tar emot bokningar löpande och kommer överens om tid med kunden",
+  "dragkrokskrav": "en A-traktor måste ha dragkrok",
   "dragviktskrav": "en A-traktor måste enligt lag klara minst 1 000 kg i bromsad släpvagnsvikt",
-  "telefon": "076-860 38 15"
+  "telefon": "076-860 38 15",
+  "viktfordelningskrav": "vid ombyggnad till A-traktor ska minst 60 procent av bilens vikt vila på den drivande axeln, 60/40 i fördelning"
 }

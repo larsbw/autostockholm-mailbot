@@ -2280,6 +2280,9 @@ och ett erbjudande utan skälet läser kunden som ett villkor.
 skriv att det dröjt och aldrig hur länge: inga dagar, veckor eller månader, \
 varken i siffror eller i ord, och inte "några veckor" eller "ett par dagar". Vi \
 vet inte hur länge mailet legat.
+21. NÄMNER DU 60/40-KRAVET PÅ VIKTFÖRDELNING, FÖRKLARA BARA VARFÖR VI VÄGER \
+BILEN. Använd det ALDRIG som skäl till att en ombyggnad inte går. Vi har ingen \
+uppgift om en specifik bils viktfördelning, och ett sådant skäl vore påhittat.
 
 Skriv kort, konkret och vänligt. Svara på det kunden faktiskt frågar."""
 
