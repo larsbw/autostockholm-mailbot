@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 1.1.0 · **Uppdaterad:** 2026-09-25
+**Version:** 1.2.0 · **Uppdaterad:** 2026-09-25
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje
 sessionsstart.
@@ -148,6 +148,15 @@ aldrig en kategori för att komma runt spärren.
 
 Spärren fällde av en orsak, och ingen av de tre åtgärderna rör orsaken.
 
+### 9.2 Inga oändliga kommandon
+
+Loggar läses alltid med avgränsat tidsintervall, till exempel railway logs
+med --since och --until, eller ur logg/korningar.jsonl. Kommandon som följer
+eller strömmar utan slut får aldrig startas. Vänta aldrig inom ett pass på en
+framtida händelse som en schemalagd körning. Skriv i stället rapporten med
+det som finns och ange vad som bör kontrolleras efter körningen. Inget
+enskilt kommando får blockera passet längre än fem minuter.
+
 ## 10. Stanna och fråga Lars
 
 - Första sändningen i en ny miljö, även till en egen testadress
@@ -207,6 +216,17 @@ i git-historiken, och en bot som faktiskt svarar på mail.
 ---
 
 ## Appendix
+
+### 1.2.0 — 2026-09-25
+
+§9 fick en underrubrik, 9.2: inga oändliga kommandon. Loggar läses med
+avgränsat tidsintervall (`--since`/`--until`, eller `logg/korningar.jsonl`),
+aldrig genom ett strömmande eller uppföljande kommando. Inget pass väntar
+längre på en framtida schemalagd händelse; rapporten skrivs med det som
+finns och anger vad som bör kontrolleras efteråt. Inget enskilt kommando får
+blockera passet mer än fem minuter. Lars beslut, efter ett pass som lät en
+bakgrundskommando sova till en schemalagd körning i stället för att skeppa
+rapporten direkt.
 
 ### 1.1.0 — 2026-09-25
 
