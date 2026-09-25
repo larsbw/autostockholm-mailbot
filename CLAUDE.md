@@ -80,6 +80,8 @@ aldrig i `docs/`, i commit-meddelanden eller i något som pushas. `data/` och
 
 `scripts/persondatakontroll.py` kör som pre-commit-hook.
 
+Undantag beslutat av Lars. Filer i scratchpad/ får innehålla kundnamn, registreringsnummer, telefonnummer och fullständiga svarstexter. Scratchpad ligger bara lokalt hos Lars och används för rapporter och BESLUT-filer.
+
 ## 7. Granskning
 
 **Kod som kan påverka ett utgående mail granskas av en oberoende granskare
