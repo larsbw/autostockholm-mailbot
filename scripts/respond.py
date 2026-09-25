@@ -86,7 +86,7 @@ import yaml  # noqa: E402
 
 from src import (biluppgifter, extract, generera, gmailutkast,  # noqa: E402
                  inkorg, kanal, kategorisera, kedja, klassa_maskin, maskera,
-                 sokvagar, urval, vy)
+                 mine, regnrhistorik, sokvagar, urval, vy)
 from src.kedja import Arende, Kallfel  # noqa: E402
 
 ROT = Path(__file__).resolve().parent.parent
@@ -370,6 +370,9 @@ class Korning:
     gmail_misslyckade: int = 0
     # SKIVA 70 DEL B.
     gmail_inaktuella: int = 0
+    # UPPDRAG 2026-09-25 DEL 1. Äldre utkast regnrfiltret tog bort, för att en
+    # nyare förfrågan om samma bil ersatte dem.
+    regnrfilter_borttagna: int = 0
 
     @property
     def arenden(self) -> int:
@@ -408,6 +411,9 @@ def kor_alla(
     skapa_utkast=None,
     omdomesfil: Path | None = None,
     stoppa_vid_kallfel: bool = False,
+    regnr_historik_tjanst: inkorg.Lastjanst | None = None,
+    ta_bort_utkast_tjanst: gmailutkast.Utkastjanst | None = None,
+    regnr_forbrukning: mine.Forbrukning | None = None,
 ) -> Korning:
     """Kedjan för varje ärende. Loggar EN rad per ärende, oavsett utfall.
 
@@ -453,12 +459,37 @@ def kor_alla(
         raise ValueError(f"{len(svarsvagar)} svarsvägar för "
                          f"{len(arenden)} ärenden")
 
+    # EN PACER OCH EN FÖRBRUKNING FÖR HELA KÖRNINGEN, §7-granskningsfynd.
+    # `regnrhistorik.sok` byggde annars en NY `Kvotpacer` per ärende (dess
+    # egna förval), alltså höll pacingen bara inom EN sökning och inte över
+    # flera i rad, och ingenting av det räknades in i den utskrivna kvoten.
+    # `regnr_forbrukning` slås upp av anroparen, av samma skäl som
+    # `loggfil`: `_kor` behöver läsa av den EFTER körningen.
+    regnr_pacer = mine.Kvotpacer()
+    if regnr_forbrukning is None:
+        regnr_forbrukning = mine.Forbrukning()
+
     for nummer, (arende, svarsvag) in enumerate(zip(arenden, svarsvagar),
                                                 start=1):
+        # UPPDRAG 2026-09-25 DEL 1. Bara med en läsvägstjänst finns något att
+        # söka Gmail med; annars gäller `kedja.kor`s eget säkra förval, se
+        # `kedja._regnr_historik_ingen_kontroll`s docstring. Byggd PER ÄRENDE
+        # för att kunna utesluta ärendets EGEN tråd ur sökträffarna.
+        regnr_kwargs = {}
+        if regnr_historik_tjanst is not None:
+            eget_trad_id = svarsvag.trad_id if svarsvag is not None else ""
+            regnr_kwargs["regnr_historik"] = (
+                lambda regnr, tidsstampel, nu, _tjanst=regnr_historik_tjanst,
+                _trad_id=eget_trad_id, _omdomesfil=omdomesfil,
+                _pacer=regnr_pacer, _forbrukning=regnr_forbrukning:
+                    regnrhistorik.sok(_tjanst, regnr, _trad_id, tidsstampel,
+                                      nu, omdomesfil=_omdomesfil,
+                                      pacer=_pacer, forbrukning=_forbrukning)
+            )
         try:
             utfall = kedja.kor(
                 arende, klient=klient, hamta=hamta, hinkar=hinkar,
-                taxonomi=taxonomi, exempel=exempel, nu=nu,
+                taxonomi=taxonomi, exempel=exempel, nu=nu, **regnr_kwargs,
             )
         except Kallfel as fel:
             korning.kallfel += 1
@@ -520,7 +551,10 @@ def kor_alla(
             skriv(f"{nummer:>4}  UTKAST   {utfall.kategori}  [{utfall.hink}]")
             if skapa_utkast is not None:
                 _gmailutkast(post, arende, skapa_utkast, omdomesfil,
-                             korning, skriv)
+                             korning, skriv,
+                             aldre_utkast_att_ta_bort=
+                                 utfall.aldre_utkast_att_ta_bort,
+                             ta_bort_utkast_tjanst=ta_bort_utkast_tjanst)
         else:
             korning.per_sparr[utfall.sparr] += 1
             skriv(f"{nummer:>4}  SPÄRRAD  {utfall.kategori}  "
@@ -530,7 +564,9 @@ def kor_alla(
 
 
 def _gmailutkast(post, arende: Arende, skapa_utkast, omdomesfil: Path,
-                 korning: Korning, skriv) -> None:
+                 korning: Korning, skriv, *,
+                 aldre_utkast_att_ta_bort: tuple[str, ...] = (),
+                 ta_bort_utkast_tjanst=None) -> None:
     """Ett utkast i Gmail för en post som passerat spärrarna. Skiva 69.
 
     **FÅNGAR ALLT**: ett misslyckat utkast ska kosta det ärendet och inte
@@ -539,6 +575,11 @@ def _gmailutkast(post, arende: Arende, skapa_utkast, omdomesfil: Path,
 
     §6: raden bär Gmails meddelande-id och typnamnet på ett fel, aldrig
     felets text, som kan citera tillbaka en adress.
+
+    **`aldre_utkast_att_ta_bort` PRÖVAS BARA EFTER ETT LYCKAT NYTT UTKAST**,
+    UPPDRAG 2026-09-25 DEL 1. Misslyckas det nya utkastet finns inget som
+    ersätter det gamla, och då ska det gamla stå kvar: en bil utan NÅGOT
+    utkast är sämre än en bil med ett omodernt.
     """
     if arende.besvarad:
         korning.gmail_besvarade += 1
@@ -567,6 +608,51 @@ def _gmailutkast(post, arende: Arende, skapa_utkast, omdomesfil: Path,
         return
     korning.gmail_skapade += 1
     skriv(f"      GMAIL-UTKAST skapat, meddelande-id {gmail_id}, INTE skickat")
+
+    if aldre_utkast_att_ta_bort and ta_bort_utkast_tjanst is not None:
+        _ta_bort_aldre_utkast(aldre_utkast_att_ta_bort, ta_bort_utkast_tjanst,
+                              omdomesfil, korning, skriv)
+
+
+def _ta_bort_aldre_utkast(trad_id_lista: tuple[str, ...], tjanst,
+                          omdomesfil: Path, korning: Korning, skriv) -> None:
+    """Tar bort obesickade bot-utkast i ÄLDRE trådar om samma bil. DEL 1.
+
+    **VARJE TRÅD PRÖVAS FÖR SIG OCH FÅNGAR SITT EGET FEL.** En trasig
+    borttagning i en tråd ska inte hindra de andra, och absolut inte det nya
+    utkastet som redan ligger i Gmail när den här funktionen anropas.
+
+    **INGEN RIKTIG `Fall` FINNS FÖR DEN ÄLDRE TRÅDEN**, dess ärende är inte
+    del av den här körningens batch. Loggraden byggs därför av en
+    platshållare utan kundtext, §6: bara att NÅGOT togs bort ska synas, inte
+    vad.
+    """
+    for trad_id in trad_id_lista:
+        # **HELA KROPPEN I ETT FÅNGSTBLOCK, §7-granskningsfynd.** Bara
+        # `ta_bort_utkast` var infångat i första lydelsen; `utkast_id_for_trad`
+        # och `spara_gmailutkast` (som kan kasta `vy.Skrivfel` eller ett rått
+        # `OSError`) låg utanför och hade kunnat stoppa RESTEN av körningens
+        # ärenden, precis det `_gmailutkast`s egen docstring säger aldrig får
+        # hända.
+        try:
+            utkast_id = vy.utkast_id_for_trad(trad_id, omdomesfil)
+            if not utkast_id:
+                skriv("      REGNRFILTER: hittade inget spårbart utkast-id "
+                      "för en äldre tråd, hoppar över borttagningen")
+                continue
+            gmailutkast.ta_bort_utkast(tjanst, utkast_id)
+            vy.spara_gmailutkast(
+                vy.Fall(etikett="regnrfilter", kalla="regnrfilter", text="",
+                       tidsstampel="", avsandare_hash=""),
+                trad_id, vy.BORTTAGET, omdomesfil=omdomesfil,
+            )
+        except Exception as fel:  # noqa: BLE001
+            skriv(f"      REGNRFILTER: borttagning av äldre utkast "
+                  f"misslyckades ({type(fel).__name__})")
+            continue
+        korning.regnrfilter_borttagna += 1
+        skriv("      REGNRFILTER: äldre utkast i annan tråd borttaget, "
+              "ersatt av en nyare förfrågan om samma bil")
 
 
 def summera(korning: Korning, skriv=print) -> None:
@@ -606,6 +692,7 @@ def summera(korning: Korning, skriv=print) -> None:
     skriv(f"      vägrade               {korning.gmail_vagrade}")
     skriv(f"      misslyckade           {korning.gmail_misslyckade}")
     skriv(f"  inaktuella gmail-utkast {korning.gmail_inaktuella}")
+    skriv(f"  regnrfilter borttagna   {korning.regnrfilter_borttagna}")
 
     skriv("\nKLASSIFICERING")
     for etikett, antal in sorted(korning.per_kategori.items(),
@@ -684,8 +771,10 @@ def _starta_vyn(port: int, fall: list) -> None:
         server.server_close()
 
 
-def _kallan(arg, nu: datetime) -> tuple[str, list[dict]]:
-    """`(vad källan var, trådarna)`. **BÅDA UR SAMMA UTTRYCK.**
+def _kallan(
+    arg, nu: datetime,
+) -> tuple[str, list[dict], inkorg.Lastjanst | None]:
+    """`(vad källan var, trådarna, läsvägens tjänst eller None)`.
 
     Texten skrivs ut ovanför utkasten, alltså är den ett påstående om var
     materialet kom ifrån, och den får inte kunna säga fel. Samma skäl som
@@ -695,9 +784,17 @@ def _kallan(arg, nu: datetime) -> tuple[str, list[dict]]:
     **`--inkorg` BYGGER TJÄNSTEN HÄR**, alltså prövas lager 1 och 2 först när
     den vägen faktiskt väljs. En `--tradar`-körning läser ingen credential och
     rör ingen brevlåda.
+
+    **TJÄNSTEN LÄMNAS UT SEDAN UPPDRAGET 2026-09-25 DEL 1**, `None` för
+    `--tradar`. `_kor` behöver den för regnrfiltrets Gmail-sökning, byggd på
+    samma läsvägscredential som hämtningen ovan: ingen ny auktorisering, ingen
+    ny tjänst. Med `--tradar` finns ingen tjänst att söka med, alltså är
+    filtret INAKTIVT då, samma sanna gräns som "DEN STARKA FORMEN" i modulens
+    docstring redan beskriver för resten av Gmail-vägen.
     """
     if not arg.inkorg:
-        return f"skörden {arg.tradar}", list(extract.las_tradar(arg.tradar))
+        return (f"skörden {arg.tradar}", list(extract.las_tradar(arg.tradar)),
+                None)
 
     # LAGER 1 OCH 2. `las_tjanst` returnerar en tjänst som varken kan skicka
     # eller ändra, byggd ur en credential som bara bär gmail.readonly.
@@ -713,8 +810,8 @@ def _kallan(arg, nu: datetime) -> tuple[str, list[dict]]:
     print(f"Gmail: {forbrukning.tradar} trådar hämtade, "
           f"{forbrukning.anrop} anrop, {forbrukning.enheter} kvotenheter.")
     timmar = int(inkorg.FONSTER.total_seconds() // 3600)
-    return (f"info@autostockholm.se, de {timmar} timmarna före körningen, "
-            f"fråga {inkorg.FRAGA!r}"), tradar
+    return ((f"info@autostockholm.se, de {timmar} timmarna före körningen, "
+             f"fråga {inkorg.FRAGA!r}"), tradar, tjanst)
 
 
 def _kor(arg) -> int:
@@ -738,7 +835,7 @@ def _kor(arg) -> int:
     # ETT `nu` PER KÖRNING, taget före hämtningen. Samma värde drar
     # fönstrets gräns och räknar ärendenas ålder.
     nu = datetime.now(timezone.utc)
-    kalltext, tradar = _kallan(arg, nu)
+    kalltext, tradar, regnr_historik_tjanst = _kallan(arg, nu)
 
     korning = Korning()
     arenden: list[Arende] = []
@@ -797,10 +894,16 @@ def _kor(arg) -> int:
     # hade spärrat varje tråd för nya försök. Körningen går vidare utan utkast,
     # så att vyn ändå får dagens poster, och returnerar 1 så att den larmar.
     skapa_utkast, utkastfel = None, False
+    # UPPDRAG 2026-09-25 DEL 1. Samma `Utkastjanst` som skapar utkasten
+    # används för att ta bort ett äldre, en gång auktoriserad och inte två.
+    # `None` när `--gmailutkast` inte är satt: ingen skrivtjänst byggs alls
+    # då, och regnrfiltrets borttagning har ingenting att verkställas med.
+    ta_bort_utkast_tjanst = None
     if arg.gmailutkast:
         try:
+            ta_bort_utkast_tjanst = gmailutkast.skriv_tjanst()
             skapa_utkast = gmailutkast.utkastskapare(
-                tjanst=gmailutkast.skriv_tjanst())
+                tjanst=ta_bort_utkast_tjanst)
         except Exception as fel:  # noqa: BLE001
             utkastfel = True
             print(f"FEL: Gmail-utkasten är avstängda i den här körningen "
@@ -808,10 +911,15 @@ def _kor(arg) -> int:
         else:
             print("SPÄRR lager 1 FALLER: credentialen bär "
                   f"{' '.join(gmailutkast.auth.SKRIVSCOPES)} och KAN skicka.")
-            print("SPÄRR lager 2: skrivtjänsten släpper bara drafts().create.")
+            print("SPÄRR lager 2: skrivtjänsten släpper bara drafts().create "
+                  "och drafts().delete.")
             print("GMAIL-UTKAST SKAPAS UTAN GRANSKNING. INGET SKICKAS.\n")
 
     hamta, skarp = bygg_kalla(arg.paus_s)
+    # UPPDRAG 2026-09-25 DEL 1, §7-granskningsfynd. Slås upp HÄR, inte inuti
+    # `kor_alla`, av samma skäl som `loggfil`: `_kor` läser av den EFTER
+    # körningen för att skriva ut regnrfiltrets egen kvotrad.
+    regnr_forbrukning = mine.Forbrukning()
     try:
         kor_alla(
             arenden,
@@ -826,6 +934,9 @@ def _kor(arg) -> int:
             svarsvagar=svarsvagar,
             skapa_utkast=skapa_utkast,
             stoppa_vid_kallfel=arg.stoppa_vid_kallfel,
+            regnr_historik_tjanst=regnr_historik_tjanst,
+            ta_bort_utkast_tjanst=ta_bort_utkast_tjanst,
+            regnr_forbrukning=regnr_forbrukning,
         )
     except BaseException:
         # SKIVA 69. Utkasten före felet ligger redan i Gmail, och vyn ska visa
@@ -833,6 +944,10 @@ def _kor(arg) -> int:
         if korning.granskningsfall:
             vy.spara_granskningsfall(korning.granskningsfall)
         raise
+
+    if regnr_forbrukning.anrop:
+        print(f"REGNRFILTER: {regnr_forbrukning.anrop} Gmail-anrop, "
+              f"{regnr_forbrukning.enheter} kvotenheter.")
 
     print("")
     summera(korning)

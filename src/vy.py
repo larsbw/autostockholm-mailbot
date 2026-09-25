@@ -122,6 +122,11 @@ _INTETSKAL = {
     "redan ombyggd":
         "Registret säger att bilen redan är ombyggd, och ett sådant ärende "
         "behöver inget svar.",
+    # UPPDRAG 2026-09-25 DEL 1, `kedja.SKAL_SAMMA_BIL`.
+    "samma bil redan hanterad":
+        "En nyare förfrågan om samma registreringsnummer finns, eller bilen "
+        "har redan fått ett riktigt svar de senaste 14 dagarna, avgjort mot "
+        "Gmail av <code>src/regnrhistorik.py</code>.",
 }
 
 # En post SPARAD FÖRE SKIVA 51 bär inget skäl, och en sådan ska inte få en
@@ -205,6 +210,9 @@ GMAILBARANDE_MODULER = frozenset({
     "src.mine",
     "src.auth",
     "src.gmailutkast",
+    # UPPDRAG 2026-09-25 DEL 1. Regnrfiltret söker Gmail genom `src.mine`,
+    # samma väg som `src.inkorg`, för att slippa en egen kvotpacing.
+    "src.regnrhistorik",
 })
 
 # Undantaget gäller de moduler som når en Gmail-TJÄNST. `smtplib` är inte en
@@ -723,7 +731,7 @@ def gmailutkast_finns(trad_id: str, omdomesfil: Path = OMDOMEN) -> bool:
 
 
 def spara_gmailutkast(fall: Fall, trad_id: str, utfall: str,
-                      gmail_id: str = "",
+                      gmail_id: str = "", utkast_id: str = "",
                       omdomesfil: Path = OMDOMEN) -> dict:
     """Loggar ett Gmail-utkast. Append-only, samma fil som omdömena.
 
@@ -732,6 +740,12 @@ def spara_gmailutkast(fall: Fall, trad_id: str, utfall: str,
     loggskrivning som föll efter anropet, aldrig ger ett andra utkast. Därefter
     `skapat` med id eller `misslyckades`. `trad_id` och `gmail_id` är
     ogenomskinliga Gmail-strängar.
+
+    **`utkast_id` TILLKOM UPPDRAGET 2026-09-25, DEL 1.** `gmail_id` är
+    meddelandets id, som fanns sedan skiva 68 och renderas ingenstans, alltså
+    lämnat orört. `drafts().delete` kräver UTKASTETS id, ett annat Gmail-
+    id, och `gmailutkast.skapa_utkast` returnerar numera båda. Tomt för varje
+    rad skriven före den här skivan; `utkast_id_for_trad` läser det tillbaka.
     """
     krav_pa_skrivbar_sokvag(omdomesfil)
     post = {
@@ -742,12 +756,38 @@ def spara_gmailutkast(fall: Fall, trad_id: str, utfall: str,
         "trad_id": trad_id,
         "utfall": utfall,
         "gmail_id": gmail_id,
+        "utkast_id": utkast_id,
         "skrivet": datetime.now(timezone.utc).isoformat(),
     }
     omdomesfil.parent.mkdir(parents=True, exist_ok=True)
     with omdomesfil.open("a", encoding="utf-8") as fil:
         fil.write(json.dumps(post, ensure_ascii=False) + "\n")
     return post
+
+
+def utkast_id_for_trad(trad_id: str, omdomesfil: Path = OMDOMEN) -> str:
+    """Utkastets Gmail-id för trådens senaste `skapat`-rad, annars tom sträng.
+
+    UPPDRAG 2026-09-25 DEL 1. Samma skanningsform som `gmailutkast_finns`:
+    trådens SENASTE rad avgör. En rad skriven före den här skivan bär
+    `utkast_id: ""`, alltså går ett sådant utkast inte att ta bort
+    automatiskt; det kräver `scripts/utkast-borttaget.py` som förut.
+    """
+    if not omdomesfil.exists():
+        return ""
+    senaste = None
+    for rad in omdomesfil.read_text(encoding="utf-8").splitlines():
+        try:
+            post = json.loads(rad)
+        except ValueError:
+            continue
+        if (isinstance(post, dict)
+                and post.get("omdome") == OMDOME_GMAILUTKAST
+                and post.get("trad_id") == trad_id):
+            senaste = post
+    if senaste is None or senaste.get("utfall") != "skapat":
+        return ""
+    return senaste.get("utkast_id", "")
 
 
 def inaktuellt_gmailutkast(trad_id: str, senaste_kundmail: str,
@@ -829,17 +869,22 @@ def lagg_gmailutkast(post: "Granskningsfall", skapa_utkast,
     # utkast och sedan kastar. Fällt av §7-granskningen av skiva 68.
     spara_gmailutkast(post.fall, trad_id, "begärt", omdomesfil=omdomesfil)
     try:
-        gmail_id = skapa_utkast(post)
+        resultat = skapa_utkast(post)
     except Exception:
         spara_gmailutkast(post.fall, trad_id, "misslyckades",
                           omdomesfil=omdomesfil)
         raise
+    # `skapa_utkast` RETURNERAR `gmailutkast.UtkastResultat` SEDAN UPPDRAGET
+    # 2026-09-25 DEL 1, INTE EN BAR STRÄNG. `gmail_id` är meddelandets id,
+    # oförändrat sedan skiva 68. `utkast_id` är NYTT: utkastets EGET Gmail-id,
+    # som `drafts().delete` kräver, se `spara_gmailutkast`s docstring.
+    gmail_id, utkast_id = resultat.meddelande_id, resultat.utkast_id
     # UTKASTET FINNS HÄR. Ett fel i loggraden får inte redovisas som ett utkast
     # som inte skapades. Tråden är redan spärrad av `begärt`. Fällt av
     # §7-granskningen av skiva 69.
     try:
         spara_gmailutkast(post.fall, trad_id, "skapat", gmail_id,
-                          omdomesfil=omdomesfil)
+                          utkast_id, omdomesfil=omdomesfil)
     except OSError as fel:
         raise Skrivfel(f"utkastet {gmail_id} ligger i Gmail, men raden "
                        f"`skapat` kunde inte skrivas ({type(fel).__name__})"

@@ -289,6 +289,105 @@ def test_en_kategori_UTANFOR_a_traktor_ger_INGET_SVAR():
                                    kedja.SKAL_OGATAD)
 
 
+def test_regnrfiltret_default_beter_sig_som_fore_funktionen():
+    """UPPDRAG 2026-09-25 DEL 1. Utan `regnr_historik` ska ett a-traktorärende
+    fortfarande generera ett utkast, precis som innan grinden fanns. Se
+    `kedja._regnr_historik_ingen_kontroll`s docstring för varför förvalet
+    finns i stället för att kräva argumentet, till skillnad från `hamta`.
+    """
+    klient = FejkKlient("fråga om a-traktorkonvertering",
+                        "Hej, vi kan bygga om den.")
+
+    utfall = kedja.kor(
+        arende(), klient=klient, hamta=hamta_gront, hinkar=HINKAR,
+        taxonomi=TAXONOMI, exempel=[], nu=NU,
+    )
+
+    assert not utfall.inget_svar
+    assert utfall.blev_utkast
+    assert utfall.aldre_utkast_att_ta_bort == ()
+    assert [s.namn for s in utfall.steg] == [
+        "klassificering", "regnrfilter", "uppslag", "spärrar", "utkast",
+    ]
+
+
+def test_regnrfiltret_STOPPAR_ger_INGET_SVAR_och_uppslaget_hoppas_over():
+    """Grinden står FÖRE uppslaget, samma skäl som `SKAL_OGATAD`."""
+    klient = FejkKlient("fråga om a-traktorkonvertering", "onådd")
+
+    def stoppar(regnr, tidsstampel, nu):
+        assert regnr == "ABC123"
+        return kedja.RegnrLage(stoppa=True)
+
+    utfall = kedja.kor(
+        arende(), klient=klient, hamta=hamta_kraschar, hinkar=HINKAR,
+        taxonomi=TAXONOMI, exempel=[], nu=NU, regnr_historik=stoppar,
+    )
+
+    assert utfall.inget_svar
+    assert utfall.inget_svar_skal == kedja.SKAL_SAMMA_BIL
+    assert utfall.uppslag is None
+    assert utfall.utkast is None and utfall.sparr is None
+    assert klient.anrop == 1, "generatorn ska inte ha anropats"
+    assert utfall.steg[-1] == Steg("regnrfilter", "hoppades över",
+                                   kedja.SKAL_SAMMA_BIL)
+
+
+def test_regnrfiltret_SLAPPER_IGENOM_bar_med_aldre_utkast_att_ta_bort():
+    """Ett godkänt regnrläge ska nå ända fram till `Kedjeutfall`."""
+    klient = FejkKlient("fråga om a-traktorkonvertering",
+                        "Hej, vi kan bygga om den.")
+
+    def slapper_igenom(regnr, tidsstampel, nu):
+        return kedja.RegnrLage(stoppa=False,
+                               aldre_utkast_trad_id=("t-gammal",))
+
+    utfall = kedja.kor(
+        arende(), klient=klient, hamta=hamta_gront, hinkar=HINKAR,
+        taxonomi=TAXONOMI, exempel=[], nu=NU, regnr_historik=slapper_igenom,
+    )
+
+    assert utfall.blev_utkast
+    assert utfall.aldre_utkast_att_ta_bort == ("t-gammal",)
+
+
+def test_regnrfiltret_HOPPAS_OVER_utan_klocka():
+    """`nu=None` prövar inte filtret, samma villkor som `efterslap`."""
+    klient = FejkKlient("fråga om a-traktorkonvertering",
+                        "Hej, vi kan bygga om den.")
+    anropad: list[str] = []
+
+    def spion(regnr, tidsstampel, nu):
+        anropad.append(regnr)
+        return kedja.RegnrLage(stoppa=True)
+
+    utfall = kedja.kor(
+        arende(), klient=klient, hamta=hamta_gront, hinkar=HINKAR,
+        taxonomi=TAXONOMI, exempel=[], regnr_historik=spion,
+    )
+
+    assert anropad == []
+    assert utfall.blev_utkast
+
+
+def test_regnrfiltret_HOPPAS_OVER_utan_regnr_i_mailet():
+    """Inget nummer att slå upp historik för, alltså ingen sökning."""
+    klient = FejkKlient("fråga om a-traktorkonvertering",
+                        "Hej, vi kan bygga om den.")
+    anropad: list[str] = []
+
+    def spion(regnr, tidsstampel, nu):
+        anropad.append(regnr)
+        return kedja.RegnrLage(stoppa=True)
+
+    kedja.kor(
+        arende(regnr=None), klient=klient, hamta=hamta_gront, hinkar=HINKAR,
+        taxonomi=TAXONOMI, exempel=[], nu=NU, regnr_historik=spion,
+    )
+
+    assert anropad == []
+
+
 def hamta_redan_ombyggd(_regnr: str) -> dict:
     """Ett fordon registret säger redan är ombyggt. Vikterna duger."""
     return {**GRONT_SVAR, "kaross": "Ombyggd Bil"}
@@ -907,7 +1006,8 @@ def test_vyns_INGET_SVAR_skal_matchar_kedjans():
     skiva 51"* om en post som kördes i dag.
     """
     assert set(vy._INTETSKAL) == {kedja.SKAL_ALDRIG, kedja.SKAL_OGATAD,
-                                  kedja.SKAL_REDAN_OMBYGGD}
+                                  kedja.SKAL_REDAN_OMBYGGD,
+                                  kedja.SKAL_SAMMA_BIL}
 
 
 def test_VYN_sager_vilket_av_de_tva_skalen_det_var():
@@ -1555,7 +1655,9 @@ def test_DELVIS_uppslaget_LYCKAS_och_ger_OKLART_med_rattigt_nej():
     assert utfall.uppslag is not None
     assert utfall.uppslag.bromsad_slapvikt_i_annan_form
     assert utfall.utfall is Utfall.OKLART
-    assert "DELVIS" in utfall.steg[1].detalj
+    # STEG[2]: "regnrfilter" (UPPDRAG 2026-09-25 DEL 1) sköts nu in FÖRE
+    # uppslaget, som index 1. "uppslag" är därmed index 2, inte 1.
+    assert "DELVIS" in utfall.steg[2].detalj
     prompt = klient.prompter[-1]
     assert "Fordonsuppslag: INGET" not in prompt
     assert "saknar registrerad draganordning" in prompt
@@ -1572,7 +1674,8 @@ def test_ett_FALLT_uppslag_som_last_bilen_sags_inte_vara_INGET():
                        taxonomi=TAXONOMI, exempel=[], nu=NU)
 
     assert utfall.uppslag is None
-    assert utfall.steg[1].gav_data
+    # STEG[2]: se motsvarande kommentar i testet ovan.
+    assert utfall.steg[2].gav_data
     assert generera.DELVIS_UNDERLAG in klient.prompter[-1]
 
 

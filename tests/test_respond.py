@@ -20,8 +20,9 @@ from pathlib import Path
 
 import pytest
 
-from src import generera, kedja, klassa_maskin, vy
+from src import gmailutkast, generera, inkorg, kedja, klassa_maskin, vy
 from src.kedja import Arende, Kedjeutfall, Steg
+from tests.fejk import FejkGmail
 from tests.test_kedja import (NU, FejkKlient, HINKAR, PromptSpion, TAXONOMI,
                               hamta_gront)
 from tests.test_vy import peka_om_katalogerna
@@ -831,3 +832,143 @@ def test_summeringen_skriver_ingen_kundtext():
 
     assert "Anna" not in ut
     assert "ABC12X" not in ut
+
+
+# ------------------------------------------------- REGNRFILTRET, DEL 1
+
+
+class _FejkDraftsRa:
+    """Den RÅA `Utkastjanst`-tjänsten. Spelar in `create` och `delete`.
+
+    Samma form som `tests/test_gmailutkast.py::FejkRa`, byggd lokalt i
+    stället för importerad: den här filens fejkar är trådar och meddelanden,
+    inte Gmail-anropslagret, och en cross-importerad fejk för EN sak hade
+    knutit ihop två testfilers underhåll i onödan.
+    """
+
+    def __init__(self):
+        self.logg: list[tuple[str, dict]] = []
+
+    def users(self):
+        return self
+
+    def drafts(self):
+        return self
+
+    def create(self, **kw):
+        self.logg.append(("create", kw))
+        trad_id = kw["body"]["message"]["threadId"]
+        svar = {"id": f"d-{trad_id}",
+               "message": {"id": f"m-{trad_id}", "threadId": trad_id}}
+
+        class Anrop:
+            def execute(self_):
+                return svar
+        return Anrop()
+
+    def delete(self, **kw):
+        self.logg.append(("delete", kw))
+
+        class Anrop:
+            def execute(self_):
+                return {}
+        return Anrop()
+
+
+def _regnr_gmail(aldre_trad_id: str, aldre_meddelande: dict) -> inkorg.Lastjanst:
+    fejk = FejkGmail(
+        sidor={None: {"threads": [{"id": aldre_trad_id}],
+                      "nextPageToken": None}},
+        tradar={aldre_trad_id: {"id": aldre_trad_id,
+                                "messages": [aldre_meddelande]}},
+    )
+    return inkorg.Lastjanst(fejk)
+
+
+def test_respond_injicerar_regnr_historik(tmp_path, monkeypatch):
+    """UPPDRAG 2026-09-25 DEL 1, §7-granskningsfynd: `kedja._regnr_historik_
+    ingen_kontroll`s docstring citerar det här namnet.
+
+    Slutet på slutet: `kor_alla` injicerar en fungerande `regnr_historik` i
+    `kedja.kor` bara genom att få en `regnr_historik_tjanst`. Beviset är att
+    en ÄLDRE trådss obesickade utkast, som bara syns via en riktig Gmail-
+    sökning (fejkad här), faktiskt hittas och tas bort när den nya
+    förfrågan om samma bil passerar spärrarna.
+    """
+    peka_om_katalogerna(monkeypatch, tmp_path)
+    omdomesfil = tmp_path / "logg" / "omdomen.jsonl"
+
+    # DEN ÄLDRE TRÅDEN har redan ett obesickat bot-utkast.
+    vy.spara_gmailutkast(
+        vy.Fall(etikett="fråga om a-traktorkonvertering", kalla="kedjan",
+               text="", tidsstampel="", avsandare_hash=""),
+        "t-aldre", "skapat", "m-aldre", "d-aldre", omdomesfil=omdomesfil,
+    )
+    aldre_meddelande = meddelande(
+        "Fråga om ABC123", internal=str(int((NU - timedelta(days=2))
+                                            .timestamp() * 1000)))
+    regnr_historik_tjanst = _regnr_gmail("t-aldre", aldre_meddelande)
+
+    utkast_ra = _FejkDraftsRa()
+    ta_bort_utkast_tjanst = gmailutkast.Utkastjanst(utkast_ra)
+    skapa_utkast = gmailutkast.utkastskapare(tjanst=ta_bort_utkast_tjanst)
+
+    arende = Arende(text="Hej, ny fråga om ABC123", regnr="ABC123")
+    svarsvag = vy.Svarsvag(trad_id="t-eget", meddelande_id="<kund-1@x>",
+                           mottagare="kund@exempel.invalid", amne="Fråga")
+    korning = respond.Korning(tradar=1)
+
+    respond.kor_alla(
+        [arende],
+        klient=FejkKlient("fråga om a-traktorkonvertering",
+                          "Hej, vi kan bygga om den."),
+        hamta=hamta_gront, hinkar=HINKAR, taxonomi=TAXONOMI, exempel=[],
+        skarp=True, korning=korning, nu=NU,
+        loggfil=tmp_path / "logg" / "beslut.jsonl",
+        svarsvagar=[svarsvag], skapa_utkast=skapa_utkast,
+        omdomesfil=omdomesfil,
+        regnr_historik_tjanst=regnr_historik_tjanst,
+        ta_bort_utkast_tjanst=ta_bort_utkast_tjanst,
+    )
+
+    assert korning.gmail_skapade == 1
+    assert korning.regnrfilter_borttagna == 1
+    assert ("delete", {"userId": "me", "id": "d-aldre"}) in utkast_ra.logg
+    rader = [json.loads(r) for r in
+            omdomesfil.read_text(encoding="utf-8").splitlines()]
+    assert rader[-1] == {**rader[-1], "trad_id": "t-aldre",
+                         "utfall": vy.BORTTAGET, "etikett": "regnrfilter"}
+
+
+def test_gmailutkast_hoppar_over_borttagning_utan_utkast_tjanst(
+        tmp_path, monkeypatch):
+    """Ingen `--gmailutkast` byggd `ta_bort_utkast_tjanst` finns då: den nya
+    utkasttjänsten kraschar inte, den bara låter de äldre utkasten stå kvar."""
+    peka_om_katalogerna(monkeypatch, tmp_path)
+    rader = []
+    spion_poster = []
+
+    def spion(post):
+        spion_poster.append(post)
+        return gmailutkast.UtkastResultat(meddelande_id="m-1",
+                                          utkast_id="d-1")
+
+    post = kedja.till_granskningsfall(
+        _arende("Hej ABC123"),
+        Kedjeutfall(kategori="fråga om a-traktorkonvertering", hink="utkast",
+                    utkast="Hej!\n\nVi kan bygga om den.",
+                    steg=(Steg("klassificering", "x"),),
+                    aldre_utkast_att_ta_bort=("t-aldre",)),
+        skarp=True,
+        svarsvag=vy.Svarsvag(trad_id="t-eget", meddelande_id="<kund-1@x>",
+                             mottagare="kund@exempel.invalid", amne="Fråga"))
+    korning = respond.Korning(tradar=1)
+
+    respond._gmailutkast(
+        post, Arende(text="Hej ABC123", regnr="ABC123"), spion,
+        tmp_path / "logg" / "omdomen.jsonl", korning, rader.append,
+        aldre_utkast_att_ta_bort=("t-aldre",), ta_bort_utkast_tjanst=None,
+    )
+
+    assert korning.gmail_skapade == 1
+    assert korning.regnrfilter_borttagna == 0

@@ -58,6 +58,16 @@ class FejkDrafts:
                 return svar
         return Anrop()
 
+    def delete(self, **kw):
+        """UPPDRAG 2026-09-25 DEL 1. Tomt svar, se `ta_bort_utkast`s
+        docstring: AVLÄST att ett lyckat anrop ger ett tomt JSON-objekt."""
+        self._logg.append(("delete", kw))
+
+        class Anrop:
+            def execute(self_):
+                return {}
+        return Anrop()
+
 
 class FejkRa:
     """Den RÅA tjänsten. Bär `send` överallt, så att ett genomsläpp syns."""
@@ -159,8 +169,10 @@ def test_messages_send_KASTAR():
         tjanst.users().messages()
 
 
-@pytest.mark.parametrize("metod", ["update", "delete", "list", "get"])
+@pytest.mark.parametrize("metod", ["update", "list", "get"])
 def test_varje_annan_drafts_metod_KASTAR(metod):
+    """`delete` STÅR INTE HÄR SEDAN UPPDRAGET 2026-09-25 DEL 1, se
+    `test_drafts_delete_GAR_IGENOM` för dess egen, positiva kontroll."""
     tjanst = gmailutkast.Utkastjanst(FejkRa())
     with pytest.raises(gmailutkast.Sandforsok):
         getattr(tjanst.users().drafts(), metod)
@@ -179,6 +191,13 @@ def test_drafts_create_GAR_IGENOM():
     gmailutkast.Utkastjanst(ra).users().drafts().create(
         userId="me", body={"message": {"threadId": "x"}}).execute()
     assert [namn for namn, _ in ra.logg] == ["create"]
+
+
+def test_drafts_delete_GAR_IGENOM():
+    """NEGATIVKONTROLL, UPPDRAG 2026-09-25 DEL 1. Samma form som `create`s."""
+    ra = FejkRa()
+    gmailutkast.ta_bort_utkast(gmailutkast.Utkastjanst(ra), "d-1")
+    assert ra.logg == [("delete", {"userId": "me", "id": "d-1"})]
 
 
 def test_skriv_tjanst_lamnar_ut_den_INLINDADE(monkeypatch):
@@ -315,9 +334,12 @@ def test_ett_utkast_i_FEL_trad_kastar():
         gmailutkast.skapa_utkast(tjanst, post())
 
 
-def test_skapa_utkast_ger_gmails_meddelande_id():
+def test_skapa_utkast_ger_gmails_meddelande_id_och_utkast_id():
+    """UPPDRAG 2026-09-25 DEL 1: två skilda Gmail-id, se `UtkastResultat`."""
     ra = FejkRa()
-    assert gmailutkast.skapa_utkast(gmailutkast.Utkastjanst(ra), post()) == "m-1"
+    resultat = gmailutkast.skapa_utkast(gmailutkast.Utkastjanst(ra), post())
+    assert resultat.meddelande_id == "m-1"
+    assert resultat.utkast_id == "r-1"
     assert ra.logg[0][1]["userId"] == "me"
 
 
@@ -371,7 +393,7 @@ class Spion:
             self.logg_vid_anropet = self._logg.read_text(encoding="utf-8")
         if self._fel:
             raise self._fel
-        return "m-1"
+        return gmailutkast.UtkastResultat(meddelande_id="m-1", utkast_id="d-1")
 
 
 @pytest.fixture
@@ -736,7 +758,8 @@ def test_ett_MISSLYCKAT_utkast_stoppar_inte_slingan(katalog):
             self.poster.append(p)
             if len(self.poster) == 1:
                 raise RuntimeError("nere")
-            return "m-2"
+            return gmailutkast.UtkastResultat(meddelande_id="m-2",
+                                              utkast_id="d-2")
 
     spion = Vaxlar()
     arenden = [respond.Arende(text="Hej ABC12X", regnr="ABC12X"),
@@ -1011,6 +1034,30 @@ def test_TRADENS_SENASTE_RAD_avgor_sparren(katalog, utfall, spärrad):
     assert vy.gmailutkast_finns("t-0", omdomen) is spärrad
 
 
+def test_utkast_id_for_trad_las_senaste_SKAPAT_raden(katalog):
+    """UPPDRAG 2026-09-25 DEL 1. Samma skanningsform som `gmailutkast_finns`."""
+    omdomen = katalog / "logg" / "omdomen.jsonl"
+    vy.spara_gmailutkast(ett_fall(), "t-0", "begärt", omdomesfil=omdomen)
+    vy.spara_gmailutkast(ett_fall(), "t-0", "skapat", "m-0", "d-0",
+                         omdomesfil=omdomen)
+    assert vy.utkast_id_for_trad("t-0", omdomen) == "d-0"
+
+
+def test_utkast_id_for_trad_tom_strang_utan_skapad_rad(katalog):
+    omdomen = katalog / "logg" / "omdomen.jsonl"
+    assert vy.utkast_id_for_trad("t-0", omdomen) == ""
+    vy.spara_gmailutkast(ett_fall(), "t-0", "begärt", omdomesfil=omdomen)
+    assert vy.utkast_id_for_trad("t-0", omdomen) == ""
+
+
+def test_utkast_id_for_trad_tom_strang_efter_BORTTAGET(katalog):
+    omdomen = katalog / "logg" / "omdomen.jsonl"
+    vy.spara_gmailutkast(ett_fall(), "t-0", "skapat", "m-0", "d-0",
+                         omdomesfil=omdomen)
+    vy.spara_gmailutkast(ett_fall(), "t-0", "borttaget", omdomesfil=omdomen)
+    assert vy.utkast_id_for_trad("t-0", omdomen) == ""
+
+
 def test_ett_BORTTAGET_utkast_flaggas_inte_som_inaktuellt(katalog):
     _rad(katalog, "skapat")
     omdomen = _rad(katalog, "borttaget")
@@ -1084,9 +1131,19 @@ def test_skriptet_VAGRAR_en_redan_markerad_trad(katalog):
     assert utfall.startswith("VÄGRAT: tråden är redan markerad")
 
 
-def test_BORTTAGET_skrivs_BARA_av_skriptet():
-    """§7-granskningen av skiva 75. Vyn och körningen skriver aldrig raden."""
+def test_BORTTAGET_skrivs_BARA_av_skriptet_eller_regnrfiltret():
+    """§7-granskningen av skiva 75, utökad UPPDRAG 2026-09-25 DEL 1.
+
+    `scripts/utkast-borttaget.py` skriver BORTTAGET efter att en människa
+    bekräftat via läsvägen att utkastet är borta ur Gmail. `scripts/respond.py`
+    skriver den sedan DEL 1 av samma skäl, fast bekräftat av ett LYCKAT
+    `drafts().delete`-anrop i stället för en människas ögon: se
+    `_ta_bort_aldre_utkast`. Ingen TREDJE fil får skriva den utan att
+    motsvarande bekräftelse finns och den här listan utökas medvetet.
+    """
     import ast
+
+    TILLATNA_SKRIVARE = frozenset({"utkast-borttaget.py", "respond.py"})
 
     def bar_borttaget(nod) -> bool:
         return any(
@@ -1105,9 +1162,9 @@ def test_BORTTAGET_skrivs_BARA_av_skriptet():
             if namn != "spara_gmailutkast":
                 continue
             anrop += 1
-            if fil.name != "utkast-borttaget.py":
+            if fil.name not in TILLATNA_SKRIVARE:
                 assert not bar_borttaget(nod), f"{fil.name}:{nod.lineno}"
-    assert anrop >= 4, "genomgången hittar inga anrop"
+    assert anrop >= 5, "genomgången hittar inga anrop"
 
 
 def test_TAKET_raknar_det_som_faller_och_tar_resten(tmp_path, monkeypatch,

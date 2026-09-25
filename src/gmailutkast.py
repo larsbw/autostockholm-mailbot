@@ -15,8 +15,9 @@ FYRA LAGER, OCH DET FÖRSTA FINNS INTE
                    scope ger utkast utan sändförmåga. Credentialen i
                    `token-skriv.json` KAN skicka, och det är Googles gräns och
                    inte vår.
-  2  TJÄNSTEN      `Utkastjanst` nedan. Bara `users().drafts().create` går
-                   igenom; allt annat kastar `Sandforsok`, också
+  2  TJÄNSTEN      `Utkastjanst` nedan. Bara `users().drafts().create` och,
+                   sedan uppdraget 2026-09-25 DEL 1, `users().drafts().delete`
+                   går igenom; allt annat kastar `Sandforsok`, också
                    `drafts().send` och `messages().send`.
   3  IMPORTLAGRET  `src/vy.py::GMAILBARANDE_MODULER` namnger modulen. Vyns och
                    kedjans graf når den aldrig: vyn får funktionen INJICERAD av
@@ -39,14 +40,19 @@ from __future__ import annotations
 
 import base64
 import re
+from dataclasses import dataclass
 from email.message import EmailMessage
 
 from src import auth
 
 ANVANDARE = "me"
 
-# `drafts().create` och inget annat.
-TILLATNA_ANROP = frozenset({("drafts", "create")})
+# `drafts().create` och `drafts().delete`. UPPDRAG 2026-09-25 DEL 1:
+# `delete` tillkom för regnrfiltret, som tar bort ett obesickat utkast i en
+# äldre tråd när en nyare förfrågan om samma bil ersätter det. Fortfarande
+# INGET SOM SKICKAR: ett borttaget utkast är ett utkast mindre, inte ett
+# mail ut.
+TILLATNA_ANROP = frozenset({("drafts", "create"), ("drafts", "delete")})
 
 # Ett svar som redan bär ett svarsprefix får inget till. Gmail kräver att
 # ämnesraderna matchar, och `Re: Re:` är ingen tråd någon vill läsa.
@@ -166,8 +172,24 @@ def bygg_meddelande(post) -> dict:
     return {"message": {"raw": raa, "threadId": vag.trad_id}}
 
 
-def skapa_utkast(tjanst: Utkastjanst, post) -> str:
-    """Skapar utkastet och returnerar Gmails meddelande-id.
+@dataclass(frozen=True)
+class UtkastResultat:
+    """Vad `skapa_utkast` returnerar. UPPDRAG 2026-09-25 DEL 1.
+
+    **TVÅ OLIKA GMAIL-ID, och det är hela skälet klassen finns.**
+    `meddelande_id` är meddelandets, oförändrat sedan skiva 68 och det enda
+    som fanns innan: det skrivs i loggen och skrivs ut till terminalen.
+    `utkast_id` är UTKASTETS eget id, alltså `drafts().create`-svarets egen
+    `id`-nyckel och inte `message.id`. `drafts().delete` tar det förra, inte
+    det senare; att blanda ihop dem ger ett `HttpError` mot fel resurs.
+    """
+
+    meddelande_id: str
+    utkast_id: str
+
+
+def skapa_utkast(tjanst: Utkastjanst, post) -> UtkastResultat:
+    """Skapar utkastet och returnerar dess två Gmail-id, se `UtkastResultat`.
 
     **TRÅDEN PRÖVAS I SVARET.** Hamnar utkastet i en annan tråd än den begärda,
     till exempel för att token auktoriserades för fel konto, kastar funktionen
@@ -185,7 +207,24 @@ def skapa_utkast(tjanst: Utkastjanst, post) -> str:
             "Gmail och kontrollera att token-skriv.json gäller "
             "info@autostockholm.se."
         )
-    return meddelande["id"]
+    return UtkastResultat(meddelande_id=meddelande["id"], utkast_id=svar["id"])
+
+
+def ta_bort_utkast(tjanst: Utkastjanst, utkast_id: str) -> None:
+    """Tar bort ETT obesickat utkast. UPPDRAG 2026-09-25 DEL 1.
+
+    `utkast_id` är UTKASTETS id, inte meddelandets, se `UtkastResultat`.
+
+    AVLÄST 2026-09-25 ur
+    https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.drafts/delete
+    : ett lyckat anrop ger ett TOMT svar, alltså ingen kvittens att verifiera
+    mot, till skillnad från `skapa_utkast`. Sidan säger INGET om vad ett
+    utkast som redan är borta (skickat av Matte, eller borttaget för hand i
+    Gmail) ger för fel eller statuskod. Ett antagande om 404 här hade varit
+    en gissning §1 förbjuder. Funktionen kastar därför vidare vad anropet än
+    ger; anroparen avgör om ett fel för ett redan-borta utkast ska tystas.
+    """
+    tjanst.users().drafts().delete(userId=ANVANDARE, id=utkast_id).execute()
 
 
 def utkastskapare(*, tjanst: Utkastjanst | None = None):
@@ -196,7 +235,7 @@ def utkastskapare(*, tjanst: Utkastjanst | None = None):
     """
     cache: list[Utkastjanst] = [] if tjanst is None else [tjanst]
 
-    def skapa(post) -> str:
+    def skapa(post) -> UtkastResultat:
         if not cache:
             cache.append(skriv_tjanst())
         return skapa_utkast(cache[0], post)

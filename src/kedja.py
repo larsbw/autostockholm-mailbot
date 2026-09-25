@@ -116,6 +116,11 @@ SKAL_OGATAD = "ingen a-traktorkategori"
 # SKIVA 63 DEL A, Lars beslut. Ett fordon registret säger redan är ombyggt
 # behöver inget svar, oavsett vem som byggt om det.
 SKAL_REDAN_OMBYGGD = "redan ombyggd"
+# UPPDRAG 2026-09-25, DEL 1, Lars beslut (tolkning A). En nyare förfrågan om
+# samma bil finns, eller bilen har redan fått ett riktigt SVAR inom
+# `regnrhistorik.FONSTER_DAGAR`. Ett obesickat UTKAST är inte ett hårt stopp:
+# se `Kedjeutfall.aldre_utkast_att_ta_bort`.
+SKAL_SAMMA_BIL = "samma bil redan hanterad"
 
 # ÄLDRE ÄN SÅ FÅR SVARET EFTERSLÄPSRADEN. Skiva 61 DEL B, Lars tal.
 EFTERSLAP = timedelta(days=7)
@@ -253,6 +258,12 @@ class Kedjeutfall:
     # modulens `SKAL_*`-strängar, och det är skillnaden som gör att den
     # får gå till vyn rå.
     inget_svar_skal: str = ""
+    # UPPDRAG 2026-09-25, DEL 1. Tråd-ID för äldre trådar med samma
+    # registreringsnummer vars obesickade bot-utkast ska tas bort, eftersom
+    # DEN HÄR förfrågan ersätter dem. Bara satt på den lyckade utkastvägen:
+    # se `RegnrLage`s docstring för varför en spärrad eller uteblivet
+    # förfrågan inte ska rensa någonting.
+    aldre_utkast_att_ta_bort: tuple[str, ...] = ()
     skal: str = ""
     # SKIVA 56 DEL 0. Satsen `skal` handlar om, alltså den text spärren prövade.
     # För två av spärrarna är den bearbetad och inte en ordagrann delsträng ur
@@ -264,6 +275,47 @@ class Kedjeutfall:
     @property
     def blev_utkast(self) -> bool:
         return self.utkast is not None
+
+
+@dataclass(frozen=True)
+class RegnrLage:
+    """Vad Gmail vet om ANDRA trådar med samma registreringsnummer.
+
+    Byggs av `src/regnrhistorik.py`, som `kor` aldrig importerar: modulen
+    söker Gmail, och en sändvägsmodul drar inte in en Gmail-väg (samma skäl
+    som `hamta` injiceras för uppslaget). `kor` bara läser svaret.
+
+    `stoppa` är sant när DEN HÄR förfrågan INTE ska ge ett utkast: antingen
+    finns en nyare förfrågan om samma bil, eller bilen har redan fått ett
+    riktigt SVAR inom fönstret. Ett obesickat UTKAST i en äldre tråd är INTE
+    ett stopp, Lars beslut (tolkning A, uppdraget 2026-09-25): kommer en
+    nyare förfrågan om samma bil in ska den äldre trådens utkast tas bort och
+    den nya få ett eget. `aldre_utkast_trad_id` bär tråd-ID för de äldre
+    trådarna, och är bara tänkt att läsas när `stoppa` är falskt.
+    """
+
+    stoppa: bool
+    aldre_utkast_trad_id: tuple[str, ...] = ()
+
+
+def _regnr_historik_ingen_kontroll(
+    regnr: str, tidsstampel: str, nu: datetime,
+) -> RegnrLage:
+    """Förvalet för `kor`:s `regnr_historik`. SÄKERT OCH INTE TYST, DEL 1.
+
+    **VARFÖR DET HÄR FÅR ETT FÖRVAL NÄR `hamta` INTE FÅR NÅGOT.** `hamta`
+    saknar förval eftersom en tyst standardkälla i en sändvägsmodul antingen
+    hade nått ett riktigt nätverksanrop i ett test, eller hittat på ett
+    fordonsfaktum, ett brott mot ramverksregel 3. Det här förvalet gör
+    INGETDERA: det når ingen Gmail-tjänst, och det påstår inget om en bil.
+    Dess enda effekt är att filtret i DEL 1 inte prövas, vilket är exakt
+    kedjans beteende INNAN den här grinden fanns. Att kräva argumentet
+    överallt hade tvingat en uppdatering av varenda `kedja.kor(...)`-anrop i
+    testsviten som aldrig når a-traktorgrenen, för en spärr som ändå aldrig
+    hade prövats där. `scripts/respond.py` injicerar den riktiga sökningen
+    varje gång, se `test_respond_injicerar_regnr_historik`.
+    """
+    return RegnrLage(stoppa=False)
 
 
 def _uppslagssteg(
@@ -361,6 +413,8 @@ def kor(
     taxonomi: list[str],
     exempel: list[dict] | None = None,
     nu: datetime | None = None,
+    regnr_historik: Callable[[str, str, datetime], RegnrLage] =
+        _regnr_historik_ingen_kontroll,
 ) -> Kedjeutfall:
     """Hela vägen för ETT ärende. Returnerar aldrig ett skickat mail.
 
@@ -376,6 +430,11 @@ def kor(
     modell, källa och kategorilista medvetet, vilket är samma skäl `slag_upp`
     anger för sitt eget `hamta`: en tyst standardkälla i en sändvägsmodul är
     precis det §10 finns för att hindra.
+
+    `regnr_historik` HAR ETT FÖRVAL, till skillnad från `hamta`, och skälet
+    står i `_regnr_historik_ingen_kontroll`s docstring. `scripts/respond.py`
+    injicerar den riktiga Gmail-sökningen; ett test som inte rör
+    a-traktorgrenen behöver aldrig känna till parametern.
 
     **KLASSNINGEN ÄR PASS 2, och det ledet är fällt fram av kedjans egen
     provkörning.** Första lydelsen anropade `kategorisera.kategorisera_en` med
@@ -472,6 +531,41 @@ def kor(
     # stund grinden byggdes, och en oåtkomlig gren går inte att fälla (§7.1).
     franvaro_far_pastas: frozenset[str] = frozenset()
 
+    # **REGNRFILTRET, UPPDRAG 2026-09-25 DEL 1, Lars beslut.** Bara den
+    # SENASTE a-traktorförfrågan om en bil ska få ett utkast, och en bil som
+    # redan fått ett riktigt svar inom fönstret ska inte få ett nytt. Grinden
+    # står HÄR och inte efter uppslaget, av samma skäl som `SKAL_OGATAD`:
+    # den sparar både modellanropet och uppslaget mot biluppgifter.se för en
+    # förfrågan som ändå inte ska besvaras.
+    #
+    # **`nu is None` HOPPAR ÖVER PRÖVNINGEN**, samma villkor som `efterslap`
+    # nedan använder. En sökning "senaste 14 dagarna" är meningslös utan en
+    # riktig klocka, och `None` betyder redan i den här funktionen att
+    # tidsberoende prövningar inte görs.
+    aldre_utkast_att_ta_bort: tuple[str, ...] = ()
+    regnr = fordonsuppslag.normalisera_regnr(arende.regnr)
+    if regnr and nu is not None:
+        # SAMMA OMVANDLING TILL `Kallfel` SOM UPPSLAGET, §7-granskningsfynd.
+        # Utan den kastar ett kvottak eller ett nätverksfel från Gmail rakt
+        # igenom `kor_alla`s slinga (som bara fångar `Kallfel`) och stoppar
+        # ALLA kvarvarande ärenden i körningen, inte bara det här.
+        try:
+            lage = regnr_historik(regnr, arende.tidsstampel, nu)
+        except Exception as fel:  # noqa: BLE001
+            raise Kallfel(type(fel).__name__, str(fel)) from fel
+        if lage.stoppa:
+            steg.append(Steg("regnrfilter", "hoppades över", SKAL_SAMMA_BIL))
+            return Kedjeutfall(
+                kategori=kategori, hink=hink, inget_svar=True,
+                inget_svar_skal=SKAL_SAMMA_BIL, steg=tuple(steg),
+            )
+        steg.append(Steg(
+            "regnrfilter", "passerade",
+            f"{len(lage.aldre_utkast_trad_id)} äldre utkast att ta bort"
+            if lage.aldre_utkast_trad_id else "inga äldre utkast",
+        ))
+        aldre_utkast_att_ta_bort = lage.aldre_utkast_trad_id
+
     uppslag, utfall, uppslagssteg = _uppslagssteg(arende, hamta)
     steg.append(uppslagssteg)
 
@@ -551,6 +645,7 @@ def kor(
     return Kedjeutfall(
         kategori=kategori, hink=hink, uppslag=uppslag, utfall=utfall,
         utkast=utkast, steg=tuple(steg),
+        aldre_utkast_att_ta_bort=aldre_utkast_att_ta_bort,
     )
 
 
