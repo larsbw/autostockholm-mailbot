@@ -565,6 +565,119 @@ def test_kanalregeln_ror_inte_en_A_TRAKTORKATEGORI():
     assert "kanalregel" not in [s.namn for s in utfall.steg]
 
 
+# ------------------------------------------- OMBYGGNADSREGELN, 2026-10-02
+
+
+OFFERT = kedja.OFFERTKATEGORI
+TAXONOMI_MED_OFFERT = TAXONOMI + [OFFERT]
+BEFINTLIG = ("Hej, sonens a-traktor blev underkänd vid besiktningen. Kan ni "
+             "justera den, och kan vi få en offert?")
+
+
+def test_ombyggnadsregeln_SLAPPER_ett_fritextmejl_forbi_grinden():
+    """Pass 2 säger `begära offert`, texten nämner ombyggnad till a-traktor,
+    och ärendet når uppslaget. Källfelet är beviset att grinden passerades."""
+    with pytest.raises(Kallfel):
+        kedja.kor(arende(), klient=FejkKlient(OFFERT, "onådd"),
+                  hamta=hamta_kraschar, hinkar=HINKAR,
+                  taxonomi=TAXONOMI_MED_OFFERT, exempel=[])
+
+
+def test_ombyggnadsregeln_BYTER_kategorin_och_loggar_pass_2():
+    utfall = kedja.kor(arende(), klient=FejkKlient(OFFERT, "onådd"),
+                       hamta=hamta_redan_ombyggd, hinkar=HINKAR,
+                       taxonomi=TAXONOMI_MED_OFFERT, exempel=[], nu=NU)
+
+    assert utfall.kategori == kedja.KANALKATEGORI
+    assert utfall.hink == "utkast"
+    assert utfall.steg[:2] == (
+        Steg("klassificering", OFFERT, "hink utkast"),
+        Steg("ombyggnadsregel", kedja.KANALKATEGORI, f"pass 2 sade {OFFERT}"),
+    )
+
+
+def test_ombyggnadsregeln_ror_INTE_en_befintlig_a_traktor():
+    """Lars villkor: ett mejl om att justera en befintlig a-traktor fångas
+    inte, fast det nämner a-traktor och ber om offert."""
+    utfall = kedja.kor(arende(text=BEFINTLIG),
+                       klient=FejkKlient(OFFERT, "onådd"),
+                       hamta=hamta_kraschar, hinkar=HINKAR,
+                       taxonomi=TAXONOMI_MED_OFFERT, exempel=[])
+
+    assert utfall.inget_svar_skal == kedja.SKAL_OGATAD
+    assert utfall.kategori == OFFERT
+
+
+def test_ombyggnadsregeln_tar_HINKEN_for_den_nya_kategorin():
+    hinkar = {"standardhink": "utkast", "auto": [OFFERT],
+              "aldrig": ["inget kundärende"]}
+
+    utfall = kedja.kor(arende(), klient=FejkKlient(OFFERT, "onådd"),
+                       hamta=hamta_redan_ombyggd, hinkar=hinkar,
+                       taxonomi=TAXONOMI_MED_OFFERT, exempel=[], nu=NU)
+
+    assert utfall.kategori == kedja.KANALKATEGORI
+    assert utfall.hink == "utkast"
+
+
+def test_ombyggnadsregeln_ror_ALDRIG_hinken_aldrig():
+    """Fällt av §7-granskningen: första lydelsen lyfte `begära offert` ur
+    `aldrig` och nådde uppslaget."""
+    hinkar = {"standardhink": "utkast", "auto": [], "aldrig": [OFFERT]}
+
+    utfall = kedja.kor(arende(), klient=FejkKlient(OFFERT, "onådd"),
+                       hamta=hamta_kraschar, hinkar=hinkar,
+                       taxonomi=TAXONOMI_MED_OFFERT, exempel=[])
+
+    assert utfall.inget_svar_skal == kedja.SKAL_ALDRIG
+    assert utfall.kategori == OFFERT
+
+
+def test_ombyggnadsregeln_galler_BARA_begara_offert():
+    utfall = kedja.kor(arende(), klient=FejkKlient("boka däckbyte", "onådd"),
+                       hamta=hamta_kraschar, hinkar=HINKAR,
+                       taxonomi=TAXONOMI_MED_OFFERT, exempel=[])
+
+    assert utfall.inget_svar_skal == kedja.SKAL_OGATAD
+    assert utfall.kategori == "boka däckbyte"
+
+
+@pytest.mark.parametrize("amne, text", [
+    ("", "Vi vill bygga om en kombi, årsmodell 2004 (bensin, manuell), till "
+         "A-traktor."),
+    ("", "Kan ni konvertera bilen till\nEPA?"),
+    ("", "Går det att göra om den till en epatraktor?"),
+    ("", "Bygg om min bil till a-traktor, vad kostar det?"),
+    ("", "Vi vill bygga om bilen till A‑traktor."),
+    ("", "Vi konverterar en kombi 2.4i 170 hk till A-traktor."),
+    ("Bygga om bil till a-traktor", "Hej, se ämnesraden."),
+])
+def test_namner_ombyggnad_JA(amne, text):
+    assert kedja.namner_ombyggnad(arende(amne=amne, text=text))
+
+
+# Varje rad är en klass av falsk träff. Raderna från flaket och nedåt kom ur
+# §7-granskningen av första lydelsen. Den sista binder fönstret om 80 tecken.
+@pytest.mark.parametrize("amne, text", [
+    ("Justering a-traktor", BEFINTLIG),
+    ("", "Bilen byggdes om till a-traktor i fjol och behöver nu ses över."),
+    ("", "Den är ombyggd till EPA och har barlastflak."),
+    ("Epa", "Har ni tid i juni?"),
+    ("Rekond", "Jag vill boka rekond till min bil."),
+    ("", "Vi bygger om garaget och vill ställa bilen hos er till hösten."),
+    ("", "Vi bygger ett nytt flak till a-traktorn, kan vi få en offert?"),
+    ("", "Kan ni göra om växellådsspärren till a-traktorn?"),
+    ("", "Efter ombyggnad till a-traktor går den för fort, kan ni justera?"),
+    ("", "Den genomgick en a-traktorombyggnad i fjol och behöver ny koppling."),
+    ("", "Vi bygger om garaget i sommar. Den går till a-traktor sen."),
+    ("", "Vi bygger om huset, kan ni hämta bilen till Epagatan?"),
+    ("", "Vi vill bygga om " + "en mycket lång beskrivning av bilen " * 3
+         + "till a-traktor"),
+])
+def test_namner_ombyggnad_NEJ(amne, text):
+    assert not kedja.namner_ombyggnad(arende(amne=amne, text=text))
+
+
 def test_en_ogatad_kategori_far_INGEN_uppslagsbedomning():
     """Ett uppslag som aldrig gjordes får inte låta som ett misslyckat.
 

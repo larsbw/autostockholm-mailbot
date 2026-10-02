@@ -11,13 +11,16 @@ här filen: den vandrar importgrafen och läser källtexten i varje modul den n�
 
 Ordningen är:
 
-    mail -> klassificering -> kanalregel -> GRIND: a-traktor? -> uppslag
+    mail -> klassificering -> kanalregel -> ombyggnadsregel
+         -> GRIND: a-traktor? -> uppslag
          -> GRIND: redan ombyggd? -> generering -> spärrar -> utkast
 
 **KEDJAN SKRIVER SVAR PÅ A-TRAKTOR OCH PÅ INGENTING ANNAT.** Lars beslut i
 skiva 51 DEL B. En kategori utanför `A_TRAKTORKATEGORIER` blir `INGET SVAR`
 utan att generatorn anropas. Undantaget sedan skiva 73 är kanalregeln: ett
-ärende via a-traktorformuläret får `KANALKATEGORI`, utom i hinken `aldrig`. Klassningen görs ändå och kategorin loggas, så att
+ärende via a-traktorformuläret får `KANALKATEGORI`, utom i hinken `aldrig`.
+Sedan 2026-10-02 också ombyggnadsregeln: `begära offert` vars text nämner
+ombyggnad till a-traktor får samma kategori, se `OMBYGGNAD`. Klassningen görs ändå och kategorin loggas, så att
 materialet finns den dag fas 6 tar nästa kategori. Sedan skiva 61 når posten
 inte vyn: anroparna sparar bara poster med ett utkast eller en spärr.
 
@@ -58,6 +61,7 @@ sändning, och `auto` och `utkast` går samma väg som förut.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -92,6 +96,56 @@ A_TRAKTORKATEGORIER = (
 # prisposten i `config/priser.json`, vilket `begära offert` inte gör. Se
 # `docs/beslutslogg.md` #136 och `docs/sparrar.md` `kanal-som-kontext-aldrig-grund`.
 KANALKATEGORI = "fråga om pris a-traktorkonvertering"
+
+# OMBYGGNADSREGELN, Lars beslut 2026-10-02. Kanalregelns motsvarighet för
+# fritextmejl: pass 2 lägger en offertförfrågan om NY ombyggnad till a-traktor
+# i `begära offert`, som grinden tystar. Uppmätt med `scripts/jev-test.py` på
+# två av två sådana mejl i urvalet. Ärendet får `KANALKATEGORI`, av samma skäl
+# som formuläret: det är en offertförfrågan, och den kategorin bär prisposten.
+#
+# **REGELN SLÅR BARA TILL NÄR TEXTEN NÄMNER SJÄLVA OMBYGGNADEN.** Ordet
+# a-traktor räcker inte: ett mejl om att justera en BEFINTLIG a-traktor ska
+# inte fångas. EN form räknas, och ingen annan: ett ombyggnadsverb följt av
+# `till` och a-traktor eller epa, i samma mening och inom 80 tecken. Som
+# `bygga om en bil till A-traktor` och `konvertera den till EPA`.
+#
+# Fyra val gör mönstret snävt, alla fällda fram av §7-granskningen:
+#
+#   BARA VERB, OCH BARA I INFINITIV, PRESENS OCH IMPERATIV. `byggdes om till`
+#       och `ombyggd till` beskriver en bil som redan är ombyggd. Substantiven
+#       `ombyggnad` och `konvertering` och sammansättningar som
+#       `a-traktorombyggnad` säger inte om ombyggnaden är gjord eller önskad,
+#       alltså står de inte här.
+#   `bygga` KRÄVER `om`. `bygga ett flak till a-traktorn` är ett tillbehör.
+#   A-TRAKTOR I OBESTÄMD FORM. `till a-traktorn` och `till epan` syftar på en
+#       bil som finns. Ordgränsen stänger också `Epagatan`.
+#   SAMMA MENING. En punkt, ett frågetecken eller ett utropstecken följt av
+#       blanksteg bryter. En punkt inuti `2.4i` gör det inte.
+#
+# Fönstret om 80 tecken är valt och inte kalibrerat. Det ska rymma en
+# bilbeskrivning mellan verbet och `till`.
+#
+# KÄNDA BEGRÄNSNINGAR, registrerade och inte åtgärdade. Regeln läser inte
+# negation: `vill inte bygga om den till a-traktor` träffar. Den missar
+# formuleringar utan verb plus `till`, som ämnesraden `Ombyggnad a-traktor`.
+# En miss ger samma utfall som före regeln, alltså inget utkast.
+OFFERTKATEGORI = "begära offert"
+# Bindestrecket får vara U+2011 eller U+2013, som mejlklienter sätter in.
+_TRAKTOR = r"(?:a[-‑– ]?traktor|epa(?:[-‑– ]?traktor)?)\b"
+OMBYGGNAD = re.compile(
+    r"\b(?:bygga om|bygger om|bygg om|konvertera|konverterar|göra om|gör om)\b"
+    r"(?:[^.!?]|[.!?](?=\S)){0,80}?\btill (?:en |ett )?" + _TRAKTOR,
+    re.IGNORECASE,
+)
+
+
+def namner_ombyggnad(arende: "Arende") -> bool:
+    """Nämner ämnesraden eller texten ombyggnad till a-traktor?
+
+    Blanktecken slås ihop först, så att en radbrytning mellan `till` och
+    `A-traktor` inte döljer träffen.
+    """
+    return bool(OMBYGGNAD.search(" ".join(f"{arende.amne} {arende.text}".split())))
 
 # SKÄLEN TILL `INGET SVAR`. Strängarna står här och inte som literaler
 # på användningsstället, eftersom de skrivs på två ställen i `kor`: i
@@ -482,6 +536,21 @@ def kor(
             and kategori not in A_TRAKTORKATEGORIER
             and hink != "aldrig"):
         steg.append(Steg("kanalregel", KANALKATEGORI, f"pass 2 sade {kategori}"))
+        kategori = KANALKATEGORI
+        hink = _hink_for(kategori, hinkar)
+
+    # **OMBYGGNADSREGELN.** Se `OMBYGGNAD` ovan. Smalare än kanalregeln: den
+    # rör bara `begära offert`, den kategori läckan är mätt i. Bytet får ett
+    # eget steg, så att loggen säger både pass 2:s svar och regelns.
+    #
+    # **RÖR INTE `aldrig`, samma villkor som kanalregeln.** `begära offert`
+    # står i dag i ingen hink. Flyttar Lars den till `aldrig` ska regeln inte
+    # lyfta ut den igen.
+    if (kategori == OFFERTKATEGORI
+            and hink != "aldrig"
+            and namner_ombyggnad(arende)):
+        steg.append(Steg("ombyggnadsregel", KANALKATEGORI,
+                         f"pass 2 sade {kategori}"))
         kategori = KANALKATEGORI
         hink = _hink_for(kategori, hinkar)
 

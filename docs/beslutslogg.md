@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.88.0 · **Uppdaterad:** 2026-09-25 · **Implementerar** CLAUDE.md §8
+**Version:** 0.89.0 · **Uppdaterad:** 2026-10-02 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -8539,7 +8539,45 @@ regeln i systempromten, som är sändvägstext. §7-granskning i en omgång.
 Ny post ⇒ MINOR.
 
 
+## #142 — Ombyggnadsregeln: fritextmejl om ny a-traktorombyggnad lyfts ur `begära offert`
+
+**Datum:** 2026-10-02 · **Berör:** `src/kedja.py`, `tests/test_kedja.py`
+
+**Beslut, Lars.** Ett ärende som pass 2 lägger i `begära offert` får
+`KANALKATEGORI` när ämnesraden eller texten nämner ombyggnad till a-traktor
+eller epatraktor. Mejl om att justera en befintlig a-traktor ska inte fångas.
+Klassningen byts inte mot en annan modell.
+
+**Skälet.** Mätningen med `scripts/jev-test.py` samma dag: nuvarande klassning
+lade två fritextmejl om ny ombyggnad i `begära offert`, som grinden tystar.
+Samma brist som #136 lagade för formuläret.
+
+**Vad regeln är.** `kedja.OMBYGGNAD`: ett ombyggnadsverb i infinitiv, presens
+eller imperativ, följt av `till` och a-traktor eller epa i obestämd form, i
+samma mening och inom 80 tecken. Regeln rör bara `begära offert` och aldrig
+hinken `aldrig`. Bytet loggas som steget `ombyggnadsregel`.
+
+**Vad regeln inte är.** Substantiv och sammansättningar står inte i mönstret,
+eftersom de inte säger om ombyggnaden är gjord eller önskad. Regeln läser inte
+negation. En formulering utan verb plus `till` missas och ger samma utfall som
+förut, alltså inget utkast.
+
+**Vad regeln inte rör.** Mejl om en befintlig a-traktor som pass 2 själv lägger
+i en a-traktorkategori går fortfarande till uppslag och utkast. Det är den
+omvända bristen, och den är öppen.
+
+§7-granskning i en omgång. Första lydelsen träffade tillbehör till en befintlig
+a-traktor, gjorda ombyggnader, träffar över meningsgräns och ord som börjar på
+epa, och lyfte `begära offert` ur `aldrig`. Alla rättade och bundna av test.
+
+Ny post ⇒ MINOR.
+
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.89.0 — 2026-10-02
+
+**#142 TILLKOMMER.** Ombyggnadsregeln i `kedja.kor`. Ny post ⇒ MINOR.
 
 ### 0.88.0 — 2026-09-25
 
