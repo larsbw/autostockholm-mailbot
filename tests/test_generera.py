@@ -687,16 +687,20 @@ PRISER_SOM_LARS_BESLUTAT = {
     # och därmed utanför posten; beloppet skrivs inte här, eftersom ett pris
     # som boten får nämna hör hemma i `config/priser.json` och ingen annanstans.
     #
-    # **HÖJT TILL 23 000-27 000 KR PÅ LARS §10-BESLUT.** Baspriset bär nu ordet
-    # "baspris" och en rad om att tillägg kan tillkomma, i stället för att den
-    # skillnaden bara stod i systempromptens regler. Dragkroken namns INTE här:
+    # **ÄNDRAT TILL 25 000-27 000 KR PÅ LARS §10-BESLUT.** Raden bär en rad om
+    # att tillägg kan tillkomma, i stället för att den
+    # skillnaden bara stod i systempromptens regler. Ordet "baspris" som
+    # inledde prissatsen är struket på samma beslut; det som står kvar är
+    # tilläggsklausulen. Dragkroken namns INTE här:
     # samma skäl som ovan, `dragkrok` är ett FORDONSORD och en prisrad som
     # nämner den föll tidigare på `genererat-fordonsfaktum` i varje gren där
-    # `uppslag is None`. Dragkrokens pris bärs i stället av systempromptens
-    # regel 16.
+    # `uppslag is None`. Dragkrokens VILLKOR, att den tillkommer och offereras
+    # separat, bärs i stället av `oklart_bara_dragkroken` i
+    # `generera._utfallstext`, inte av systempromptens regel 16. Något pris bär
+    # den inte.
     "a_traktorkonvertering":
-        "baspris från 23 000 till 27 000 kr inklusive moms för "
-        "grundombyggnaden, tillägg utöver baspriset kan tillkomma, och "
+        "från 25 000 till 27 000 kr inklusive moms för "
+        "grundombyggnaden, tillägg kan tillkomma, och "
         "grundombyggnaden omfattar hastighetsbegränsning, barlastflak, "
         "förstängning, belysning, LGF-skylt, dokumentation och besiktning",
     "rekond":
@@ -2403,6 +2407,305 @@ def test_las_exempel_tar_BARA_a_traktorpar(tmp_path):
     assert [p["inkommande_text"] for p in valda] == ["atraktor"]
 
 
+@pytest.mark.parametrize(
+    "svar",
+    [
+        "Våra priser startar från 20000kr inkl moms.",
+        "Ombyggnaden kostar 20 000 kr inklusive moms.",
+        "Offerten landar på 28000 kr.",
+        "Det blir 5 000 kronor.",
+    ],
+)
+def test_exempel_med_belopp_valjs_bort(svar):
+    """Lars beslut, §10: ett exempel som bär ett belopp lär modellen ett pris
+    som inte står i `config/priser.json`. Två av de sex valda paren bar ett."""
+    assert not generera._duger_som_exempel(
+        {"inkommande_text": "Vad kostar det?", "utgaende_text": svar}
+    )
+
+
+# EN RAD PER ALTERNATIV i `generera.BELOPPSFORMER`. Raderna är svar, inte
+# index: `test_varje_beloppsform_bars_ensam_av_en_testrad` kräver att varje
+# form har en rad som BARA den formen träffar, alltså att formen går att fälla
+# ensam. En form som en annan redan täcker är redundant och går inte att fälla.
+BELOPPSFORMSVAR = [
+    # talet följt av valutaord
+    "Det blir 20000kr.",
+    "Det blir 5 000 kronor.",
+    "Det blir 20 000 SEK.",
+    "Det blir 20 tkr.",
+    "Det blir 20 000 kr.",
+    "Det blir 500 sek.",
+    "Det blir 20000 sek.",
+    "Det blir 20,000 sek.",
+    "Det blir 20 000 sek.",
+    # valutaord före talet
+    "Pris kr 20000.",
+    "Det blir SEK 500.",
+    # kolon respektive komma och streck efter talet
+    "Det blir 20 000:-.",
+    "Det blir 20000,-.",
+    "Det blir 20 000 ,-.",
+    "Det blir 20 000\u00a0:-.",
+    "Det blir 20000\u202f,-.",
+    "Det blir 20 000\t:-.",
+    # bindestreck efter talet: gruppen, fyra siffror, och 202F som avgränsare
+    "Det blir 20 000- för bygget.",
+    "Det blir 20 000-.",
+    "Det blir 20 000\u00a0- för bygget.",
+    "Det blir 20000\u00a0-.",
+    "Det blir 20000-.",
+    "Det blir 20.000- för bygget.",
+    "Det blir 20\u00a0000- för bygget.",
+    # halvstreck efter talet
+    "Det blir 20 000–.",
+    "Det blir 20000–.",
+    "Det blir 20 000\u202f–.",
+    "Det blir 20000\u202f–.",
+    # punkt och bindestreck efter talet
+    "Det blir 20 000.- för bygget.",
+    "Det blir 20 000\u00a0.- för bygget.",
+    # plus moms efter talet
+    "Det blir 20 000 plus moms.",
+    "Det blir 20 000 + moms.",
+    # moms efter talet
+    "Det blir 20000 inkl moms.",
+    "Det blir 20 000 excl. moms.",
+    "Det blir 20000 incl moms.",
+    "Det blir 20 000 exkl. moms.",
+    "Det blir 20000 ex moms.",
+    "Det blir 20 000 inklusive moms.",
+    "Det blir 20 000 exklusive moms.",
+    # moms före talet
+    "Pris inkl moms 20000.",
+    "Pris inklusive moms 20000.",
+    "Pris incl moms 20000.",
+    "Pris exkl moms 5 000.",
+    "Pris exklusive moms 5 000.",
+    "Pris ex moms 5000.",
+    "Pris plus moms 5000.",
+    # talet med k efter
+    "Det blir 20k.",
+    # talet som ord
+    "Det blir tjugotusen.",
+    "Det blir tjugofemtusen.",
+    "Det blir hundratusen.",
+    "Det blir 20 tusen.",
+    "Det blir tusen kr.",
+    "Det blir tusen kronor.",
+    # talord under tusen följt av valutaord
+    "Det blir femtio kr.",
+    "Det blir tvåhundrafemtio kronor.",
+    "Det blir hundra kr.",
+]
+
+
+@pytest.mark.parametrize("svar", BELOPPSFORMSVAR)
+def test_exempel_med_beloppsform_valjs_bort(svar):
+    """LARS §10-BESLUT: filtret avvisar belopp i varje form som Matte kan skriva,
+    inte bara `kr`. Varje rad ska träffas av filtret OCH få paret att falla."""
+    assert generera.BELOPP_I_EXEMPEL.search(svar)
+    assert not generera._duger_som_exempel(
+        {"inkommande_text": "Vad kostar det?", "utgaende_text": svar}
+    )
+
+
+def test_varje_beloppsform_bars_ensam_av_en_testrad():
+    """EN FORM SOM INGEN RAD BARA DEN TRÄFFAR GÅR INTE ATT FÄLLA ENSAM.
+
+    Tas formen bort blir alla rader den träffar ändå träffade av en annan form,
+    alltså förblir sviten grön och raden mäter ingenting (CLAUDE.md §7.1,
+    redundans). Kravet är därför en rad per form som ingen annan form träffar.
+    """
+    former = [re.compile(f, flags=re.IGNORECASE) for f in generera.BELOPPSFORMER]
+    for i, form in enumerate(former):
+        ensamma = [
+            svar for svar in BELOPPSFORMSVAR
+            if form.search(svar)
+            and not any(f.search(svar) for j, f in enumerate(former) if j != i)
+        ]
+        assert ensamma, (
+            f"formen {generera.BELOPPSFORMER[i]!r} har ingen rad som bara den "
+            "träffar: redundant eller otestad"
+        )
+
+
+# Svar med tal som INTE ska träffas av beloppsfiltret.
+TAL_UTAN_PRISBETYDELSE = [
+    "Vi har byggt om 20 000 bilar.",
+    "Tusen tack för mailet.",
+    "Ring oss på 076-860 38 15.",
+    "Det tar 2-4 veckor.",
+    "Det tar 2–4 veckor.",
+    "Vi har öppet kl 9.",
+    "Bilen väger 1 600 kg.",
+    "Bilen väger 2 000–2 500 kg.",
+    # LARS §10-BESLUT: k och sek ska inte träffa registreringsnummer,
+    # sträckor eller sekunder.
+    "Bilen ABC 12K är en Golf.",
+    "Bilen har gått 150k km.",
+    "Bilen har gått 10k mil.",
+    "Den går 0-100 på 7,2 sek.",
+    "Det gäller följande 4.\n- Mellanvägg bakom framsätet.",
+    "Vi behöver 2:\n- bild på bilen.",
+    "Den går 0-100 på 0,250 sek.",
+    "Den går 0-100 på 7,200 sek.",
+        "Den går 0-100 på 7,2 sek. 2 000 kg dragvikt.",
+        "Det tar tre sek.",
+    "Bilen väger 1 600-2 000 kg.",
+    "Bilen väger 2000–2500 kg.",
+    "Artikelnummer 12-3 456- gäller.",
+    "Artikelnummer 12–3 456– gäller.",
+    "Artikelnummer 12–3456– gäller.",
+    "Vi behöver 2,\n- bild på bilen.",
+    "Årsmodell 2026\n- Manuell spärr.",
+    "Pris enligt lista 2 000\n- bild på bilen.",
+    "Årsmodell 2026\n– Manuell spärr.",
+    "Pris enligt lista 2 000\n– bild på bilen.",
+    "Datum 2026-10-13.",
+    "Artikelnummer 12-3456- gäller.",
+    "Vi finns på Surbrunnsgatan 42, 113 48 Stockholm.",
+]
+
+
+@pytest.mark.parametrize("svar", TAL_UTAN_PRISBETYDELSE)
+def test_exempel_med_tal_utan_prisbetydelse_valjs(svar):
+    """NEGATIVKONTROLL FÖR HELA BREDDNINGEN: ett bredare filter får inte fälla
+    telefonnummer, datum, adress, vikter, intervall eller `20 000 bilar`.
+
+    `Datum 2026-10-13` binder strecksformernas `(?![\\w\\-–—])`, `12-3456-` binder
+    `(?<![\\d.\\-–—])`, och `2 000–2 500 kg` binder samma lookahead för
+    halvstrecket. Varje skärpning bärs av minst en rad som faller när just den
+    skärpningen tas bort; `test_varje_skarpning_bars_ensam` visar det.
+    """
+    # REGEXEN PRÖVAS DIREKT. §11-filtret fäller redan varje par med ett
+    # tankstreck eller halvstreck, och varje par med ett bindestreck mellan
+    # blanksteg (`\n- `, en punktlista). En sådan rad går aldrig igenom
+    # `_duger_som_exempel` och skulle annars pröva fel filter.
+    assert not generera.BELOPP_I_EXEMPEL.search(svar)
+    if "–" not in svar and "\n- " not in svar:
+        assert generera._duger_som_exempel(
+            {"inkommande_text": "Går det?",
+             "utgaende_text": svar + " Hör av dig så bokar vi tid."}
+        )
+
+
+def test_varje_skarpning_bars_ensam():
+    """VARJE SKÄRPNING GÅR ATT FÄLLA ENSAM, i varje form den sitter i.
+
+    En skärpning är en lookaround eller en begränsning som hindrar en falsk
+    träff. Tas den bort ur EN form ska minst en rad ändra utfall: antingen en
+    negativrad i `TAL_UTAN_PRISBETYDELSE` som börjar träffas, eller en positiv
+    rad i `BELOPPSFORMSVAR` som slutar träffas. Ändras inget utfall är
+    skärpningen obunden, alltså kan den tas bort med grön svit.
+    """
+    skarpningar = {
+        "streck-lookbehind": lambda f: f.replace(generera._STRECK_BORJAN, ""),
+        "streck-lookahead": lambda f: f.replace(generera._STRECK_SLUT, ""),
+        "streck-radbrytning": lambda f: f.replace(generera._MELLANRUM, r"\s?"),
+        "k-regnr": lambda f: f.replace("(?<!(?-i:[A-ZÅÄÖ]{3}) )", ""),
+        "k-km-mil": lambda f: f.replace(r"(?!\s?(?:km|mil)\b)", ""),
+        "sek-decimal": lambda f: f.replace(r"(?<![\d,.])", ""),
+        "sek-tre-siffror": lambda f: f.replace(r"\d{3,}|", ""),
+        "sek-komma-grupp": lambda f: f.replace(r"|\d{2,3}(?:,\d{3})+", ""),
+        "sek-ej-efter-tal": lambda f: f.replace(generera._SEK_INTE_EFTER_TAL, ""),
+        "hardt-blanksteg": lambda f: f.replace(generera._MELLANRUM, r"[ \t]?"),
+    }
+    alla = [re.compile(f, flags=re.IGNORECASE) for f in generera.BELOPPSFORMER]
+    rader = TAL_UTAN_PRISBETYDELSE + BELOPPSFORMSVAR
+
+    def traffar(former):
+        return [any(f.search(r) for f in former) for r in rader]
+
+    grund = traffar(alla)
+    obundna = []
+    for namn, byt in skarpningar.items():
+        for i, mönster in enumerate(generera.BELOPPSFORMER):
+            ny = byt(mönster)
+            if ny == mönster:
+                continue
+            former = list(alla)
+            former[i] = re.compile(ny, flags=re.IGNORECASE)
+            if traffar(former) == grund:
+                obundna.append((namn, mönster))
+
+    assert not obundna, f"skärpningar utan rad som binder dem: {obundna}"
+    # Vakuitetskontroll: varje skärpning ska sitta i minst en form, annars
+    # prövar testet ingenting.
+    for namn, byt in skarpningar.items():
+        assert any(byt(f) != f for f in generera.BELOPPSFORMER), namn
+
+
+def test_exempel_utan_belopp_valjs_trots_tal_och_ordet_kr_i_ett_annat_ord():
+    """NEGATIVKONTROLL: filtret fäller belopp, inte varje siffra.
+
+    `kl 9` är ett tal utan kr, och `krav` är kr följt av bokstäver. Ett filter
+    som fäller båda hade kastat bort exempel Lars inte bett om att kasta.
+    """
+    assert generera._duger_som_exempel(
+        {"inkommande_text": "Går det?",
+         "utgaende_text": "Vi har öppet kl 9. Det är ett krav att bilen "
+                          "besiktigas. Hör av dig så bokar vi tid."}
+    )
+
+
+def test_las_exempel_hoppar_over_par_med_belopp_och_tar_nasta(tmp_path):
+    """DE KORTASTE PAREN BÄR BELOPP OCH SKA ERSÄTTAS AV NÄSTA I LÄNGDORDNING.
+
+    Utan filtret är de två paren med belopp de kortaste och tar båda platserna.
+    `par.jsonl` rörs inte: filtret verkar bara på urvalet.
+    """
+    parfil = tmp_path / "par.jsonl"
+    etikettfil = tmp_path / "ometiketterade.jsonl"
+    par = [
+        ("a", "Från 20000kr inkl moms."),
+        ("b", "Vi tar 28000 kr."),
+        ("c", "Det går bra, hör av dig."),
+        ("d", "Det går bra att bygga om bilen, hör av dig så bokar vi."),
+    ]
+    parfil.write_text(
+        "".join(json.dumps({"inkommande_text": i, "utgaende_text": u},
+                           ensure_ascii=False) + "\n" for i, u in par),
+        encoding="utf-8",
+    )
+    etikettfil.write_text(
+        "".join(json.dumps({"etikett": "fråga om a-traktorkonvertering",
+                            "text": i}, ensure_ascii=False) + "\n"
+                for i, _ in par),
+        encoding="utf-8",
+    )
+
+    valda = generera.las_exempel(parfil=parfil, etikettfil=etikettfil, antal=2)
+
+    assert [p["inkommande_text"] for p in valda] == ["c", "d"]
+
+
+def test_riktiga_exempel_bar_inget_belopp_och_rad_156_och_28_ar_ute():
+    """MOT DEN RIKTIGA `data/par.jsonl`: ingen av de valda bär ett belopp.
+
+    Rad 156 (20000kr) och rad 28 (28000kr, räknat 1-baserat som grep -n) låg i
+    a-traktorprompten före beslutet. De prövas på innehåll, inte bara på
+    radnummer, så att testet inte tystnar om filen får fler rader.
+    """
+    if not generera.PAR.exists() or not generera.OMETIKETTERADE.exists():
+        pytest.skip("data/par.jsonl eller data/ometiketterade.jsonl saknas")
+
+    rader = [
+        json.loads(r)
+        for r in generera.PAR.read_text(encoding="utf-8").splitlines() if r
+    ]
+    exempel = generera.las_exempel()
+    valda_utgaende = {p["utgaende_text"] for p in exempel}
+
+    for p in exempel:
+        assert not generera.BELOPP_I_EXEMPEL.search(p["utgaende_text"])
+    if len(rader) >= 156:
+        assert rader[155]["utgaende_text"] not in valda_utgaende
+    if len(rader) >= 28:
+        assert rader[27]["utgaende_text"] not in valda_utgaende
+    assert len(exempel) == generera.ANTAL_EXEMPEL
+
+
 def test_las_exempel_utan_etikettfil_ger_INGA_exempel(tmp_path):
     """Hellre en prompt utan exempel än en med exempel ur fel kategori.
 
@@ -2787,8 +3090,8 @@ REGLER_I_PROMPTEN = {
     # bara det JAKANDE påståendet. `atagande-om-priset` fäller `ingår` oavsett
     # polaritet, LUCKA 75 i `docs/sparrar.md`, alltså hade ett nekande som
     # "dragkroken ingår inte" fallit lika hårt som ett jakande utan att prompten
-    # sagt det. Formen som FAKTISKT ska bäras, att dragkroken TILLKOMMER utöver
-    # baspriset och offereras separat, står i stället i
+    # sagt det. Formen som FAKTISKT ska bäras, att dragkroken tillkommer och
+    # offereras separat, står i stället i
     # `generera._utfallstext`:s `oklart_bara_dragkroken`, den enda gren där
     # uppslaget redan garanterar en avläst `draganordning`. Regeln här förblir
     # ett RENT FÖRBUD, av samma skäl som förut: den beordrar ingenting en
@@ -4877,8 +5180,12 @@ def test_bedomningen_blir_ett_JA_nar_bara_dragkroken_saknas():
     # `test_prisklausulen_om_dragkroken_passerar_sparrarna` som binder att en
     # svarstext utan "ingår" faktiskt passerar spärrarna, se LUCKA 75 i
     # `docs/sparrar.md`.
-    assert "TILLKOMMER" in text
-    assert "baspriset" in text
+    assert "dragkroken tillkommer och offereras separat" in text
+    # LARS §10-BESLUT: formuleringen bär inget prisord. `utöver priset` föll på
+    # `genererat-tal-har-kalla`, och `baspriset` är ett ord som inte längre står
+    # i prisunderlaget.
+    assert "baspris" not in text
+    assert "utöver priset" not in text
 
 
 def test_NEJ_formuleringen_passerar_spärrarna():
@@ -4903,8 +5210,15 @@ def test_prisklausulen_om_dragkroken_passerar_sparrarna():
     *"Dragkrok ingår inte och offereras separat"*, INTE gick att lyda: den
     föll på `atagande-om-priset` eftersom `dragkrok` är ett `FORDONSORD` och
     `ingår` ett `ATAGANDEORD`, oavsett nekande, se LUCKA 75 i
-    `docs/sparrar.md`. Den nya formen skriver "TILLKOMMER" i stället för
+    `docs/sparrar.md`. Den nya formen skriver "tillkommer" i stället för
     "ingår", och den här raden är vakuitetskontrollen som mätningen saknade.
+
+    **LARS §10-BESLUT: FORMEN BÄR INGET PRISORD.** Den tidigare lydelsen
+    "utöver baspriset" ersattes, och `utöver priset` föll på
+    `genererat-tal-har-kalla` eftersom `priset` är ett prisord utan belopp i
+    meningen. Raden prövar därför båda ledden: den beordrade formen passerar,
+    och samma mening med `utöver priset` faller. Det andra ledet är det som gör
+    raden fällbar: utan det går den inte röd av att spärren försvinner.
     """
     forfr = Forfragan(
         text="x", kategori="fråga om a-traktorkonvertering",
@@ -4915,7 +5229,15 @@ def test_prisklausulen_om_dragkroken_passerar_sparrarna():
     generera.krav_pa_svaret(
         "Bilen duger som dragfordon, släpvagnsvikten är 1600 kg. Bilen saknar "
         "registrerad draganordning, så vi monterar en. Dragkroken tillkommer "
-        "utöver baspriset och offereras separat.", forfr)
+        "och offereras separat.", forfr)
+
+    with pytest.raises(Sparrfalld) as fel:
+        generera.krav_pa_svaret(
+            "Bilen duger som dragfordon, släpvagnsvikten är 1600 kg. Bilen "
+            "saknar registrerad draganordning, så vi monterar en. Dragkroken "
+            "tillkommer utöver priset och offereras separat.", forfr)
+
+    assert fel.value.sparr == "genererat-tal-har-kalla"
 
 
 def test_bedomningen_ber_INTE_om_siffran_nar_slapvagnsvikten_saknas():

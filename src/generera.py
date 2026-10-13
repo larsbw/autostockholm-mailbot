@@ -2113,9 +2113,10 @@ def las_exempel(parfil: Path | None = None, antal: int = ANTAL_EXEMPEL,
     kundtexten, samma koppling som `src/vy.py::_par_karta` och
     `scripts/par-matning.py`.
 
-    **ETT EXEMPEL SOM BRYTER MOT §11 LÄR MODELLEN ATT BRYTA MOT DEN.** Uppmätt
-    med `scripts/par-matning.py`: av 43 a-traktorpar ryms 32 under taket, och 18
-    av dem bryter mot §11. Kvar blir 14.
+    **ETT EXEMPEL SOM BRYTER MOT §11 LÄR MODELLEN ATT BRYTA MOT DEN.** Därför
+    faller ett par som bryter mot §11, och sedan Lars §10-beslut också ett par
+    vars svar bär ett belopp. Antalet som återstår mäts med
+    `scripts/par-matning.py`.
 
     Urvalet är de kortaste av de dugliga, eftersom ett kort exempel lämnar plats
     åt fler och åt kundens egen text.
@@ -2172,9 +2173,100 @@ FORBJUDNA_PRONOMEN = re.compile(
 # inuti ett ord, som i "a-traktor", är inte ett skiljetecken och ska passera.
 BINDESTRECK_SOM_SKILJETECKEN = re.compile(r"\s[-—–]\s")
 
+# ETT BELOPP I ETT EXEMPEL. Ett exempel som bär ett belopp lär modellen ett pris
+# som inte står i `config/priser.json`, och två av de sex valda paren bar ett.
+# Lars beslut, §10. `data/par.jsonl` rörs inte: paret faller bara som EXEMPEL,
+# och nästa i längdordning tar platsen.
+#
+# EN FORM PER ALTERNATIV, så att ett test kan fälla just den formen ensam och
+# ett alternativ som en annan form redan täcker syns som redundant. Testet
+# `test_varje_beloppsform_bars_ensam_av_en_testrad` binder det.
+#
+# MELLANRUMMET I STRECKFORMERNA är blanksteg, tab, hårt blanksteg (NBSP) eller
+# tunt hårt blanksteg (U+202F), aldrig radbrytning: `ev. 4.` följt av en
+# punktlista på nästa rad är inget belopp. Lars beslut, §10.
+#
+# BINDESTRECK OCH HALVSTRECK efter ett tal kräver ett tal med minst fyra siffror
+# eller tusentalsgrupper, och att inget ordtecken eller streck följer. Annars
+# hade `2026-10-13`, `1 600-2 000 kg` och `2 000–2 500 kg` fällts.
+#
+# SPANN UTAN ENHET, `25 000 till 27 000.`, ingår MEDVETET inte. Lars beslut.
+# Luckan står i `docs/sparrar.md`.
+_TUSENTALSTECKEN = r"[ .\xa0 ]"
+_TAL = r"\d+(?:" + _TUSENTALSTECKEN + r"\d{3}){0,3}"
+_TAL_GRUPPERAT = r"\d{1,3}(?:" + _TUSENTALSTECKEN + r"\d{3})+"
+_TAL_FYRA_SIFFROR = r"\d{4,}"
+_TALORD = (
+    r"(?:hundra|ett|två|tre|fyra|fem|sex|sju|åtta|nio|tio|elva|tolv|tretton|"
+    r"fjorton|femton|sexton|sjutton|arton|nitton|tjugo|trettio|fyrtio|femtio|"
+    r"sextio|sjuttio|åttio|nittio)"
+)
+_VALUTA = ("kr", "kronor")
+_STRECK_BORJAN = r"(?<![\d.\-–—])"
+_MELLANRUM = r"[ \t\xa0\u202f]?"
+# SEK utan decimaler: ett tal på tre siffror eller mer, med tusentalsgrupp, eller
+# med komma som tusentalsavgränsare och minst två siffror före kommat. `7,200 sek`
+# och `7,2 sek` är sekunder och ska inte träffas.
+_SEK_TAL = r"(?:\d{3,}|" + _TAL_GRUPPERAT + r"|\d{2,3}(?:,\d{3})+)"
+# `7,2 sek. 2 000 kg`: ett SEK som själv står efter ett tal är sekunder, och
+# talet efter punkten hör till nästa mening.
+_SEK_INTE_EFTER_TAL = r"(?<!\d[ \xa0\u202f])"
+_STRECK_SLUT = r"(?![\w\-–—])"
+
+BELOPPSFORMER = (
+    # talet följt av valutaord: 20000kr, 20 000 kronor, 20 tkr
+    *(_TAL + r"\s?" + v + r"\b" for v in ("kr", "kronor", "tkr")),
+    # SEK efter talet. Bara ett tal på tre siffror eller mer, eller med
+    # tusentalsgrupp, och aldrig ett decimaltal: `7,2 sek` är sekunder.
+    r"(?<![\d,.])" + _SEK_TAL + r"\s?sek\b",
+    # valutaord före talet: kr 20000, SEK 20 000. Inte `7,2 sek. 2 000 kg`.
+    r"\bkr\.?\s?\d",
+    _SEK_INTE_EFTER_TAL + r"\bsek\.?\s?\d",
+    # kolon eller komma och streck efter talet: 20 000:-, 20000,-
+    r"\d" + _MELLANRUM + r":" + _MELLANRUM + r"[-–—]",
+    r"\d" + _MELLANRUM + r"," + _MELLANRUM + r"[-–—]",
+    # bindestreck respektive halvstreck efter talet: 20000-, 20 000 –
+    *(
+        _STRECK_BORJAN + tal + _MELLANRUM + streck + _STRECK_SLUT
+        for streck in (r"-", r"[–—]")
+        for tal in (_TAL_GRUPPERAT, _TAL_FYRA_SIFFROR)
+    ),
+    # punkt och bindestreck efter talet: 20 000.-
+    r"\d" + _MELLANRUM + r"\." + _MELLANRUM + r"[-–—]",
+    # moms efter talet: 20000 inkl moms, 20 000 exkl. moms, 20000 incl moms,
+    # 20 000 excl. moms
+    *(
+        r"\d\s?" + m + r"\.?\s?moms\b"
+        for m in ("inkl", "incl", "exkl", "excl", "ex")
+    ),
+    # plus moms efter talet: 20 000 plus moms, 20 000 + moms
+    r"\d\s?plus\.?\s?moms\b",
+    r"\d\s?\+\s?moms\b",
+    *(r"\d\s?" + m + r"\s?moms\b" for m in ("inklusive", "exklusive")),
+    # moms före talet: exkl moms 5 000, plus moms 5000
+    *(
+        r"\b" + m + r"\.?\s?moms\b\s?:?\s?\d"
+        for m in ("inkl", "inklusive", "incl", "exkl", "exklusive", "ex", "plus")
+    ),
+    # talet med k efter: 20k. Inte `ABC 12K` (ett registreringsnummer: tre
+    # versaler och ett blanksteg före) och inte `150k km` eller `10k mil`.
+    r"(?<!(?-i:[A-ZÅÄÖ]{3}) )\b\d+(?:[.,]\d+)?k\b(?!\s?(?:km|mil)\b)",
+    # talet som ord: tjugotusen, tjugo tusen
+    r"\b" + _TALORD + r"+\s?tusen\b",
+    # siffra och tusen: 20 tusen
+    r"\d\s?tusen\b",
+    # tusen följt av valutaord: tusen kronor. Inte `sek`: `tre sek` är sekunder.
+    *(r"\btusen\s?" + v + r"\b" for v in _VALUTA),
+    # talord under tusen följt av valutaord: femtio kronor, tvåhundra kr. Talord
+    # träffas bara när `kronor` eller `kr` följer, aldrig `sek`.
+    *(r"\b" + _TALORD + r"+\s?" + v + r"\b" for v in _VALUTA),
+)
+BELOPP_I_EXEMPEL = re.compile("|".join(BELOPPSFORMER), flags=re.IGNORECASE)
+
 
 def _duger_som_exempel(par: dict) -> bool:
-    """Ett par duger när båda leden bär text, svaret ryms, och §11 hålls.
+    """Ett par duger när båda leden bär text, svaret ryms, svaret inte bär ett
+    belopp (`BELOPP_I_EXEMPEL`), och §11 hålls.
 
     §11:s regler som prövas här: första person plural, inga tankstreck eller
     bindestreck som skiljetecken, aldrig "friverkstad". Konkurrentnamn prövas
@@ -2193,6 +2285,8 @@ def _duger_som_exempel(par: dict) -> bool:
     if BINDESTRECK_SOM_SKILJETECKEN.search(ut_text):
         return False
     if "friverkstad" in ut_text.lower():
+        return False
+    if BELOPP_I_EXEMPEL.search(ut_text):
         return False
 
     return not FORBJUDNA_PRONOMEN.search(ut_text)
@@ -3018,8 +3112,8 @@ def _utfallstext(utfall: Utfall | None, uppslag: Uppslag | None) -> str:
         "draganordning. Skriv just det, och i samma andetag att vi monterar "
         "en. Skriv inte att registret inte visar en dragkrok. Be aldrig "
         "kunden ordna kroken själv, och gör inte dragkroken till ett "
-        "villkor. Säg också att dragkroken TILLKOMMER utöver baspriset och "
-        "offereras separat. Skriv aldrig att den ingår, följer med eller är "
+        "villkor. Säg också att dragkroken tillkommer och offereras separat. "
+        "Skriv aldrig att den ingår, följer med eller är "
         "inkluderad, och skriv aldrig heller att den INTE gör någon av de "
         "sakerna: ett nekande är lika fel som ett jakande."
     )

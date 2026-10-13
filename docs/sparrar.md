@@ -6466,6 +6466,75 @@ meddelande i `data/tradar.jsonl` eller i backfillens skörd bär svarshuvuden.
 
 ---
 
+## LUCKA UTAN SPÄRR: `spann_utan_enhet_i_exempel`
+
+**LUCKA 87, ÖPPEN OCH MEDVETET SÅ. Lars beslut.**
+
+`generera.BELOPP_I_EXEMPEL` avvisar ett få-exempel vars svar bär ett belopp
+med enhet, `kr`, `kronor`, `SEK`, `tkr`, `:-`, `inkl moms`, `20k` eller talet
+som ord. Ett spann där bara det sista talet bär enheten, till exempel
+`från 25 000 till 27 000 kr`, träffas på det sista talet. Ett spann eller ett
+tal helt utan enhet träffas inte: `25 000 till 27 000.`, `ungefär 20 000.`
+
+Ett par med ett sådant belopp kan alltså bli få-exempel och lära modellen ett
+pris som inte står i `config/priser.json`. Det lades INTE till, eftersom ett
+filter på varje tal i ett spann också fäller vikter, årtal och ledtider.
+
+- **Skydd som finns.** Spärren `genererat-tal-har-kalla` fäller ett kopierat
+  belopp i ett utkast. Kostnaden är ett fällt utkast, inte ett utgående mail.
+- **Kvar.** Modellen kan dras mot beloppet i exemplet.
+
+---
+
+## LUCKA UTAN SPÄRR: `beloppsfilter_i_exempel_har_kanda_falska_traffar`
+
+**LUCKA 88, ÖPPEN OCH MEDVETET SÅ. Lars beslut.**
+
+`generera.BELOPP_I_EXEMPEL` avvisar få-exempel som bär ett belopp. Fyra
+kända former ger en falsk träff eller en miss. Ingen ändras, eftersom alla
+är sällsynta. Tre är falska träffar och därmed fail closed: ett exempel
+mindre. Den fjärde, `KOM 20k`, är en MISS och alltså fail open: ett belopp
+kan nå prompten. Se även lucka 89.
+
+- **Datum med punkt och bindestreck.** `9.-10. okt` och `kl 9.-` träffas av
+  punkt-bindestrecksformen och avvisar paret.
+- **Årtal med öppet slut.** `2015-` följt av blanksteg träffas av
+  bindestrecksformen, till exempel `2015- och 2016-års modell`.
+- **Moms före talet med vilket tal som helst.** `plus moms 3` eller
+  `ex moms 3 dörrar` träffas, eftersom formen kräver en siffra efter
+  `moms` och inte ett belopp.
+- **Gemener mot versaler i `k`-formen.** `abc 12k` med gemener träffas som
+  belopp, medan `KOM 20k` med tre versaler före inte gör det. Skyddet för
+  registreringsnummer (ett registreringsnummer med tre versaler, siffror och
+  en bokstav) vilar på att bokstäverna är versaler.
+
+---
+
+## LUCKA UTAN SPÄRR: `beloppsfilter_i_exempel_missar_former`
+
+**LUCKA 89, ÖPPEN. Fälld fram av §7-granskningen av lucka 88.**
+
+`generera.BELOPP_I_EXEMPEL` släpper igenom beloppsformer nedan. Alla är MISSAR,
+alltså fail open: ett få-exempel med ett sådant belopp kan nå prompten.
+Spärren `genererat-tal-har-kalla` fäller ett kopierat belopp i ett utkast.
+Mätt mot `data/par.jsonl` bär inget av de sex valda exemplen ett belopp.
+
+- **Talord före `sek`, beslutat.** `tusen sek`, `hundra SEK`, `femtio SEK`
+  träffas inte, eftersom `tre sek` är sekunder. Talord träffas bara före `kr`
+  och `kronor`. Lars beslut.
+- **SEK med decimaler.** `20 000,00 SEK` och `500,50 SEK`. SEK-formen kräver
+  ett tal utan decimaler, annars träffas `7,2 sek`. `20 000,00 kr` träffas.
+- **Komma som tusentalsavgränsare, flera grupper och ensam siffra.**
+  `1,200,000 sek` och `2,000 SEK`.
+- **Valutaord före talet med tecken emellan.** `kr:500`, `SEK:500`, `kr-500`.
+- **Andra ord.** `20 000 spänn`, `5 mkr`.
+- **Två blanksteg före strecket.** `20 000  :-`.
+- **SEK efter ett eget tal.** `7 sek 500` och SEK följt av en sifferrad
+  efter ett tal passerar, eftersom ett SEK som själv står efter ett tal räknas
+  som sekunder.
+
+---
+
 ## Mall för en spärrpost
 
 Kopiera blocket nedan per spärr. Varje fält fylls i, tomma fält är en ofärdig
