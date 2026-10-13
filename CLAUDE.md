@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 1.2.0 · **Uppdaterad:** 2026-09-25
+**Version:** 1.3.0 · **Uppdaterad:** 2026-10-13
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje
 sessionsstart.
@@ -80,7 +80,7 @@ aldrig i `docs/`, i commit-meddelanden eller i något som pushas. `data/` och
 
 `scripts/persondatakontroll.py` kör som pre-commit-hook.
 
-Undantag beslutat av Lars. Filer i scratchpad/ får innehålla kundnamn, registreringsnummer, telefonnummer och fullständiga svarstexter. Scratchpad ligger bara lokalt hos Lars och används för rapporter och BESLUT-filer.
+Undantag beslutat av Lars. Filer i scratchpad/ får innehålla kundnamn, registreringsnummer, telefonnummer och fullständiga svarstexter. Scratchpad ligger bara lokalt hos Lars och används för rapporter, där väntande beslut också står.
 
 ## 7. Granskning
 
@@ -190,22 +190,24 @@ Varje avstämning får en fil i den gitignorerade `scratchpad/`:
 scratchpad/Mailbot-CC-report-YYYYMMDD-HHMM.md
 ```
 
-Tidsstämpeln ur `date -u`, aldrig för hand. Första raden tidsstämpel, andra
-HEAD-SHA. Kontrollera att filen skrevs innan du säger att den gjorde det.
+Tidsstämpeln ur `date -u`, aldrig för hand. En fil per pass, och den är kort.
+Första raden är utfallet, `SKEPPAT`, `EJ SKEPPAT` eller `VÄNTAR PÅ BESLUT`, och
+commit-SHA. Andra raden är tidsstämpeln. Sedan bara det Lars behöver veta eller
+besluta. Upprepa inte det som redan är beslutat. Kontrollera att filen skrevs
+innan du säger att den gjorde det.
 
 Efter varje `messages.send`: läs tillbaka message-ID:t och återge det. Går det
 inte att bekräfta, säg det.
 
-### 12.1 Beslutsfil vid väntan på besked
+### 12.1 Beslut vid väntan på besked
 
-Innan ett pass stannar och väntar på besked från Lars: skriv en fil i
-`scratchpad/`, namnet `Mailbot-CC-BESLUT-ÅÅÅÅMMDD-HHMM.md`, tidsstämpel ur
-`date -u`. Filen ska innehålla vad som är gjort hittills, exakt vilka beslut
-som behövs, och vad du föreslår. Lars kör flera CC-fönster samtidigt och ser
-bara via filerna om hans input behövs.
+Stannar ett pass och väntar på besked från Lars: skriv det i SAMMA rapportfil,
+under rubriken `Beslut` närmast under de två första raderna. Där står exakt
+vilka beslut som behövs och vad du föreslår. Första raden är då
+`VÄNTAR PÅ BESLUT`. Ingen separat beslutsfil. Lars kör flera CC-fönster
+samtidigt och ser bara via filerna om hans input behövs.
 
-Varje pass avslutas dessutom alltid med rapportfilen enligt ovan. Ingen fil,
-inget klart.
+Varje pass avslutas alltid med rapportfilen. Ingen fil, inget klart.
 
 ---
 
@@ -216,6 +218,14 @@ i git-historiken, och en bot som faktiskt svarar på mail.
 ---
 
 ## Appendix
+
+### 1.3.0 — 2026-10-13
+
+§12 och §12.1: en rapportfil per pass, kort, med utfall och commit-SHA på första
+raden och tidsstämpel på andra. Den separata `Mailbot-CC-BESLUT-*.md` utgår, och
+ett beslut som väntar står i stället under rubriken `Beslut` i rapportfilen.
+Skälet: två filer per stopp gav upprepningar av det som redan var beslutat, och
+rapporterna växte med varje pass. Lars beslut.
 
 ### 1.2.0 — 2026-09-25
 
