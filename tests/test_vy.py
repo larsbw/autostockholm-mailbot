@@ -1569,10 +1569,9 @@ def test_SKALET_nar_sidan_GENOM_RUTTEN(skal):
 
 # ------------------------------------------------- KÖRNINGSRADEN, SKIVA 54 DEL B
 #
-# Lars beslut: EN RAD I VYN, ingen avisering och ingen hälsokontroll. Raden
-# finns för den döda slingan: `dagligen.kor` fångar allt och kastar aldrig
-# vidare, alltså ser en slinga som slutat producera ut precis som ett dygn utan
-# post. Vyn visar gårdagens utkast och säger ingenting.
+# Lars beslut i skiva 54: EN RAD I VYN. Raden finns för den döda slingan, som
+# annars ser ut precis som ett dygn utan post. Sedan 2026-10-18 larmar också
+# dödmansklockan i `scripts/dagligen.py`, beslutslogg #143.
 
 
 def _korningslogg(sokvag: Path, rader: list[dict]) -> Path:

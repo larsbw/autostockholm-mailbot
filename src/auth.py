@@ -173,6 +173,31 @@ def hamta_credentials(
     return cred
 
 
+def prova_fornyelse(token_sokvag: Path, scopes: list[str]) -> None:
+    """Förnyar tokenen nu, eller kastar `AuthFel` med Googles skäl i klartext.
+
+    **FÖRNYAR ÄVEN EN GILTIG TOKEN**, och det skiljer den från
+    `hamta_credentials`. Ett lösenordsbyte återkallar refresh-tokenen men inte
+    nödvändigtvis den access-token som redan är utfärdad; en prövning som
+    nöjde sig med `cred.valid` hade sagt ja i upp till en timme till. Lars
+    beslut 2026-10-18, efter att tokenerna dött 2026-10-12 utan att något
+    larmade.
+
+    Ingen webbläsare, aldrig. Googles felrad (`invalid_grant: Token has been
+    expired or revoked.`) bär ingen hemlighet och skrivs ut som den är.
+    """
+    cred = _las_token(token_sokvag, scopes)
+    if cred is None or not cred.refresh_token:
+        raise AuthFel(f"{token_sokvag.name} saknas, är trasig eller bär inte "
+                      f"{scopes}.")
+    try:
+        cred.refresh(Request())
+    except RefreshError as fel:
+        skal = fel.args[0] if fel.args else type(fel).__name__
+        raise AuthFel(f"{token_sokvag.name} går inte att förnya: {skal}") from fel
+    _skriv_token(cred, token_sokvag)
+
+
 class Sandformaga(Exception):
     """Credentialen bär ett scope som kan skicka mail."""
 

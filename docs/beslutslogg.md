@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.89.0 · **Uppdaterad:** 2026-10-02 · **Implementerar** CLAUDE.md §8
+**Version:** 0.90.0 · **Uppdaterad:** 2026-10-18 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -8573,7 +8573,41 @@ epa, och lyfte `begära offert` ur `aldrig`. Alla rättade och bundna av test.
 Ny post ⇒ MINOR.
 
 
+## #143 — Dödmansklocka i stället för Gmail-driftlarm, tokenprov vid start
+
+**Datum:** 2026-10-18 · **Berör:** `scripts/dagligen.py`, `scripts/tokenprov.py`,
+`src/auth.py`, `src/gmailutkast.py`, `src/sokvagar.py`
+
+**Beslut, Lars.** Driftlarmet går inte längre genom Gmail. Efter varje körning
+pingar `scripts/dagligen.py` URL:en i `MAILBOT_DODMANSURL` (healthchecks.io),
+och `/fail` efter en misslyckad. Vid start förnyar `scripts/tokenprov.py` båda
+tokenerna, och går det inte pingas `/fail`. En misslyckad körning avslutar
+processen med sin exitkod.
+
+**Skälet.** Lösenordet på brevlådan byttes, vilket återkallar tokenerna. Från
+2026-10-12 08:10 UTC föll varje körning på läs-tokenen. Driftlarmet var ett
+Gmail-utkast skapat med `token-skriv.json`, återkallat av samma byte, och dess
+utdata fångades och kastades. Ingenting larmade på sex dygn.
+
+**Vad som togs bort.** `scripts/driftlarm.py`, `bygg_driftlarmmeddelande`,
+`skapa_driftlarmutkast`, `driftlarmskapare` och `sokvagar.DRIFTLARMLOGG`.
+
+**§6.** Till tjänsten går bara exitkoden eller tokenprovets egna rader, aldrig
+respond.py:s stderr.
+
+**Railway.** Förvalet är `On Failure` med högst 10 omstarter, avläst ur
+docs.railway.com/guides/restart-policy. Vad som händer efter den tionde står
+inte där. Dödmansklockan larmar inom 26 timmar oavsett.
+
+Ny post ⇒ MINOR.
+
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.90.0 — 2026-10-18
+
+**#143 TILLKOMMER.** Dödmansklocka, tokenprov vid start, avslut med felkod.
+Ny post ⇒ MINOR.
 
 ### 0.89.0 — 2026-10-02
 

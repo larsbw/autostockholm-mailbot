@@ -576,6 +576,12 @@ def test_ett_FEL_i_tokenutbytet_laker_ALDRIG_kroppen():
 # ----------------------------------------------------- DEN DAGLIGA KÖRNINGEN
 
 
+@pytest.fixture(autouse=True)
+def _ingen_riktig_dodmansklocka(monkeypatch):
+    """Inget test får pinga en riktig kontroll, oavsett skalets miljö."""
+    monkeypatch.delenv("MAILBOT_DODMANSURL", raising=False)
+
+
 def _dagligen():
     import importlib.util
     spec = importlib.util.spec_from_file_location(
@@ -635,13 +641,9 @@ def test_schemat_traffar_NASTA_timme_nar_minuten_passerat():
     assert d.nasta_korning(fore) == datetime(2026, 9, 15, 12, 10, tzinfo=timezone.utc)
 
 
-def test_en_MISSLYCKAD_korning_DODAR_INTE_slingan(tmp_path, monkeypatch):
-    """SPÄRR: ett misslyckande ska kosta EN timme, inte alla följande.
-
-    **UTAN DEN HÄR RADEN STÅR BOTEN STILL tills någon märker det.** En körning
-    som kastar hade dödat slingan, och containern lever vidare eftersom vyn är
-    förgrundsprocessen. Ingenting hade blivit rött och ingenting hade larmat.
-    """
+def test_en_KRASCHAD_korning_ger_exitkod_1_och_KASTAR_INTE(tmp_path, monkeypatch):
+    """`kor` fångar allt, så att misslyckandet loggas och pingas innan
+    `slinga` avslutar processen med koden."""
     d = _dagligen()
     monkeypatch.setattr(d, "KORNINGSLOGG", tmp_path / "korningar.jsonl")
 
@@ -693,151 +695,6 @@ def test_en_LYCKAD_korning_loggas_som_lyckad(tmp_path, monkeypatch):
     )["lyckades"] is True
 
 
-# ------------------------------------- DRIFTLARMET, UPPDRAG 2026-09-25 DEL 2
-
-
-class _HuvudUtfall:
-    def __init__(self, returncode=1, stderr="processen kraschade"):
-        self.returncode = returncode
-        self.stdout = ""
-        self.stderr = stderr
-
-
-class _LarmSpion:
-    """Spelar in varje subprocess-anrop `kor` gör. `larm_returkod` styr vad
-    ETT eventuellt larmanrop svarar; huvudkommandot svarar alltid `_huvud`.
-    """
-
-    def __init__(self, huvud, larm_returkod=0):
-        self.anrop: list[list[str]] = []
-        self._huvud = huvud
-        self._larm_returkod = larm_returkod
-
-    def __call__(self, cmd, **_kwargs):
-        self.anrop.append(cmd)
-        if "driftlarm.py" in cmd[1]:
-            return _HuvudUtfall(returncode=self._larm_returkod, stderr="")
-        return self._huvud
-
-
-def test_larmkommandot_bar_ratt_flaggor_och_INGEN_sandflagga():
-    """SPÄRR, samma form som `test_dagliga_kommandot_bar_INGEN_sandflagga`."""
-    d = _dagligen()
-    rad = d.larmkommando("2026-09-25T12:00:00+00:00", 1, "en felrad")
-
-    assert rad[1].endswith("driftlarm.py")
-    assert "--tid" in rad and "2026-09-25T12:00:00+00:00" in rad
-    assert "--exitkod" in rad and "1" in rad
-    assert "--fel" in rad and "en felrad" in rad
-    assert "--send" not in " ".join(rad)
-
-
-def test_driftlarmloggens_sokvag_ar_SOKVAGARS_och_inte_den_har_filens():
-    """Samma bindning som `test_schemats_tokennamn_ar_AUTHS` prövar för
-    tokenfilerna: sökvägen kommer ur `src/sokvagar.py`."""
-    from src import sokvagar
-    assert _dagligen().DRIFTLARMLOGG == sokvagar.DRIFTLARMLOGG
-
-
-def test_ett_larm_SKICKAS_vid_en_misslyckad_korning(tmp_path, monkeypatch):
-    """En körning som avslutas med fel eller en exitkod skild från noll ger
-    ETT driftlarm, och `DRIFTLARMLOGG` får en rad om det lyckades."""
-    d = _dagligen()
-    monkeypatch.setattr(d, "KORNINGSLOGG", tmp_path / "korningar.jsonl")
-    larmlogg = tmp_path / "drift-larm.jsonl"
-    monkeypatch.setattr(d, "DRIFTLARMLOGG", larmlogg)
-    spion = _LarmSpion(_HuvudUtfall())
-
-    kod = d.kor(kor_process=spion)
-
-    assert kod == 1
-    assert len(spion.anrop) == 2, "huvudkommandot OCH larmkommandot"
-    rad = json.loads(larmlogg.read_text(encoding="utf-8"))
-    assert "tid" in rad
-    assert "processen kraschade" not in json.dumps(rad), (
-        "§6: DRIFTLARMLOGG bär bara en tidsstämpel")
-
-
-def test_INGET_larm_vid_en_LYCKAD_korning(tmp_path, monkeypatch):
-    """NEGATIVKONTROLL: utan den vore "larma alltid" grönt på raden ovan."""
-    d = _dagligen()
-    monkeypatch.setattr(d, "KORNINGSLOGG", tmp_path / "korningar.jsonl")
-    larmlogg = tmp_path / "drift-larm.jsonl"
-    monkeypatch.setattr(d, "DRIFTLARMLOGG", larmlogg)
-    spion = _LarmSpion(_HuvudUtfall(returncode=0, stderr=""))
-
-    d.kor(kor_process=spion)
-
-    assert len(spion.anrop) == 1, "bara huvudkommandot, inget larm"
-    assert not larmlogg.exists()
-
-
-def test_INGET_ANDRA_larm_inom_SEX_TIMMAR(tmp_path, monkeypatch):
-    """Taket, Lars beslut: högst ett larm var sjätte timme."""
-    d = _dagligen()
-    monkeypatch.setattr(d, "KORNINGSLOGG", tmp_path / "korningar.jsonl")
-    larmlogg = tmp_path / "drift-larm.jsonl"
-    monkeypatch.setattr(d, "DRIFTLARMLOGG", larmlogg)
-    nyss = datetime.now(timezone.utc) - timedelta(hours=1)
-    larmlogg.write_text(
-        json.dumps({"tid": nyss.isoformat()}) + "\n", encoding="utf-8")
-    spion = _LarmSpion(_HuvudUtfall())
-
-    d.kor(kor_process=spion)
-
-    assert len(spion.anrop) == 1, "bara huvudkommandot: taket höll"
-
-
-def test_larm_TILLATET_igen_EFTER_sex_timmar(tmp_path, monkeypatch):
-    """NEGATIVKONTROLL till raden ovan: taket får inte gälla för alltid."""
-    d = _dagligen()
-    monkeypatch.setattr(d, "KORNINGSLOGG", tmp_path / "korningar.jsonl")
-    larmlogg = tmp_path / "drift-larm.jsonl"
-    monkeypatch.setattr(d, "DRIFTLARMLOGG", larmlogg)
-    for_gammalt = datetime.now(timezone.utc) - timedelta(hours=7)
-    larmlogg.write_text(
-        json.dumps({"tid": for_gammalt.isoformat()}) + "\n", encoding="utf-8")
-    spion = _LarmSpion(_HuvudUtfall())
-
-    d.kor(kor_process=spion)
-
-    assert len(spion.anrop) == 2
-
-
-def test_ETT_MISSLYCKAT_larm_skriver_INGEN_rad_och_far_forsoka_igen(
-        tmp_path, monkeypatch):
-    """Ett larm som själv faller (saknad token, nätverksfel) ska inte låsa
-    taket: nästa misslyckade körning ska få försöka på nytt."""
-    d = _dagligen()
-    monkeypatch.setattr(d, "KORNINGSLOGG", tmp_path / "korningar.jsonl")
-    larmlogg = tmp_path / "drift-larm.jsonl"
-    monkeypatch.setattr(d, "DRIFTLARMLOGG", larmlogg)
-    spion = _LarmSpion(_HuvudUtfall(), larm_returkod=1)
-
-    d.kor(kor_process=spion)
-
-    assert len(spion.anrop) == 2, "larmet försöktes, men föll"
-    assert not larmlogg.exists()
-
-
-def test_ETT_KRASCHAT_larm_stoppar_INTE_slingan(tmp_path, monkeypatch):
-    """SPÄRR: precis som `kor` självt fångar allt från huvudkommandot,
-    fångar `_larma_vid_fel` allt från larmkommandot. Ett larm som inte ens
-    går att STARTA (som `kor_process` som kastar) får inte döda slingan."""
-    d = _dagligen()
-    monkeypatch.setattr(d, "KORNINGSLOGG", tmp_path / "korningar.jsonl")
-    larmlogg = tmp_path / "drift-larm.jsonl"
-    monkeypatch.setattr(d, "DRIFTLARMLOGG", larmlogg)
-
-    def kraschar(*_a, **_k):
-        raise OSError("varken huvud- eller larmkommandot går att starta")
-
-    kod = d.kor(kor_process=kraschar)
-
-    assert kod == 1
-    assert not larmlogg.exists()
-
-
 def test_schemats_tokennamn_ar_AUTHS():
     """Skiva 72. Startraden ska tala om rätt filer."""
     from src import auth
@@ -852,12 +709,225 @@ def test_schemat_SKRIVER_UT_om_tokenfilerna_finns(tmp_path, monkeypatch,
     monkeypatch.setattr(d.sokvagar, "HEMLIGHETER", tmp_path)
     (tmp_path / "token-skriv.json").write_text("{}", encoding="utf-8")
 
-    d.slinga(varv=0)
+    d.slinga(varv=0, kor_process=_Processpion())
 
     ut = capsys.readouterr().out
     assert f"{tmp_path / 'token-skriv.json'}: finns" in ut
     assert f"{tmp_path / 'token-las.json'}: SAKNAS" in ut
     assert "{}" not in ut
+
+
+# ------------------------------- LARMET, LARS BESLUT 2026-10-18 (DEL 2 b, c)
+
+
+class _Utfall:
+    def __init__(self, returncode=0, stdout="", stderr=""):
+        self.returncode, self.stdout, self.stderr = returncode, stdout, stderr
+
+
+class _Processpion:
+    """Svarar på tokenprovet och på respond var för sig och spelar in anropen."""
+
+    def __init__(self, tokenprov=None, respond=None):
+        self.tokenprov = tokenprov or _Utfall(stdout="[tokenprov] ok\n")
+        self.respond = respond or _Utfall()
+        self.anrop: list[str] = []
+
+    def __call__(self, cmd, **_kwargs):
+        namn = Path(cmd[1]).name
+        self.anrop.append(namn)
+        return self.tokenprov if namn == "tokenprov.py" else self.respond
+
+
+class _Pingspion:
+    def __init__(self, kastar=None):
+        self.adresser: list[str] = []
+        self.kroppar: list[str] = []
+        self._kastar = kastar
+
+    def __call__(self, begaran, timeout):
+        if self._kastar:
+            raise self._kastar
+        self.adresser.append(begaran.full_url)
+        self.kroppar.append(begaran.data.decode("utf-8"))
+
+        class Svar:
+            def close(self):
+                pass
+        return Svar()
+
+
+PINGURL = "https://hc-ping.example/abc"
+
+
+@pytest.fixture
+def larmmiljo(tmp_path, monkeypatch):
+    """`_dagligen()` med loggen i tmp, ingen sömn och pingen inspelad."""
+    d = _dagligen()
+    monkeypatch.setattr(d, "KORNINGSLOGG", tmp_path / "korningar.jsonl")
+    monkeypatch.setenv(d.DODMANSVARIABEL, PINGURL)
+    ping = _Pingspion()
+    monkeypatch.setattr(d.urllib.request, "urlopen", ping)
+    sov: list[float] = []
+    korning = dict(sov=sov.append,
+                   nu_funktion=lambda: datetime(2026, 10, 18, 9, 0,
+                                                tzinfo=timezone.utc))
+    return d, ping, sov, korning
+
+
+def test_en_MISSLYCKAD_korning_AVSLUTAR_slingan_med_sin_exitkod(larmmiljo):
+    """DEL 2 b, Lars beslut: Railway ska se felet. Slingan går inte vidare."""
+    d, _ping, _sov, korning = larmmiljo
+    spion = _Processpion(respond=_Utfall(returncode=2))
+
+    kod = d.slinga(varv=3, kor_process=spion, **korning)
+
+    assert kod == 2
+    assert spion.anrop == ["tokenprov.py", "respond.py"], "inget andra varv"
+
+
+def test_LYCKADE_korningar_fortsatter_slingan(larmmiljo):
+    """NEGATIVKONTROLL: utan den vore "avsluta alltid efter ett varv" grönt."""
+    d, _ping, _sov, korning = larmmiljo
+    spion = _Processpion()
+
+    assert d.slinga(varv=3, kor_process=spion, **korning) == 0
+    assert spion.anrop.count("respond.py") == 3
+
+
+def test_main_LAMNAR_slingans_exitkod_till_processen(monkeypatch):
+    """Utan raden i `main` hade slingans kod stannat i Python, och Railway
+    hade sett exitkod 0."""
+    d = _dagligen()
+    monkeypatch.setattr(d, "slinga", lambda: 7)
+
+    assert d.main([]) == 7
+
+
+def test_respond_STDERR_skrivs_ut_i_KLARTEXT(larmmiljo, capsys):
+    """DEL 2 b: felmeddelandet ska stå i Railways logg, inte slängas."""
+    d, _ping, _sov, korning = larmmiljo
+    spion = _Processpion(respond=_Utfall(
+        returncode=1, stderr="src.auth.AuthFel: token-las.json går inte"))
+
+    d.slinga(varv=1, kor_process=spion, **korning)
+
+    assert "src.auth.AuthFel: token-las.json går inte" in capsys.readouterr().err
+
+
+def test_tokenprovets_UTDATA_skrivs_ut_i_KLARTEXT(larmmiljo, capsys):
+    """DEL 2 b. Det gamla driftlarmets utdata fångades och kastades, och
+    därför syns inte i Railways logg varför det föll."""
+    d, _ping, _sov, korning = larmmiljo
+    spion = _Processpion(tokenprov=_Utfall(
+        returncode=1, stdout="[tokenprov] FEL AuthFel: invalid_grant\n"))
+
+    d.slinga(varv=1, kor_process=spion, **korning)
+
+    assert "[tokenprov] FEL AuthFel: invalid_grant" in capsys.readouterr().out
+
+
+def test_ett_FALLANDE_tokenprov_pingar_FAIL_och_stoppar_FORE_forsta_somnen(
+        larmmiljo):
+    """DEL 2 c: döda tokens larmar vid start, via dödmansklockan och inte
+    via Gmail, och ingen körning startas."""
+    d, ping, sov, korning = larmmiljo
+    spion = _Processpion(tokenprov=_Utfall(
+        returncode=1, stdout="[tokenprov] FEL AuthFel: invalid_grant\n"))
+
+    kod = d.slinga(varv=1, kor_process=spion, **korning)
+
+    assert kod == 1
+    assert spion.anrop == ["tokenprov.py"]
+    assert sov == []
+    assert ping.adresser == [PINGURL + "/fail"]
+    assert "invalid_grant" in ping.kroppar[0]
+
+
+def test_ett_GODKANT_tokenprov_pingar_INTE_fail(larmmiljo):
+    """NEGATIVKONTROLL: utan den vore "pinga alltid fail vid start" grönt."""
+    d, ping, _sov, korning = larmmiljo
+
+    d.slinga(varv=1, kor_process=_Processpion(), **korning)
+
+    assert ping.adresser == [PINGURL], "bara körningens lyckade ping"
+
+
+def test_en_MISSLYCKAD_korning_pingar_FAIL_utan_respond_STDERR(larmmiljo):
+    """§6: kroppen går till en tredjepart och bär bara exitkoden."""
+    d, ping, _sov, _korning = larmmiljo
+    utfall = _Utfall(returncode=1, stderr="KUNDTEXT-I-ETT-UNDANTAG")
+
+    d.kor(kor_process=lambda *a, **k: utfall)
+
+    assert ping.adresser == [PINGURL + "/fail"]
+    assert ping.kroppar == ["exitkod 1"]
+
+
+def test_UTAN_variabeln_hoppas_pingen_over_med_en_TYDLIG_rad(larmmiljo,
+                                                            monkeypatch,
+                                                            capsys):
+    """DEL 3: tills Lars satt variabeln ska koden varken krascha eller tiga."""
+    d, ping, _sov, _korning = larmmiljo
+    monkeypatch.delenv(d.DODMANSVARIABEL)
+
+    assert d.kor(kor_process=lambda *a, **k: _Utfall()) == 0
+
+    assert ping.adresser == []
+    assert "dödmansklockan AV" in capsys.readouterr().out
+
+
+def test_en_KRASCHAD_ping_stoppar_INTE_korningen(larmmiljo, monkeypatch,
+                                                 capsys):
+    d, _ping, _sov, _korning = larmmiljo
+    monkeypatch.setattr(d.urllib.request, "urlopen",
+                        _Pingspion(kastar=OSError("nätet är nere")))
+
+    assert d.kor(kor_process=lambda *a, **k: _Utfall()) == 0
+    assert "dödmansklockan MISSLYCKADES OSError" in capsys.readouterr().out
+
+
+def test_FAIL_hamnar_i_SOKVAGEN_fore_en_query(larmmiljo, monkeypatch):
+    """healthchecks.io dokumenterar slug-URL:er med `?create=1`. Efter hela
+    URL:en hade `/fail` hamnat i queryn och pingat grönt."""
+    d, ping, _sov, _korning = larmmiljo
+    monkeypatch.setenv(d.DODMANSVARIABEL, PINGURL + "?create=1")
+
+    d.pinga(False)
+
+    assert ping.adresser == [PINGURL + "/fail?create=1"]
+
+
+def test_ett_PINGFEL_skriver_ALDRIG_ut_URL_en(larmmiljo, monkeypatch, capsys):
+    """Den som har URL:en kan pinga kontrollen grön."""
+    d, _ping, _sov, _korning = larmmiljo
+    monkeypatch.setenv(d.DODMANSVARIABEL, "hc-ping.example/hemlig-uuid")
+
+    d.pinga(False)
+
+    ut = capsys.readouterr().out
+    assert "dödmansklockan MISSLYCKADES ValueError" in ut
+    assert "hemlig-uuid" not in ut
+
+
+def test_tokenprovet_PROVAR_BADA_och_ger_1_om_EN_faller(capsys):
+    import importlib.util
+    from src import auth
+    spec = importlib.util.spec_from_file_location(
+        "tokenprov", ROT / "scripts" / "tokenprov.py")
+    tokenprov = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tokenprov)
+    provade: list[str] = []
+
+    def prova(sokvag, _scopes):
+        provade.append(sokvag.name)
+        if sokvag == auth.SKRIVTOKEN:
+            raise auth.AuthFel("token-skriv.json går inte att förnya: x")
+
+    assert tokenprov.main(prova=prova) == 1
+    assert provade == ["token-las.json", "token-skriv.json"]
+    assert "token-skriv.json går inte att förnya" in capsys.readouterr().out
+    assert tokenprov.main(prova=lambda *_: None) == 0
 
 
 def test_containern_startar_SCHEMAT_och_INGEN_vy():

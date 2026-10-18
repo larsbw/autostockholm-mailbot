@@ -151,6 +151,51 @@ def test_refresherror_ger_authfel_nar_webblasare_inte_tillaten(
     assert spion.anrop == []
 
 
+def test_tokenprovet_FORNYAR_aven_en_GILTIG_token(tmp_path, monkeypatch):
+    """DEL 2 c, Lars beslut 2026-10-18. En utfärdad access-token kan gälla en
+    timme till efter att lösenordsbytet återkallat refresh-tokenen. Ett prov
+    som nöjde sig med `cred.valid` hade sagt ja hela den timmen."""
+    token = fejk.skriv_token(tmp_path / "token-las.json", auth.LASSCOPES,
+                             expiry=FRAMTID)
+    fornyade = []
+
+    def fejk_refresh(self, request):
+        fornyade.append(request)
+        self.token = "fornyat-atkomsttoken"
+
+    monkeypatch.setattr(Credentials, "refresh", fejk_refresh)
+    monkeypatch.setattr(auth, "Request", lambda: "fejkad-request")
+
+    auth.prova_fornyelse(token, auth.LASSCOPES)
+
+    assert len(fornyade) == 1
+    assert json.loads(token.read_text(encoding="utf-8"))["token"] == (
+        "fornyat-atkomsttoken")
+
+
+def test_tokenprovet_ger_GOOGLES_SKAL_i_klartext(tmp_path, monkeypatch):
+    """DEL 2 b: felet ska gå att läsa i Railways logg."""
+    token = fejk.skriv_token(tmp_path / "token-las.json", auth.LASSCOPES,
+                             expiry=FRAMTID)
+
+    def fejk_refresh(self, request):
+        raise RefreshError("invalid_grant: Token has been expired or revoked.")
+
+    monkeypatch.setattr(Credentials, "refresh", fejk_refresh)
+    monkeypatch.setattr(auth, "Request", lambda: "fejkad-request")
+
+    with pytest.raises(auth.AuthFel) as fel:
+        auth.prova_fornyelse(token, auth.LASSCOPES)
+
+    assert "token-las.json" in str(fel.value)
+    assert "invalid_grant: Token has been expired or revoked." in str(fel.value)
+
+
+def test_tokenprovet_FALLER_for_en_saknad_token(tmp_path):
+    with pytest.raises(auth.AuthFel):
+        auth.prova_fornyelse(tmp_path / "token-las.json", auth.LASSCOPES)
+
+
 def test_webblasarflodet_kors_nar_det_tillats_och_inget_annat_gar(
     tmp_path, spion, hemlighet
 ):

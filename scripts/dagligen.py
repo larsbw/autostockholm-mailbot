@@ -47,41 +47,34 @@ filen lägger till ett andra led: kommandoraden byggs av `kommando` och
 
 **UTKAST I GMAIL, SKIVA 69.** Kommandot bär `--gmailutkast`, Lars beslut: varje
 ärende som passerat spärrarna blir ett utkast i kundens tråd utan att någon
-läst det. Det kräver `token-skriv.json` i hemlighetskatalogen. Saknas den
-kör respond utan utkast och returnerar 1.
+läst det. Det kräver `token-skriv.json` i hemlighetskatalogen. Går den inte
+att förnya faller tokenprovet vid start, se LARMET nedan, och respond körs inte.
 
 **§10 GÄLLER FORTFARANDE.** Första sändningen i en ny miljö är Lars beslut,
 oavsett vad som skickats från hans maskin. Den här filen skickar ingenting och
 kan inte börja göra det utan att båda raderna ovan blir röda.
 
-DRIFTLARMET, UPPDRAG 2026-09-25 DEL 2
---------------------------------------
+LARMET, LARS BESLUT 2026-10-18
+------------------------------
 
-Lars beslut: en körning som avslutas med fel eller en exitkod skild från noll
-ska ge ETT Gmail-utkast till info@autostockholm.se, så att ett fel inte ligger
-tyst i Railways logg till nästa gång någon råkar leta.
+Tokenerna dog 2026-10-12 när lösenordet på brevlådan byttes, och slingan stod
+still i sex dygn. Driftlarmet som skulle ha sagt till var ett Gmail-utkast
+skapat med `token-skriv.json`, alltså dog det av samma lösenordsbyte. Det är
+borttaget. I stället:
 
-**SAMMA ISOLERING SOM RESPOND, EN EGEN PROCESS.** Den här filen importerar
-fortfarande bara stdlib och `src.sokvagar`, precis som innan uppdraget:
-`test_vyn_och_kedjan_nar_ALDRIG_gmailutkast[scripts.dagligen]` binder att
-`src.gmailutkast` aldrig får stå i den här filens importgraf, Lars beslut i
-skiva 69 (se `tests/test_gmailutkast.py`). Draftfunktionen ligger i stället i
-`scripts/driftlarm.py`, en fristående process byggd på samma mönster som
-`respond.py`: `krav_pa_sandvagsfrihet("scripts.driftlarm", ...)` körs där,
-inte här, och den processen har sin egen `token-skriv.json`-väg genom
-`src/gmailutkast.py::skriv_tjanst`.
+**DÖDMANSKLOCKAN.** Efter varje körning pingas URL:en i `MAILBOT_DODMANSURL`
+(healthchecks.io), `/fail` efter en misslyckad. Tjänsten larmar Lars när ingen
+lyckad ping kommit på 26 timmar. Inget i den vägen rör Gmail. Är variabeln
+osatt skrivs en rad om det och ingenting pingas.
 
-**TAKET ÄR HÖGST ETT LARM VAR SJÄTTE TIMME**, `LARMFONSTER_S`, så att en
-kvarstående störning inte fyller inkorgen med ett utkast varje timme.
-`logg/drift-larm.jsonl` bär bara en tidsstämpel per skickat larm och skrivs
-ENDAST av den här filen, aldrig av `scripts/driftlarm.py`, se
-`src/sokvagar.py::DRIFTLARMLOGG`.
+**TOKENPROVET VID START.** `scripts/tokenprov.py` förnyar båda tokenerna innan
+slingan sover första gången. Går det inte pingas `/fail` och processen avslutas.
 
-**ETT MISSLYCKAT LARM STOPPAR INGET.** `_larma_vid_fel` fångar allt av samma
-skäl som `kor` gör: ett trasigt larm (saknad `token-skriv.json`, ett nätverksfel)
-ska kosta det larmet, inte slingan, och skriver ingen rad i
-`logg/drift-larm.jsonl` när det misslyckas, så att nästa misslyckade körning
-får försöka igen.
+**EN MISSLYCKAD KÖRNING AVSLUTAR PROCESSEN MED SAMMA KOD**, så att Railway
+markerar den som misslyckad och startar om den. Railways förval, avläst
+2026-10-18 ur docs.railway.com/guides/restart-policy: *"The default is `On
+Failure` with a maximum of 10 restarts."* En omstart sover till nästa
+`MINUT_UTC`, alltså kostar ett misslyckande fortfarande en timme.
 """
 
 from __future__ import annotations
@@ -92,6 +85,8 @@ import os
 import subprocess
 import sys
 import time
+import urllib.parse
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -112,12 +107,6 @@ ROT = Path(__file__).resolve().parent.parent
 # loggen en andra läsare, `vy.korningsrad`, och skälet att namnet bor där står i
 # den modulen.
 KORNINGSLOGG = sokvagar.KORNINGSLOGG
-
-# DRIFTLARMETS EGEN LOGG, uppdrag 2026-09-25 DEL 2. Bär bara en tidsstämpel
-# per skickat larm, se `src/sokvagar.py::DRIFTLARMLOGG` för varför den är en
-# egen fil och inte en rad i `KORNINGSLOGG`. Sökvägen är `src/sokvagar.py`:s
-# av samma skäl som `KORNINGSLOGG` ovan.
-DRIFTLARMLOGG = sokvagar.DRIFTLARMLOGG
 
 # TOKENFILERNA RESPOND BEHÖVER, skiva 72. Namnen är `src/auth.py`:s och står
 # här som text, eftersom schemat inte importerar Gmail-vägen.
@@ -168,14 +157,16 @@ SEKUNDER_PER_ARENDE = 60
 # ska ligga, bara vad som händer det som faller över det.*
 ANTAL = TIMEOUT_S // SEKUNDER_PER_ARENDE
 
-# DRIFTLARMETS TAK. Uppdrag 2026-09-25 DEL 2, Lars beslut: högst ett larm var
-# sjätte timme, så att en kvarstående störning inte skickar ett utkast varje
-# timme och fyller inkorgen. Talet är VALT och inte mätt.
-LARMFONSTER_S = 6 * 60 * 60
+# DÖDMANSKLOCKANS PING-URL. Lars beslut 2026-10-18. Läses vid varje ping och
+# inte när modulen laddas, så att en variabel Lars sätter i Railway gäller
+# från nästa omstart utan kodändring. URL:en skrivs aldrig ut: den som har den
+# kan pinga kontrollen grön.
+DODMANSVARIABEL = "MAILBOT_DODMANSURL"
 
-# TAK FÖR DRIFTLARMETS EGEN PROCESS. Ett `drafts().create`-anrop, inte en
-# ärendekedja: 30 s är gott om marginal och VALT, inte mätt.
-LARM_TIMEOUT_S = 30
+# TAK FÖR EN PING och för tokenprovet. VALDA, inte mätta: en ping är ett
+# HTTP-anrop, tokenprovet två förnyelser mot Google.
+PING_TIMEOUT_S = 10
+TOKENPROV_TIMEOUT_S = 60
 
 
 def kommando(antal: int = ANTAL) -> list[str]:
@@ -188,14 +179,9 @@ def kommando(antal: int = ANTAL) -> list[str]:
             "--inkorg", "--gmailutkast", "--antal", str(antal)]
 
 
-def larmkommando(tid: str, exitkod: int, fel: str) -> list[str]:
-    """Kommandoraden för driftlarmet. Uppdrag 2026-09-25 DEL 2.
-
-    **EGEN FUNKTION AV SAMMA SKÄL SOM `kommando`**: så att kommandoraden går
-    att läsa ur ett test utan att faktiskt starta processen.
-    """
-    return [sys.executable, str(ROT / "scripts" / "driftlarm.py"),
-            "--tid", tid, "--exitkod", str(exitkod), "--fel", fel]
+def tokenprovkommando() -> list[str]:
+    """Kommandoraden för tokenprovet, av samma skäl som `kommando`."""
+    return [sys.executable, str(ROT / "scripts" / "tokenprov.py")]
 
 
 def _logga(post: dict) -> None:
@@ -205,85 +191,65 @@ def _logga(post: dict) -> None:
         fh.write(json.dumps(post, ensure_ascii=False) + "\n")
 
 
-def _senaste_larm(fil: Path) -> datetime | None:
-    """Tidsstämpeln för senast SKICKADE driftlarmet, eller None.
+def pinga(lyckad: bool, kropp: str = "", oppna=None) -> None:
+    """Pingar dödmansklockan, `/fail` när `lyckad` är falsk. Kastar aldrig.
 
-    Samma toleranta läsning som `vy.senaste_lyckade`: en trasig rad hoppas
-    över i stället för att fälla läsningen, av samma skäl den funktionens
-    docstring ger.
+    §6: `kropp` hamnar hos en tredjepart. Anroparna skickar bara exitkoden
+    eller tokenprovets egna rader, aldrig respond.py:s stderr.
     """
-    if not fil.exists():
-        return None
-    senaste = None
-    for rad in fil.read_text(encoding="utf-8").splitlines():
-        if not rad.strip():
-            continue
-        try:
-            tid = datetime.fromisoformat(json.loads(rad)["tid"])
-        except (ValueError, KeyError, TypeError):
-            continue
-        if tid.tzinfo is None:
-            tid = tid.replace(tzinfo=timezone.utc)
-        if senaste is None or tid > senaste:
-            senaste = tid
-    return senaste
+    oppna = urllib.request.urlopen if oppna is None else oppna
+    url = os.environ.get(DODMANSVARIABEL, "").strip()
+    if not url:
+        print(f"[dagligen] dödmansklockan AV: {DODMANSVARIABEL} är inte satt, "
+              "ingen ping", flush=True)
+        return
+    # `/fail` I SÖKVÄGEN, före en eventuell query (`?create=1`). Efter hela
+    # URL:en hade det hamnat i queryn och pingat grönt. Fällt av granskningen.
+    delar = urllib.parse.urlsplit(url)
+    sokvag = delar.path.rstrip("/") + ("" if lyckad else "/fail")
+    adress = urllib.parse.urlunsplit(delar._replace(path=sokvag))
+    try:
+        oppna(urllib.request.Request(adress, data=kropp.encode("utf-8")),
+              timeout=PING_TIMEOUT_S).close()
+    except Exception as e:  # noqa: BLE001
+        # `ValueError: unknown url type` citerar hela URL:en. Fällt av
+        # granskningen.
+        text = str(e).replace(adress, "<URL>").replace(url, "<URL>")
+        print(f"[dagligen] dödmansklockan MISSLYCKADES {type(e).__name__}: "
+              f"{text}", flush=True)
+        return
+    print(f"[dagligen] dödmansklockan pingad ({'ok' if lyckad else 'fail'})",
+          flush=True)
 
 
-def _larm_tillatet(nu: datetime, fil: Path) -> bool:
-    """Sant om `LARMFONSTER_S` gått sedan senaste SKICKADE larmet."""
-    senaste = _senaste_larm(fil)
-    return senaste is None or (nu - senaste).total_seconds() >= LARMFONSTER_S
+def prova_tokens(kor_process=None) -> int:
+    """Kör `scripts/tokenprov.py` och skriver ut allt den säger. Exitkoden.
 
-
-def _larma_vid_fel(nu: datetime, kod: int, fel: str, kor_process=None) -> None:
-    """Skapar ett driftlarm om taket i `LARMFONSTER_S` tillåter det.
-
-    `nu` är körningens EGEN starttid (`startad` i `kor`), både som larmets
-    tidsstämpel och som jämförelsepunkt mot `logg/drift-larm.jsonl`: samma
-    värde som redan loggas i `logg/korningar.jsonl` för samma körning.
-
-    **FÅNGAR ALLT**, samma villkor som `kor` självt: ett trasigt larm ska
-    kosta det larmet, inte slingan. Misslyckas det skrivs ingen rad i
-    `DRIFTLARMLOGG`, så att nästa misslyckade körning får försöka igen.
+    Misslyckas provet pingas `/fail` med provets egna rader som kropp.
     """
     kor_process = subprocess.run if kor_process is None else kor_process
-    if not _larm_tillatet(nu, DRIFTLARMLOGG):
-        print("[dagligen] driftlarm hoppas över: mindre än "
-              f"{LARMFONSTER_S // 3600} timmar sedan senaste", flush=True)
-        return
-
     try:
-        utfall = kor_process(
-            larmkommando(nu.isoformat(), kod, fel),
-            cwd=str(ROT),
-            capture_output=True,
-            text=True,
-            timeout=LARM_TIMEOUT_S,
-        )
-        lyckades = utfall.returncode == 0
+        utfall = kor_process(tokenprovkommando(), cwd=str(ROT),
+                             capture_output=True, text=True,
+                             timeout=TOKENPROV_TIMEOUT_S)
+        kod = utfall.returncode
+        text = ((utfall.stdout or "") + (utfall.stderr or "")).strip()
     except Exception as e:  # noqa: BLE001
-        print(f"[dagligen] driftlarm MISSLYCKADES {type(e).__name__}",
-              flush=True)
-        return
-
-    if not lyckades:
-        print(f"[dagligen] driftlarm MISSLYCKADES, exitkod "
-              f"{utfall.returncode}", flush=True)
-        return
-
-    DRIFTLARMLOGG.parent.mkdir(parents=True, exist_ok=True)
-    with DRIFTLARMLOGG.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps({"tid": nu.isoformat()}, ensure_ascii=False)
-                 + "\n")
-    print("[dagligen] driftlarm skickat", flush=True)
+        kod, text = 1, f"tokenprovet gick inte att köra: {type(e).__name__}: {e}"
+    if text:
+        print(text, flush=True)
+    if kod != 0:
+        print(f"[dagligen] tokenprovet FÖLL, exitkod {kod}", flush=True)
+        pinga(False, f"tokenprovet föll vid start, exitkod {kod}\n{text}")
+    return kod
 
 
 def kor(antal: int = ANTAL, kor_process=None) -> int:
     """Kör en gång. Returnerar exitkoden.
 
-    **FÅNGAR ALLT OCH KASTAR ALDRIG VIDARE, och det är slingans villkor.** En
-    körning som kastar hade dödat slingan, och då står boten still tills någon
-    märker det. Ett misslyckande ska kosta EN timme, inte alla följande.
+    **FÅNGAR ALLT OCH KASTAR ALDRIG VIDARE.** Ett misslyckande ska loggas,
+    pingas som `/fail` och komma tillbaka som en exitkod, så att `slinga` kan
+    avsluta processen med den. Ett undantag hade hoppat över alla tre.
 
     **UTDATA GÅR TILL STDOUT OCH RÄKNAS I LOGGEN, men skrivs inte dit.**
     `respond.py` skriver räknare och kategorinamn, aldrig kundtext, men den
@@ -335,11 +301,9 @@ def kor(antal: int = ANTAL, kor_process=None) -> int:
     })
     print(f"[dagligen] exitkod {kod} efter {sekunder} s", flush=True)
 
-    # UPPDRAG 2026-09-25 DEL 2. Efter loggningen, aldrig i stället för den:
-    # körningsloggen är beviset för slingans egen hälsa oavsett om larmet
-    # går fram. `nu` är körningens EGEN starttid, se `_larma_vid_fel`.
-    if kod != 0:
-        _larma_vid_fel(startad_dt, kod, sista, kor_process=kor_process)
+    # Efter loggningen, aldrig i stället för den. §6: bara exitkoden går till
+    # tjänsten, inte `sista`, som är respond.py:s egen stderr.
+    pinga(kod == 0, f"exitkod {kod}")
 
     return kod
 
@@ -357,11 +321,16 @@ def nasta_korning(nu: datetime) -> datetime:
     return mal
 
 
-def slinga(sov=None, nu_funktion=None, varv: int | None = None) -> None:
-    """Sover till nästa körning, kör, upprepar.
+def slinga(sov=None, nu_funktion=None, varv: int | None = None,
+           kor_process=None) -> int:
+    """Prövar tokenerna, sover till nästa körning, kör, upprepar. Exitkoden.
 
-    `sov` och `nu_funktion` finns för testet. `varv` begränsar antalet varv och
-    är None i drift, alltså för alltid.
+    **RETURNERAR VID FÖRSTA FELET**, tokenprovets eller en körnings, med dess
+    kod. Lars beslut 2026-10-18: Railway ska se att något gått fel. Se
+    modulens docstring för vad Railway gör sedan.
+
+    `sov`, `nu_funktion` och `kor_process` finns för testet. `varv` begränsar
+    antalet varv och är None i drift, alltså för alltid.
     """
     sov = time.sleep if sov is None else sov
     nu_funktion = (lambda: datetime.now(timezone.utc)) if nu_funktion is None \
@@ -376,6 +345,10 @@ def slinga(sov=None, nu_funktion=None, varv: int | None = None) -> None:
         print(f"[dagligen] {fil}: {'finns' if fil.is_file() else 'SAKNAS'}",
               flush=True)
 
+    kod = prova_tokens(kor_process=kor_process)
+    if kod != 0:
+        return kod
+
     kvar = varv
     while kvar is None or kvar > 0:
         nu = nu_funktion()
@@ -384,9 +357,13 @@ def slinga(sov=None, nu_funktion=None, varv: int | None = None) -> None:
         print(f"[dagligen] nästa körning {mal.isoformat()}, "
               f"om {int(sekunder)} s", flush=True)
         sov(sekunder)
-        kor()
+        kod = kor(kor_process=kor_process)
+        if kod != 0:
+            print(f"[dagligen] avslutar med exitkod {kod}", flush=True)
+            return kod
         if kvar is not None:
             kvar -= 1
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -399,8 +376,7 @@ def main(argv: list[str] | None = None) -> int:
     if arg.nu:
         return kor(arg.antal)
 
-    slinga()
-    return 0
+    return slinga()
 
 
 if __name__ == "__main__":
