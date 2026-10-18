@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 1.3.0 · **Uppdaterad:** 2026-10-13
+**Version:** 1.4.0 · **Uppdaterad:** 2026-10-18
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje
 sessionsstart.
@@ -65,6 +65,11 @@ En uppgift är inte klar förrän origin/main bär den. `git status`, commit, pu
 verifiera att HEAD är lika med origin/main. Fråga inte om lov.
 
 Sista raden i varje rapport är commit-SHA:n.
+
+**Ett pass som rör driften är inte klart förrän en körning efter deployen har
+lyckats och verifierats ur en avgränsad logg:** exitkod 0, `lyckades: true` i
+`logg/korningar.jsonl` och `dödmansklockan pingad (ok)`. Grön svit och SUCCESS
+på deployen räcker inte.
 
 **Sändning är aldrig del av att skeppa.** `respond.py --send` körs på Lars
 uttryckliga instruktion, aldrig som default, aldrig för att pröva att koden
@@ -165,6 +170,10 @@ enskilt kommando får blockera passet längre än fem minuter.
 - Att sänka confidence-tröskeln
 - En körning som skulle skicka mer än ett mail
 - Nytt OAuth-scope, ny avsändaradress
+- Ett lösenordsbyte på info@autostockholm.se återkallar båda tokenerna, och det
+  gör även en återställning eller en återkallad åtkomst. Båda auktoriseras om
+  och laddas upp till `/volym/hemligheter` innan passet är klart. Glöms det
+  larmar dödmansklockan inom 26 timmar.
 
 Vid tvetydig instruktion som rör sändning: fråga vad som menas.
 
@@ -218,6 +227,15 @@ i git-historiken, och en bot som faktiskt svarar på mail.
 ---
 
 ## Appendix
+
+### 1.4.0 — 2026-10-18
+
+§5: ett driftpass är klart först när en körning efter deployen lyckats och
+verifierats ur en avgränsad logg. §10: ett lösenordsbyte, en återställning
+eller en återkallad åtkomst på brevlådan kräver att båda tokenerna auktoriseras
+om och laddas upp. Skälet: lösenordet byttes, tokenerna dog 2026-10-12 och
+ingenting larmade på sex dygn. Rapportformatet i §12 och §12.1, en fil per pass
+utan separat beslutsfil, stod redan sedan 1.3.0. Lars beslut.
 
 ### 1.3.0 — 2026-10-13
 
