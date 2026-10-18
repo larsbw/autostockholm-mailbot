@@ -346,6 +346,47 @@ def svarsvag_ur_trad(trad: dict) -> vy.Svarsvag | None:
     )
 
 
+def urval_med_tak(tradar, domaner: set[str], antal: int, korning,
+                  omdomesfil: Path | None = None) -> tuple[list, list, int, int]:
+    """`(ärenden, svarsvägar, antal över taket, antal redan hanterade)`.
+
+    LUCKA 86, SKIVA 70. Slingan går igenom ALLA trådar också när taket nåtts,
+    så att det som faller räknas. Räkningen kostar inga anrop.
+
+    **DUBBLETTSKYDDET FÖRE TAKET, Lars beslut 2026-10-18.** En tråd som är
+    besvarad eller redan har ett försök i `omdomesfil` (`vy.gmailutkast_finns`)
+    kan inte ge ett kundutkast, och körs därför inte genom kedjan alls. Förut
+    tog sådana ärenden platser under taket, och de som kom efter föll.
+
+    *Första lydelsen körde dem genom kedjan utan att räkna dem mot taket. Då
+    begränsade taket inte längre körningens tid eller antalet modellanrop och
+    uppslag, och en spärrad omkörning kunde ge ett larmutkast. Fällt av
+    §7-granskningen.* Priset: en tråd med utkast där kunden skrivit igen
+    flaggas inte längre som inaktuell i vyn.
+    """
+    omdomesfil = vy.OMDOMEN if omdomesfil is None else omdomesfil
+    arenden: list[Arende] = []
+    svarsvagar: list = []
+    over_taket = hanterade = 0
+    for trad in tradar:
+        arende, skal = arende_ur_trad(trad, domaner)
+        if arende is None:
+            korning.tradar += 1
+            korning.sallade.append((trad.get("id", ""), skal))
+            continue
+        if (arende.besvarad
+                or vy.gmailutkast_finns(trad.get("id", ""), omdomesfil)):
+            hanterade += 1
+            continue
+        if antal and len(arenden) >= antal:
+            over_taket += 1
+            continue
+        korning.tradar += 1
+        arenden.append(arende)
+        svarsvagar.append(svarsvag_ur_trad(trad))
+    return arenden, svarsvagar, over_taket, hanterade
+
+
 # ----------------------------------------------------------- DEL B: slingan
 
 
@@ -986,23 +1027,11 @@ def _kor(arg) -> int:
               f"{' '.join(inkorg.LASSCOPES)} och kan inte skicka.")
 
     korning = Korning()
-    arenden: list[Arende] = []
-    svarsvagar: list = []
-    # LUCKA 86, SKIVA 70. Slingan går igenom ALLA trådar också när taket nåtts,
-    # så att det som faller räknas. Ett ärende över taket kommer aldrig
-    # tillbaka, och det får inte ske tyst. Räkningen kostar inga anrop.
-    over_taket = 0
-    for trad in tradar:
-        arende, skal = arende_ur_trad(trad, domaner)
-        if arende is not None and arg.antal and len(arenden) >= arg.antal:
-            over_taket += 1
-            continue
-        korning.tradar += 1
-        if arende is None:
-            korning.sallade.append((trad.get("id", ""), skal))
-            continue
-        arenden.append(arende)
-        svarsvagar.append(svarsvag_ur_trad(trad))
+    arenden, svarsvagar, over_taket, hanterade = urval_med_tak(
+        tradar, domaner, arg.antal, korning)
+    if hanterade:
+        print(f"DUBBLETTSKYDD: {hanterade} ärenden i besvarade trådar eller "
+              "trådar med utkast körs inte.")
     if over_taket:
         print(f"TAKET NÅTT: {over_taket} ärenden över --antal {arg.antal} "
               "körs inte och kommer inte tillbaka.")

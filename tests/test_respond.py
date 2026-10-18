@@ -1081,3 +1081,106 @@ def test_gmailutkast_hoppar_over_borttagning_utan_utkast_tjanst(
 
     assert korning.gmail_skapade == 1
     assert korning.regnrfilter_borttagna == 0
+
+
+# ------------------------- DUBBLETTSKYDDET FÖRE TAKET, LARS BESLUT 2026-10-18
+
+
+def _besvarad_trad(trad_id: str) -> dict:
+    fraga = meddelande("Hej, kan ni bygga om min bil?")
+    svar = meddelande(
+        "Hej, det kan vi.", sent=True,
+        huvuden={"From": "info@autostockholm.se",
+                 "To": "kund@exempel.invalid",
+                 "In-Reply-To": "<a@exempel.invalid>",
+                 "References": "<a@exempel.invalid>"})
+    return trad(fraga, svar, trad_id=trad_id)
+
+
+def _ny_trad(trad_id: str) -> dict:
+    return trad(meddelande("Hej, kan ni bygga om min bil?"), trad_id=trad_id)
+
+
+def _med_forsok(trad_id: str, omdomesfil: Path) -> None:
+    vy.spara_gmailutkast(
+        vy.Fall(etikett="fråga om a-traktorkonvertering", kalla="kedjan",
+                text="", tidsstampel="", avsandare_hash=""),
+        trad_id, "skapat", "m-" + trad_id, "d-" + trad_id,
+        omdomesfil=omdomesfil)
+
+
+def test_HANTERADE_tradar_tar_INGEN_plats_under_taket(tmp_path, monkeypatch):
+    """Förut tog en tråd med utkast eller svar en plats under taket, och
+    trådarna efter den föll."""
+    peka_om_katalogerna(monkeypatch, tmp_path)
+    omdomesfil = tmp_path / "logg" / "omdomen.jsonl"
+    _med_forsok("t-utkast", omdomesfil)
+    tradar = [_ny_trad("t-utkast"), _besvarad_trad("t-svar"),
+              _ny_trad("t-ny1"), _ny_trad("t-ny2")]
+
+    arenden, svarsvagar, over, hanterade = respond.urval_med_tak(
+        tradar, set(), 2, respond.Korning(), omdomesfil=omdomesfil)
+
+    assert [s.trad_id for s in svarsvagar] == ["t-ny1", "t-ny2"]
+    assert len(arenden) == 2
+    assert (over, hanterade) == (0, 2)
+
+
+def test_HANTERADE_tradar_kors_INTE_genom_kedjan(tmp_path, monkeypatch):
+    """§7-granskningen: i kedjan kostar de tid, modellanrop och uppslag, och
+    en spärrad omkörning kan ge ett larmutkast. Taket ska begränsa allt det."""
+    peka_om_katalogerna(monkeypatch, tmp_path)
+    omdomesfil = tmp_path / "logg" / "omdomen.jsonl"
+    _med_forsok("t-utkast", omdomesfil)
+
+    arenden, svarsvagar, over, hanterade = respond.urval_med_tak(
+        [_ny_trad("t-utkast"), _besvarad_trad("t-svar")], set(), 0,
+        respond.Korning(), omdomesfil=omdomesfil)
+
+    assert (arenden, svarsvagar, over, hanterade) == ([], [], 0, 2)
+
+
+def test_taket_GALLER_fortfarande_for_NYA_tradar(tmp_path, monkeypatch):
+    """NEGATIVKONTROLL: utan den vore "inget tak alls" grönt ovan."""
+    peka_om_katalogerna(monkeypatch, tmp_path)
+    omdomesfil = tmp_path / "logg" / "omdomen.jsonl"
+    tradar = [_ny_trad("t-ny1"), _ny_trad("t-ny2"), _ny_trad("t-ny3")]
+
+    _arenden, svarsvagar, over, _hanterade = respond.urval_med_tak(
+        tradar, set(), 2, respond.Korning(), omdomesfil=omdomesfil)
+
+    assert [s.trad_id for s in svarsvagar] == ["t-ny1", "t-ny2"]
+    assert over == 1
+
+
+def test_antal_NOLL_betyder_INGET_tak(tmp_path, monkeypatch):
+    """`--antal 0` är "alla". Luckan fanns före ändringen, funnen av
+    §7-granskningen."""
+    peka_om_katalogerna(monkeypatch, tmp_path)
+    omdomesfil = tmp_path / "logg" / "omdomen.jsonl"
+
+    _arenden, svarsvagar, over, _hanterade = respond.urval_med_tak(
+        [_ny_trad("t-ny1"), _ny_trad("t-ny2")], set(), 0, respond.Korning(),
+        omdomesfil=omdomesfil)
+
+    assert [s.trad_id for s in svarsvagar] == ["t-ny1", "t-ny2"]
+    assert over == 0
+
+
+def test_ett_BORTTAGET_utkast_raknas_mot_taket_igen(tmp_path, monkeypatch):
+    """Skiva 75: en tråd vars senaste rad är `borttaget` får ett nytt försök,
+    alltså ska den också ta en plats under taket."""
+    peka_om_katalogerna(monkeypatch, tmp_path)
+    omdomesfil = tmp_path / "logg" / "omdomen.jsonl"
+    _med_forsok("t-bort", omdomesfil)
+    vy.spara_gmailutkast(
+        vy.Fall(etikett="fråga om a-traktorkonvertering", kalla="kedjan",
+                text="", tidsstampel="", avsandare_hash=""),
+        "t-bort", vy.BORTTAGET, omdomesfil=omdomesfil)
+
+    _arenden, svarsvagar, over, hanterade = respond.urval_med_tak(
+        [_ny_trad("t-bort"), _ny_trad("t-ny1")], set(), 1, respond.Korning(),
+        omdomesfil=omdomesfil)
+
+    assert [s.trad_id for s in svarsvagar] == ["t-bort"]
+    assert (over, hanterade) == (1, 0)

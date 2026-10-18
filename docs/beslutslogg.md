@@ -1,6 +1,6 @@
 # Beslutslogg
 
-**Version:** 0.90.0 · **Uppdaterad:** 2026-10-18 · **Implementerar** CLAUDE.md §8
+**Version:** 0.91.0 · **Uppdaterad:** 2026-10-18 · **Implementerar** CLAUDE.md §8
 
 Sekventiell och append-only. Nummer återanvänds aldrig. En post rättas genom en
 ny post som upphäver den, aldrig genom att den gamla skrivs om.
@@ -8602,7 +8602,35 @@ inte där. Dödmansklockan larmar inom 26 timmar oavsett.
 Ny post ⇒ MINOR.
 
 
+## #144 — Dubblettskyddet före taket
+
+**Datum:** 2026-10-18 · **Berör:** `scripts/respond.py`, `tests/test_respond.py`
+
+**Beslut, Lars.** Ärenden som redan har utkast eller svar räknas inte mot
+`--antal`.
+
+**Vad som byggdes.** `respond.urval_med_tak`: en tråd som är besvarad eller har
+ett försök i `logg/omdomen.jsonl` (`vy.gmailutkast_finns`) tas bort före
+taket och körs inte genom kedjan. Antalet skrivs ut som `DUBBLETTSKYDD: N`.
+
+**Varför den inte körs genom kedjan.** Första lydelsen körde den utan att
+räkna den. Då begränsade taket inte längre tid, modellanrop eller uppslag, och
+en spärrad omkörning kunde ge ett larmutkast. Fällt av §7-granskningen. Priset:
+flaggan för ett inaktuellt utkast och beslutsraden för sådana trådar uteblir.
+
+**Vad den inte löser.** Ett ärende i hinken `aldrig` eller utan
+a-traktorkategori har varken utkast eller svar och räknas fortfarande. Körningen
+2026-10-18 10:10 körde om 45 ärenden, och 43 av dem var sådana. Att undanta
+redan behandlade ärenden kräver ett tråd-id i `logg/beslut.jsonl`, som saknas.
+
+Ny post ⇒ MINOR.
+
+
 ## Appendix — versionshistorik (nyaste överst)
+
+### 0.91.0 — 2026-10-18
+
+**#144 TILLKOMMER.** Dubblettskyddet före taket. Ny post ⇒ MINOR.
 
 ### 0.90.0 — 2026-10-18
 

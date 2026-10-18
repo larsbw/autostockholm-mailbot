@@ -1387,6 +1387,8 @@ def test_TAKET_raknar_det_som_faller_och_tar_resten(tmp_path, monkeypatch,
     # utskriften räknar dem relativt den.
     monkeypatch.setattr(respond.vy, "spara_granskningsfall",
                         lambda fall: respond.ROT / "data" / "stubb.jsonl")
+    # Dubblettskyddet i urvalet läser omdömesloggen, aldrig driftens här.
+    monkeypatch.setattr(respond.vy, "OMDOMEN", tmp_path / "omdomen.jsonl")
 
     respond.main(["--tradar", str(fil), "--antal", "1"])
 
