@@ -1,6 +1,6 @@
 # CLAUDE.md — autostockholm-mailbot
 
-**Version:** 1.4.0 · **Uppdaterad:** 2026-10-18
+**Version:** 1.4.1 · **Uppdaterad:** 2026-10-22
 
 Beteenderegler för AI-agenten i autostockholm-mailbot. Läses vid varje
 sessionsstart.
@@ -177,6 +177,20 @@ enskilt kommando får blockera passet längre än fem minuter.
 
 Vid tvetydig instruktion som rör sändning: fråga vad som menas.
 
+### 10.1 Röktestet
+
+`scripts/smoketest.py` prövar varje hemlighet mot sin tjänst med minsta
+anrop, läst som produktionen läser den. Kör det efter varje nyckelrotation och
+efter varje lösenordsbyte, återställning eller återkallad åtkomst på info@, i
+containern så att `/volym/hemligheter` prövas:
+
+```
+railway ssh -- sh -c 'cd /app && python scripts/smoketest.py'
+```
+
+Exitkod 0 krävs innan passet är klart. Det skickar ingenting, och
+dödmansklockan får `/log`, som inte ändrar dess status.
+
 ## 11. Hur mailen ska låta
 
 - **Rösten byggs ur `data/par.jsonl`**, alltså ur svar Matte faktiskt skickat.
@@ -227,6 +241,11 @@ i git-historiken, och en bot som faktiskt svarar på mail.
 ---
 
 ## Appendix
+
+### 1.4.1 — 2026-10-22
+
+§10.1: röktestet `scripts/smoketest.py` körs efter nyckelrotation och efter
+lösenordsbyte på info@. Lars beslut.
 
 ### 1.4.0 — 2026-10-18
 
